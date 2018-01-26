@@ -37,6 +37,7 @@ func TestInvocation_Sign(t *testing.T) {
 
 	invocation := &ownership.Invocation{
 		SignableInvocation: ownership.SignableInvocation{
+			Type: "Invocation",
 			Capability: *cap,
 		},
 	}

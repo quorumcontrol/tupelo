@@ -39,6 +39,7 @@ type Capability struct {
 }
 
 type SignableInvocation struct {
+	Id string `json:"id"`
 	Type string `json:"type"`
 	Capability Capability `json:"capability"`
 }
