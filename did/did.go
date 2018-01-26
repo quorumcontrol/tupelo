@@ -21,8 +21,8 @@ type PublicKey struct {
 	Id string `json:"id"`
 	Type string `json:"type"`
 	Owner string `json:"owner"`
-	PublicKeyPem string `json:"owner,omitempty"`
-	PublicKeyBase64 string `json:"publicKeyBase64,omitempty"`
+	PublicKeyPem string `json:"owner,omitempty",noms:",omitempty"`
+	PublicKeyBase64 string `json:"publicKeyBase64,omitempty",noms:",omitempty"`
 }
 
 type Authentication struct {
