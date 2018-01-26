@@ -31,12 +31,6 @@
   version = "v1.1.0"
 
 [[projects]]
-  name = "github.com/docker/docker"
-  packages = ["pkg/testutil/assert"]
-  revision = "092cba3727bb9b4a2f0e922cd6c0f93ea270e363"
-  version = "v1.13.1"
-
-[[projects]]
   branch = "master"
   name = "github.com/dustin/go-humanize"
   packages = ["."]
@@ -134,6 +128,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f7ce00f6a286e62380e80124cf12db4ed9bab83cf0cf2960416ae233c86b968f"
+  inputs-digest = "2580c998a945ac78b27f4de31859d687c6be3879713d4c6103c7540903a91d70"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -45,6 +45,9 @@
   source = "https://github.com/QuorumControl/noms.git"
   revision = "668071ffaa75082e6de3e5540c69b15ba123fdfb"
 
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+
 [[override]]
   name = "github.com/attic-labs/graphql"
   revision = "917f92ca24a759a0e3bfd1b135850f9b0c04682e"
