@@ -38,9 +38,9 @@ type Service struct {
 type Did struct {
 	Context string `json:"@context"`
 	Id string `json:"id"`
-	PublicKey []*PublicKey `json:"publicKey"`
-	Authentication []*Authentication `json:"authentication"`
-	Service []*Service `json:"service"`
+	PublicKey []PublicKey `json:"publicKey"`
+	Authentication []Authentication `json:"authentication"`
+	Service []Service `json:"service"`
 }
 
 type Secret struct {
@@ -84,7 +84,7 @@ func Generate() (*Did, *Secret, error) {
 	return &Did{
 		Context: "https://w3id.org/did/v1",
 		Id: id,
-		PublicKey: []*PublicKey{
+		PublicKey: []PublicKey{
 			{
 				Id: id + "#keySigning0",
 				Type: "Ed25519SigningKey",
@@ -96,6 +96,12 @@ func Generate() (*Did, *Secret, error) {
 				Type: "NaclBoxEncryptionKey",
 				Owner: id,
 				PublicKeyBase64: base64.StdEncoding.EncodeToString(encryptionPublic[:]),
+			},
+		},
+		Authentication: []Authentication{
+			{
+				Type: "Ed25519SignatureAuthentication",
+				PublicKey: id + "#keySigning0",
 			},
 		},
 	}, &Secret{
