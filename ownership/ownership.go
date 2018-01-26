@@ -75,14 +75,17 @@ func (i *Invocation) Sign(did did.Did, keyId string, secretSigningKey ed25519.Pr
 	return nil
 }
 
-
 func (c *Capability) VerifyProof(proof Proof, creator did.Did) (bool,error){
-	if proof.Creator != creator.Id {
-		return false, fmt.Errorf("proof creator %s did not match creator id %s", proof.Creator, creator.Id)
-	}
-
 	doc := structs.Map(c.SignableCapability)
+	return verifyProof(doc, proof, creator)
+}
 
+func (i *Invocation) VerifyProof(proof Proof, creator did.Did) (bool,error){
+	doc := structs.Map(i.SignableInvocation)
+	return verifyProof(doc, proof, creator)
+}
+
+func verifyProof(doc map[string]interface{}, proof Proof, creator did.Did) (bool,error) {
 	normalizedBytes,err := normalizedMap(doc)
 	if err != nil {
 		return false, fmt.Errorf("error normalizing: %v", err)
