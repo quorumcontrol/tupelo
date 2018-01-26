@@ -38,27 +38,61 @@ type Capability struct {
 	Proof []*Proof `json:"proof"`
 }
 
+type SignableInvocation struct {
+	Type string `json:"type"`
+	Capability Capability `json:"capability"`
+}
+
+type Invocation struct {
+	SignableInvocation
+	Proof []*Proof `json:"proof"`
+}
+
 func (c *Capability) Sign(did did.Did, secretSigningKey ed25519.PrivateKey) error {
+	doc := structs.Map(c.SignableCapability)
+
+	proof,err := proofFromMap(doc, did, secretSigningKey)
+	if err != nil {
+		return fmt.Errorf("error signing: %v", err)
+	}
+
+	c.Proof = append(c.Proof, proof)
+
+	return nil
+}
+
+func (i *Invocation) Sign(did did.Did, secretSigningKey ed25519.PrivateKey) error {
+	doc := structs.Map(i.SignableInvocation)
+
+	proof,err := proofFromMap(doc, did, secretSigningKey)
+	if err != nil {
+		return fmt.Errorf("error signing: %v", err)
+	}
+
+	i.Proof = append(i.Proof, proof)
+
+	return nil
+}
+
+func proofFromMap(doc map[string]interface{}, did did.Did, secretSigningKey ed25519.PrivateKey) (*Proof,error) {
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
 	options.Format = "application/nquads"
 	options.Algorithm = "URDNA2015"
 
-	doc := structs.Map(c.SignableCapability)
-
 	normalizedTriples, err := proc.Normalize(doc, options)
 	if err != nil {
-		return fmt.Errorf("error normalizing: %v", err)
+		return nil, fmt.Errorf("error normalizing: %v", err)
 	}
 
 	sig := ed25519.Sign(secretSigningKey, []byte(normalizedTriples.(string)))
 
-	c.Proof = append(c.Proof, &Proof{
+	return &Proof{
 		Type: "URDNA2015-ed25519",
 		Created: strconv.Itoa(int(time.Now().UTC().Unix())),
 		Creator: did.Id,
 		SignatureValue: base64.StdEncoding.EncodeToString(sig),
-	})
-	return nil
+	}, nil
 }
+
 
