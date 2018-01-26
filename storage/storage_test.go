@@ -45,7 +45,7 @@ func TestStorage_UpsertCapability(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, cap.Sign(*didDoc, secret.SecretSigningKey))
+	assert.NoError(t, cap.Sign(*didDoc, didDoc.GetSigningKey().Id, secret.SecretSigningKey))
 
 
 	assert.NoError(t, storage.UpsertCapability(*cap))

@@ -17,7 +17,7 @@ func TestCapability_Sign(t *testing.T) {
 		},
 	}
 
-	cap.Sign(*didDoc, secret.SecretSigningKey)
+	cap.Sign(*didDoc, didDoc.GetSigningKey().Id, secret.SecretSigningKey)
 
 	assert.NotEmpty(t, cap.Proof)
 }
@@ -32,7 +32,7 @@ func TestInvocation_Sign(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, cap.Sign(*didDoc, secret.SecretSigningKey))
+	assert.NoError(t, cap.Sign(*didDoc, didDoc.GetSigningKey().Id, secret.SecretSigningKey))
 	assert.NotEmpty(t, cap.Proof)
 
 	invocation := &ownership.Invocation{
@@ -42,7 +42,7 @@ func TestInvocation_Sign(t *testing.T) {
 		},
 	}
 
-	assert.NoError(t, invocation.Sign(*didDoc, secret.SecretSigningKey))
+	assert.NoError(t, invocation.Sign(*didDoc, didDoc.GetSigningKey().Id, secret.SecretSigningKey))
 
 	assert.NotEmpty(t, invocation.Proof)
 }

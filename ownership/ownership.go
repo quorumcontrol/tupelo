@@ -49,10 +49,10 @@ type Invocation struct {
 	Proof []*Proof `json:"proof"`
 }
 
-func (c *Capability) Sign(did did.Did, secretSigningKey ed25519.PrivateKey) error {
+func (c *Capability) Sign(did did.Did, keyId string, secretSigningKey ed25519.PrivateKey) error {
 	doc := structs.Map(c.SignableCapability)
 
-	proof,err := proofFromMap(doc, did, secretSigningKey)
+	proof,err := proofFromMap(doc, did, keyId, secretSigningKey)
 	if err != nil {
 		return fmt.Errorf("error signing: %v", err)
 	}
@@ -62,10 +62,10 @@ func (c *Capability) Sign(did did.Did, secretSigningKey ed25519.PrivateKey) erro
 	return nil
 }
 
-func (i *Invocation) Sign(did did.Did, secretSigningKey ed25519.PrivateKey) error {
+func (i *Invocation) Sign(did did.Did, keyId string, secretSigningKey ed25519.PrivateKey) error {
 	doc := structs.Map(i.SignableInvocation)
 
-	proof,err := proofFromMap(doc, did, secretSigningKey)
+	proof,err := proofFromMap(doc, did, keyId, secretSigningKey)
 	if err != nil {
 		return fmt.Errorf("error signing: %v", err)
 	}
@@ -75,7 +75,43 @@ func (i *Invocation) Sign(did did.Did, secretSigningKey ed25519.PrivateKey) erro
 	return nil
 }
 
-func proofFromMap(doc map[string]interface{}, did did.Did, secretSigningKey ed25519.PrivateKey) (*Proof,error) {
+
+func (c *Capability) VerifyProof(proof Proof, creator did.Did) (bool,error){
+	if proof.Creator != creator.Id {
+		return false, fmt.Errorf("proof creator %s did not match creator id %s", proof.Creator, creator.Id)
+	}
+
+	doc := structs.Map(c.SignableCapability)
+
+	normalizedBytes,err := normalizedMap(doc)
+	if err != nil {
+		return false, fmt.Errorf("error normalizing: %v", err)
+	}
+
+	sigBytes,err := base64.StdEncoding.DecodeString(proof.SignatureValue)
+	if err != nil {
+		return false, fmt.Errorf("error decoding signature: %v", err)
+	}
+
+	var key ed25519.PublicKey
+	for _,publicKey := range creator.PublicKey {
+		if publicKey.Id == proof.Creator {
+			decoded,err := base64.StdEncoding.DecodeString(publicKey.PublicKeyBase64)
+			if err != nil {
+				return false, fmt.Errorf("error decoding key: %v", err)
+			}
+			key = decoded
+			break
+		}
+	}
+	if len(key) == 0 {
+		return false, fmt.Errorf("could not find public key")
+	}
+
+	return ed25519.Verify(key, normalizedBytes, sigBytes), nil
+}
+
+func normalizedMap(doc map[string]interface{}) ([]byte,error) {
 	proc := ld.NewJsonLdProcessor()
 	options := ld.NewJsonLdOptions("")
 	options.Format = "application/nquads"
@@ -85,13 +121,21 @@ func proofFromMap(doc map[string]interface{}, did did.Did, secretSigningKey ed25
 	if err != nil {
 		return nil, fmt.Errorf("error normalizing: %v", err)
 	}
+	return []byte(normalizedTriples.(string)),nil
+}
 
-	sig := ed25519.Sign(secretSigningKey, []byte(normalizedTriples.(string)))
+func proofFromMap(doc map[string]interface{}, did did.Did, keyId string, secretSigningKey ed25519.PrivateKey) (*Proof,error) {
+	normalizedBytes,err := normalizedMap(doc)
+	if err != nil {
+		return nil, fmt.Errorf("error normalizing: %v", err)
+	}
+
+	sig := ed25519.Sign(secretSigningKey, normalizedBytes)
 
 	return &Proof{
 		Type: "URDNA2015-ed25519",
 		Created: strconv.Itoa(int(time.Now().UTC().Unix())),
-		Creator: did.Id,
+		Creator: keyId,
 		SignatureValue: base64.StdEncoding.EncodeToString(sig),
 	}, nil
 }

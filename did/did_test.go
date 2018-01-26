@@ -22,3 +22,11 @@ func TestMarshall(t *testing.T) {
 	assert.Nil(t,err)
 	assert.True(t, len(bytes) > 0)
 }
+
+func TestDid_GetSigningKey(t *testing.T) {
+	did,_,err := did2.Generate()
+	assert.Nil(t,err)
+
+	key := did.GetSigningKey()
+	assert.Equal(t, did.PublicKey[0], *key)
+}

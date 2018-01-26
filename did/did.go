@@ -48,26 +48,6 @@ type Secret struct {
 	SecretEncryptionKey []byte
 }
 
-//{
-//"@context": "https://w3id.org/did/v1",
-//"id": "did:example:123456789abcdefghi",
-//"publicKey": [{
-//"id": "did:example:123456789abcdefghi#keys-1",
-//"type": "RsaSigningKey2018",
-//"owner": "did:example:123456789abcdefghi",
-//"publicKeyPem": "-----BEGIN PUBLIC KEY...END PUBLIC KEY-----\r\n"
-//}],
-//"authentication": [{
-//// this key can be used to authenticate as DID ...9938
-//"type": "RsaSignatureAuthentication2018",
-//"publicKey": "did:example:123456789abcdefghi#keys-1"
-//}],
-//"service": [{
-//"type": "ExampleService",
-//"serviceEndpoint": "https://example.com/endpoint/8377464"
-//}]
-//}
-
 func Generate() (*Did, *Secret, error) {
 	signingPublic,signingPrivate,err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -108,4 +88,13 @@ func Generate() (*Did, *Secret, error) {
 		SecretSigningKey: signingPrivate,
 		SecretEncryptionKey: encryptionPrivate[:],
 	}, nil
+}
+
+func (d Did) GetSigningKey() *PublicKey {
+	for _,key := range d.PublicKey {
+		if key.Type == "Ed25519SigningKey" {
+			return &key
+		}
+	}
+	return nil
 }
