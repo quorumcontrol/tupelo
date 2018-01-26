@@ -30,19 +30,19 @@ func TestValidateDidInsert(t *testing.T) {
 			Description: "valid, new Did",
 			ShouldValidate: true,
 			Setup: func() (*storage.Storage, *did.Did, error) {
-				storage := cleanStorage()
-				did,_,_ := did.Generate()
-				return storage,did,nil
+				store := cleanStorage()
+				didDoc,_,_ := did.Generate()
+				return store,didDoc,nil
 			},
 		},
 		{
 			Description: "an existing Did",
 			ShouldValidate: false,
 			Setup: func() (*storage.Storage, *did.Did, error) {
-				storage := cleanStorage()
-				did,_,_ := did.Generate()
-				storage.UpsertDid(*did)
-				return storage,did,nil
+				store := cleanStorage()
+				didDoc,_,_ := did.Generate()
+				store.UpsertDid(*didDoc)
+				return store,didDoc,nil
 			},
 		},
 	} {
