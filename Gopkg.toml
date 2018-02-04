@@ -37,8 +37,8 @@
   version = "1.2.0"
 
 [[constraint]]
-  branch = "master"
   name = "golang.org/x/crypto"
+  branch = "master"
 
 [[constraint]]
   name = "github.com/attic-labs/noms"
@@ -47,6 +47,14 @@
 
 [[constraint]]
   name = "github.com/sirupsen/logrus"
+
+[[constraint]]
+  name = "github.com/tendermint/iavl"
+  version = "0.2.0"
+
+[[constraint]]
+  name = "github.com/tendermint/tmlibs"
+  revision = "d4c6a68e5871be2d3091f12627eaf3ee15b42ed2"
 
 [[override]]
   name = "github.com/attic-labs/graphql"

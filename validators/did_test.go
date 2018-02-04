@@ -18,9 +18,10 @@ func cleanStorage() *storage.Storage {
 	}
 }
 
-type SetupFunc func() (*storage.Storage, *did.Did, error)
 
 func TestValidateDidInsert(t *testing.T) {
+	type SetupFunc func() (*storage.Storage, *did.Did, error)
+
 	for _,test := range []struct{
 		Description string
 		Setup SetupFunc
@@ -46,10 +47,10 @@ func TestValidateDidInsert(t *testing.T) {
 			},
 		},
 	} {
-		storage,did,err := test.Setup()
+		store, didDoc, err := test.Setup()
 		assert.NoError(t, err, test.Description)
 
-		isValid,err := validators.ValidateDidInsert(storage, *did)
+		isValid,err := validators.ValidateDidInsert(store, *didDoc)
 		assert.NoError(t, err, test.Description)
 
 		assert.Equal(t, test.ShouldValidate, isValid, test.Description)

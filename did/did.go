@@ -9,14 +9,6 @@ import (
 	"encoding/base64"
 )
 
-//{
-//"id": "did:example:123456789abcdefghi/keys/2",
-//"type": "Ed25519SigningKey",
-//"owner": "did:example:123456789abcdefghi",
-//"expires": "2017-02-08T16:02:20Z",
-//"publicKeyBase64": "IOmA4R7TfhkYTYW87...CBMq2/gi25s="
-//}
-
 type PublicKey struct {
 	Id string `json:"id"`
 	Type string `json:"type"`
@@ -33,7 +25,9 @@ type Authentication struct {
 type Service struct {
 	Type string `json:"type"`
 	ServiceEndpoint string `json:"serviceEndpoint"`
+	InitialCapability string `json:"initialCapability,omitEmpty"`
 }
+
 
 type Did struct {
 	Context string `json:"@context"`

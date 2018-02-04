@@ -15,8 +15,8 @@
 [[projects]]
   name = "github.com/aws/aws-sdk-go"
   packages = ["aws","aws/awserr","aws/awsutil","aws/client","aws/client/metadata","aws/corehandlers","aws/credentials","aws/credentials/ec2rolecreds","aws/credentials/endpointcreds","aws/credentials/stscreds","aws/defaults","aws/ec2metadata","aws/endpoints","aws/request","aws/session","aws/signer/v4","internal/shareddefaults","private/protocol","private/protocol/json/jsonutil","private/protocol/jsonrpc","private/protocol/query","private/protocol/query/queryutil","private/protocol/rest","private/protocol/restxml","private/protocol/xml/xmlutil","service/dynamodb","service/s3","service/sts"]
-  revision = "094c4e4e03d9f1c2c7d25a17b5df5f2685ae922a"
-  version = "v1.12.69"
+  revision = "1b176c5c6b57adb03bb982c21930e708ebca5a77"
+  version = "v1.12.70"
 
 [[projects]]
   branch = "master"
@@ -49,6 +49,48 @@
   version = "v1.32.0"
 
 [[projects]]
+  name = "github.com/go-kit/kit"
+  packages = ["log","log/level","log/term"]
+  revision = "4dc7be5d2d12881735283bcab7352178e190fc71"
+  version = "v0.6.0"
+
+[[projects]]
+  name = "github.com/go-logfmt/logfmt"
+  packages = ["."]
+  revision = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5"
+  version = "v0.3.0"
+
+[[projects]]
+  name = "github.com/go-playground/locales"
+  packages = [".","currency"]
+  revision = "e4cbcb5d0652150d40ad0646651076b6bd2be4f6"
+  version = "v0.11.2"
+
+[[projects]]
+  name = "github.com/go-playground/universal-translator"
+  packages = ["."]
+  revision = "b32fa301c9fe55953584134cb6853a13c87ec0a1"
+  version = "v0.16.0"
+
+[[projects]]
+  name = "github.com/go-stack/stack"
+  packages = ["."]
+  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
+  version = "v1.7.0"
+
+[[projects]]
+  name = "github.com/gogo/protobuf"
+  packages = ["gogoproto","jsonpb","proto","protoc-gen-gogo/descriptor","sortkeys","types"]
+  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
+  version = "v1.0.0"
+
+[[projects]]
+  name = "github.com/golang/protobuf"
+  packages = ["proto","ptypes","ptypes/any","ptypes/duration","ptypes/timestamp"]
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/golang/snappy"
   packages = ["."]
@@ -58,6 +100,12 @@
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
   revision = "0b12d6b5"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/jmhodges/levigo"
+  packages = ["."]
+  revision = "c42d9e0ca023e2198120196f842701bb4c55d7b9"
 
 [[projects]]
   branch = "master"
@@ -90,44 +138,114 @@
   revision = "9bdec3dec7c611fa97beadc374d75bdf02cd880e"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/kr/logfmt"
+  packages = ["."]
+  revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/sirupsen/logrus"
+  packages = ["."]
+  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
+  version = "v1.0.4"
+
+[[projects]]
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
-  revision = "b91bfb9ebec76498946beb6af7c0230c7cc7ba6c"
-  version = "v1.2.0"
+  packages = ["assert","require"]
+  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
+  version = "v1.2.1"
 
 [[projects]]
   branch = "master"
   name = "github.com/syndtr/goleveldb"
   packages = ["leveldb","leveldb/cache","leveldb/comparer","leveldb/errors","leveldb/filter","leveldb/iterator","leveldb/journal","leveldb/memdb","leveldb/opt","leveldb/storage","leveldb/table","leveldb/util"]
-  revision = "34011bf325bce385408353a30b101fe5e923eb6e"
+  revision = "211f780988068502fe874c44dae530528ebd840f"
+
+[[projects]]
+  name = "github.com/tendermint/abci"
+  packages = ["server","types"]
+  revision = "5d5ea6869b91cadb55dbc4211ad7b326f053a33e"
+  version = "v0.9.0"
+
+[[projects]]
+  name = "github.com/tendermint/go-wire"
+  packages = [".","data"]
+  revision = "5ab49b4c6ad674da6b81442911cf713ef0afb544"
+
+[[projects]]
+  name = "github.com/tendermint/iavl"
+  packages = ["."]
+  revision = "594cc0c062a7174475f0ab654384038d77067917"
+  version = "v0.2.0"
+
+[[projects]]
+  name = "github.com/tendermint/tmlibs"
+  packages = ["common","db","log"]
+  revision = "d4c6a68e5871be2d3091f12627eaf3ee15b42ed2"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["curve25519","ed25519","ed25519/internal/edwards25519","nacl/box","nacl/secretbox","poly1305","salsa20/salsa"]
-  revision = "0efb9460aaf800c6376acf625be2853bceac2e06"
+  packages = ["blake2b","curve25519","ed25519","ed25519/internal/edwards25519","nacl/box","nacl/secretbox","poly1305","ripemd160","salsa20/salsa","ssh/terminal"]
+  revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context"]
-  revision = "0ed95abb35c445290478a5348a7b38bb154135fd"
+  packages = ["context","http2","http2/hpack","idna","internal/timeseries","lex/httplex","trace"]
+  revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "03467258950d845cd1877eab69461b98e8c09219"
+  packages = ["unix","windows"]
+  revision = "37707fdb30a5b38865cfb95e5aab41707daec7fd"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/text"
+  packages = ["collate","collate/build","internal/colltab","internal/gen","internal/tag","internal/triegen","internal/ucd","language","secure/bidirule","transform","unicode/bidi","unicode/cldr","unicode/norm","unicode/rangetable"]
+  revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
+
+[[projects]]
+  branch = "master"
+  name = "google.golang.org/genproto"
+  packages = ["googleapis/rpc/status"]
+  revision = "4eb30f4778eed4c258ba66527a0d4f9ec8a36c45"
+
+[[projects]]
+  name = "google.golang.org/grpc"
+  packages = [".","balancer","balancer/base","balancer/roundrobin","codes","connectivity","credentials","encoding","grpclb/grpc_lb_v1/messages","grpclog","internal","keepalive","metadata","naming","peer","resolver","resolver/dns","resolver/passthrough","stats","status","tap","transport"]
+  revision = "6b51017f791ae1cfbec89c52efdf444b13b550ef"
+  version = "v1.9.2"
+
+[[projects]]
+  name = "gopkg.in/go-playground/validator.v9"
+  packages = ["."]
+  revision = "3620d3c0694119b61c72071ff5a05a976e97b05a"
+  version = "v9.9.4"
+
+[[projects]]
+  branch = "v2"
+  name = "gopkg.in/mgo.v2"
+  packages = ["bson","internal/json"]
+  revision = "3f83fa5005286a7fe593b055f0d7771a7dce4655"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2580c998a945ac78b27f4de31859d687c6be3879713d4c6103c7540903a91d70"
+  inputs-digest = "5db3ef1e5d5adb3152d1f319bc3630318fc82eb45b11d9eceaaaad3f388fa95f"
   solver-name = "gps-cdcl"
   solver-version = 1
