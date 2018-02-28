@@ -39,13 +39,13 @@ func testApp(t *testing.T, app types.Application, tx []byte, key, value string) 
 
 
 func TestBlockOwnerApp(t *testing.T) {
-	dummy := consensus.NewBlockOwnerApp()
+	app := consensus.NewBlockOwnerApp()
 	key := "abc"
 	value := key
 	tx := []byte(key)
-	testApp(t, dummy, tx, key, value)
+	testApp(t, app, tx, key, value)
 
 	value = "def"
 	tx = []byte(key + "=" + value)
-	testApp(t, dummy, tx, key, value)
+	testApp(t, app, tx, key, value)
 }

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"bytes"
 	"github.com/tendermint/go-wire"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"github.com/gogo/protobuf/proto"
 )
 
 // Return codes for the examples
@@ -38,20 +40,22 @@ func (app *BlockOwnerApp) Info(req types.RequestInfo) (resInfo types.ResponseInf
 
 // tx is either "key=value" or just arbitrary bytes
 func (app *BlockOwnerApp) DeliverTx(tx []byte) types.ResponseDeliverTx {
-	var key, value []byte
-	parts := bytes.Split(tx, []byte("="))
-	if len(parts) == 2 {
-		key, value = parts[0], parts[1]
-	} else {
-		key, value = tx, tx
+	msg := &consensuspb.UpdateBlock{}
+	err := proto.Unmarshal(tx, msg)
+	if err != nil {
+		return types.ResponseDeliverTx{Code: CodeTypeEncodingError}
 	}
-	app.state.Set(key, value)
 
-	tags := []*types.KVPair{
-		{Key: "app.creator", ValueType: types.KVPair_STRING, ValueString: "jae"},
-		{Key: "app.key", ValueType: types.KVPair_STRING, ValueString: string(key)},
+	if app.isValidTransaction(msg) {
+		app.state.Set(key, value)
+		tags := []*types.KVPair{
+			{Key: "app.creator", ValueType: types.KVPair_STRING, ValueString: "jae"},
+			{Key: "app.key", ValueType: types.KVPair_STRING, ValueString: string(key)},
+		}
+		return types.ResponseDeliverTx{Code: CodeTypeOK, Tags: tags}
+	} else {
+		return types.ResponseDeliverTx{Code: CodeTypeUnauthorized}
 	}
-	return types.ResponseDeliverTx{Code: CodeTypeOK, Tags: tags}
 }
 
 
