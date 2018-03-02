@@ -10,7 +10,11 @@
 
 	It has these top-level messages:
 		Signature
-		UpdateBlock
+		Transaction
+		AddDataTransaction
+		UpdateOwnershipTransaction
+		Chain
+		Block
 		Ownership
 		PublicKey
 		Authentication
@@ -22,6 +26,8 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
+
+import strconv "strconv"
 
 import bytes "bytes"
 
@@ -41,10 +47,29 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+type Transaction_TransactionType int32
+
+const (
+	ADD_DATA         Transaction_TransactionType = 0
+	UPDATE_OWNERSHIP Transaction_TransactionType = 1
+)
+
+var Transaction_TransactionType_name = map[int32]string{
+	0: "ADD_DATA",
+	1: "UPDATE_OWNERSHIP",
+}
+var Transaction_TransactionType_value = map[string]int32{
+	"ADD_DATA":         0,
+	"UPDATE_OWNERSHIP": 1,
+}
+
+func (Transaction_TransactionType) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptorConsensus, []int{1, 0}
+}
+
 type Signature struct {
 	Creator   string `protobuf:"bytes,1,opt,name=creator,proto3" json:"creator,omitempty"`
-	Hash      []byte `protobuf:"bytes,2,opt,name=hash,proto3" json:"hash,omitempty"`
-	Signature []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (m *Signature) Reset()                    { *m = Signature{} }
@@ -58,13 +83,6 @@ func (m *Signature) GetCreator() string {
 	return ""
 }
 
-func (m *Signature) GetHash() []byte {
-	if m != nil {
-		return m.Hash
-	}
-	return nil
-}
-
 func (m *Signature) GetSignature() []byte {
 	if m != nil {
 		return m.Signature
@@ -72,39 +90,109 @@ func (m *Signature) GetSignature() []byte {
 	return nil
 }
 
-type UpdateBlock struct {
-	Id           string       `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	PreviousHash []byte       `protobuf:"bytes,2,opt,name=previous_hash,json=previousHash,proto3" json:"previous_hash,omitempty"`
-	Data         []byte       `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	Signatures   []*Signature `protobuf:"bytes,4,rep,name=signatures" json:"signatures,omitempty"`
+type Transaction struct {
+	Type    Transaction_TransactionType `protobuf:"varint,1,opt,name=type,proto3,enum=consensuspb.Transaction_TransactionType" json:"type,omitempty"`
+	Payload []byte                      `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 }
 
-func (m *UpdateBlock) Reset()                    { *m = UpdateBlock{} }
-func (*UpdateBlock) ProtoMessage()               {}
-func (*UpdateBlock) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{1} }
+func (m *Transaction) Reset()                    { *m = Transaction{} }
+func (*Transaction) ProtoMessage()               {}
+func (*Transaction) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{1} }
 
-func (m *UpdateBlock) GetId() string {
+func (m *Transaction) GetType() Transaction_TransactionType {
+	if m != nil {
+		return m.Type
+	}
+	return ADD_DATA
+}
+
+func (m *Transaction) GetPayload() []byte {
+	if m != nil {
+		return m.Payload
+	}
+	return nil
+}
+
+type AddDataTransaction struct {
+	Bytes []byte `protobuf:"bytes,1,opt,name=bytes,proto3" json:"bytes,omitempty"`
+}
+
+func (m *AddDataTransaction) Reset()                    { *m = AddDataTransaction{} }
+func (*AddDataTransaction) ProtoMessage()               {}
+func (*AddDataTransaction) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{2} }
+
+func (m *AddDataTransaction) GetBytes() []byte {
+	if m != nil {
+		return m.Bytes
+	}
+	return nil
+}
+
+type UpdateOwnershipTransaction struct {
+	Ownership *Ownership `protobuf:"bytes,1,opt,name=ownership" json:"ownership,omitempty"`
+}
+
+func (m *UpdateOwnershipTransaction) Reset()      { *m = UpdateOwnershipTransaction{} }
+func (*UpdateOwnershipTransaction) ProtoMessage() {}
+func (*UpdateOwnershipTransaction) Descriptor() ([]byte, []int) {
+	return fileDescriptorConsensus, []int{3}
+}
+
+func (m *UpdateOwnershipTransaction) GetOwnership() *Ownership {
+	if m != nil {
+		return m.Ownership
+	}
+	return nil
+}
+
+type Chain struct {
+	Id     []byte   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Blocks []*Block `protobuf:"bytes,2,rep,name=blocks" json:"blocks,omitempty"`
+}
+
+func (m *Chain) Reset()                    { *m = Chain{} }
+func (*Chain) ProtoMessage()               {}
+func (*Chain) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{4} }
+
+func (m *Chain) GetId() []byte {
 	if m != nil {
 		return m.Id
 	}
-	return ""
+	return nil
 }
 
-func (m *UpdateBlock) GetPreviousHash() []byte {
+func (m *Chain) GetBlocks() []*Block {
+	if m != nil {
+		return m.Blocks
+	}
+	return nil
+}
+
+type Block struct {
+	PreviousHash []byte         `protobuf:"bytes,1,opt,name=previous_hash,json=previousHash,proto3" json:"previous_hash,omitempty"`
+	Transactions []*Transaction `protobuf:"bytes,2,rep,name=transactions" json:"transactions,omitempty"`
+	Signatures   []*Signature   `protobuf:"bytes,3,rep,name=signatures" json:"signatures,omitempty"`
+}
+
+func (m *Block) Reset()                    { *m = Block{} }
+func (*Block) ProtoMessage()               {}
+func (*Block) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{5} }
+
+func (m *Block) GetPreviousHash() []byte {
 	if m != nil {
 		return m.PreviousHash
 	}
 	return nil
 }
 
-func (m *UpdateBlock) GetData() []byte {
+func (m *Block) GetTransactions() []*Transaction {
 	if m != nil {
-		return m.Data
+		return m.Transactions
 	}
 	return nil
 }
 
-func (m *UpdateBlock) GetSignatures() []*Signature {
+func (m *Block) GetSignatures() []*Signature {
 	if m != nil {
 		return m.Signatures
 	}
@@ -118,7 +206,7 @@ type Ownership struct {
 
 func (m *Ownership) Reset()                    { *m = Ownership{} }
 func (*Ownership) ProtoMessage()               {}
-func (*Ownership) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{2} }
+func (*Ownership) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{6} }
 
 func (m *Ownership) GetOwners() []string {
 	if m != nil {
@@ -138,14 +226,14 @@ type PublicKey struct {
 	Id              string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Type            string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	Owner           string `protobuf:"bytes,3,opt,name=owner,proto3" json:"owner,omitempty"`
-	PublicKeyPem    string `protobuf:"bytes,4,opt,name=PublicKeyPem,proto3" json:"PublicKeyPem,omitempty"`
-	PublicKeyBase64 string `protobuf:"bytes,5,opt,name=PublicKeyBase64,proto3" json:"PublicKeyBase64,omitempty"`
-	PublicKey       []byte `protobuf:"bytes,6,opt,name=PublicKey,proto3" json:"PublicKey,omitempty"`
+	PublicKeyPem    string `protobuf:"bytes,4,opt,name=public_key_pem,json=publicKeyPem,proto3" json:"public_key_pem,omitempty"`
+	PublicKeyBase64 string `protobuf:"bytes,5,opt,name=public_key_base64,json=publicKeyBase64,proto3" json:"public_key_base64,omitempty"`
+	PublicKey       []byte `protobuf:"bytes,6,opt,name=public_key,json=publicKey,proto3" json:"public_key,omitempty"`
 }
 
 func (m *PublicKey) Reset()                    { *m = PublicKey{} }
 func (*PublicKey) ProtoMessage()               {}
-func (*PublicKey) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{3} }
+func (*PublicKey) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{7} }
 
 func (m *PublicKey) GetId() string {
 	if m != nil {
@@ -196,7 +284,7 @@ type Authentication struct {
 
 func (m *Authentication) Reset()                    { *m = Authentication{} }
 func (*Authentication) ProtoMessage()               {}
-func (*Authentication) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{4} }
+func (*Authentication) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{8} }
 
 func (m *Authentication) GetType() string {
 	if m != nil {
@@ -220,7 +308,7 @@ type Did struct {
 
 func (m *Did) Reset()                    { *m = Did{} }
 func (*Did) ProtoMessage()               {}
-func (*Did) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{5} }
+func (*Did) Descriptor() ([]byte, []int) { return fileDescriptorConsensus, []int{9} }
 
 func (m *Did) GetId() []byte {
 	if m != nil {
@@ -245,11 +333,23 @@ func (m *Did) GetAuthentication() []*Authentication {
 
 func init() {
 	proto.RegisterType((*Signature)(nil), "consensuspb.Signature")
-	proto.RegisterType((*UpdateBlock)(nil), "consensuspb.UpdateBlock")
+	proto.RegisterType((*Transaction)(nil), "consensuspb.Transaction")
+	proto.RegisterType((*AddDataTransaction)(nil), "consensuspb.AddDataTransaction")
+	proto.RegisterType((*UpdateOwnershipTransaction)(nil), "consensuspb.UpdateOwnershipTransaction")
+	proto.RegisterType((*Chain)(nil), "consensuspb.Chain")
+	proto.RegisterType((*Block)(nil), "consensuspb.Block")
 	proto.RegisterType((*Ownership)(nil), "consensuspb.Ownership")
 	proto.RegisterType((*PublicKey)(nil), "consensuspb.PublicKey")
 	proto.RegisterType((*Authentication)(nil), "consensuspb.Authentication")
 	proto.RegisterType((*Did)(nil), "consensuspb.Did")
+	proto.RegisterEnum("consensuspb.Transaction_TransactionType", Transaction_TransactionType_name, Transaction_TransactionType_value)
+}
+func (x Transaction_TransactionType) String() string {
+	s, ok := Transaction_TransactionType_name[int32(x)]
+	if ok {
+		return s
+	}
+	return strconv.Itoa(int(x))
 }
 func (this *Signature) Equal(that interface{}) bool {
 	if that == nil {
@@ -279,15 +379,12 @@ func (this *Signature) Equal(that interface{}) bool {
 	if this.Creator != that1.Creator {
 		return false
 	}
-	if !bytes.Equal(this.Hash, that1.Hash) {
-		return false
-	}
 	if !bytes.Equal(this.Signature, that1.Signature) {
 		return false
 	}
 	return true
 }
-func (this *UpdateBlock) Equal(that interface{}) bool {
+func (this *Transaction) Equal(that interface{}) bool {
 	if that == nil {
 		if this == nil {
 			return true
@@ -295,9 +392,9 @@ func (this *UpdateBlock) Equal(that interface{}) bool {
 		return false
 	}
 
-	that1, ok := that.(*UpdateBlock)
+	that1, ok := that.(*Transaction)
 	if !ok {
-		that2, ok := that.(UpdateBlock)
+		that2, ok := that.(Transaction)
 		if ok {
 			that1 = &that2
 		} else {
@@ -312,14 +409,147 @@ func (this *UpdateBlock) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if this.Id != that1.Id {
+	if this.Type != that1.Type {
+		return false
+	}
+	if !bytes.Equal(this.Payload, that1.Payload) {
+		return false
+	}
+	return true
+}
+func (this *AddDataTransaction) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*AddDataTransaction)
+	if !ok {
+		that2, ok := that.(AddDataTransaction)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Bytes, that1.Bytes) {
+		return false
+	}
+	return true
+}
+func (this *UpdateOwnershipTransaction) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*UpdateOwnershipTransaction)
+	if !ok {
+		that2, ok := that.(UpdateOwnershipTransaction)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !this.Ownership.Equal(that1.Ownership) {
+		return false
+	}
+	return true
+}
+func (this *Chain) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Chain)
+	if !ok {
+		that2, ok := that.(Chain)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Id, that1.Id) {
+		return false
+	}
+	if len(this.Blocks) != len(that1.Blocks) {
+		return false
+	}
+	for i := range this.Blocks {
+		if !this.Blocks[i].Equal(that1.Blocks[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *Block) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*Block)
+	if !ok {
+		that2, ok := that.(Block)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
 		return false
 	}
 	if !bytes.Equal(this.PreviousHash, that1.PreviousHash) {
 		return false
 	}
-	if !bytes.Equal(this.Data, that1.Data) {
+	if len(this.Transactions) != len(that1.Transactions) {
 		return false
+	}
+	for i := range this.Transactions {
+		if !this.Transactions[i].Equal(that1.Transactions[i]) {
+			return false
+		}
 	}
 	if len(this.Signatures) != len(that1.Signatures) {
 		return false
@@ -497,23 +727,69 @@ func (this *Signature) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 7)
+	s := make([]string, 0, 6)
 	s = append(s, "&consensuspb.Signature{")
 	s = append(s, "Creator: "+fmt.Sprintf("%#v", this.Creator)+",\n")
-	s = append(s, "Hash: "+fmt.Sprintf("%#v", this.Hash)+",\n")
 	s = append(s, "Signature: "+fmt.Sprintf("%#v", this.Signature)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
-func (this *UpdateBlock) GoString() string {
+func (this *Transaction) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 8)
-	s = append(s, "&consensuspb.UpdateBlock{")
+	s := make([]string, 0, 6)
+	s = append(s, "&consensuspb.Transaction{")
+	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
+	s = append(s, "Payload: "+fmt.Sprintf("%#v", this.Payload)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *AddDataTransaction) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&consensuspb.AddDataTransaction{")
+	s = append(s, "Bytes: "+fmt.Sprintf("%#v", this.Bytes)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *UpdateOwnershipTransaction) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&consensuspb.UpdateOwnershipTransaction{")
+	if this.Ownership != nil {
+		s = append(s, "Ownership: "+fmt.Sprintf("%#v", this.Ownership)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Chain) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&consensuspb.Chain{")
 	s = append(s, "Id: "+fmt.Sprintf("%#v", this.Id)+",\n")
+	if this.Blocks != nil {
+		s = append(s, "Blocks: "+fmt.Sprintf("%#v", this.Blocks)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *Block) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&consensuspb.Block{")
 	s = append(s, "PreviousHash: "+fmt.Sprintf("%#v", this.PreviousHash)+",\n")
-	s = append(s, "Data: "+fmt.Sprintf("%#v", this.Data)+",\n")
+	if this.Transactions != nil {
+		s = append(s, "Transactions: "+fmt.Sprintf("%#v", this.Transactions)+",\n")
+	}
 	if this.Signatures != nil {
 		s = append(s, "Signatures: "+fmt.Sprintf("%#v", this.Signatures)+",\n")
 	}
@@ -604,14 +880,8 @@ func (m *Signature) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Creator)))
 		i += copy(dAtA[i:], m.Creator)
 	}
-	if len(m.Hash) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Hash)))
-		i += copy(dAtA[i:], m.Hash)
-	}
 	if len(m.Signature) > 0 {
-		dAtA[i] = 0x1a
+		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Signature)))
 		i += copy(dAtA[i:], m.Signature)
@@ -619,7 +889,7 @@ func (m *Signature) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *UpdateBlock) Marshal() (dAtA []byte, err error) {
+func (m *Transaction) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -629,7 +899,88 @@ func (m *UpdateBlock) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *UpdateBlock) MarshalTo(dAtA []byte) (int, error) {
+func (m *Transaction) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Type != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintConsensus(dAtA, i, uint64(m.Type))
+	}
+	if len(m.Payload) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Payload)))
+		i += copy(dAtA[i:], m.Payload)
+	}
+	return i, nil
+}
+
+func (m *AddDataTransaction) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *AddDataTransaction) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Bytes) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Bytes)))
+		i += copy(dAtA[i:], m.Bytes)
+	}
+	return i, nil
+}
+
+func (m *UpdateOwnershipTransaction) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *UpdateOwnershipTransaction) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Ownership != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConsensus(dAtA, i, uint64(m.Ownership.Size()))
+		n1, err := m.Ownership.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	return i, nil
+}
+
+func (m *Chain) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Chain) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -640,21 +991,57 @@ func (m *UpdateBlock) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Id)))
 		i += copy(dAtA[i:], m.Id)
 	}
+	if len(m.Blocks) > 0 {
+		for _, msg := range m.Blocks {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintConsensus(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *Block) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Block) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
 	if len(m.PreviousHash) > 0 {
-		dAtA[i] = 0x12
+		dAtA[i] = 0xa
 		i++
 		i = encodeVarintConsensus(dAtA, i, uint64(len(m.PreviousHash)))
 		i += copy(dAtA[i:], m.PreviousHash)
 	}
-	if len(m.Data) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConsensus(dAtA, i, uint64(len(m.Data)))
-		i += copy(dAtA[i:], m.Data)
+	if len(m.Transactions) > 0 {
+		for _, msg := range m.Transactions {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintConsensus(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
 	}
 	if len(m.Signatures) > 0 {
 		for _, msg := range m.Signatures {
-			dAtA[i] = 0x22
+			dAtA[i] = 0x1a
 			i++
 			i = encodeVarintConsensus(dAtA, i, uint64(msg.Size()))
 			n, err := msg.MarshalTo(dAtA[i:])
@@ -784,11 +1171,11 @@ func (m *Authentication) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintConsensus(dAtA, i, uint64(m.PublicKey.Size()))
-		n1, err := m.PublicKey.MarshalTo(dAtA[i:])
+		n2, err := m.PublicKey.MarshalTo(dAtA[i:])
 		if err != nil {
 			return 0, err
 		}
-		i += n1
+		i += n2
 	}
 	return i, nil
 }
@@ -872,13 +1259,8 @@ func NewPopulatedSignature(r randyConsensus, easy bool) *Signature {
 	this := &Signature{}
 	this.Creator = string(randStringConsensus(r))
 	v1 := r.Intn(100)
-	this.Hash = make([]byte, v1)
+	this.Signature = make([]byte, v1)
 	for i := 0; i < v1; i++ {
-		this.Hash[i] = byte(r.Intn(256))
-	}
-	v2 := r.Intn(100)
-	this.Signature = make([]byte, v2)
-	for i := 0; i < v2; i++ {
 		this.Signature[i] = byte(r.Intn(256))
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -886,23 +1268,78 @@ func NewPopulatedSignature(r randyConsensus, easy bool) *Signature {
 	return this
 }
 
-func NewPopulatedUpdateBlock(r randyConsensus, easy bool) *UpdateBlock {
-	this := &UpdateBlock{}
-	this.Id = string(randStringConsensus(r))
-	v3 := r.Intn(100)
-	this.PreviousHash = make([]byte, v3)
-	for i := 0; i < v3; i++ {
-		this.PreviousHash[i] = byte(r.Intn(256))
+func NewPopulatedTransaction(r randyConsensus, easy bool) *Transaction {
+	this := &Transaction{}
+	this.Type = Transaction_TransactionType([]int32{0, 1}[r.Intn(2)])
+	v2 := r.Intn(100)
+	this.Payload = make([]byte, v2)
+	for i := 0; i < v2; i++ {
+		this.Payload[i] = byte(r.Intn(256))
 	}
+	if !easy && r.Intn(10) != 0 {
+	}
+	return this
+}
+
+func NewPopulatedAddDataTransaction(r randyConsensus, easy bool) *AddDataTransaction {
+	this := &AddDataTransaction{}
+	v3 := r.Intn(100)
+	this.Bytes = make([]byte, v3)
+	for i := 0; i < v3; i++ {
+		this.Bytes[i] = byte(r.Intn(256))
+	}
+	if !easy && r.Intn(10) != 0 {
+	}
+	return this
+}
+
+func NewPopulatedUpdateOwnershipTransaction(r randyConsensus, easy bool) *UpdateOwnershipTransaction {
+	this := &UpdateOwnershipTransaction{}
+	if r.Intn(10) != 0 {
+		this.Ownership = NewPopulatedOwnership(r, easy)
+	}
+	if !easy && r.Intn(10) != 0 {
+	}
+	return this
+}
+
+func NewPopulatedChain(r randyConsensus, easy bool) *Chain {
+	this := &Chain{}
 	v4 := r.Intn(100)
-	this.Data = make([]byte, v4)
+	this.Id = make([]byte, v4)
 	for i := 0; i < v4; i++ {
-		this.Data[i] = byte(r.Intn(256))
+		this.Id[i] = byte(r.Intn(256))
 	}
 	if r.Intn(10) != 0 {
 		v5 := r.Intn(5)
-		this.Signatures = make([]*Signature, v5)
+		this.Blocks = make([]*Block, v5)
 		for i := 0; i < v5; i++ {
+			this.Blocks[i] = NewPopulatedBlock(r, easy)
+		}
+	}
+	if !easy && r.Intn(10) != 0 {
+	}
+	return this
+}
+
+func NewPopulatedBlock(r randyConsensus, easy bool) *Block {
+	this := &Block{}
+	v6 := r.Intn(100)
+	this.PreviousHash = make([]byte, v6)
+	for i := 0; i < v6; i++ {
+		this.PreviousHash[i] = byte(r.Intn(256))
+	}
+	if r.Intn(10) != 0 {
+		v7 := r.Intn(5)
+		this.Transactions = make([]*Transaction, v7)
+		for i := 0; i < v7; i++ {
+			this.Transactions[i] = NewPopulatedTransaction(r, easy)
+		}
+	}
+	if r.Intn(10) != 0 {
+		v8 := r.Intn(5)
+		this.Signatures = make([]*Signature, v8)
+		for i := 0; i < v8; i++ {
 			this.Signatures[i] = NewPopulatedSignature(r, easy)
 		}
 	}
@@ -913,9 +1350,9 @@ func NewPopulatedUpdateBlock(r randyConsensus, easy bool) *UpdateBlock {
 
 func NewPopulatedOwnership(r randyConsensus, easy bool) *Ownership {
 	this := &Ownership{}
-	v6 := r.Intn(10)
-	this.Owners = make([]string, v6)
-	for i := 0; i < v6; i++ {
+	v9 := r.Intn(10)
+	this.Owners = make([]string, v9)
+	for i := 0; i < v9; i++ {
 		this.Owners[i] = string(randStringConsensus(r))
 	}
 	this.Minimum = uint64(uint64(r.Uint32()))
@@ -931,9 +1368,9 @@ func NewPopulatedPublicKey(r randyConsensus, easy bool) *PublicKey {
 	this.Owner = string(randStringConsensus(r))
 	this.PublicKeyPem = string(randStringConsensus(r))
 	this.PublicKeyBase64 = string(randStringConsensus(r))
-	v7 := r.Intn(100)
-	this.PublicKey = make([]byte, v7)
-	for i := 0; i < v7; i++ {
+	v10 := r.Intn(100)
+	this.PublicKey = make([]byte, v10)
+	for i := 0; i < v10; i++ {
 		this.PublicKey[i] = byte(r.Intn(256))
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -954,22 +1391,22 @@ func NewPopulatedAuthentication(r randyConsensus, easy bool) *Authentication {
 
 func NewPopulatedDid(r randyConsensus, easy bool) *Did {
 	this := &Did{}
-	v8 := r.Intn(100)
-	this.Id = make([]byte, v8)
-	for i := 0; i < v8; i++ {
+	v11 := r.Intn(100)
+	this.Id = make([]byte, v11)
+	for i := 0; i < v11; i++ {
 		this.Id[i] = byte(r.Intn(256))
 	}
 	if r.Intn(10) != 0 {
-		v9 := r.Intn(5)
-		this.PublicKey = make([]*PublicKey, v9)
-		for i := 0; i < v9; i++ {
+		v12 := r.Intn(5)
+		this.PublicKey = make([]*PublicKey, v12)
+		for i := 0; i < v12; i++ {
 			this.PublicKey[i] = NewPopulatedPublicKey(r, easy)
 		}
 	}
 	if r.Intn(10) != 0 {
-		v10 := r.Intn(5)
-		this.Authentication = make([]*Authentication, v10)
-		for i := 0; i < v10; i++ {
+		v13 := r.Intn(5)
+		this.Authentication = make([]*Authentication, v13)
+		for i := 0; i < v13; i++ {
 			this.Authentication[i] = NewPopulatedAuthentication(r, easy)
 		}
 	}
@@ -997,9 +1434,9 @@ func randUTF8RuneConsensus(r randyConsensus) rune {
 	return rune(ru + 61)
 }
 func randStringConsensus(r randyConsensus) string {
-	v11 := r.Intn(100)
-	tmps := make([]rune, v11)
-	for i := 0; i < v11; i++ {
+	v14 := r.Intn(100)
+	tmps := make([]rune, v14)
+	for i := 0; i < v14; i++ {
 		tmps[i] = randUTF8RuneConsensus(r)
 	}
 	return string(tmps)
@@ -1021,11 +1458,11 @@ func randFieldConsensus(dAtA []byte, r randyConsensus, fieldNumber int, wire int
 	switch wire {
 	case 0:
 		dAtA = encodeVarintPopulateConsensus(dAtA, uint64(key))
-		v12 := r.Int63()
+		v15 := r.Int63()
 		if r.Intn(2) == 0 {
-			v12 *= -1
+			v15 *= -1
 		}
-		dAtA = encodeVarintPopulateConsensus(dAtA, uint64(v12))
+		dAtA = encodeVarintPopulateConsensus(dAtA, uint64(v15))
 	case 1:
 		dAtA = encodeVarintPopulateConsensus(dAtA, uint64(key))
 		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
@@ -1057,10 +1494,6 @@ func (m *Signature) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovConsensus(uint64(l))
 	}
-	l = len(m.Hash)
-	if l > 0 {
-		n += 1 + l + sovConsensus(uint64(l))
-	}
 	l = len(m.Signature)
 	if l > 0 {
 		n += 1 + l + sovConsensus(uint64(l))
@@ -1068,20 +1501,67 @@ func (m *Signature) Size() (n int) {
 	return n
 }
 
-func (m *UpdateBlock) Size() (n int) {
+func (m *Transaction) Size() (n int) {
+	var l int
+	_ = l
+	if m.Type != 0 {
+		n += 1 + sovConsensus(uint64(m.Type))
+	}
+	l = len(m.Payload)
+	if l > 0 {
+		n += 1 + l + sovConsensus(uint64(l))
+	}
+	return n
+}
+
+func (m *AddDataTransaction) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Bytes)
+	if l > 0 {
+		n += 1 + l + sovConsensus(uint64(l))
+	}
+	return n
+}
+
+func (m *UpdateOwnershipTransaction) Size() (n int) {
+	var l int
+	_ = l
+	if m.Ownership != nil {
+		l = m.Ownership.Size()
+		n += 1 + l + sovConsensus(uint64(l))
+	}
+	return n
+}
+
+func (m *Chain) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Id)
 	if l > 0 {
 		n += 1 + l + sovConsensus(uint64(l))
 	}
+	if len(m.Blocks) > 0 {
+		for _, e := range m.Blocks {
+			l = e.Size()
+			n += 1 + l + sovConsensus(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *Block) Size() (n int) {
+	var l int
+	_ = l
 	l = len(m.PreviousHash)
 	if l > 0 {
 		n += 1 + l + sovConsensus(uint64(l))
 	}
-	l = len(m.Data)
-	if l > 0 {
-		n += 1 + l + sovConsensus(uint64(l))
+	if len(m.Transactions) > 0 {
+		for _, e := range m.Transactions {
+			l = e.Size()
+			n += 1 + l + sovConsensus(uint64(l))
+		}
 	}
 	if len(m.Signatures) > 0 {
 		for _, e := range m.Signatures {
@@ -1192,20 +1672,60 @@ func (this *Signature) String() string {
 	}
 	s := strings.Join([]string{`&Signature{`,
 		`Creator:` + fmt.Sprintf("%v", this.Creator) + `,`,
-		`Hash:` + fmt.Sprintf("%v", this.Hash) + `,`,
 		`Signature:` + fmt.Sprintf("%v", this.Signature) + `,`,
 		`}`,
 	}, "")
 	return s
 }
-func (this *UpdateBlock) String() string {
+func (this *Transaction) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&UpdateBlock{`,
+	s := strings.Join([]string{`&Transaction{`,
+		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
+		`Payload:` + fmt.Sprintf("%v", this.Payload) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *AddDataTransaction) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&AddDataTransaction{`,
+		`Bytes:` + fmt.Sprintf("%v", this.Bytes) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *UpdateOwnershipTransaction) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&UpdateOwnershipTransaction{`,
+		`Ownership:` + strings.Replace(fmt.Sprintf("%v", this.Ownership), "Ownership", "Ownership", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Chain) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Chain{`,
 		`Id:` + fmt.Sprintf("%v", this.Id) + `,`,
+		`Blocks:` + strings.Replace(fmt.Sprintf("%v", this.Blocks), "Block", "Block", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *Block) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Block{`,
 		`PreviousHash:` + fmt.Sprintf("%v", this.PreviousHash) + `,`,
-		`Data:` + fmt.Sprintf("%v", this.Data) + `,`,
+		`Transactions:` + strings.Replace(fmt.Sprintf("%v", this.Transactions), "Transaction", "Transaction", 1) + `,`,
 		`Signatures:` + strings.Replace(fmt.Sprintf("%v", this.Signatures), "Signature", "Signature", 1) + `,`,
 		`}`,
 	}, "")
@@ -1328,37 +1848,6 @@ func (m *Signature) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Hash", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowConsensus
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthConsensus
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Hash = append(m.Hash[:0], dAtA[iNdEx:postIndex]...)
-			if m.Hash == nil {
-				m.Hash = []byte{}
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Signature", wireType)
 			}
 			var byteLen int
@@ -1409,7 +1898,7 @@ func (m *Signature) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *UpdateBlock) Unmarshal(dAtA []byte) error {
+func (m *Transaction) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1432,17 +1921,17 @@ func (m *UpdateBlock) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: UpdateBlock: wiretype end group for non-group")
+			return fmt.Errorf("proto: Transaction: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: UpdateBlock: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Transaction: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
 			}
-			var stringLen uint64
+			m.Type = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowConsensus
@@ -1452,22 +1941,369 @@ func (m *UpdateBlock) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				m.Type |= (Transaction_TransactionType(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Payload", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConsensus
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
 				return ErrInvalidLengthConsensus
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + byteLen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Id = string(dAtA[iNdEx:postIndex])
+			m.Payload = append(m.Payload[:0], dAtA[iNdEx:postIndex]...)
+			if m.Payload == nil {
+				m.Payload = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConsensus(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *AddDataTransaction) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConsensus
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: AddDataTransaction: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: AddDataTransaction: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Bytes", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConsensus
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Bytes = append(m.Bytes[:0], dAtA[iNdEx:postIndex]...)
+			if m.Bytes == nil {
+				m.Bytes = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConsensus(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *UpdateOwnershipTransaction) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConsensus
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: UpdateOwnershipTransaction: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: UpdateOwnershipTransaction: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ownership", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConsensus
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Ownership == nil {
+				m.Ownership = &Ownership{}
+			}
+			if err := m.Ownership.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConsensus(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Chain) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConsensus
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Chain: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Chain: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConsensus
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Id = append(m.Id[:0], dAtA[iNdEx:postIndex]...)
+			if m.Id == nil {
+				m.Id = []byte{}
+			}
 			iNdEx = postIndex
 		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Blocks", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConsensus
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Blocks = append(m.Blocks, &Block{})
+			if err := m.Blocks[len(m.Blocks)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConsensus(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConsensus
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Block) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConsensus
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Block: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Block: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field PreviousHash", wireType)
 			}
@@ -1498,11 +2334,11 @@ func (m *UpdateBlock) Unmarshal(dAtA []byte) error {
 				m.PreviousHash = []byte{}
 			}
 			iNdEx = postIndex
-		case 3:
+		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Transactions", wireType)
 			}
-			var byteLen int
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowConsensus
@@ -1512,24 +2348,24 @@ func (m *UpdateBlock) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			if byteLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthConsensus
 			}
-			postIndex := iNdEx + byteLen
+			postIndex := iNdEx + msglen
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
-			if m.Data == nil {
-				m.Data = []byte{}
+			m.Transactions = append(m.Transactions, &Transaction{})
+			if err := m.Transactions[len(m.Transactions)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
-		case 4:
+		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Signatures", wireType)
 			}
@@ -2268,35 +3104,45 @@ var (
 func init() { proto.RegisterFile("consensus.proto", fileDescriptorConsensus) }
 
 var fileDescriptorConsensus = []byte{
-	// 470 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x53, 0x3f, 0x8f, 0xd3, 0x4e,
-	0x10, 0xcd, 0xc6, 0xbe, 0xfc, 0xe4, 0x49, 0x7e, 0x39, 0x69, 0x85, 0x4e, 0x2b, 0x40, 0xab, 0xc8,
-	0x34, 0x6e, 0xc8, 0x21, 0xfe, 0x5c, 0x47, 0x41, 0xa0, 0x40, 0xa2, 0xe0, 0x64, 0x84, 0x28, 0x28,
-	0x4e, 0x6b, 0x7b, 0x89, 0x57, 0x77, 0xf6, 0x5a, 0xde, 0x35, 0x28, 0x1d, 0x9f, 0x00, 0xc1, 0xb7,
-	0xa0, 0xe5, 0x5b, 0x50, 0x5e, 0x49, 0x49, 0x4c, 0x43, 0x79, 0x25, 0x25, 0xca, 0x24, 0x59, 0x9c,
-	0xd0, 0xd0, 0xcd, 0x7b, 0x3b, 0xef, 0xed, 0xcc, 0x5b, 0x2d, 0x1c, 0xa6, 0xba, 0x34, 0xb2, 0x34,
-	0x8d, 0x99, 0x56, 0xb5, 0xb6, 0x9a, 0x0e, 0x1d, 0x51, 0x25, 0xd7, 0x6f, 0xcf, 0x95, 0xcd, 0x9b,
-	0x64, 0x9a, 0xea, 0xe2, 0x78, 0xae, 0xe7, 0xfa, 0x18, 0x7b, 0x92, 0xe6, 0x0d, 0x22, 0x04, 0x58,
-	0xad, 0xb5, 0xe1, 0x2b, 0x08, 0x5e, 0xa8, 0x79, 0x29, 0x6c, 0x53, 0x4b, 0xca, 0xe0, 0xbf, 0xb4,
-	0x96, 0xc2, 0xea, 0x9a, 0x91, 0x09, 0x89, 0x82, 0x78, 0x0b, 0x29, 0x05, 0x3f, 0x17, 0x26, 0x67,
-	0xfd, 0x09, 0x89, 0x46, 0x31, 0xd6, 0xf4, 0x26, 0x04, 0x66, 0x2b, 0x65, 0x1e, 0x1e, 0xfc, 0x21,
-	0xc2, 0x0f, 0x04, 0x86, 0x2f, 0xab, 0x4c, 0x58, 0x39, 0xbb, 0xd0, 0xe9, 0x39, 0x1d, 0x43, 0x5f,
-	0x65, 0x1b, 0xdb, 0xbe, 0xca, 0xe8, 0x2d, 0xf8, 0xbf, 0xaa, 0xe5, 0x5b, 0xa5, 0x1b, 0x73, 0xd6,
-	0xb1, 0x1e, 0x6d, 0xc9, 0xa7, 0xab, 0x2b, 0x28, 0xf8, 0x99, 0xb0, 0x62, 0xe3, 0x8e, 0x35, 0x3d,
-	0x01, 0x70, 0xb7, 0x18, 0xe6, 0x4f, 0xbc, 0x68, 0x78, 0xf7, 0x68, 0xda, 0x89, 0x60, 0xea, 0x16,
-	0x8a, 0x3b, 0x9d, 0xe1, 0x43, 0x08, 0x9e, 0xbf, 0x2b, 0x65, 0x6d, 0x72, 0x55, 0xd1, 0x23, 0x18,
-	0x68, 0x04, 0x8c, 0x4c, 0xbc, 0x28, 0x88, 0x37, 0x68, 0x95, 0x40, 0xa1, 0x4a, 0x55, 0x34, 0x05,
-	0xce, 0xe3, 0xc7, 0x5b, 0x18, 0x7e, 0x21, 0x10, 0x9c, 0x36, 0xc9, 0x85, 0x4a, 0x9f, 0xc9, 0xc5,
-	0x5f, 0xdb, 0x50, 0xf0, 0xed, 0xa2, 0x92, 0x28, 0x0a, 0x62, 0xac, 0xe9, 0x35, 0x38, 0x40, 0x57,
-	0x9c, 0x3e, 0x88, 0xd7, 0x80, 0x86, 0x30, 0x72, 0x36, 0xa7, 0xb2, 0x60, 0x3e, 0x1e, 0xee, 0x70,
-	0x34, 0x82, 0x43, 0x87, 0x67, 0xc2, 0xc8, 0x93, 0xfb, 0xec, 0x00, 0xdb, 0xf6, 0xe9, 0xd5, 0x1b,
-	0x38, 0x8a, 0x0d, 0xd6, 0x6f, 0xe0, 0x88, 0xf0, 0x35, 0x8c, 0x1f, 0x35, 0x36, 0x97, 0xa5, 0x55,
-	0xa9, 0xb0, 0x4a, 0x97, 0x6e, 0x4e, 0xd2, 0x99, 0xf3, 0x01, 0x40, 0x85, 0x92, 0xb3, 0x73, 0xb9,
-	0xc0, 0x0d, 0xf6, 0x03, 0x75, 0x8e, 0x71, 0x50, 0x39, 0xf3, 0x4f, 0x04, 0xbc, 0x27, 0x2a, 0xeb,
-	0x44, 0x31, 0xc2, 0x28, 0xf6, 0xed, 0xbc, 0x7f, 0xb2, 0xa3, 0x8f, 0x61, 0x2c, 0x76, 0x66, 0x65,
-	0x1e, 0x4a, 0x6f, 0xec, 0x48, 0x77, 0xd7, 0x89, 0xf7, 0x24, 0xb3, 0x3b, 0x97, 0x4b, 0xde, 0xfb,
-	0xb6, 0xe4, 0xbd, 0xab, 0x25, 0x27, 0xbf, 0x96, 0x9c, 0xbc, 0x6f, 0x39, 0xf9, 0xdc, 0x72, 0xf2,
-	0xb5, 0xe5, 0xe4, 0xb2, 0xe5, 0xe4, 0x7b, 0xcb, 0xc9, 0xcf, 0x96, 0xf7, 0xae, 0x5a, 0x4e, 0x3e,
-	0xfe, 0xe0, 0xbd, 0x64, 0x80, 0xdf, 0xe0, 0xde, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x41, 0x3d,
-	0xc0, 0x07, 0x55, 0x03, 0x00, 0x00,
+	// 629 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x54, 0x3f, 0x6f, 0xd3, 0x4e,
+	0x18, 0xce, 0x25, 0x4d, 0x7e, 0x3f, 0xbf, 0x09, 0x69, 0x39, 0x55, 0x95, 0x55, 0xc0, 0x8a, 0x0c,
+	0x43, 0x54, 0x89, 0x14, 0x95, 0xb6, 0x53, 0x19, 0xd2, 0xa4, 0x52, 0x11, 0x12, 0x8d, 0xae, 0xa9,
+	0x18, 0x18, 0xa2, 0xb3, 0x7d, 0xc4, 0xa7, 0x36, 0xb6, 0xe5, 0x3b, 0x83, 0xb2, 0xf1, 0x11, 0x60,
+	0x67, 0x62, 0xe2, 0x13, 0xf0, 0x19, 0x18, 0x3b, 0x32, 0x12, 0xb3, 0x30, 0x76, 0x64, 0x44, 0x3d,
+	0xff, 0x89, 0x5d, 0x40, 0x62, 0xf3, 0xf3, 0xf8, 0x79, 0x9e, 0x7b, 0xef, 0x7d, 0x5f, 0x1b, 0x56,
+	0x6d, 0xdf, 0x13, 0xcc, 0x13, 0x91, 0xe8, 0x05, 0xa1, 0x2f, 0x7d, 0xdc, 0xcc, 0x89, 0xc0, 0xda,
+	0x7c, 0x38, 0xe5, 0xd2, 0x8d, 0xac, 0x9e, 0xed, 0xcf, 0xb6, 0xa7, 0xfe, 0xd4, 0xdf, 0x56, 0x1a,
+	0x2b, 0x7a, 0xa5, 0x90, 0x02, 0xea, 0x29, 0xf1, 0x9a, 0x03, 0xd0, 0x4e, 0xf9, 0xd4, 0xa3, 0x32,
+	0x0a, 0x19, 0xd6, 0xe1, 0x3f, 0x3b, 0x64, 0x54, 0xfa, 0xa1, 0x8e, 0x3a, 0xa8, 0xab, 0x91, 0x0c,
+	0xe2, 0xbb, 0xa0, 0x89, 0x4c, 0xa6, 0x57, 0x3b, 0xa8, 0xdb, 0x22, 0x4b, 0xc2, 0xfc, 0x80, 0xa0,
+	0x39, 0x0e, 0xa9, 0x27, 0xa8, 0x2d, 0xb9, 0xef, 0xe1, 0x03, 0x58, 0x91, 0xf3, 0x80, 0xa9, 0x90,
+	0xf6, 0x4e, 0xb7, 0x57, 0xa8, 0xaf, 0x57, 0xd0, 0x15, 0x9f, 0xc7, 0xf3, 0x80, 0x11, 0xe5, 0xba,
+	0xae, 0x22, 0xa0, 0xf3, 0x0b, 0x9f, 0x3a, 0xe9, 0x49, 0x19, 0x34, 0xf7, 0x60, 0xf5, 0x86, 0x05,
+	0xb7, 0xe0, 0xff, 0xfe, 0x70, 0x38, 0x19, 0xf6, 0xc7, 0xfd, 0xb5, 0x0a, 0x5e, 0x87, 0xb5, 0xb3,
+	0xd1, 0xb0, 0x3f, 0x3e, 0x9a, 0x9c, 0xbc, 0x78, 0x7e, 0x44, 0x4e, 0x8f, 0x9f, 0x8e, 0xd6, 0x90,
+	0xb9, 0x05, 0xb8, 0xef, 0x38, 0x43, 0x2a, 0x69, 0xb1, 0xc8, 0x75, 0xa8, 0x5b, 0x73, 0xc9, 0x84,
+	0xaa, 0xb2, 0x45, 0x12, 0x60, 0x12, 0xd8, 0x3c, 0x0b, 0x1c, 0x2a, 0xd9, 0xc9, 0x1b, 0x8f, 0x85,
+	0xc2, 0xe5, 0x41, 0xd1, 0xb3, 0x0b, 0x9a, 0x9f, 0xf1, 0xca, 0xd7, 0xdc, 0xd9, 0x28, 0xdd, 0x2e,
+	0x77, 0x91, 0xa5, 0xd0, 0x1c, 0x40, 0x7d, 0xe0, 0x52, 0xee, 0xe1, 0x36, 0x54, 0xb9, 0x93, 0x9e,
+	0x57, 0xe5, 0x0e, 0xde, 0x82, 0x86, 0x75, 0xe1, 0xdb, 0xe7, 0x42, 0xaf, 0x76, 0x6a, 0xdd, 0xe6,
+	0x0e, 0x2e, 0x65, 0x1d, 0x5e, 0xbf, 0x22, 0xa9, 0xc2, 0xfc, 0x88, 0xa0, 0xae, 0x18, 0x7c, 0x1f,
+	0x6e, 0x05, 0x21, 0x7b, 0xcd, 0xfd, 0x48, 0x4c, 0x5c, 0x2a, 0xdc, 0x34, 0xb0, 0x95, 0x91, 0xc7,
+	0x54, 0xb8, 0xf8, 0x00, 0x5a, 0x72, 0x59, 0x78, 0x76, 0x80, 0xfe, 0xb7, 0x51, 0x90, 0x92, 0x1a,
+	0xef, 0x03, 0xe4, 0xd3, 0x15, 0x7a, 0x4d, 0x79, 0xcb, 0x17, 0xcd, 0x97, 0x86, 0x14, 0x94, 0xe6,
+	0x13, 0xd0, 0xf2, 0x0e, 0xe0, 0x0d, 0x68, 0x24, 0x3d, 0xd0, 0x51, 0xa7, 0xd6, 0xd5, 0x48, 0x8a,
+	0xae, 0xe7, 0x3b, 0xe3, 0x1e, 0x9f, 0x45, 0x33, 0x35, 0xdf, 0x15, 0x92, 0x41, 0xf3, 0x33, 0x02,
+	0x6d, 0x14, 0x59, 0x17, 0xdc, 0x7e, 0xc6, 0xe6, 0x85, 0x6e, 0x69, 0xaa, 0x5b, 0x38, 0xdd, 0xaa,
+	0xaa, 0x62, 0x92, 0x5d, 0x59, 0x87, 0xba, 0x4a, 0xd5, 0x6b, 0x8a, 0x4c, 0x00, 0x7e, 0x00, 0xed,
+	0x40, 0xc5, 0x4c, 0xce, 0xd9, 0x7c, 0x12, 0xb0, 0x99, 0xbe, 0xa2, 0x5e, 0xb7, 0x82, 0x2c, 0x7c,
+	0xc4, 0x66, 0x78, 0x0b, 0x6e, 0x17, 0x54, 0x16, 0x15, 0x6c, 0x7f, 0x57, 0xaf, 0x2b, 0xe1, 0x6a,
+	0x2e, 0x3c, 0x54, 0x34, 0xbe, 0x07, 0xb0, 0xd4, 0xea, 0x8d, 0xe4, 0x03, 0xc8, 0x45, 0xe6, 0x4b,
+	0x68, 0xf7, 0x23, 0xe9, 0x32, 0x4f, 0x72, 0x9b, 0xaa, 0x4d, 0xc1, 0x85, 0x4f, 0x20, 0x2b, 0x76,
+	0xaf, 0x14, 0x52, 0xfd, 0xc3, 0xfa, 0xe4, 0x97, 0x2f, 0x86, 0xbf, 0x47, 0x50, 0x1b, 0x72, 0xe7,
+	0xb7, 0xed, 0xb9, 0x19, 0x57, 0xfb, 0xa7, 0x38, 0x3c, 0x80, 0x36, 0x2d, 0xd5, 0x9a, 0xce, 0xf7,
+	0x4e, 0xc9, 0x5a, 0xbe, 0x0e, 0xb9, 0x61, 0x39, 0x7c, 0x74, 0xb9, 0x30, 0x2a, 0x5f, 0x17, 0x46,
+	0xe5, 0x6a, 0x61, 0xa0, 0x9f, 0x0b, 0x03, 0xbd, 0x8d, 0x0d, 0xf4, 0x29, 0x36, 0xd0, 0x97, 0xd8,
+	0x40, 0x97, 0xb1, 0x81, 0xbe, 0xc5, 0x06, 0xfa, 0x11, 0x1b, 0x95, 0xab, 0xd8, 0x40, 0xef, 0xbe,
+	0x1b, 0x15, 0xab, 0xa1, 0xfe, 0x37, 0x8f, 0x7f, 0x05, 0x00, 0x00, 0xff, 0xff, 0x59, 0x36, 0x9b,
+	0x99, 0xbe, 0x04, 0x00, 0x00,
 }

@@ -13,69 +13,67 @@ package consensuspb;
 
 message Signature {
     string creator = 1;
-    bytes hash = 2;
+    // expected to be a bitmap
+    bytes signers = 2;
     bytes signature = 3;
 }
 
-message UpdateBlock {
-    string id = 1;
-    bytes previous_hash = 2;
-    bytes data = 3;
-    repeated Signature signatures = 4;
+message Transaction {
+    enum TransactionType {
+        ADD_DATA = 0;
+        UPDATE_OWNERSHIP = 1;
+    }
+    TransactionType type = 1;
+    bytes payload = 2;
 }
 
-message Ownership {
-    repeated string owners = 1;
-    uint64 minimum = 2;
+message AddDataTransaction {
+    bytes bytes = 1;
+}
+
+message UpdateOwnershipTransaction {
+    Did did = 1;
+}
+
+message Chain {
+    bytes id = 1;
+    repeated Block blocks = 2;
+}
+
+message Block {
+    SignableBlock signable_block = 1;
+    repeated Signature signatures = 2;
+}
+
+message SignableBlock {
+    bytes previous_hash = 1;
+    repeated Transaction transactions = 2;
 }
 
 message PublicKey {
     string id = 1;
     string type = 2;
     string owner = 3;
-    string PublicKeyPem = 4;
-    string PublicKeyBase64 = 5;
-    bytes PublicKey = 6;
+    string public_key_pem = 4;
+    string public_key_base64 = 5;
+    bytes public_key = 6;
 }
 
 message Authentication {
-    string type = 1;
-    PublicKey public_key = 2;
+    enum Type {
+        UPDATE = 0;
+        PROVE = 1;
+        CHANGE_OWNERSHIP = 2;
+        ALL = 3;
+    }
+    Type type = 1;
+    uint64 minimum = 2;
+    repeated PublicKey public_key = 3;
 }
 
 message Did {
     bytes id = 1;
-    repeated PublicKey public_key = 2;
+    // for future use
+//    repeated PublicKey public_key = 2;
     repeated Authentication authentication = 3;
 }
-
-
-
-//
-//type PublicKey struct {
-//Id string `json:"id"`
-//Type string `json:"type"`
-//Owner string `json:"owner"`
-//PublicKeyPem string `json:"owner,omitempty",noms:",omitempty"`
-//PublicKeyBase64 string `json:"publicKeyBase64,omitempty",noms:",omitempty"`
-//}
-//
-//type Authentication struct {
-//Type string `json:"type"`
-//PublicKey string `json:"publicKey"`
-//}
-//
-//type Service struct {
-//Type string `json:"type"`
-//ServiceEndpoint string `json:"serviceEndpoint"`
-//InitialCapability string `json:"initialCapability,omitEmpty"`
-//}
-//
-//
-//type Did struct {
-//Context string `json:"@context"`
-//Id string `json:"id"`
-//PublicKey []PublicKey `json:"publicKey"`
-//Authentication []Authentication `json:"authentication"`
-//Service []Service `json:"service"`
-//}
