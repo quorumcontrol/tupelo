@@ -16,6 +16,12 @@ message Signature {
     // expected to be a bitmap
     bytes signers = 2;
     bytes signature = 3;
+    enum Type {
+        BLSGroupSig = 0;
+        ed25119 = 1;
+        secp256k1 = 2;
+    }
+    Type type = 4;
 }
 
 message Transaction {
