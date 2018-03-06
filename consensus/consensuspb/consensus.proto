@@ -11,6 +11,11 @@ option (gogoproto.marshaler_all) = true;
 
 package consensuspb;
 
+message NotaryGroup {
+    string name = 1;
+    repeated bytes public_keys = 2;
+}
+
 message Signature {
     string creator = 1;
     // expected to be a bitmap
@@ -18,8 +23,8 @@ message Signature {
     bytes signature = 3;
     enum Type {
         BLSGroupSig = 0;
-        ed25119 = 1;
-        secp256k1 = 2;
+        Ed25119 = 1;
+        Secp256k1 = 2;
     }
     Type type = 4;
 }
@@ -52,8 +57,9 @@ message Block {
 }
 
 message SignableBlock {
-    bytes previous_hash = 1;
-    repeated Transaction transactions = 2;
+    string chain_id = 1;
+    bytes previous_hash = 2;
+    repeated Transaction transactions = 3;
 }
 
 message PublicKey {
