@@ -225,6 +225,45 @@ func SumSignatures(sigs [][]byte) ([]byte, error) {
 	return goBytes, nil
 }
 
+func VerifyMultiSig(sig,msg []byte, verKeys [][]byte) (bool, error) {
+	cSignature,err := cMultiSigFrom(sig)
+	if err != nil {
+		return false, fmt.Errorf("error getting signature: %v", err)
+	}
+	defer C.indy_crypto_bls_multi_signature_free(*cSignature)
+
+	cVerKeys := make([]unsafe.Pointer, len(verKeys))
+	for i,verKeyBytes := range verKeys {
+		verKey := &VerKey{value: verKeyBytes}
+		cVerKey,err := verKey.getCVerKey()
+		if err != nil {
+			return false, fmt.Errorf("error getting verkey: %v", err)
+		}
+		cVerKeys[i] = *cVerKey
+	}
+	defer func() {
+		for _,cVerKey := range cVerKeys {
+			C.indy_crypto_bls_ver_key_free(cVerKey)
+		}
+	}()
+
+	cGenerator := getStandardGenerator()
+	defer C.indy_crypto_bls_generator_free(*cGenerator)
+
+	cMessageBytes := C.CBytes(msg)
+	defer C.free(cMessageBytes)
+	cMessageBytesLen := len(msg)
+
+	isVerified := false
+
+	code,err := C.indy_crypto_bls_verify_multi_sig(*cSignature, (*C.uint8_t)(cMessageBytes), (C.size_t)(cMessageBytesLen), (*unsafe.Pointer)(unsafe.Pointer(&cVerKeys[0])), C.size_t(len(cVerKeys)), *cGenerator, (*C.bool)(&isVerified))
+	if err != nil || code != 0 {
+		return false, fmt.Errorf("error verifying: %v code: %d", err, code)
+	}
+
+	return isVerified, nil
+}
+
 func cSignatureFrom(sig []byte) (*unsafe.Pointer,error) {
 	cBytes := C.CBytes(sig)
 	defer C.free(cBytes)
@@ -233,6 +272,20 @@ func cSignatureFrom(sig []byte) (*unsafe.Pointer,error) {
 	cSignature := (*unsafe.Pointer)(unsafe.Pointer(new(interface{})))
 
 	code,err := C.indy_crypto_bls_signature_from_bytes((*C.uint8_t)(cBytes), (C.size_t)(cBytesLen), cSignature)
+	if err != nil || code != 0 {
+		return nil, fmt.Errorf("error getting signature: %v, code: %d", err, code)
+	}
+	return cSignature, nil
+}
+
+func cMultiSigFrom(sig []byte) (*unsafe.Pointer, error) {
+	cBytes := C.CBytes(sig)
+	defer C.free(cBytes)
+	cBytesLen := len(sig)
+
+	cSignature := (*unsafe.Pointer)(unsafe.Pointer(new(interface{})))
+
+	code,err := C.indy_crypto_bls_multi_signature_from_bytes((*C.uint8_t)(cBytes), (C.size_t)(cBytesLen), cSignature)
 	if err != nil || code != 0 {
 		return nil, fmt.Errorf("error getting signature: %v, code: %d", err, code)
 	}
