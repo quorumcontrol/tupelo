@@ -79,5 +79,25 @@ func TestVerKey_Verify(t *testing.T) {
 	invalidRes,err := verKey.Verify(sig, common.BytesToHash([]byte("abc")).Bytes())
 	assert.Nil(t, err)
 	assert.False(t, invalidRes)
+}
 
+func TestSumSignatures(t *testing.T) {
+	msg := []byte("hi")
+	hsh := common.BytesToHash(msg).Bytes()
+
+	key1,err := NewSignKey()
+	assert.Nil(t, err)
+
+	key2,err := NewSignKey()
+	assert.Nil(t, err)
+
+	sig1,err := key1.Sign(hsh)
+	assert.Nil(t, err)
+
+	sig2,err := key2.Sign(hsh)
+	assert.Nil(t, err)
+
+	multiSig,err := SumSignatures([][]byte{sig1,sig2})
+	assert.Nil(t,err)
+	assert.Len(t, multiSig, 128)
 }

@@ -189,6 +189,42 @@ func (vk *VerKey) Verify(sig, msg []byte) (bool, error) {
 	return isVerified, nil
 }
 
+func SumSignatures(sigs [][]byte) ([]byte, error) {
+	cSigs := make([]unsafe.Pointer, len(sigs))
+	for i,sig := range sigs {
+		cSig,err := cSignatureFrom(sig)
+		if err != nil {
+			return nil, fmt.Errorf("error getting csig from %v", sig)
+		}
+		cSigs[i] = *cSig
+	}
+	defer func() {
+		for _,cSig := range cSigs {
+			C.indy_crypto_bls_signature_free(cSig)
+		}
+	}()
+
+	cMultiSig := (*unsafe.Pointer)(unsafe.Pointer(new(interface{})))
+
+	code,err := C.indy_crypto_bls_multi_signature_new((*unsafe.Pointer)(unsafe.Pointer(&cSigs[0])), C.size_t(len(cSigs)), cMultiSig)
+	if err != nil || code != 0 {
+		return nil, fmt.Errorf("error creating multi: %v code: %d", err, code)
+	}
+	defer C.indy_crypto_bls_multi_signature_free(*cMultiSig)
+
+	cBytes := C.CBytes(make([]byte, 128))
+	var cBytesLen uintptr
+	defer C.free(cBytes)
+
+	code,err = C.indy_crypto_bls_multi_signature_as_bytes(*cMultiSig, (**C.uint8_t)(cBytes), (*C.size_t)(unsafe.Pointer(&cBytesLen)))
+	if err != nil || code != 0 {
+		return nil, fmt.Errorf("error getting bytes: %v", err)
+	}
+
+	goBytes := C.GoBytes(*(*unsafe.Pointer)(cBytes), C.int(cBytesLen))
+	return goBytes, nil
+}
+
 func cSignatureFrom(sig []byte) (*unsafe.Pointer,error) {
 	cBytes := C.CBytes(sig)
 	defer C.free(cBytes)
