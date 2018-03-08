@@ -12,11 +12,15 @@ import (
 	"log"
 )
 
-const GeneratorHex = "0xb0c0b0040000000086034b00000000c00600000000000000a84f4eadff7f000088884dadff7f0000f80d50b3ff7f0000584296aeff7f000050f91badff7f000098cb77adff7f00000000000000000000000008800700000090e873adff7f0000e123b0040000000078e873adff7f000058e873adff7f000090e636adff7f0000"
+const GeneratorHex = "0x00505d3670be80403e051ea1fe991e21a65aa7a34fb217faaaeece6d07f4ace018a4598fa281ccd9604a24024146861defe23200344c20ee95780eda2c5bd3630a7bd596e91c1e8359e503c088a9eeb87a895821e2ea7d96c39fc1acc5d9453d1957e94588afaf7fc0a232d77d4f73097b4c66ec4bce715e58023031ac289b4a"
 var GeneratorBytes []byte
 
 func init() {
 	GeneratorBytes = hexutil.MustDecode(GeneratorHex)
+}
+
+func SetupLogger() {
+	C.indy_crypto_init_logger()
 }
 
 type SignKey struct {
@@ -89,16 +93,16 @@ func (sk *SignKey) Sign(msg []byte) ([]byte, error) {
 	}
 	defer C.indy_crypto_bls_signature_free(*cSignature)
 
-	cBytes := C.CBytes(*new([]byte))
-	var lenCBytes uintptr
+	cBytes := C.CBytes(make([]byte, 128))
+	var cBytesLen uintptr
 	defer C.free(cBytes)
 
-	code,err = C.indy_crypto_bls_signature_as_bytes(*cSignature, (**C.uint8_t)(cBytes), (*C.size_t)(unsafe.Pointer(&lenCBytes)))
+	code,err = C.indy_crypto_bls_signature_as_bytes(*cSignature, (**C.uint8_t)(cBytes), (*C.size_t)(unsafe.Pointer(&cBytesLen)))
 	if err != nil || code != 0  {
 		return nil, fmt.Errorf("error signing: %v code: %d", err, code)
 	}
 
-	goBytes := C.GoBytes(cBytes, C.int(lenCBytes))
+	goBytes := C.GoBytes(*(*unsafe.Pointer)(cBytes), C.int(cBytesLen))
 	return goBytes, nil
 }
 
@@ -118,7 +122,7 @@ func (sk *SignKey) VerKey() (*VerKey, error) {
 		return nil, fmt.Errorf("error getting verkey: %v", err)
 	}
 
-	cBytes := C.CBytes(*new([]byte))
+	cBytes := C.CBytes(make([]byte, 128))
 	var cBytesLen uintptr
 	defer C.free(cBytes)
 
@@ -127,7 +131,7 @@ func (sk *SignKey) VerKey() (*VerKey, error) {
 		return nil, fmt.Errorf("error getting bytes: %v", err)
 	}
 
-	goBytes := C.GoBytes(cBytes, C.int(cBytesLen))
+	goBytes := C.GoBytes(*(*unsafe.Pointer)(cBytes), C.int(cBytesLen))
 
 	return &VerKey{
 		value: goBytes,
@@ -166,6 +170,7 @@ func (vk *VerKey) Verify(sig, msg []byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("error getting cVerkey: %v", err)
 	}
+	defer C.indy_crypto_bls_ver_key_free(*cVerKey)
 
 	cGenerator := getStandardGenerator()
 	defer C.indy_crypto_bls_generator_free(*cGenerator)
@@ -174,9 +179,9 @@ func (vk *VerKey) Verify(sig, msg []byte) (bool, error) {
 	defer C.free(cMessageBytes)
 	cMessageBytesLen := len(msg)
 
-	var isVerified bool
+	isVerified := false
 
-	code,err := C.indy_crypto_bsl_verify(*cSignature, (*C.uint8_t)(cMessageBytes), (C.size_t)(cMessageBytesLen), *cVerKey, *cGenerator, (*C._Bool)(unsafe.Pointer(&isVerified)))
+	code,err := C.indy_crypto_bsl_verify(*cSignature, (*C.uint8_t)(cMessageBytes), (C.size_t)(cMessageBytesLen), *cVerKey, *cGenerator, (*C.bool)(&isVerified))
 	if err != nil || code != 0 {
 		return false, fmt.Errorf("error verifying: %v code: %d", err, code)
 	}
@@ -188,7 +193,6 @@ func cSignatureFrom(sig []byte) (*unsafe.Pointer,error) {
 	cBytes := C.CBytes(sig)
 	defer C.free(cBytes)
 	cBytesLen := len(sig)
-	log.Printf("len sig: %d", cBytesLen)
 
 	cSignature := (*unsafe.Pointer)(unsafe.Pointer(new(interface{})))
 
@@ -220,7 +224,7 @@ func NewGenerator() ([]byte, error) {
 	if err != nil || code != 0 {
 		return nil, fmt.Errorf("error generating: %v", err)
 	}
-	cBytes := C.CBytes(*new([]byte))
+	cBytes := C.CBytes(make([]byte, 128))
 	var cBytesLen uintptr
 
 	defer func() {
@@ -233,7 +237,7 @@ func NewGenerator() ([]byte, error) {
 		return nil, fmt.Errorf("error getting bytes: %v", err)
 	}
 
-	goBytes := C.GoBytes(cBytes, C.int(cBytesLen))
+	goBytes := C.GoBytes(*(*unsafe.Pointer)(cBytes), C.int(cBytesLen))
 
 	return goBytes, nil
 }

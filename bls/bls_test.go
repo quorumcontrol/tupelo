@@ -19,6 +19,8 @@ func TestSignKey_Sign(t *testing.T) {
 	key,err := NewSignKey()
 	assert.Nil(t, err)
 
+	SetupLogger()
+
 	sig,err := key.Sign(hsh)
 	assert.Nil(t, err)
 	assert.Len(t, sig, 128)
@@ -72,5 +74,10 @@ func TestVerKey_Verify(t *testing.T) {
 	isValid,err := verKey.Verify(sig, hsh)
 	assert.Nil(t, err)
 	assert.True(t, isValid)
+
+	// with invalid message
+	invalidRes,err := verKey.Verify(sig, common.BytesToHash([]byte("abc")).Bytes())
+	assert.Nil(t, err)
+	assert.False(t, invalidRes)
 
 }
