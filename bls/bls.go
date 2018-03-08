@@ -38,19 +38,19 @@ func NewSignKey() (*SignKey, error) {
 		return nil, fmt.Errorf("error generating sign key: %v", err)
 	}
 
-	cBytes := C.CBytes(*new([]byte))
-	var lenCBytes uintptr
+	cBytes := C.CBytes(make([]byte, 32))
+	var cBytesLen uintptr
 	defer func() {
 		C.indy_crypto_bls_sign_key_free(*cSignKey)
 		C.free(cBytes)
 	}()
 
-	code,err := C.indy_crypto_bls_sign_key_as_bytes(*cSignKey, (**C.uint8_t)(cBytes), (*C.size_t)(unsafe.Pointer(&lenCBytes)))
+	code,err := C.indy_crypto_bls_sign_key_as_bytes(*cSignKey, (**C.uint8_t)(cBytes), (*C.size_t)(unsafe.Pointer(&cBytesLen)))
 	if err != nil || code != 0 {
 		return nil, fmt.Errorf("error getting sign key as bytes: %v, code: %d", err, code)
 	}
 
-	goBytes := C.GoBytes(cBytes, C.int(lenCBytes))
+	goBytes := C.GoBytes(*(*unsafe.Pointer)(cBytes), C.int(cBytesLen))
 
 	return &SignKey{value: goBytes}, nil
 }
