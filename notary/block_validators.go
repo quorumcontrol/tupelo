@@ -1,4 +1,4 @@
-package consensus
+package notary
 
 import (
 	"github.com/quorumcontrol/qc3/internalchain"
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"context"
 	"log"
+	"github.com/quorumcontrol/qc3/consensus"
 )
 
 type ValidatorFunc func(ctx context.Context, chain *internalchain.InternalChain, block *consensuspb.Block) (bool,error)
@@ -28,7 +29,7 @@ func IsValidOwnerSig (_ context.Context, chain *internalchain.InternalChain, blo
 		return false, nil
 	}
 
-	hsh,err := BlockToHash(block)
+	hsh,err := consensus.BlockToHash(block)
 	if err != nil {
 		return false, fmt.Errorf("error hashing block: %v", err)
 	}
@@ -36,7 +37,7 @@ func IsValidOwnerSig (_ context.Context, chain *internalchain.InternalChain, blo
 	// If this is a genesis block (a never before seen chain)
 	if chain.LastBlock == nil {
 		// find the creator signature and validate that
-		addr := DidToAddr(block.SignableBlock.ChainId)
+		addr := consensus.DidToAddr(block.SignableBlock.ChainId)
 		ownerSig := sigFor(addr, block.Signatures)
 		if ownerSig == nil {
 			return false, nil
@@ -50,7 +51,7 @@ func IsValidOwnerSig (_ context.Context, chain *internalchain.InternalChain, blo
 			return false, fmt.Errorf("unsigned by genesis address %s != %s", crypto.PubkeyToAddress(*pubKey).Hex(), addr)
 		}
 
-		return VerifySignature(block, &internalchain.InternalOwnership{
+		return consensus.VerifySignature(block, &internalchain.InternalOwnership{
 			PublicKeys: map[string]*consensuspb.PublicKey{
 				addr: {
 					PublicKey: crypto.CompressPubkey(pubKey),
@@ -60,12 +61,12 @@ func IsValidOwnerSig (_ context.Context, chain *internalchain.InternalChain, blo
 	} else {
 		// we have seen this chain before, let's see who the current owners are.
 		signedCount := 0
-		sigs := SignaturesByCreator(block)
+		sigs := consensus.SignaturesByCreator(block)
 		for _,owner := range chain.CurrentOwners {
 			for _,publicKey := range owner.PublicKeys {
 				sig, ok := sigs[publicKey.Id]
 				if ok {
-					verified,err := VerifySignature(block, owner, sig)
+					verified,err := consensus.VerifySignature(block, owner, sig)
 					if err == nil && verified {
 						signedCount++
 					} else {

@@ -12,7 +12,7 @@ option (gogoproto.marshaler_all) = true;
 package consensuspb;
 
 message NotaryGroup {
-    string name = 1;
+    string id = 1;
     repeated bytes public_keys = 2;
 }
 
@@ -23,7 +23,7 @@ message Signature {
     bytes signature = 3;
     enum Type {
         BLSGroupSig = 0;
-        Ed25119 = 1;
+//        Ed25119 = 1;
         Secp256k1 = 2;
     }
     Type type = 4;

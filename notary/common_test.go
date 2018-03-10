@@ -1,4 +1,4 @@
-package consensus_test
+package notary_test
 
 import (
 	"github.com/ethereum/go-ethereum/crypto"
