@@ -112,6 +112,9 @@ func TestVerifyMultiSig(t *testing.T) {
 	key2,err := NewSignKey()
 	assert.Nil(t, err)
 
+	key3,err := NewSignKey()
+	assert.Nil(t, err)
+
 	sig1,err := key1.Sign(hsh)
 	assert.Nil(t, err)
 
@@ -127,6 +130,7 @@ func TestVerifyMultiSig(t *testing.T) {
 	assert.Nil(t,err)
 	verKey2,err := key2.VerKey()
 	assert.Nil(t,err)
+	verKey3,err := key3.VerKey()
 
 	verKeys[0] = verKey1.Bytes()
 	verKeys[1] = verKey2.Bytes()
@@ -137,6 +141,17 @@ func TestVerifyMultiSig(t *testing.T) {
 
 	// with invalid message
 	invalidRes,err := VerifyMultiSig(multiSig, common.BytesToHash([]byte("abc")).Bytes(), verKeys)
+	assert.Nil(t, err)
+	assert.False(t, invalidRes)
+
+	// with missing key
+	verKeys = make([][]byte, 3)
+
+	verKeys[0] = verKey1.Bytes()
+	verKeys[1] = verKey2.Bytes()
+	verKeys[2] = verKey3.Bytes()
+
+	invalidRes,err = VerifyMultiSig(multiSig, hsh, verKeys)
 	assert.Nil(t, err)
 	assert.False(t, invalidRes)
 }

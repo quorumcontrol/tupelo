@@ -31,6 +31,12 @@ type VerKey struct {
 	value []byte
 }
 
+func BytesToSignKey(keyBytes []byte) *SignKey {
+	return &SignKey{
+		value: keyBytes,
+	}
+}
+
 func NewSignKey() (*SignKey, error) {
 	cSignKey := (*unsafe.Pointer)(unsafe.Pointer(new(interface{})))
 	_,err := C.indy_crypto_bls_sign_key_new(nil, 0, cSignKey)
