@@ -6,9 +6,11 @@ import (
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
+	"context"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
-func TestValidGenesisBlock(t *testing.T) {
+func TestIsValidOwnerSig(t *testing.T) {
 	type testDescription struct {
 		Description        string
 		InternalChain *internalchain.InternalChain
@@ -28,8 +30,7 @@ func TestValidGenesisBlock(t *testing.T) {
 			}
 		},
 		func(t *testing.T) (*testDescription) {
-
-			block := genValidGenesisBlock(t)
+			block := createBlock(t,nil)
 			signedBlock,err := consensus.OwnerSignBlock(block, aliceKey)
 			assert.Nil(t, err, "setting up valid genesis")
 
@@ -40,9 +41,63 @@ func TestValidGenesisBlock(t *testing.T) {
 				ShouldValidate: true,
 			}
 		},
-	} {
+		func(t *testing.T) (*testDescription) {
+			previousBlock := createBlock(t,nil)
+			existingChain := &internalchain.InternalChain{
+				LastBlock: previousBlock,
+				MinimumOwners: 1,
+				CurrentOwners: []*internalchain.InternalOwnership{
+					{
+						Name: consensus.AddrToDid(aliceAddr.Hex()),
+						PublicKeys: map[string]*consensuspb.PublicKey{
+							aliceAddr.Hex(): {
+								Id: aliceAddr.Hex(),
+								PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
+							},
+						},
+					},
+				},
+			}
+			block := createBlock(t, previousBlock)
+			signedBlock,err := consensus.OwnerSignBlock(block, bobKey)
+			assert.Nil(t, err, "setting up valid signed")
+			return &testDescription{
+				Description: "A new block on a stored chain, not signed by correct owners",
+				InternalChain: existingChain,
+				Block: signedBlock,
+				ShouldValidate: false,
+			}
+		},
+		func(t *testing.T) (*testDescription) {
+			previousBlock := createBlock(t,nil)
+			existingChain := &internalchain.InternalChain{
+				LastBlock: previousBlock,
+				MinimumOwners: 1,
+				CurrentOwners: []*internalchain.InternalOwnership{
+					{
+						Name: consensus.AddrToDid(bobAddr.Hex()),
+						PublicKeys: map[string]*consensuspb.PublicKey{
+							bobAddr.Hex(): {
+								Id: bobAddr.Hex(),
+								PublicKey: crypto.CompressPubkey(&bobKey.PublicKey),
+							},
+						},
+					},
+				},
+			}
+			block := createBlock(t, previousBlock)
+			signedBlock,err := consensus.OwnerSignBlock(block, bobKey)
+			assert.Nil(t, err, "setting up valid signed")
+			return &testDescription{
+				Description: "A new block on a stored chain, signed by correct owners",
+				InternalChain: existingChain,
+				Block: signedBlock,
+				ShouldValidate: true,
+			}
+		},
+		} {
 		test := testGen(t)
-		res,err := consensus.IsValidGenesisBlock(test.InternalChain, test.Block)
+		res,err := consensus.IsValidOwnerSig(context.Background(), test.InternalChain, test.Block)
 		if test.ShouldError {
 			assert.NotNil(t, err, err, test.Description)
 		} else {

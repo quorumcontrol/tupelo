@@ -63,3 +63,11 @@ func VerifySignature(block *consensuspb.Block, ownership *internalchain.Internal
 
 	return false, fmt.Errorf("unkown signature type")
 }
+
+func SignaturesByCreator(block *consensuspb.Block) (sigs map[string]*consensuspb.Signature) {
+	sigs = make(map[string]*consensuspb.Signature)
+	for _,sig := range block.Signatures {
+		sigs[sig.Creator] = sig
+	}
+	return sigs
+}

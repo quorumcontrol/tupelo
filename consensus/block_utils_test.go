@@ -24,8 +24,8 @@ func TestOwnerSignBlock(t *testing.T) {
 		func(t *testing.T) (*testDescription) {
 			return &testDescription{
 				Description: "valid everything",
-				Block: genValidGenesisBlock(t),
-				PrivateKey: aliceKey,
+				Block:       createBlock(t, nil),
+				PrivateKey:  aliceKey,
 				ShouldError: false,
 			}
 		},
@@ -72,7 +72,7 @@ func TestVerifySignature(t *testing.T) {
 
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) (*testDescription) {
-			block := genValidGenesisBlock(t)
+			block := createBlock(t,nil)
 
 			blockWithSig,err := consensus.OwnerSignBlock(block, aliceKey)
 			assert.Nil(t, err, "setup valid block")

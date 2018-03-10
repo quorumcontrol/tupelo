@@ -5,7 +5,11 @@ import (
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/ethereum/go-ethereum/crypto"
 	"fmt"
+	"context"
+	"log"
 )
+
+type ValidatorFunc func(ctx context.Context, chain *internalchain.InternalChain, block *consensuspb.Block) (bool,error)
 
 func sigFor(creator string, sigs []*consensuspb.Signature) (*consensuspb.Signature) {
 	for _,sig := range sigs {
@@ -16,19 +20,11 @@ func sigFor(creator string, sigs []*consensuspb.Signature) (*consensuspb.Signatu
 	return nil
 }
 
-func IsValidGenesisBlock (chain *internalchain.InternalChain, block *consensuspb.Block) (bool,error) {
-	if chain.LastBlock != nil || chain.Id != "" {
-		return false, nil
-	}
-
+// IsValidOwnerSig verifies that the current block is signed by the correct owner.
+// In the case of a genesis block, it must be signed by the key matching the did address
+// otherwise,
+func IsValidOwnerSig (_ context.Context, chain *internalchain.InternalChain, block *consensuspb.Block) (bool,error) {
 	if len(block.Signatures) == 0 {
-		return false, nil
-	}
-
-	// find the creator signature and validate that
-	addr := DidToAddr(block.SignableBlock.ChainId)
-	ownerSig := sigFor(addr, block.Signatures)
-	if ownerSig == nil {
 		return false, nil
 	}
 
@@ -37,19 +33,52 @@ func IsValidGenesisBlock (chain *internalchain.InternalChain, block *consensuspb
 		return false, fmt.Errorf("error hashing block: %v", err)
 	}
 
-	pubKey,err := crypto.SigToPub(hsh.Bytes(), ownerSig.Signature)
-	if err != nil {
-		return false, fmt.Errorf("error getting public key: %v", err)
-	}
-	if crypto.PubkeyToAddress(*pubKey).Hex() != addr {
-		return false, fmt.Errorf("unsigned by genesis address %s != %s", crypto.PubkeyToAddress(*pubKey).Hex(), addr)
+	// If this is a genesis block (a never before seen chain)
+	if chain.LastBlock == nil {
+		// find the creator signature and validate that
+		addr := DidToAddr(block.SignableBlock.ChainId)
+		ownerSig := sigFor(addr, block.Signatures)
+		if ownerSig == nil {
+			return false, nil
+		}
+
+		pubKey,err := crypto.SigToPub(hsh.Bytes(), ownerSig.Signature)
+		if err != nil {
+			return false, fmt.Errorf("error getting public key: %v", err)
+		}
+		if crypto.PubkeyToAddress(*pubKey).Hex() != addr {
+			return false, fmt.Errorf("unsigned by genesis address %s != %s", crypto.PubkeyToAddress(*pubKey).Hex(), addr)
+		}
+
+		return VerifySignature(block, &internalchain.InternalOwnership{
+			PublicKeys: map[string]*consensuspb.PublicKey{
+				addr: {
+					PublicKey: crypto.CompressPubkey(pubKey),
+				},
+			},
+		}, ownerSig)
+	} else {
+		// we have seen this chain before, let's see who the current owners are.
+		signedCount := 0
+		sigs := SignaturesByCreator(block)
+		for _,owner := range chain.CurrentOwners {
+			for _,publicKey := range owner.PublicKeys {
+				sig, ok := sigs[publicKey.Id]
+				if ok {
+					verified,err := VerifySignature(block, owner, sig)
+					if err == nil && verified {
+						signedCount++
+					} else {
+						log.Printf("error verifying: %v", err)
+					}
+				}
+			}
+		}
+		if signedCount >= chain.MinimumOwners {
+			return true, nil
+		}
 	}
 
-	return VerifySignature(block, &internalchain.InternalOwnership{
-		PublicKeys: map[string]*consensuspb.PublicKey{
-			addr: {
-				PublicKey: crypto.CompressPubkey(pubKey),
-			},
-		},
-	}, ownerSig)
+	return false, nil
 }
+
