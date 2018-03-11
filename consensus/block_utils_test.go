@@ -166,9 +166,30 @@ func TestVerifyNotaryGroupSignature(t *testing.T) {
 			block.Signatures = append(block.Signatures, combined)
 
 			return &testDescription{
+				Description: "A block signed by 2/3 of the signers",
 				Group: defaultGroup,
 				Block: block,
 				ShouldVerify: true,
+				Signature: combined,
+			}
+		},
+		func(t *testing.T) (*testDescription) {
+			block := createBlock(t, nil)
+
+			block,_ = notaries[0].SignBlock(context.Background(), block)
+
+			sig1 := block.Signatures[0]
+
+			combined,err := notary.CombineSignatures(defaultGroup, []*consensuspb.Signature{sig1})
+			assert.Nil(t, err, "error setting up working sig")
+
+			block.Signatures = append(block.Signatures, combined)
+
+			return &testDescription{
+				Description: "A block only signed by 1/3 of the signers",
+				Group: defaultGroup,
+				Block: block,
+				ShouldVerify: false,
 				Signature: combined,
 			}
 		},

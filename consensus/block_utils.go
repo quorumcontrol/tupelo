@@ -74,15 +74,15 @@ func VerifyNotaryGroupSignature(block *consensuspb.Block, group *consensuspb.Not
 
 	requiredNum := uint64(math.Ceil(2.0 * (float64(len(group.PublicKeys)) / 3.0)))
 
-	if uint64(len(sig.Signers)) < requiredNum {
-		return false,nil
-	}
-
 	var expectedKeyBytes [][]byte
 	for i,didSign := range sig.Signers {
 		if didSign {
 			expectedKeyBytes = append(expectedKeyBytes, group.PublicKeys[i])
 		}
+	}
+
+	if uint64(len(expectedKeyBytes)) < requiredNum {
+		return false,nil
 	}
 
 	return bls.VerifyMultiSig(sig.Signature, hsh.Bytes(), expectedKeyBytes)

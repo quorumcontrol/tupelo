@@ -121,6 +121,8 @@ func CombineSignatures(group *consensuspb.NotaryGroup, sigs []*consensuspb.Signa
 		}
 	}
 
+	fmt.Printf("signers: %v", signers)
+
 	return &consensuspb.Signature{
 		Creator: group.Id,
 		Signers: signers,
