@@ -8,8 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/internalchain"
-	"github.com/quorumcontrol/qc3/bls"
-	"math"
 )
 
 func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
@@ -66,27 +64,6 @@ func VerifySignature(block *consensuspb.Block, ownership *internalchain.Internal
 	return false, fmt.Errorf("unkown signature type")
 }
 
-func VerifyNotaryGroupSignature(block *consensuspb.Block, group *consensuspb.NotaryGroup, sig *consensuspb.Signature) (bool,error) {
-	hsh,err := BlockToHash(block)
-	if err != nil {
-		return false, fmt.Errorf("error generating hash: %v", err)
-	}
-
-	requiredNum := uint64(math.Ceil(2.0 * (float64(len(group.PublicKeys)) / 3.0)))
-
-	var expectedKeyBytes [][]byte
-	for i,didSign := range sig.Signers {
-		if didSign {
-			expectedKeyBytes = append(expectedKeyBytes, group.PublicKeys[i])
-		}
-	}
-
-	if uint64(len(expectedKeyBytes)) < requiredNum {
-		return false,nil
-	}
-
-	return bls.VerifyMultiSig(sig.Signature, hsh.Bytes(), expectedKeyBytes)
-}
 
 func SignaturesByCreator(block *consensuspb.Block) (sigs map[string]*consensuspb.Signature) {
 	sigs = make(map[string]*consensuspb.Signature)

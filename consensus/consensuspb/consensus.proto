@@ -11,9 +11,10 @@ option (gogoproto.marshaler_all) = true;
 
 package consensuspb;
 
-message NotaryGroup {
-    string id = 1;
-    repeated bytes public_keys = 2;
+enum SignatureType {
+    BLSGroupSig = 0;
+    //        Ed25119 = 1;
+    Secp256k1 = 2;
 }
 
 message Signature {
@@ -21,12 +22,7 @@ message Signature {
     // expected to be a bitmap
     repeated bool signers = 2;
     bytes signature = 3;
-    enum Type {
-        BLSGroupSig = 0;
-//        Ed25119 = 1;
-        Secp256k1 = 2;
-    }
-    Type type = 4;
+    SignatureType type = 4;
 }
 
 message Transaction {
@@ -43,12 +39,16 @@ message AddDataTransaction {
 }
 
 message UpdateOwnershipTransaction {
-    Did did = 1;
+    Chain chain_id = 1;
+    repeated Authentication authentications = 2;
+    repeated Authorization authorizations = 3;
 }
 
 message Chain {
     bytes id = 1;
     repeated Block blocks = 2;
+    repeated Authentication authentications = 3;
+    repeated Authorization authorizations = 4;
 }
 
 message Block {
@@ -64,14 +64,14 @@ message SignableBlock {
 
 message PublicKey {
     string id = 1;
-    string type = 2;
+    SignatureType type = 2;
     string owner = 3;
     string public_key_pem = 4;
     string public_key_base64 = 5;
     bytes public_key = 6;
 }
 
-message Authentication {
+message Authorization {
     enum Type {
         UPDATE = 0;
         PROVE = 1;
@@ -80,12 +80,9 @@ message Authentication {
     }
     Type type = 1;
     uint64 minimum = 2;
-    repeated PublicKey public_key = 3;
+    repeated string owners = 3;
 }
 
-message Did {
-    bytes id = 1;
-    // for future use
-//    repeated PublicKey public_key = 2;
-    repeated Authentication authentication = 3;
+message Authentication {
+    repeated PublicKey public_keys = 1;
 }
