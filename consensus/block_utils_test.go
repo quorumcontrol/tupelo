@@ -9,6 +9,9 @@ import (
 	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/notary"
+	"context"
 )
 
 func TestOwnerSignBlock(t *testing.T) {
@@ -107,6 +110,81 @@ func TestVerifySignature(t *testing.T) {
 			assert.True(t, valid, test.Description)
 		} else {
 			assert.False(t, valid, test.Description)
+		}
+	}
+}
+
+func TestVerifyNotaryGroupSignature(t *testing.T) {
+	store := internalchain.NewMemStorage()
+
+	privateKeys := make([]*bls.SignKey, 3)
+	for i := 0; i < 3; i++ {
+		key,err := bls.NewSignKey()
+		assert.Nil(t, err)
+		privateKeys[i] = key
+	}
+
+	verKeys := make([][]byte, len(privateKeys))
+	for i,key := range privateKeys {
+		verKey,_ := key.VerKey()
+		verKeys[i] = verKey.Bytes()
+	}
+
+	notaries := make([]*notary.Signer, len(privateKeys))
+	for i,key := range privateKeys {
+		notaries[i] = notary.NewSigner(store, key)
+	}
+
+	defaultGroup := &consensuspb.NotaryGroup{
+		Id: "testTestNet",
+		PublicKeys: verKeys,
+	}
+
+	type testDescription struct {
+		Description        string
+		Block         *consensuspb.Block
+		Group *consensuspb.NotaryGroup
+		ShouldError        bool
+		ShouldVerify bool
+		Signature *consensuspb.Signature
+	}
+	type testGenerator func(t *testing.T) (*testDescription)
+
+	for _,testGen := range []testGenerator{
+		func(t *testing.T) (*testDescription) {
+			block := createBlock(t, nil)
+
+			block,_ = notaries[0].SignBlock(context.Background(), block)
+			block,_ = notaries[1].SignBlock(context.Background(), block)
+
+			sig1 := block.Signatures[0]
+			sig2 := block.Signatures[1]
+
+			combined,err := notary.CombineSignatures(defaultGroup, []*consensuspb.Signature{sig1,sig2})
+			assert.Nil(t, err, "error setting up working sig")
+
+			block.Signatures = append(block.Signatures, combined)
+
+			return &testDescription{
+				Group: defaultGroup,
+				Block: block,
+				ShouldVerify: true,
+				Signature: combined,
+			}
+		},
+	} {
+		test := testGen(t)
+		verified,err := consensus.VerifyNotaryGroupSignature(test.Block, test.Group, test.Signature)
+		if test.ShouldError {
+			assert.NotNil(t, err, test.Description)
+		} else {
+			assert.Nil(t,err,test.Description)
+		}
+
+		if test.ShouldVerify {
+			assert.True(t, verified, test.Description)
+		} else {
+			assert.False(t, verified, test.Description)
 		}
 	}
 }

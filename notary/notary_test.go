@@ -18,7 +18,7 @@ func defaultNotary(t *testing.T) *notary.Signer {
 
 	storage := internalchain.NewMemStorage()
 
-	return notary.NewNotary(storage, key)
+	return notary.NewSigner(storage, key)
 }
 
 func TestNewNotary(t *testing.T) {
@@ -27,7 +27,7 @@ func TestNewNotary(t *testing.T) {
 
 	storage := internalchain.NewMemStorage()
 
-	notary := notary.NewNotary(storage, key)
+	notary := notary.NewSigner(storage, key)
 	assert.Equal(t, notary.ChainStore, storage)
 }
 

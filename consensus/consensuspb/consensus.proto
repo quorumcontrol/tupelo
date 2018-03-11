@@ -19,7 +19,7 @@ message NotaryGroup {
 message Signature {
     string creator = 1;
     // expected to be a bitmap
-    bytes signers = 2;
+    repeated bool signers = 2;
     bytes signature = 3;
     enum Type {
         BLSGroupSig = 0;

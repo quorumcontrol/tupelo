@@ -24,7 +24,7 @@ type Signer struct {
 	Validators []ValidatorFunc
 }
 
-func NewNotary(storage Storage, signKey *bls.SignKey) *Signer {
+func NewSigner(storage Storage, signKey *bls.SignKey) *Signer {
 	verKey,err := signKey.VerKey()
 	if err != nil {
 		log.Panicf("error getting verkey from sign key: %v", err)
@@ -92,8 +92,40 @@ func (n *Signer) SignBlock(ctx context.Context, block *consensuspb.Block) (*cons
 	block.Signatures = append(block.Signatures, sig)
 
 	return block,nil
+}
 
+func CombineSignatures(group *consensuspb.NotaryGroup, sigs []*consensuspb.Signature) (*consensuspb.Signature,error) {
+	sigBytes := make([][]byte, len(sigs))
 
+	for i,sig := range sigs {
+		sigBytes[i] = sig.Signature
+	}
+
+	combinedBytes,err := bls.SumSignatures(sigBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error summing sigs: %v", err)
+	}
+
+	sigsByCreator := make(map[string]*consensuspb.Signature)
+	for _,sig := range sigs {
+		sigsByCreator[sig.Creator] = sig
+	}
+
+	signers := make([]bool, len(group.PublicKeys))
+	for i,pubKey := range group.PublicKeys {
+		_,ok := sigsByCreator[common.BytesToAddress(pubKey).Hex()]
+		if ok {
+			signers[i] = true
+		} else {
+			signers[i] = false
+		}
+	}
+
+	return &consensuspb.Signature{
+		Creator: group.Id,
+		Signers: signers,
+		Signature: combinedBytes,
+	}, nil
 }
 
 
