@@ -2,7 +2,6 @@ package network
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/log"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/ethereum/go-ethereum/p2p"
 	"os"
@@ -40,7 +39,7 @@ func Start() (*whisper.Whisper,*whisper.Filter){
 		peers = append(peers,peer)
 	}
 
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
 	key, _ := crypto.GenerateKey()
 	// pub := key.PublicKey

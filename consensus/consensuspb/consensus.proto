@@ -26,12 +26,13 @@ message Signature {
 }
 
 message Transaction {
+    string id = 1;
     enum TransactionType {
         ADD_DATA = 0;
         UPDATE_OWNERSHIP = 1;
     }
-    TransactionType type = 1;
-    bytes payload = 2;
+    TransactionType type = 2;
+    bytes payload = 3;
 }
 
 message AddDataTransaction {
@@ -39,8 +40,8 @@ message AddDataTransaction {
 }
 
 message UpdateOwnershipTransaction {
-    Chain chain_id = 1;
-    repeated Authentication authentications = 2;
+    string chain_id = 1;
+    Authentication authentication = 2;
     repeated Authorization authorizations = 3;
 }
 

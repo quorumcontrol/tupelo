@@ -10,6 +10,7 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/notary"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 func defaultNotary(t *testing.T) *notary.Signer {
@@ -161,16 +162,16 @@ func TestNotary_CanSignBlock(t *testing.T) {
 		},
 	} {
 		test := testGen(t)
-		res,err := test.Notary.CanSignBlock(context.Background(), test.Block)
+		didValidate,_,err := test.Notary.ValidateBlockLevel(context.Background(), test.Block)
 		if test.ShouldError {
 			assert.NotNil(t, err, err, test.Description)
 		} else {
 			assert.Nil(t, err, err, test.Description)
 		}
 		if test.ShouldValidate {
-			assert.True(t, res, test.Description)
+			assert.True(t, didValidate, test.Description)
 		} else {
-			assert.False(t, res, test.Description)
+			assert.False(t, didValidate, test.Description)
 		}
 	}
 }
@@ -207,5 +208,77 @@ func TestNotary_SignBlock(t *testing.T) {
 		assert.Equal(t, len(blockWithSig.Signatures), sigLength + 1, test.Description)
 		assert.Equal(t, blockWithSig.Signatures[len(blockWithSig.Signatures) - 1].Creator, testNotary.NodeId())
 	}
+}
 
+func TestNotary_ProcessBlock(t *testing.T) {
+	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlTrace), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	type testDescription struct {
+		Description        string
+		Block         *consensuspb.Block
+		Notary *notary.Signer
+		Validator        func(t *testing.T, chain *consensuspb.Chain, block *consensuspb.Block, err error)
+	}
+	type testGenerator func(t *testing.T) (*testDescription)
+
+	for _,testGen := range []testGenerator{
+		func(t *testing.T) (*testDescription) {
+			testNotary := defaultNotary(t)
+			block := createBlock(t, nil)
+			signedBlock,err := consensus.OwnerSignBlock(block, aliceKey)
+			assert.Nil(t,err, "setting up just add data %v", err)
+
+			return &testDescription{
+				Description: "block with just add data",
+				Block: signedBlock,
+				Notary:  testNotary,
+				Validator: func(t *testing.T, savedChain *consensuspb.Chain, block *consensuspb.Block, err error) {
+					assert.Nil(t, err)
+					assert.NotNil(t,block)
+					assert.Equal(t, block, savedChain.Blocks[0])
+				},
+			}
+		},
+		func(t *testing.T) (*testDescription) {
+			testNotary := defaultNotary(t)
+			block := createBlock(t, nil)
+
+			updateTrans := &consensuspb.UpdateOwnershipTransaction{
+				ChainId: block.SignableBlock.ChainId,
+				Authentication: &consensuspb.Authentication{
+					PublicKeys: []*consensuspb.PublicKey{
+						{
+							Id: bobAddr.Hex(),
+							PublicKey: crypto.CompressPubkey(&bobKey.PublicKey),
+						},
+					},
+				},
+			}
+			trans := consensus.EncapsulateTransaction(consensuspb.UPDATE_OWNERSHIP, updateTrans)
+
+			block.SignableBlock.Transactions = append(block.SignableBlock.Transactions, trans)
+			signedBlock,err := consensus.OwnerSignBlock(block, aliceKey)
+			assert.Nil(t,err, "setting up with ownership change %v", err)
+			
+			return &testDescription{
+				Description: "block with just add data",
+				Block: signedBlock,
+				Notary:  testNotary,
+				Validator: func(t *testing.T, savedChain *consensuspb.Chain, block *consensuspb.Block, err error) {
+					assert.Nil(t, err)
+					assert.NotNil(t,block)
+					assert.Equal(t, block, savedChain.Blocks[0])
+					assert.Equal(t, savedChain.Authentication.PublicKeys[0].Id, updateTrans.Authentication.PublicKeys[0].Id)
+				},
+			}
+		},
+	} {
+		test := testGen(t)
+		processed, err := test.Notary.ProcessBlock(context.Background(), test.Block)
+		log.Trace("processed", "processed", processed)
+		chain,chnerr := test.Notary.ChainStore.Get(test.Block.SignableBlock.ChainId)
+		assert.Nil(t, chnerr, test.Description)
+
+		test.Validator(t, chain, processed, err)
+	}
 }

@@ -29,7 +29,7 @@ func IsSigned(_ context.Context, chain *consensuspb.Chain, block *consensuspb.Bl
 }
 
 func IsNotGenesisOrIsValidGenesis(_ context.Context, existingChain *consensuspb.Chain, block *consensuspb.Block) (bool,error) {
-	log.Trace("existing chain: %v", existingChain)
+	log.Trace("chain exists", "chain", existingChain)
 	if block.SignableBlock == nil {
 		log.Trace("no signable block")
 		return false, nil
