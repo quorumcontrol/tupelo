@@ -2,13 +2,13 @@ package notary
 
 import (
 	"github.com/quorumcontrol/qc3/bls"
-	"log"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"fmt"
 	"context"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type Storage interface {
@@ -27,7 +27,7 @@ type Signer struct {
 func NewSigner(storage Storage, signKey *bls.SignKey) *Signer {
 	verKey,err := signKey.VerKey()
 	if err != nil {
-		log.Panicf("error getting verkey from sign key: %v", err)
+		log.Crit("error getting verkey from sign key", "error", err)
 	}
 	return &Signer{
 		ChainStore: storage,
@@ -56,7 +56,7 @@ func (n *Signer) CanSignBlock(ctx context.Context, block *consensuspb.Block) (bo
 
 	currentChain,err := n.ChainStore.Get(block.SignableBlock.ChainId)
 	if err != nil {
-		log.Printf("error getting existing chain")
+		log.Trace("error getting existing chain")
 		return false, fmt.Errorf("error getting existing chain: %v", err)
 	}
 
@@ -68,7 +68,7 @@ func (n *Signer) CanSignBlock(ctx context.Context, block *consensuspb.Block) (bo
 			return false, fmt.Errorf("error getting validation: %v: %v", validatatorFunc, err)
 		}
 		if !isValid {
-			log.Printf("%d failed validation", i)
+			log.Trace("%d failed validation", i)
 			return false, nil
 		}
 	}

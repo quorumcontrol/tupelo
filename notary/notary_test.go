@@ -10,7 +10,6 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/notary"
-	"log"
 )
 
 func defaultNotary(t *testing.T) *notary.Signer {
@@ -161,7 +160,6 @@ func TestNotary_CanSignBlock(t *testing.T) {
 			}
 		},
 	} {
-		log.Printf("testGen")
 		test := testGen(t)
 		res,err := test.Notary.CanSignBlock(context.Background(), test.Block)
 		if test.ShouldError {
