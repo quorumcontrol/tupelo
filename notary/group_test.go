@@ -7,7 +7,6 @@ import (
 	"testing"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/stretchr/testify/assert"
-	"github.com/ethereum/go-ethereum/common"
 	"context"
 )
 
@@ -27,7 +26,7 @@ func TestVerifyNotaryGroupSignature(t *testing.T) {
 		publicKeys[i] = &consensuspb.PublicKey{
 			PublicKey: verKey.Bytes(),
 			Type: consensuspb.BLSGroupSig,
-			Id: common.BytesToAddress(verKey.Bytes()).Hex(),
+			Id: notary.PublicKeyToAddress(verKey.Bytes()).Hex(),
 		}
 	}
 

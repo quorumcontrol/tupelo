@@ -15,11 +15,15 @@ import (
 type byAddress []*consensuspb.PublicKey
 func (a byAddress) Len() int { return len(a) }
 func (a byAddress) Swap(i,j int) { a[i], a[j] = a[j], a[i] }
-func (a byAddress) Less(i,j int) bool { return common.BytesToAddress(a[i].PublicKey).Hex() < common.BytesToAddress(a[j].PublicKey).Hex() }
+func (a byAddress) Less(i,j int) bool { return PublicKeyToAddress(a[i].PublicKey).Hex() < PublicKeyToAddress(a[j].PublicKey).Hex() }
 
 type Group struct {
 	Id string
 	SortedPublicKeys []*consensuspb.PublicKey
+}
+
+func GroupFromChain(chain *consensuspb.Chain) *Group {
+	return NewGroup(chain.Id, chain.Authentication.PublicKeys)
 }
 
 func NewGroup(id string, keys []*consensuspb.PublicKey) *Group {
@@ -30,13 +34,13 @@ func NewGroup(id string, keys []*consensuspb.PublicKey) *Group {
 	}
 }
 
-func (g *Group) Address() string {
+func (g *Group) Address() common.Address {
 	pubKeys := make([][]byte, len(g.SortedPublicKeys))
 	for i,pubKey := range g.SortedPublicKeys {
 		pubKeys[i] = pubKey.PublicKey
 	}
 
-	return common.BytesToAddress(concatBytes(pubKeys)).Hex()
+	return PublicKeyToAddress(concatBytes(pubKeys))
 }
 
 func concatBytes(slices [][]byte) []byte {
@@ -102,8 +106,6 @@ func (group *Group) CombineSignatures(sigs []*consensuspb.Signature) (*consensus
 			signers[i] = false
 		}
 	}
-
-	fmt.Printf("signers: %v", signers)
 
 	return &consensuspb.Signature{
 		Creator: group.Id,

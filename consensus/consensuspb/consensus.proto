@@ -45,9 +45,9 @@ message UpdateOwnershipTransaction {
 }
 
 message Chain {
-    bytes id = 1;
+    string id = 1;
     repeated Block blocks = 2;
-    repeated Authentication authentications = 3;
+    Authentication authentication = 3;
     repeated Authorization authorizations = 4;
 }
 
@@ -65,7 +65,7 @@ message SignableBlock {
 message PublicKey {
     string id = 1;
     SignatureType type = 2;
-    string owner = 3;
+    string chain_id = 3;
     string public_key_pem = 4;
     string public_key_base64 = 5;
     bytes public_key = 6;
@@ -74,13 +74,13 @@ message PublicKey {
 message Authorization {
     enum Type {
         UPDATE = 0;
-        PROVE = 1;
-        CHANGE_OWNERSHIP = 2;
-        ALL = 3;
+//        PROVE = 1;
+//        CHANGE_OWNERSHIP = 2;
+//        ALL = 3;
     }
     Type type = 1;
     uint64 minimum = 2;
-    repeated string owners = 3;
+    repeated Chain owners = 3;
 }
 
 message Authentication {

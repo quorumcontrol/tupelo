@@ -5,6 +5,7 @@ import (
 	"testing"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/consensus"
+	"crypto/ecdsa"
 )
 
 var aliceKey,_ = crypto.GenerateKey()
@@ -38,4 +39,21 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 	}
 
 	return retBlock
+}
+
+func chainFromEcdsaKey(t *testing.T, key *ecdsa.PublicKey) *consensuspb.Chain {
+	chainId := consensus.AddrToDid(crypto.PubkeyToAddress(*key).Hex())
+	return &consensuspb.Chain{
+		Id: chainId,
+		Authentication: &consensuspb.Authentication{
+			PublicKeys: []*consensuspb.PublicKey{
+				{
+					ChainId: chainId,
+					Id: crypto.PubkeyToAddress(*key).Hex(),
+					PublicKey: crypto.CompressPubkey(key),
+					Type: consensuspb.Secp256k1,
+				},
+			},
+		},
+	}
 }

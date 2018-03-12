@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
-	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -61,12 +60,12 @@ func TestSanity(t *testing.T) {
 
 func TestVerifySignature(t *testing.T) {
 	type testDescription struct {
-		Description        string
-		Block         *consensuspb.Block
-		InternalOwnership *internalchain.InternalOwnership
-		ShouldError        bool
-		ShouldVerify bool
-		Signature *consensuspb.Signature
+		Description       string
+		Block             *consensuspb.Block
+		PublicKey *consensuspb.PublicKey
+		ShouldError       bool
+		ShouldVerify      bool
+		Signature         *consensuspb.Signature
 	}
 	type testGenerator func(t *testing.T) (*testDescription)
 
@@ -84,18 +83,15 @@ func TestVerifySignature(t *testing.T) {
 				Signature: sig,
 				ShouldError: false,
 				ShouldVerify: true,
-				InternalOwnership: &internalchain.InternalOwnership{
-					PublicKeys: map[string]*consensuspb.PublicKey{
-						aliceAddr.Hex(): {
-							PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
-						},
-					},
+				PublicKey: &consensuspb.PublicKey{
+					Id: aliceAddr.Hex(),
+					PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
 				},
 			}
 		},
 	} {
 		test := testGen(t)
-		valid,err := consensus.VerifySignature(test.Block, test.InternalOwnership, test.Signature)
+		valid,err := consensus.VerifySignature(test.Block, test.PublicKey, test.Signature)
 
 		if test.ShouldError {
 			assert.NotNil(t, err, test.Description)

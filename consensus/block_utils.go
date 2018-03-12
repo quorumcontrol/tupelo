@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/internalchain"
 )
 
 func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
@@ -17,6 +16,15 @@ func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
 	}
 
 	return common.BytesToHash(bytes), nil
+}
+
+func AuthorizationsByType(chain *consensuspb.Chain) (map[consensuspb.Authorization_Type]*consensuspb.Authorization) {
+	retMap := make(map[consensuspb.Authorization_Type]*consensuspb.Authorization)
+	for _,auth := range chain.Authorizations {
+		retMap[auth.Type] = auth
+	}
+
+	return retMap
 }
 
 func OwnerSignBlock(block *consensuspb.Block, key *ecdsa.PrivateKey) (*consensuspb.Block, error) {
@@ -45,20 +53,15 @@ func OwnerSignBlock(block *consensuspb.Block, key *ecdsa.PrivateKey) (*consensus
 	return block,nil
 }
 
-func VerifySignature(block *consensuspb.Block, ownership *internalchain.InternalOwnership, sig *consensuspb.Signature) (bool, error) {
+func VerifySignature(block *consensuspb.Block, key *consensuspb.PublicKey, sig *consensuspb.Signature) (bool, error) {
 	hsh,err := BlockToHash(block)
 	if err != nil {
 		return false, fmt.Errorf("error generating hash: %v", err)
 	}
 
-	pubKey,ok := ownership.PublicKeys[sig.Creator]
-	if !ok {
-		return false, fmt.Errorf("unknown public key")
-	}
-
 	switch sig.Type {
 	case consensuspb.Secp256k1:
-		return crypto.VerifySignature(pubKey.PublicKey, hsh.Bytes(), sig.Signature[:len(sig.Signature)-1]), nil
+		return crypto.VerifySignature(key.PublicKey, hsh.Bytes(), sig.Signature[:len(sig.Signature)-1]), nil
 	}
 
 	return false, fmt.Errorf("unkown signature type")
@@ -71,4 +74,12 @@ func SignaturesByCreator(block *consensuspb.Block) (sigs map[string]*consensuspb
 		sigs[sig.Creator] = sig
 	}
 	return sigs
+}
+
+func PubKeysById(keys []*consensuspb.PublicKey) (map[string]*consensuspb.PublicKey) {
+	retMap := make(map[string]*consensuspb.PublicKey)
+	for _,key := range keys {
+		retMap[key.Id] = key
+	}
+	return retMap
 }

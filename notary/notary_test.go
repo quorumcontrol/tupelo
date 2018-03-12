@@ -10,6 +10,7 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/notary"
+	"log"
 )
 
 func defaultNotary(t *testing.T) *notary.Signer {
@@ -64,18 +65,13 @@ func TestNotary_CanSignBlock(t *testing.T) {
 		},
 		func(t *testing.T) (*testDescription) {
 			previousBlock := createBlock(t,nil)
-			existingChain := &internalchain.InternalChain{
-				Id: consensus.AddrToDid(aliceAddr.Hex()),
-				LastBlock: previousBlock,
-				MinimumOwners: 1,
-				CurrentOwners: []*internalchain.InternalOwnership{
-					{
-						Name: consensus.AddrToDid(aliceAddr.Hex()),
-						PublicKeys: map[string]*consensuspb.PublicKey{
-							aliceAddr.Hex(): {
-								Id: aliceAddr.Hex(),
-								PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
-							},
+			existingChain := &consensuspb.Chain{
+				Blocks: []*consensuspb.Block{previousBlock},
+				Authentication: &consensuspb.Authentication{
+					PublicKeys: []*consensuspb.PublicKey{
+						{
+							Id: aliceAddr.Hex(),
+							PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
 						},
 					},
 				},
@@ -96,18 +92,14 @@ func TestNotary_CanSignBlock(t *testing.T) {
 		},
 		func(t *testing.T) (*testDescription) {
 			previousBlock := createBlock(t,nil)
-			existingChain := &internalchain.InternalChain{
+			existingChain := &consensuspb.Chain{
 				Id: consensus.AddrToDid(aliceAddr.Hex()),
-				LastBlock: previousBlock,
-				MinimumOwners: 1,
-				CurrentOwners: []*internalchain.InternalOwnership{
-					{
-						Name: consensus.AddrToDid(bobAddr.Hex()),
-						PublicKeys: map[string]*consensuspb.PublicKey{
-							bobAddr.Hex(): {
-								Id: bobAddr.Hex(),
-								PublicKey: crypto.CompressPubkey(&bobKey.PublicKey),
-							},
+				Blocks: []*consensuspb.Block{previousBlock},
+				Authentication: &consensuspb.Authentication{
+					PublicKeys: []*consensuspb.PublicKey{
+						{
+							Id: bobAddr.Hex(),
+							PublicKey: crypto.CompressPubkey(&bobKey.PublicKey),
 						},
 					},
 				},
@@ -128,35 +120,24 @@ func TestNotary_CanSignBlock(t *testing.T) {
 		},
 		func(t *testing.T) (*testDescription) {
 			previousBlock := createBlock(t,nil)
-			existingChain := &internalchain.InternalChain{
+			existingChain := &consensuspb.Chain{
 				Id: consensus.AddrToDid(aliceAddr.Hex()),
-				LastBlock: previousBlock,
-				MinimumOwners: 2,
-				CurrentOwners: []*internalchain.InternalOwnership{
-					{
-						Name: consensus.AddrToDid(aliceAddr.Hex()),
-						PublicKeys: map[string]*consensuspb.PublicKey{
-							aliceAddr.Hex(): {
-								Id: aliceAddr.Hex(),
-								PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
-							},
+				Blocks: []*consensuspb.Block{previousBlock},
+				Authentication: &consensuspb.Authentication{
+					PublicKeys: []*consensuspb.PublicKey{
+						{
+							Id: aliceAddr.Hex(),
+							PublicKey: crypto.CompressPubkey(&aliceKey.PublicKey),
 						},
 					},
+				},
+				Authorizations: []*consensuspb.Authorization{
 					{
-						Name: consensus.AddrToDid(bobAddr.Hex()),
-						PublicKeys: map[string]*consensuspb.PublicKey{
-							bobAddr.Hex(): {
-								Id: bobAddr.Hex(),
-								PublicKey: crypto.CompressPubkey(&bobKey.PublicKey),
-							},
-						},
-					},{
-						Name: consensus.AddrToDid(carolAddr.Hex()),
-						PublicKeys: map[string]*consensuspb.PublicKey{
-							carolAddr.Hex(): {
-								Id: carolAddr.Hex(),
-								PublicKey: crypto.CompressPubkey(&carolKey.PublicKey),
-							},
+						Type: consensuspb.UPDATE,
+						Minimum: 2,
+						Owners: []*consensuspb.Chain{
+							chainFromEcdsaKey(t, &bobKey.PublicKey),
+							chainFromEcdsaKey(t, &carolKey.PublicKey),
 						},
 					},
 				},
@@ -180,6 +161,7 @@ func TestNotary_CanSignBlock(t *testing.T) {
 			}
 		},
 	} {
+		log.Printf("testGen")
 		test := testGen(t)
 		res,err := test.Notary.CanSignBlock(context.Background(), test.Block)
 		if test.ShouldError {
