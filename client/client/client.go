@@ -2,7 +2,6 @@ package client
 
 import (
 	"github.com/quorumcontrol/qc3/notary"
-	"github.com/quorumcontrol/qc3/client/wallet"
 	"crypto/ecdsa"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
@@ -17,9 +16,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type Wallet interface {
+	GetChain(id string) (*consensuspb.Chain, error)
+	SetChain(id string, chain *consensuspb.Chain) (error)
+}
+
 type Client struct {
 	Group *notary.Group
-	Wallet *wallet.Wallet
+	Wallet Wallet
 	filter *whisper.Filter
 	sessionKey *ecdsa.PrivateKey
 	stopChan chan bool
@@ -27,7 +31,7 @@ type Client struct {
 	protocols map[string]map[string]*consensuspb.SignatureResponse
 }
 
-func NewClient(group *notary.Group, wallet *wallet.Wallet) *Client {
+func NewClient(group *notary.Group, wallet Wallet) *Client {
 	sessionKey,_ := crypto.GenerateKey()
 	return &Client{
 		Group: group,
@@ -76,11 +80,28 @@ func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 		return
 	}
 
+	existing,err := c.Wallet.GetChain(resp.Block.SignableBlock.ChainId)
+	if err != nil {
+		log.Error("error getting chain", "error", err)
+		return
+	}
+	if existing != nil {
+		existing.Blocks[len(existing.Blocks) - 1].Signatures = append(existing.Blocks[len(existing.Blocks) - 1].Signatures, resp.Block.Signatures...)
+		c.Wallet.SetChain(existing.Id, existing)
+	} else {
+		log.Error("received block for unknown chain", "chainId", resp.Block.SignableBlock.ChainId)
+	}
+
 	c.protocols[resp.Id][resp.SignerId] = resp
 
+	//TODO: handle timeouts
 	if len(c.protocols[resp.Id]) == len(c.Group.SortedPublicKeys) {
 		log.Debug("All Responses In", "id", resp.Id)
-
+		_,err = c.Group.ReplaceSignatures(existing.Blocks[len(existing.Blocks) - 1])
+		if err != nil {
+			log.Error("error replacing signatures", "error", err)
+		}
+		c.Wallet.SetChain(existing.Id, existing)
 	}
 
 }
@@ -133,6 +154,8 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	})
 
 	consensus.OwnerSignBlock(chain.Blocks[0], key)
+
+	c.Wallet.SetChain(chain.Id, chain)
 
 	err := c.RequestSignature(chain)
 	if err != nil {

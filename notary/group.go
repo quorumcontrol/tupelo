@@ -81,27 +81,23 @@ func (group *Group) VerifySignature(msg []byte, sig *consensuspb.Signature) (boo
 
 
 func (group *Group) CombineSignatures(sigs []*consensuspb.Signature) (*consensuspb.Signature,error) {
-	sigBytes := make([][]byte, len(sigs))
+	sigBytes := make([][]byte, 0)
+	sigMap := sigsByCreator(sigs)
 
-	for i,sig := range sigs {
-		sigBytes[i] = sig.Signature
+	signers := make([]bool, len(group.SortedPublicKeys))
+	for i,pubKey := range group.SortedPublicKeys {
+		sig,ok := sigMap[pubKey.Id]
+		if ok {
+			sigBytes = append(sigBytes, sig.Signature)
+			signers[i] = true
+		} else {
+			signers[i] = false
+		}
 	}
 
 	combinedBytes,err := bls.SumSignatures(sigBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error summing sigs: %v", err)
-	}
-
-	sigMap := sigsByCreator(sigs)
-
-	signers := make([]bool, len(group.SortedPublicKeys))
-	for i,pubKey := range group.SortedPublicKeys {
-		_,ok := sigMap[pubKey.Id]
-		if ok {
-			signers[i] = true
-		} else {
-			signers[i] = false
-		}
 	}
 
 	return &consensuspb.Signature{

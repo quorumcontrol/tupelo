@@ -18,6 +18,7 @@ import (
 	"os"
 	"crypto/ecdsa"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/stretchr/testify/assert"
 )
 
 var blsHexKeys = []string{
@@ -99,15 +100,26 @@ func TestFullIntegration(t *testing.T) {
 	defer cluster.Stop()
 
 	t.Log("creating client")
-	c := client.NewClient(cluster.Group, &wallet.Wallet{})
+	memWallet := wallet.NewMemoryWallet("test")
+	c := client.NewClient(cluster.Group, memWallet)
 	c.Start()
 	defer c.Stop()
 
-	time.Sleep(time.Duration(15) * time.Second)
+	time.Sleep(time.Duration(5) * time.Second)
 
 	newChainKey,_ := crypto.GenerateKey()
 	t.Log("creating chain")
-	c.CreateChain(newChainKey)
+	newChain,err := c.CreateChain(newChainKey)
+	assert.Nil(t, err)
+
 	t.Log("sleeping")
-	time.Sleep(time.Duration(30) * time.Second)
+	time.Sleep(time.Duration(10) * time.Second)
+
+	walletChain,err := c.Wallet.GetChain(newChain.Id)
+	assert.Nil(t, err)
+
+	isSigned,err := cluster.Group.IsSignedByGroup(walletChain.Blocks[len(walletChain.Blocks) - 1])
+	assert.Nil(t, err)
+
+	assert.True(t, isSigned)
 }
