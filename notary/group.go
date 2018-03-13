@@ -10,12 +10,11 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 )
 
-
 // see https://golang.org/pkg/sort/#Slice
 type byAddress []*consensuspb.PublicKey
 func (a byAddress) Len() int { return len(a) }
 func (a byAddress) Swap(i,j int) { a[i], a[j] = a[j], a[i] }
-func (a byAddress) Less(i,j int) bool { return PublicKeyToAddress(a[i].PublicKey).Hex() < PublicKeyToAddress(a[j].PublicKey).Hex() }
+func (a byAddress) Less(i,j int) bool { return consensus.BlsVerKeyToAddress(a[i].PublicKey).Hex() < consensus.BlsVerKeyToAddress(a[j].PublicKey).Hex() }
 
 type Group struct {
 	Id string
@@ -24,6 +23,12 @@ type Group struct {
 
 func GroupFromChain(chain *consensuspb.Chain) *Group {
 	return NewGroup(chain.Id, chain.Authentication.PublicKeys)
+}
+
+func GroupFromPublicKeys(keys []*consensuspb.PublicKey) *Group {
+	group := NewGroup("", keys)
+	group.Id = consensus.AddrToDid(group.Address().Hex())
+	return group
 }
 
 func NewGroup(id string, keys []*consensuspb.PublicKey) *Group {
@@ -40,7 +45,7 @@ func (g *Group) Address() common.Address {
 		pubKeys[i] = pubKey.PublicKey
 	}
 
-	return PublicKeyToAddress(concatBytes(pubKeys))
+	return consensus.BlsVerKeyToAddress(concatBytes(pubKeys))
 }
 
 func concatBytes(slices [][]byte) []byte {
@@ -57,12 +62,7 @@ func concatBytes(slices [][]byte) []byte {
 }
 
 
-func (group *Group) VerifySignature(block *consensuspb.Block, sig *consensuspb.Signature) (bool,error) {
-	hsh,err := consensus.BlockToHash(block)
-	if err != nil {
-		return false, fmt.Errorf("error generating hash: %v", err)
-	}
-
+func (group *Group) VerifySignature(msg []byte, sig *consensuspb.Signature) (bool,error) {
 	requiredNum := uint64(math.Ceil(2.0 * (float64(len(group.SortedPublicKeys)) / 3.0)))
 
 	var expectedKeyBytes [][]byte
@@ -76,7 +76,7 @@ func (group *Group) VerifySignature(block *consensuspb.Block, sig *consensuspb.S
 		return false,nil
 	}
 
-	return bls.VerifyMultiSig(sig.Signature, hsh.Bytes(), expectedKeyBytes)
+	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
 
@@ -92,14 +92,11 @@ func (group *Group) CombineSignatures(sigs []*consensuspb.Signature) (*consensus
 		return nil, fmt.Errorf("error summing sigs: %v", err)
 	}
 
-	sigsByCreator := make(map[string]*consensuspb.Signature)
-	for _,sig := range sigs {
-		sigsByCreator[sig.Creator] = sig
-	}
+	sigMap := sigsByCreator(sigs)
 
 	signers := make([]bool, len(group.SortedPublicKeys))
 	for i,pubKey := range group.SortedPublicKeys {
-		_,ok := sigsByCreator[pubKey.Id]
+		_,ok := sigMap[pubKey.Id]
 		if ok {
 			signers[i] = true
 		} else {
@@ -112,4 +109,62 @@ func (group *Group) CombineSignatures(sigs []*consensuspb.Signature) (*consensus
 		Signers: signers,
 		Signature: combinedBytes,
 	}, nil
+}
+
+func (group *Group) ReplaceSignatures(block *consensuspb.Block) (*consensuspb.Block, error) {
+	combinedSig,err := group.CombineSignatures(block.Signatures)
+	if err != nil {
+		return nil, fmt.Errorf("error combining sig: %v", err)
+	}
+
+	hsh,err := consensus.BlockToHash(block)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing block")
+	}
+
+	verified,err := group.VerifySignature(hsh.Bytes(), combinedSig)
+	if err != nil || !verified {
+		return nil, fmt.Errorf("error combining sig (verified? %v): %v", verified, err)
+	}
+
+	sigsMap := sigsByCreator(block.Signatures)
+	for _,publicKey := range group.SortedPublicKeys {
+		delete(sigsMap, consensus.BlsVerKeyToAddress(publicKey.PublicKey).Hex())
+	}
+
+	newSigs := make([]*consensuspb.Signature, len(sigsMap) + 1)
+	i := 0;
+	for _,sig := range sigsMap {
+		newSigs[i] = sig
+		i++
+	}
+	newSigs[i] = combinedSig
+	block.Signatures = newSigs
+	return block,nil
+}
+
+func (group *Group) IsSignedByGroup(block *consensuspb.Block) (bool,error) {
+	if len(block.Signatures) == 0 {
+		return false, nil
+	}
+	sigs := sigsByCreator(block.Signatures)
+	sig,ok := sigs[group.Id]
+	if !ok {
+		return false,nil
+	}
+
+	hsh,err := consensus.BlockToHash(block)
+	if err != nil {
+		return false, fmt.Errorf("error hashing block: %v",err)
+	}
+
+	return group.VerifySignature(hsh.Bytes(),sig)
+}
+
+func sigsByCreator(sigs []*consensuspb.Signature) map[string]*consensuspb.Signature {
+	sigsByCreator := make(map[string]*consensuspb.Signature)
+	for _,sig := range sigs {
+		sigsByCreator[sig.Creator] = sig
+	}
+	return sigsByCreator
 }

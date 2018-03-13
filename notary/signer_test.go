@@ -206,7 +206,7 @@ func TestNotary_SignBlock(t *testing.T) {
 			assert.Nil(t, err, test.Description)
 		}
 		assert.Equal(t, len(blockWithSig.Signatures), sigLength + 1, test.Description)
-		assert.Equal(t, blockWithSig.Signatures[len(blockWithSig.Signatures) - 1].Creator, testNotary.NodeId())
+		assert.Equal(t, blockWithSig.Signatures[len(blockWithSig.Signatures) - 1].Creator, testNotary.Id())
 	}
 }
 
@@ -259,7 +259,7 @@ func TestNotary_ProcessBlock(t *testing.T) {
 			block.SignableBlock.Transactions = append(block.SignableBlock.Transactions, trans)
 			signedBlock,err := consensus.OwnerSignBlock(block, aliceKey)
 			assert.Nil(t,err, "setting up with ownership change %v", err)
-			
+
 			return &testDescription{
 				Description: "block with just add data",
 				Block: signedBlock,

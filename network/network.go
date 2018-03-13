@@ -5,12 +5,15 @@ import (
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/ethereum/go-ethereum/p2p"
 	"os"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
+	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var CothorityTopic = []byte("qctt")
 var Key = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
+
+var CothorityFilter = NewFilter(CothorityTopic, Key)
 
 // from here: https://github.com/status-im/status-go/blob/develop/static/config/staticpeers.json
 var bootNodes = []string{
@@ -32,7 +35,7 @@ var bootNodes = []string{
 	"enode://a1ef9ba5550d5fac27f7cbd4e8d20a643ad75596f307c91cd6e7f85b548b8a6bf215cca436d6ee436d6135f9fe51398f8dd4c0bd6c6a0c332ccb41880f33ec12@51.15.218.125:30303",
 }
 
-func Start() (*whisper.Whisper,*whisper.Filter){
+func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 	var peers []*discover.Node
 	for _,enode := range bootNodes {
 		peer := discover.MustParseNode(enode)
@@ -41,14 +44,15 @@ func Start() (*whisper.Whisper,*whisper.Filter){
 
 	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
-	key, _ := crypto.GenerateKey()
+	//key, _ := crypto.GenerateKey()
 	// pub := key.PublicKey
 
 	whisp := whisper.New(&whisper.Config{
-		MaxMessageSize: whisper.DefaultMaxMessageSize,
+		MaxMessageSize: whisper.MaxMessageSize,
 		MinimumAcceptedPOW: 0.001,
 	})
 	whisp.AddKeyPair(key)
+	whisp.Start(nil)
 
 	srv := &p2p.Server{
 		Config: p2p.Config{
@@ -63,13 +67,8 @@ func Start() (*whisper.Whisper,*whisper.Filter){
 		fmt.Println("could not start server:", err)
 		os.Exit(1)
 	}
-	whisp.Start(srv)
 
-	f := NewFilter(CothorityTopic, Key)
-
-	whisp.Subscribe(f)
-
-	return whisp, f
+	return whisp
 }
 
 func Send(whisp *whisper.Whisper, params *whisper.MessageParams) (error) {
@@ -91,10 +90,19 @@ func Send(whisp *whisper.Whisper, params *whisper.MessageParams) (error) {
 func NewFilter(topic []byte, symKey []byte) (*whisper.Filter) {
 	topicBytes := whisper.BytesToTopic(topic)
 
-	// AcceptP2P & PoW are not set
 	return &whisper.Filter{
 		KeySym: symKey,
 		Topics: [][]byte{topicBytes[:]},
+		AllowP2P: false,
+	}
+}
+
+func NewP2PFilter(key *ecdsa.PrivateKey) (*whisper.Filter) {
+	topicBytes := whisper.BytesToTopic(CothorityTopic)
+	log.Debug("p2p filter topic created", "topic", [][]byte{topicBytes[:]})
+	return &whisper.Filter{
+		Topics: [][]byte{topicBytes[:]},
 		AllowP2P: true,
+		KeyAsym: key,
 	}
 }

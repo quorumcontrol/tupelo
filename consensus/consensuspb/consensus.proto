@@ -17,6 +17,26 @@ enum SignatureType {
     Secp256k1 = 2;
 }
 
+enum ErrorCodes {
+    SUCCESS = 0;
+    INVALID = 1;
+}
+
+message SignatureRequest {
+    string id = 1;
+    Chain chain = 2;
+    bytes response_key = 3;
+}
+
+message SignatureResponse {
+    string id = 1;
+    string signer_id = 2;
+    Block block = 3;
+    ErrorCodes error = 4;
+    string error_message = 5;
+    bytes expected_hash = 6;
+}
+
 message Signature {
     string creator = 1;
     // expected to be a bitmap

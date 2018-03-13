@@ -150,6 +150,14 @@ func (sk *SignKey) VerKey() (*VerKey, error) {
 	},nil
 }
 
+func (sk *SignKey) MustVerKey() (*VerKey) {
+	verKey,err := sk.VerKey()
+	if err != nil {
+		log.Panicf("error getting verKey: %v", err)
+	}
+	return verKey
+}
+
 func (vk *VerKey) Bytes() []byte {
 	return vk.value
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/quorumcontrol/qc3/bls"
 )
 
 func TestOwnerSignBlock(t *testing.T) {
@@ -39,6 +40,41 @@ func TestOwnerSignBlock(t *testing.T) {
 		}
 		assert.Equal(t, len(blockWithSig.Signatures), sigLength + 1, test.Description)
 		assert.Equal(t, blockWithSig.Signatures[len(blockWithSig.Signatures) - 1].Creator, aliceAddr.Hex())
+	}
+}
+
+func TestBlsSignBlock(t *testing.T) {
+	signerBls,err := bls.NewSignKey()
+	assert.Nil(t, err)
+
+	type testDescription struct {
+		Description        string
+		Block         *consensuspb.Block
+		PrivateKey *bls.SignKey
+		ShouldError        bool
+	}
+	type testGenerator func(t *testing.T) (*testDescription)
+
+	for _,testGen := range []testGenerator{
+		func(t *testing.T) (*testDescription) {
+			return &testDescription{
+				Description: "valid everything",
+				Block:       createBlock(t, nil),
+				PrivateKey:  signerBls,
+				ShouldError: false,
+			}
+		},
+	} {
+		test := testGen(t)
+		sigLength := len(test.Block.Signatures)
+		blockWithSig,err := consensus.BlsSignBlock(test.Block, test.PrivateKey)
+		if test.ShouldError {
+			assert.NotNil(t, err, test.Description)
+		} else {
+			assert.Nil(t, err, test.Description)
+		}
+		assert.Equal(t, len(blockWithSig.Signatures), sigLength + 1, test.Description)
+		assert.Equal(t, blockWithSig.Signatures[len(blockWithSig.Signatures) - 1].Creator, consensus.BlsVerKeyToAddress(signerBls.MustVerKey().Bytes()).Hex())
 	}
 }
 

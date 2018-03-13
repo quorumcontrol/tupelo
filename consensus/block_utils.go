@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/qc3/bls"
 )
 
 func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
@@ -53,6 +54,31 @@ func OwnerSignBlock(block *consensuspb.Block, key *ecdsa.PrivateKey) (*consensus
 	return block,nil
 }
 
+func BlsSignBlock(block *consensuspb.Block, key *bls.SignKey) (*consensuspb.Block, error) {
+	if block.SignableBlock == nil {
+		return nil, fmt.Errorf("no signable block")
+	}
+
+	hsh,err := BlockToHash(block)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing block: %v", err)
+	}
+
+	sigBytes,err := key.Sign(hsh.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("error signing: %v", err)
+	}
+
+	sig := &consensuspb.Signature{
+		Creator: BlsVerKeyToAddress(key.MustVerKey().Bytes()).Hex(),
+		Signature: sigBytes,
+		Type: consensuspb.BLSGroupSig,
+	}
+
+	block.Signatures = append(block.Signatures, sig)
+	return block, nil
+}
+
 func VerifySignature(block *consensuspb.Block, key *consensuspb.PublicKey, sig *consensuspb.Signature) (bool, error) {
 	hsh,err := BlockToHash(block)
 	if err != nil {
@@ -74,12 +100,4 @@ func SignaturesByCreator(block *consensuspb.Block) (sigs map[string]*consensuspb
 		sigs[sig.Creator] = sig
 	}
 	return sigs
-}
-
-func PubKeysById(keys []*consensuspb.PublicKey) (map[string]*consensuspb.PublicKey) {
-	retMap := make(map[string]*consensuspb.PublicKey)
-	for _,key := range keys {
-		retMap[key.Id] = key
-	}
-	return retMap
 }
