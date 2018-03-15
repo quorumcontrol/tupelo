@@ -11,6 +11,15 @@ import (
 
 var DefaultTransactorRegistry TransactorRegistry
 
+type TransactorState struct {
+	MutatableTip *consensuspb.ChainTip
+	Signer *Signer
+	History History
+	// A block can be mutated (by adding individual transaction signatures)
+	MutatableBlock *consensuspb.Block
+	Transaction interface{}
+}
+
 func init() {
 	DefaultTransactorRegistry = NewTransactorRegistry()
 	DefaultTransactorRegistry[consensuspb.UPDATE_OWNERSHIP] = &TransactorRegistryEntry{
@@ -19,7 +28,7 @@ func init() {
 	}
 }
 
-type Transactor func(ctx context.Context, chain *consensuspb.Chain, block *consensuspb.Block, transaction interface{}) (mutatedChain *consensuspb.Chain, shouldInterrupt bool, err error)
+type Transactor func(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error)
 
 type TransactorRegistryEntry struct {
 	Unmarshaler string
@@ -32,7 +41,9 @@ func NewTransactorRegistry() TransactorRegistry {
 	return make(TransactorRegistry)
 }
 
-func (tr TransactorRegistry) Distribute(ctx context.Context, chain *consensuspb.Chain, block *consensuspb.Block, transaction *consensuspb.Transaction) (mutatedChain *consensuspb.Chain, shouldInterrupt bool, err error) {
+func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+	transaction := (state.Transaction).(*consensuspb.Transaction)
+
 	log.Debug("processing transaction", "id", transaction.Id)
 	transactorRegistryEntry,ok := tr[transaction.Type]
 	if ok {
@@ -46,17 +57,25 @@ func (tr TransactorRegistry) Distribute(ctx context.Context, chain *consensuspb.
 			return nil, true, fmt.Errorf("error unmarshaling: %v", err)
 		}
 		log.Trace("executing transactor with instance", "instance", instance)
-		return transactorRegistryEntry.Transactor(ctx, chain,block, instance)
+		state.Transaction = instance
+		return transactorRegistryEntry.Transactor(ctx, state)
 	}
 
 	log.Debug("unknown transaction type: ", "type", transaction.Type)
-	return chain, false, nil
+	return state, false, nil
 }
 
-func UpdateOwnershipTransactor (ctx context.Context, chain *consensuspb.Chain, block *consensuspb.Block, transaction interface{}) (mutatedChain *consensuspb.Chain, shouldInterrupt bool, err error) {
-	castTransaction := (transaction).(*consensuspb.UpdateOwnershipTransaction)
-	chain.Authorizations = castTransaction.Authorizations
-	chain.Authentication = castTransaction.Authentication
+func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+	castTransaction := (state.Transaction).(*consensuspb.UpdateOwnershipTransaction)
+	state.MutatableTip.Authorizations = castTransaction.Authorizations
+	state.MutatableTip.Authentication = castTransaction.Authentication
 
-	return chain, false, nil
+	return state, false, nil
 }
+//
+//func SendCoinTransactor(ctx context.Context, chain *consensuspb.Chain, block *consensuspb.Block, transaction interface{}) (mutatedChain *consensuspb.Chain, shouldInterrupt bool, err error) {
+//	castTransaction := (transaction).(*consensuspb.SendCoinTransaction)
+//
+//
+//
+//}

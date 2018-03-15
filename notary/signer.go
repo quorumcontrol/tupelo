@@ -72,38 +72,6 @@ func (n *Signer) catchupTip(ctx context.Context, history History, tip *consensus
 	return nil
 }
 
-func (n *Signer) tipAndHistoryToChain(ctx context.Context, history History, tip *consensuspb.ChainTip) (*consensuspb.Chain, error) {
-	chain := &consensuspb.Chain{
-		Id: tip.Id,
-		Authentication: tip.Authentication,
-		Authorizations: tip.Authorizations,
-	}
-
-	if history != nil {
-		blocks := make([]*consensuspb.Block, history.Length())
-
-		block := history.GetBlock(tip.LastHash)
-		for i := history.Length()-1; i >0 && block != nil; i-- {
-			isSigned,err := n.Group.IsSignedByGroup(block)
-			if err != nil {
-				return nil, fmt.Errorf("error getting is signed: %v", err)
-			}
-			if !isSigned {
-				return nil, fmt.Errorf("invalid history, block was unsigned: %v", err)
-			}
-			blocks[i] = block
-			hsh,err := consensus.BlockToHash(block)
-			if err != nil {
-				return nil, fmt.Errorf("error getting hash: %v", err)
-			}
-			block = history.GetBlock(hsh.Bytes())
-		}
-		chain.Blocks = blocks
-	}
-
-	return chain,nil
-}
-
 func (n *Signer) ProcessBlock(ctx context.Context, history History, block *consensuspb.Block) (processed *consensuspb.Block, err error) {
 	if block.SignableBlock == nil {
 		log.Debug("no signable block")
@@ -123,11 +91,7 @@ func (n *Signer) ProcessBlock(ctx context.Context, history History, block *conse
 	isValid, err := n.ValidateBlockLevel(ctx, chainTip, block)
 	if isValid {
 		log.Debug("block is valid")
-		startChain,err := n.tipAndHistoryToChain(ctx, history, chainTip)
-		if err != nil {
-			return nil, fmt.Errorf("error converting history to chain: %v", err)
-		}
-		chain, success,err := n.RunTransactions(ctx, startChain, block)
+		newTip, success,err := n.RunTransactions(ctx, chainTip, history, block)
 		if err != nil {
 			return nil, fmt.Errorf("error running transactions: %v", err)
 		}
@@ -139,12 +103,10 @@ func (n *Signer) ProcessBlock(ctx context.Context, history History, block *conse
 				return nil, fmt.Errorf("error signing block: %v", err)
 			}
 
-			// TODO: For now we keep the entire state of the chain, that should change to just the last block
-			chain.Blocks = append(chain.Blocks, signedBlock)
-
-			log.Debug("saving chain", "chainId", chain.Id)
-			// TODO: we should set the store until it's been broadcast on the network
-			n.ChainStore.Set(chain.Id, consensus.ChainToTip(chain))
+			log.Debug("saving chain", "chainId", newTip.Id)
+			// TODO: we should not set the store until it's been broadcast on the network
+			newTip.LastHash = consensus.MustBlockToHash(signedBlock).Bytes()
+			n.ChainStore.Set(newTip.Id, newTip)
 
 			log.Debug("returning block with no error")
 			return signedBlock, nil
@@ -175,20 +137,32 @@ func (n *Signer) ValidateBlockLevel(ctx context.Context, chainTip *consensuspb.C
 	return true, nil
 }
 
-func (n *Signer) RunTransactions(ctx context.Context, chainState *consensuspb.Chain, block *consensuspb.Block) (*consensuspb.Chain, bool, error) {
+func (n *Signer) RunTransactions(ctx context.Context, currentTip *consensuspb.ChainTip, history History, block *consensuspb.Block) (*consensuspb.ChainTip, bool, error) {
+	currentState := &TransactorState{
+		Signer: n,
+		MutatableBlock: block,
+		History: history,
+		MutatableTip: currentTip,
+	}
+
 	for _,transaction := range block.SignableBlock.Transactions {
-		newState,shouldInterrupt,err := DefaultTransactorRegistry.Distribute(ctx, chainState, block, transaction)
+		currentState.Transaction = transaction
+		newState,shouldInterrupt,err := DefaultTransactorRegistry.Distribute(ctx, currentState)
 		if err != nil {
 			return nil, true, fmt.Errorf("error distributing: %v", err)
 		}
 		if shouldInterrupt {
 			return nil, false, nil
 		}
-		chainState = newState
+		currentState = newState
 	}
-	return chainState, true, nil
+	return currentState.MutatableTip, true, nil
 }
 
 func (n *Signer) SignBlock(ctx context.Context, block *consensuspb.Block) (*consensuspb.Block, error) {
 	return consensus.BlsSignBlock(block, n.SignKey)
+}
+
+func (n *Signer) SignTransaction(ctx context.Context, block *consensuspb.Block, transaction *consensuspb.Transaction) (*consensuspb.Block, error) {
+	return consensus.BlsSignTransaction(block, transaction, n.SignKey)
 }

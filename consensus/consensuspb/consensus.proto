@@ -44,6 +44,7 @@ message Signature {
     repeated bool signers = 2;
     bytes signature = 3;
     SignatureType type = 4;
+    bytes memo = 5;
 }
 
 message Transaction {
@@ -51,6 +52,10 @@ message Transaction {
     enum TransactionType {
         ADD_DATA = 0;
         UPDATE_OWNERSHIP = 1;
+        MINT_COINT = 2;
+        SEND_COINT = 3;
+        RECEIVE_COINT = 4;
+        BALANCE = 5;
     }
     TransactionType type = 2;
     bytes payload = 3;
@@ -64,6 +69,29 @@ message UpdateOwnershipTransaction {
     string chain_id = 1;
     Authentication authentication = 2;
     repeated Authorization authorizations = 3;
+}
+
+message MintCoinTransaction {
+    string name = 1;
+    uint64 amount = 2;
+    bytes memo = 3;
+}
+
+message SendCoinTransaction {
+    string id = 1;
+    string destination = 2;
+    uint64 amount = 3;
+    string name = 4;
+}
+
+message ReceiveCoinTransaction {
+    SendCoinTransaction send_transaction = 1;
+}
+
+message BalanceTransaction {
+    string name = 1;
+    uint64 balance = 2;
+    bytes transactions = 3;
 }
 
 message ChainTip {
@@ -85,6 +113,7 @@ message Chain {
 message Block {
     SignableBlock signable_block = 1;
     repeated Signature signatures = 2;
+    repeated Signature transaction_signatures = 3;
 }
 
 message SignableBlock {

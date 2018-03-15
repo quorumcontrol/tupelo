@@ -28,6 +28,23 @@ func MustBlockToHash(block *consensuspb.Block) (hsh common.Hash) {
 	return hsh
 }
 
+func TransactionToHash(transaction *consensuspb.Transaction) (hsh common.Hash, err error) {
+	bytes,err := proto.Marshal(transaction)
+	if err != nil {
+		return hsh, fmt.Errorf("error marshaling: %v", err)
+	}
+
+	return common.BytesToHash(bytes), nil
+}
+
+func MustTransactionToHash(transaction *consensuspb.Transaction) (hsh common.Hash) {
+	hsh,err := TransactionToHash(transaction)
+	if err != nil {
+		log.Crit("error getting hash", "error", err)
+	}
+	return hsh
+}
+
 func AuthorizationsByType(authorizations []*consensuspb.Authorization) (map[consensuspb.Authorization_Type]*consensuspb.Authorization) {
 	retMap := make(map[consensuspb.Authorization_Type]*consensuspb.Authorization)
 	for _,auth := range authorizations {
@@ -85,6 +102,32 @@ func BlsSignBlock(block *consensuspb.Block, key *bls.SignKey) (*consensuspb.Bloc
 	}
 
 	block.Signatures = append(block.Signatures, sig)
+	return block, nil
+}
+
+func BlsSignTransaction (block *consensuspb.Block, transaction *consensuspb.Transaction, key *bls.SignKey) (*consensuspb.Block, error) {
+	if block.SignableBlock == nil || block.SignableBlock.Transactions == nil {
+		return nil, fmt.Errorf("no signable block or transactions")
+	}
+
+	hsh,err := TransactionToHash(transaction)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing block: %v", err)
+	}
+
+	sigBytes,err := key.Sign(hsh.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("error signing: %v", err)
+	}
+
+	sig := &consensuspb.Signature{
+		Creator: BlsVerKeyToAddress(key.MustVerKey().Bytes()).Hex(),
+		Signature: sigBytes,
+		Type: consensuspb.BLSGroupSig,
+		Memo: []byte("tx:" + transaction.Id),
+	}
+
+	block.TransactionSignatures = append(block.TransactionSignatures, sig)
 	return block, nil
 }
 

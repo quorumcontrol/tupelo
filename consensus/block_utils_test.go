@@ -78,6 +78,45 @@ func TestBlsSignBlock(t *testing.T) {
 	}
 }
 
+func TestBlsSignTransaction(t *testing.T) {
+	signerBls,err := bls.NewSignKey()
+	assert.Nil(t, err)
+
+	type testDescription struct {
+		Description        string
+		Block         *consensuspb.Block
+		Transaction *consensuspb.Transaction
+		PrivateKey *bls.SignKey
+		ShouldError        bool
+	}
+	type testGenerator func(t *testing.T) (*testDescription)
+
+	for _,testGen := range []testGenerator{
+		func(t *testing.T) (*testDescription) {
+			block := createBlock(t, nil)
+			return &testDescription{
+				Description: "valid everything",
+				Block:     block,
+				Transaction: block.SignableBlock.Transactions[0],
+				PrivateKey:  signerBls,
+				ShouldError: false,
+			}
+		},
+	} {
+		test := testGen(t)
+		sigLength := len(test.Block.TransactionSignatures)
+		blockWithSig,err := consensus.BlsSignTransaction(test.Block, test.Transaction, test.PrivateKey)
+		if test.ShouldError {
+			assert.NotNil(t, err, test.Description)
+		} else {
+			assert.Nil(t, err, test.Description)
+		}
+		assert.Equal(t, len(blockWithSig.TransactionSignatures), sigLength + 1, test.Description)
+		assert.Equal(t, blockWithSig.TransactionSignatures[len(blockWithSig.TransactionSignatures) - 1].Creator, consensus.BlsVerKeyToAddress(signerBls.MustVerKey().Bytes()).Hex())
+		assert.Equal(t, blockWithSig.TransactionSignatures[len(blockWithSig.TransactionSignatures) - 1].Memo, []byte("tx:" + test.Transaction.Id))
+	}
+}
+
 func TestSanity(t *testing.T) {
 	hsh := common.BytesToHash([]byte("data"))
 	hshBytes := hsh.Bytes()
