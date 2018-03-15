@@ -28,6 +28,19 @@ func IsSigned(_ context.Context, _ *consensuspb.ChainTip, block *consensuspb.Blo
 	return true,nil
 }
 
+func IsValidSequenceNumber(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+	if chainTip.LastHash == nil && block.SignableBlock.Sequence == 0 {
+		return true, nil
+	}
+
+	if block.SignableBlock.Sequence == (chainTip.Sequence + 1) {
+		return true,nil
+	}
+
+	log.Debug("block sequence was incorrect", "chain", chainTip.Id, "sequence", block.SignableBlock.Sequence)
+	return false,nil
+}
+
 func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
 	log.Trace("chain exists", "chain", chainTip)
 	if block.SignableBlock == nil {

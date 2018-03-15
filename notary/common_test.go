@@ -20,6 +20,7 @@ var carolAddr = crypto.PubkeyToAddress(carolKey.PublicKey)
 func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block) {
 	retBlock := &consensuspb.Block{
 		SignableBlock: &consensuspb.SignableBlock{
+			Sequence: 0,
 			ChainId: consensus.AddrToDid(aliceAddr.Hex()),
 			Transactions: []*consensuspb.Transaction{
 				{
@@ -36,6 +37,7 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 			t.Fatalf("error getting hash of previous block: %v", err)
 		}
 		retBlock.SignableBlock.PreviousHash = prevHash.Bytes()
+		retBlock.SignableBlock.Sequence = prevBlock.SignableBlock.Sequence + 1
 	}
 
 	return retBlock

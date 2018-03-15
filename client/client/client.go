@@ -145,6 +145,7 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	chain.Blocks = append(chain.Blocks, &consensuspb.Block{
 		SignableBlock: &consensuspb.SignableBlock{
 			ChainId: chain.Id,
+			Sequence: 0,
 			Transactions: []*consensuspb.Transaction{
 				{
 					Type: consensuspb.ADD_DATA,

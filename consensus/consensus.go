@@ -62,8 +62,12 @@ func BlsKeyToPublicKey(key *bls.VerKey) (*consensuspb.PublicKey) {
 
 func ChainToTip(chain *consensuspb.Chain) (*consensuspb.ChainTip) {
 	var lastHash []byte
+	sequence := uint64(0)
+
 	if len(chain.Blocks) > 0 {
-		hsh,err := BlockToHash(chain.Blocks[len(chain.Blocks) - 1])
+		lastBlock := chain.Blocks[len(chain.Blocks) - 1]
+		sequence = lastBlock.SignableBlock.Sequence
+		hsh,err := BlockToHash(lastBlock)
 		if err != nil {
 			//should *really* never happen
 			log.Crit("error hashing last block", "error", err)
@@ -74,6 +78,7 @@ func ChainToTip(chain *consensuspb.Chain) (*consensuspb.ChainTip) {
 	chainTip := &consensuspb.ChainTip{
 		Id: chain.Id,
 		LastHash: lastHash,
+		Sequence: sequence,
 		Authentication: chain.Authentication,
 		Authorizations: chain.Authorizations,
 	}

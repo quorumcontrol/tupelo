@@ -69,9 +69,10 @@ message UpdateOwnershipTransaction {
 message ChainTip {
     string id = 1;
     bytes last_hash = 2;
-    repeated Signature last_signatures = 3;
-    Authentication authentication = 4;
-    repeated Authorization authorizations = 5;
+    uint64 sequence = 3;
+    repeated Signature last_signatures = 4;
+    Authentication authentication = 5;
+    repeated Authorization authorizations = 6;
 }
 
 message Chain {
@@ -90,7 +91,8 @@ message SignableBlock {
     string chain_id = 1;
     uint64 sequence = 2;
     bytes previous_hash = 3;
-    repeated Transaction transactions = 4;
+    bool genesis = 4;
+    repeated Transaction transactions = 5;
 }
 
 message PublicKey {

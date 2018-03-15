@@ -42,6 +42,7 @@ func NewSigner(storage Storage, group *Group, signKey *bls.SignKey) *Signer {
 		VerKey: verKey,
 		Validators: []ValidatorFunc{
 			IsSigned,
+			IsValidSequenceNumber,
 			IsNotGenesisOrIsValidGenesis,
 			IsGenesisOrIsSignedByNecessaryOwners,
 		},
