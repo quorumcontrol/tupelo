@@ -78,25 +78,27 @@ func (n *Signer) tipAndHistoryToChain(ctx context.Context, history History, tip 
 		Authorizations: tip.Authorizations,
 	}
 
-	blocks := make([]*consensuspb.Block, history.Length())
+	if history != nil {
+		blocks := make([]*consensuspb.Block, history.Length())
 
-	block := history.GetBlock(tip.LastHash)
-	for i := history.Length()-1; i >0 && block != nil; i-- {
-		isSigned,err := n.Group.IsSignedByGroup(block)
-		if err != nil {
-			return nil, fmt.Errorf("error getting is signed: %v", err)
+		block := history.GetBlock(tip.LastHash)
+		for i := history.Length()-1; i >0 && block != nil; i-- {
+			isSigned,err := n.Group.IsSignedByGroup(block)
+			if err != nil {
+				return nil, fmt.Errorf("error getting is signed: %v", err)
+			}
+			if !isSigned {
+				return nil, fmt.Errorf("invalid history, block was unsigned: %v", err)
+			}
+			blocks[i] = block
+			hsh,err := consensus.BlockToHash(block)
+			if err != nil {
+				return nil, fmt.Errorf("error getting hash: %v", err)
+			}
+			block = history.GetBlock(hsh.Bytes())
 		}
-		if !isSigned {
-			return nil, fmt.Errorf("invalid history, block was unsigned: %v", err)
-		}
-		blocks[i] = block
-		hsh,err := consensus.BlockToHash(block)
-		if err != nil {
-			return nil, fmt.Errorf("error getting hash: %v", err)
-		}
-		block = history.GetBlock(hsh.Bytes())
+		chain.Blocks = blocks
 	}
-	chain.Blocks = blocks
 
 	return chain,nil
 }
@@ -113,7 +115,7 @@ func (n *Signer) ProcessBlock(ctx context.Context, history History, block *conse
 		return nil, fmt.Errorf("error getting existing chain: %v", err)
 	}
 
-	if !bytes.Equal(chainTip.LastHash, block.SignableBlock.PreviousHash) {
+	if !bytes.Equal(chainTip.LastHash, block.SignableBlock.PreviousHash) && history != nil {
 		n.catchupTip(ctx, history, chainTip)
 	}
 

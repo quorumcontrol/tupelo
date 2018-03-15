@@ -69,8 +69,7 @@ func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	nodes := make([]*node.WhisperNode, len(BlsSignKeys))
 	for i,key := range BlsSignKeys {
 		storage := internalchain.NewMemStorage()
-		signer := notary.NewSigner(storage, key)
-		signer.GroupId = group.Id
+		signer := notary.NewSigner(storage, group, key)
 		nodes[i] = node.NewWhisperNode(signer, EcdsaKeys[i])
 	}
 
