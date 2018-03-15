@@ -3,26 +3,26 @@ package internalchain
 import "github.com/quorumcontrol/qc3/consensus/consensuspb"
 
 type MemStorage struct {
-	Chains map[string]*consensuspb.Chain
+	Chains map[string]*consensuspb.ChainTip
 }
 
 func NewMemStorage() (*MemStorage) {
 	return &MemStorage{
-		Chains: make(map[string]*consensuspb.Chain),
+		Chains: make(map[string]*consensuspb.ChainTip),
 	}
 }
 
-func (ms *MemStorage) Set(id string, chain *consensuspb.Chain) error {
-	ms.Chains[id] = chain
+func (ms *MemStorage) Set(id string, chainTip *consensuspb.ChainTip) error {
+	ms.Chains[id] = chainTip
 	return nil
 }
 
-func (ms *MemStorage) Get(id string) (*consensuspb.Chain,error){
+func (ms *MemStorage) Get(id string) (*consensuspb.ChainTip,error){
 	ch,ok :=  ms.Chains[id]
 	if ok {
 		return ch, nil
 	} else {
-		return &consensuspb.Chain{
+		return &consensuspb.ChainTip{
 			Id: id,
 		}, nil
 	}

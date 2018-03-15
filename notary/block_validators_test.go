@@ -13,7 +13,7 @@ import (
 func TestIsNotGenesisOrIsValidGenesis(t *testing.T) {
 	type testDescription struct {
 		Description    string
-		ExistingChain  *consensuspb.Chain
+		ChainTip  *consensuspb.ChainTip
 		Block          *consensuspb.Block
 		ShouldValidate bool
 		ShouldError    bool
@@ -24,7 +24,7 @@ func TestIsNotGenesisOrIsValidGenesis(t *testing.T) {
 		func(t *testing.T) (*testDescription) {
 			return &testDescription{
 				Description:    "A totally blank chain and block",
-				ExistingChain:  &consensuspb.Chain{},
+				ChainTip:  &consensuspb.ChainTip{},
 				Block:          &consensuspb.Block{},
 				ShouldValidate: false,
 			}
@@ -36,15 +36,18 @@ func TestIsNotGenesisOrIsValidGenesis(t *testing.T) {
 
 			return &testDescription{
 				Description:    "A valid genesis block",
-				ExistingChain:  &consensuspb.Chain{},
+				ChainTip:  &consensuspb.ChainTip{},
 				Block:          signedBlock,
 				ShouldValidate: true,
 			}
 		},
 		func(t *testing.T) (*testDescription) {
 			previousBlock := createBlock(t,nil)
-			existingChain := &consensuspb.Chain{
-				Blocks: []*consensuspb.Block{previousBlock},
+			hsh,err := consensus.BlockToHash(previousBlock)
+			assert.Nil(t,err, "setting up chain exists")
+
+			existingChain := &consensuspb.ChainTip{
+				LastHash: hsh.Bytes(),
 				Authentication: &consensuspb.Authentication{
 					PublicKeys: []*consensuspb.PublicKey{
 						{
@@ -59,14 +62,14 @@ func TestIsNotGenesisOrIsValidGenesis(t *testing.T) {
 			assert.Nil(t, err, "setting up valid signed")
 			return &testDescription{
 				Description:    "When a chain exists",
-				ExistingChain:  existingChain,
+				ChainTip: existingChain,
 				Block:          signedBlock,
 				ShouldValidate: true,
 			}
 		},
 		} {
 		test := testGen(t)
-		res,err := notary.IsNotGenesisOrIsValidGenesis(context.Background(), test.ExistingChain, test.Block)
+		res,err := notary.IsNotGenesisOrIsValidGenesis(context.Background(), test.ChainTip, test.Block)
 		if test.ShouldError {
 			assert.NotNil(t, err, err, test.Description)
 		} else {

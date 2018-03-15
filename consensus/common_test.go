@@ -5,6 +5,7 @@ import (
 	"testing"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/google/uuid"
 )
 
 var aliceKey,_ = crypto.GenerateKey()
@@ -22,6 +23,7 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 			ChainId: consensus.AddrToDid(aliceAddr.Hex()),
 			Transactions: []*consensuspb.Transaction{
 				{
+					Id: uuid.New().String(),
 					Type: consensuspb.ADD_DATA,
 					Payload: []byte("new data"),
 				},
@@ -35,6 +37,7 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 			t.Fatalf("error getting hash of previous block: %v", err)
 		}
 		retBlock.SignableBlock.PreviousHash = prevHash.Bytes()
+		retBlock.SignableBlock.Sequence = prevBlock.SignableBlock.Sequence + 1
 	}
 
 	return retBlock

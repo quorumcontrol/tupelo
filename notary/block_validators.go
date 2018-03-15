@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-type ValidatorFunc func(ctx context.Context, chain *consensuspb.Chain, block *consensuspb.Block) (bool,error)
+type ValidatorFunc func(ctx context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error)
 
 func sigFor(creator string, sigs []*consensuspb.Signature) (*consensuspb.Signature) {
 	for _,sig := range sigs {
@@ -20,7 +20,7 @@ func sigFor(creator string, sigs []*consensuspb.Signature) (*consensuspb.Signatu
 	return nil
 }
 
-func IsSigned(_ context.Context, chain *consensuspb.Chain, block *consensuspb.Block) (bool,error) {
+func IsSigned(_ context.Context, _ *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
 	if len(block.Signatures) == 0 {
 		log.Trace("block is not signed")
 		return false, nil
@@ -28,8 +28,8 @@ func IsSigned(_ context.Context, chain *consensuspb.Chain, block *consensuspb.Bl
 	return true,nil
 }
 
-func IsNotGenesisOrIsValidGenesis(_ context.Context, existingChain *consensuspb.Chain, block *consensuspb.Block) (bool,error) {
-	log.Trace("chain exists", "chain", existingChain)
+func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+	log.Trace("chain exists", "chain", chainTip)
 	if block.SignableBlock == nil {
 		log.Trace("no signable block")
 		return false, nil
@@ -41,7 +41,7 @@ func IsNotGenesisOrIsValidGenesis(_ context.Context, existingChain *consensuspb.
 	}
 
 	// If this is a genesis block (a never before seen existingChain)
-	if len(existingChain.Blocks) == 0 {
+	if chainTip.LastHash == nil {
 		log.Trace("this is a genesis block")
 		// find the creator signature and validate that
 		addr := consensus.DidToAddr(block.SignableBlock.ChainId)
@@ -70,13 +70,13 @@ func IsNotGenesisOrIsValidGenesis(_ context.Context, existingChain *consensuspb.
 	return true, nil
 }
 
-func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, existingChain *consensuspb.Chain, block *consensuspb.Block) (bool,error) {
-	if len(existingChain.Blocks) == 0 {
+func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+	if chainTip.LastHash == nil {
 		log.Trace("is a genesis block")
 		return true,nil
 	}
 
-	authorizations := consensus.AuthorizationsByType(existingChain)
+	authorizations := consensus.AuthorizationsByType(chainTip.Authorizations)
 	updateAuth,ok := authorizations[consensuspb.UPDATE]
 	var owners []*consensuspb.Chain
 	minimum := uint64(1)
@@ -86,8 +86,11 @@ func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, existingChain *co
 		owners = updateAuth.Owners
 		minimum = updateAuth.Minimum
 	} else {
-		log.Trace("using existing chain")
-		owners = []*consensuspb.Chain{existingChain}
+		log.Trace("using chain authentication ")
+		owners = []*consensuspb.Chain{{
+			Id: chainTip.Id,
+			Authentication: chainTip.Authentication,
+		}}
 	}
 
 	signedByCount := uint64(0)

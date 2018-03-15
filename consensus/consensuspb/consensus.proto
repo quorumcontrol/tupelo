@@ -24,8 +24,9 @@ enum ErrorCodes {
 
 message SignatureRequest {
     string id = 1;
-    Chain chain = 2;
-    bytes response_key = 3;
+    repeated Block blocks = 2;
+    repeated Chain histories = 3;
+    bytes response_key = 4;
 }
 
 message SignatureResponse {
@@ -39,7 +40,7 @@ message SignatureResponse {
 
 message Signature {
     string creator = 1;
-    // expected to be a bitmap
+    //signers is used for collective signing to signify which members of a NotaryGroup have signed
     repeated bool signers = 2;
     bytes signature = 3;
     SignatureType type = 4;
@@ -65,6 +66,14 @@ message UpdateOwnershipTransaction {
     repeated Authorization authorizations = 3;
 }
 
+message ChainTip {
+    string id = 1;
+    bytes last_hash = 2;
+    repeated Signature last_signatures = 3;
+    Authentication authentication = 4;
+    repeated Authorization authorizations = 5;
+}
+
 message Chain {
     string id = 1;
     repeated Block blocks = 2;
@@ -79,8 +88,9 @@ message Block {
 
 message SignableBlock {
     string chain_id = 1;
-    bytes previous_hash = 2;
-    repeated Transaction transactions = 3;
+    uint64 sequence = 2;
+    bytes previous_hash = 3;
+    repeated Transaction transactions = 4;
 }
 
 message PublicKey {

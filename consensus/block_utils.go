@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
@@ -19,9 +20,17 @@ func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
 	return common.BytesToHash(bytes), nil
 }
 
-func AuthorizationsByType(chain *consensuspb.Chain) (map[consensuspb.Authorization_Type]*consensuspb.Authorization) {
+func MustBlockToHash(block *consensuspb.Block) (hsh common.Hash) {
+	hsh,err := BlockToHash(block)
+	if err != nil {
+		log.Crit("error getting hash", "error", err)
+	}
+	return hsh
+}
+
+func AuthorizationsByType(authorizations []*consensuspb.Authorization) (map[consensuspb.Authorization_Type]*consensuspb.Authorization) {
 	retMap := make(map[consensuspb.Authorization_Type]*consensuspb.Authorization)
-	for _,auth := range chain.Authorizations {
+	for _,auth := range authorizations {
 		retMap[auth.Type] = auth
 	}
 

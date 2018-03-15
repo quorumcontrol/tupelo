@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 func AddrToDid (addr string) string {
@@ -57,4 +58,24 @@ func BlsKeyToPublicKey(key *bls.VerKey) (*consensuspb.PublicKey) {
 			PublicKey: key.Bytes(),
 			Type: consensuspb.BLSGroupSig,
 	}
+}
+
+func ChainToTip(chain *consensuspb.Chain) (*consensuspb.ChainTip) {
+	var lastHash []byte
+	if len(chain.Blocks) > 0 {
+		hsh,err := BlockToHash(chain.Blocks[len(chain.Blocks) - 1])
+		if err != nil {
+			//should *really* never happen
+			log.Crit("error hashing last block", "error", err)
+		}
+		lastHash = hsh.Bytes()
+	}
+
+	chainTip := &consensuspb.ChainTip{
+		Id: chain.Id,
+		LastHash: lastHash,
+		Authentication: chain.Authentication,
+		Authorizations: chain.Authorizations,
+	}
+	return chainTip
 }

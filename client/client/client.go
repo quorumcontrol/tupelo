@@ -118,12 +118,13 @@ func (c *Client) broadcast(payload []byte) error {
 	})
 }
 
-func (c *Client) RequestSignature(chain *consensuspb.Chain) error {
+func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*consensuspb.Chain) error {
 	responseKey := crypto.FromECDSAPub(&c.sessionKey.PublicKey)
 
 	signRequest := &consensuspb.SignatureRequest{
 		Id: uuid.New().String(),
-		Chain: chain,
+		Blocks: blocks,
+		Histories: histories,
 		ResponseKey: responseKey,
 	}
 
@@ -157,7 +158,7 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 
 	c.Wallet.SetChain(chain.Id, chain)
 
-	err := c.RequestSignature(chain)
+	err := c.RequestSignature(chain.Blocks, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error requesting signature: %v", err)
 	}

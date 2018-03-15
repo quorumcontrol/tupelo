@@ -17,18 +17,24 @@ func defaultNotary(t *testing.T) *notary.Signer {
 	key,err := bls.NewSignKey()
 	assert.Nil(t, err)
 
+	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
+	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
+
 	storage := internalchain.NewMemStorage()
 
-	return notary.NewSigner(storage, key)
+	return notary.NewSigner(storage, group, key)
 }
 
 func TestNewNotary(t *testing.T) {
 	key,err := bls.NewSignKey()
 	assert.Nil(t, err)
 
+	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
+	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
+
 	storage := internalchain.NewMemStorage()
 
-	notary := notary.NewSigner(storage, key)
+	notary := notary.NewSigner(storage, group, key)
 	assert.Equal(t, notary.ChainStore, storage)
 }
 
@@ -39,6 +45,7 @@ func TestNotary_CanSignBlock(t *testing.T) {
 		Block         *consensuspb.Block
 		ShouldValidate     bool
 		ShouldError        bool
+		ChainTip *consensuspb.ChainTip
 	}
 	type testGenerator func(t *testing.T) (*testDescription)
 
@@ -49,6 +56,7 @@ func TestNotary_CanSignBlock(t *testing.T) {
 				Notary: defaultNotary(t),
 				Block: &consensuspb.Block{},
 				ShouldValidate: false,
+				ChainTip: &consensuspb.ChainTip{},
 			}
 		},
 		func(t *testing.T) (*testDescription) {
@@ -61,6 +69,7 @@ func TestNotary_CanSignBlock(t *testing.T) {
 				Notary: defaultNotary(t),
 				Block: signedBlock,
 				ShouldValidate: true,
+				ChainTip: &consensuspb.ChainTip{},
 			}
 		},
 		func(t *testing.T) (*testDescription) {
@@ -77,15 +86,13 @@ func TestNotary_CanSignBlock(t *testing.T) {
 				},
 			}
 
-			notary := defaultNotary(t)
-			notary.ChainStore.Set(existingChain.Id, existingChain)
-
 			block := createBlock(t, previousBlock)
 			signedBlock,err := consensus.OwnerSignBlock(block, bobKey)
 			assert.Nil(t, err, "setting up valid signed")
 			return &testDescription{
 				Description: "A new block on a stored chain, not signed by correct owners",
-				Notary: notary,
+				Notary: defaultNotary(t),
+				ChainTip: consensus.ChainToTip(existingChain),
 				Block: signedBlock,
 				ShouldValidate: false,
 			}
@@ -105,15 +112,13 @@ func TestNotary_CanSignBlock(t *testing.T) {
 				},
 			}
 
-			notary := defaultNotary(t)
-			notary.ChainStore.Set(existingChain.Id, existingChain)
-
 			block := createBlock(t, previousBlock)
 			signedBlock,err := consensus.OwnerSignBlock(block, bobKey)
 			assert.Nil(t, err, "setting up valid signed")
 			return &testDescription{
 				Description: "A new block on a stored chain, signed by correct owners",
-				Notary: notary,
+				Notary: defaultNotary(t),
+				ChainTip: consensus.ChainToTip(existingChain),
 				Block: signedBlock,
 				ShouldValidate: true,
 			}
@@ -143,9 +148,6 @@ func TestNotary_CanSignBlock(t *testing.T) {
 				},
 			}
 
-			notary := defaultNotary(t)
-			notary.ChainStore.Set(existingChain.Id, existingChain)
-
 			block := createBlock(t, previousBlock)
 			signedBlock,err := consensus.OwnerSignBlock(block, carolKey)
 			assert.Nil(t, err, "setting up valid signed")
@@ -155,14 +157,15 @@ func TestNotary_CanSignBlock(t *testing.T) {
 
 			return &testDescription{
 				Description: "A new block on a stored chain, signed by a threshold of owners",
-				Notary: notary,
+				Notary: defaultNotary(t),
+				ChainTip: consensus.ChainToTip(existingChain),
 				Block: signedBlock,
 				ShouldValidate: true,
 			}
 		},
 	} {
 		test := testGen(t)
-		didValidate,_,err := test.Notary.ValidateBlockLevel(context.Background(), test.Block)
+		didValidate,err := test.Notary.ValidateBlockLevel(context.Background(), test.ChainTip, test.Block)
 		if test.ShouldError {
 			assert.NotNil(t, err, err, test.Description)
 		} else {
@@ -217,7 +220,7 @@ func TestNotary_ProcessBlock(t *testing.T) {
 		Description        string
 		Block         *consensuspb.Block
 		Notary *notary.Signer
-		Validator        func(t *testing.T, chain *consensuspb.Chain, block *consensuspb.Block, err error)
+		Validator        func(t *testing.T, chain *consensuspb.ChainTip, block *consensuspb.Block, err error)
 	}
 	type testGenerator func(t *testing.T) (*testDescription)
 
@@ -232,10 +235,10 @@ func TestNotary_ProcessBlock(t *testing.T) {
 				Description: "block with just add data",
 				Block: signedBlock,
 				Notary:  testNotary,
-				Validator: func(t *testing.T, savedChain *consensuspb.Chain, block *consensuspb.Block, err error) {
+				Validator: func(t *testing.T, savedTip *consensuspb.ChainTip, block *consensuspb.Block, err error) {
 					assert.Nil(t, err)
 					assert.NotNil(t,block)
-					assert.Equal(t, block, savedChain.Blocks[0])
+					assert.Equal(t, consensus.MustBlockToHash(block).Bytes(), savedTip.LastHash)
 				},
 			}
 		},
@@ -264,17 +267,17 @@ func TestNotary_ProcessBlock(t *testing.T) {
 				Description: "block with just add data",
 				Block: signedBlock,
 				Notary:  testNotary,
-				Validator: func(t *testing.T, savedChain *consensuspb.Chain, block *consensuspb.Block, err error) {
+				Validator: func(t *testing.T, savedTip *consensuspb.ChainTip, block *consensuspb.Block, err error) {
 					assert.Nil(t, err)
 					assert.NotNil(t,block)
-					assert.Equal(t, block, savedChain.Blocks[0])
-					assert.Equal(t, savedChain.Authentication.PublicKeys[0].Id, updateTrans.Authentication.PublicKeys[0].Id)
+					assert.Equal(t, consensus.MustBlockToHash(block).Bytes(), savedTip.LastHash)
+					assert.Equal(t, savedTip.Authentication.PublicKeys[0].Id, updateTrans.Authentication.PublicKeys[0].Id)
 				},
 			}
 		},
 	} {
 		test := testGen(t)
-		processed, err := test.Notary.ProcessBlock(context.Background(), test.Block)
+		processed, err := test.Notary.ProcessBlock(context.Background(), consensus.NewMemoryHistoryStore(), test.Block)
 		log.Trace("processed", "processed", processed)
 		chain,chnerr := test.Notary.ChainStore.Get(test.Block.SignableBlock.ChainId)
 		assert.Nil(t, chnerr, test.Description)

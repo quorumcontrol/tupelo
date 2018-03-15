@@ -27,9 +27,11 @@ func TestVerifyNotaryGroupSignature(t *testing.T) {
 		publicKeys[i] = consensus.BlsKeyToPublicKey(verKey)
 	}
 
+	group := notary.GroupFromPublicKeys(publicKeys)
+
 	signers := make([]*notary.Signer, len(privateKeys))
 	for i,key := range privateKeys {
-		signers[i] = notary.NewSigner(store, key)
+		signers[i] = notary.NewSigner(store, group, key)
 	}
 
 	defaultGroup := notary.NewGroup("testTest", publicKeys)

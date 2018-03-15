@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/quorumcontrol/qc3/consensus"
 )
 
 type WhisperNode struct {
@@ -32,7 +33,7 @@ func (wn *WhisperNode) Start() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	log.Debug("starting node whisper")
 	whisp := network.Start(wn.Key)
-	filter := network.NewFilter(network.CothorityTopic, common.StringToHash(wn.Signer.GroupId).Bytes())
+	filter := network.NewFilter(network.CothorityTopic, common.StringToHash(wn.Signer.Group.Id).Bytes())
 	whisp.Subscribe(filter)
 
 	go func() {
@@ -57,6 +58,16 @@ func (wn *WhisperNode) Stop() {
 	wn.stopChan<-true
 }
 
+func historiesByChainId(chains []*consensuspb.Chain) (chainMap map[string]notary.History) {
+	chainMap = make(map[string]notary.History)
+	for _,chain := range chains {
+		history := consensus.NewMemoryHistoryStore()
+		history.StoreBlocks(chain.Blocks)
+		chainMap[chain.Id]= history
+	}
+	return chainMap
+}
+
 func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.ReceivedMessage) {
 	sigRequest := &consensuspb.SignatureRequest{}
 	err := proto.Unmarshal(msg.Payload, sigRequest)
@@ -65,9 +76,11 @@ func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.Receiv
 		return
 	}
 
-	for _,block := range sigRequest.Chain.Blocks {
+	histories := historiesByChainId(sigRequest.Histories)
+
+	for _,block := range sigRequest.Blocks {
 		log.Debug("processing a block message")
-		processed,err := wn.Signer.ProcessBlock(context.Background(), block)
+		processed,err := wn.Signer.ProcessBlock(context.Background(), histories[block.SignableBlock.ChainId], block)
 		if err != nil {
 			log.Error("error processing", "error", err)
 		}
