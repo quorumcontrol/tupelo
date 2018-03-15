@@ -11,6 +11,22 @@ type History interface {
 	GetBlock(hsh []byte) (*consensuspb.Block)
 	NextBlock(hsh []byte) (*consensuspb.Block)
 	Length() (uint64)
+	Blocks() ([]*consensuspb.Block)
+	PrevBlock(hsh []byte) (*consensuspb.Block)
+	IteratorFrom(block *consensuspb.Block, transaction *consensuspb.Transaction) (TransactionIterator)
+}
+
+type TransactionIterator interface {
+	Next() TransactionIterator
+	Prev() TransactionIterator
+	Transaction() *consensuspb.Transaction
+}
+
+type memoryTransactionIterator struct {
+	blockHash []byte
+	transactionIndex int
+	history History
+	transaction *consensuspb.Transaction
 }
 
 type memoryHistoryStore struct {
@@ -26,6 +42,16 @@ func NewMemoryHistoryStore() *memoryHistoryStore {
 		blocks: make(map[string]*consensuspb.Block),
 		forwardMapping: make(map[string]string),
 	}
+}
+
+func (h *memoryHistoryStore) Blocks() ([]*consensuspb.Block) {
+	blocks := make([]*consensuspb.Block, len(h.blocks))
+	i := 0
+	for _,block := range h.blocks {
+		blocks[i] = block
+		i++
+	}
+	return blocks
 }
 
 func (h *memoryHistoryStore) GetBlock(hsh []byte) *consensuspb.Block {
@@ -46,6 +72,15 @@ func (h *memoryHistoryStore) NextBlock(hsh []byte) *consensuspb.Block {
 	}
 }
 
+func (h *memoryHistoryStore) PrevBlock(hsh []byte) *consensuspb.Block {
+	current := h.GetBlock(hsh)
+	if current != nil {
+		return h.GetBlock(current.SignableBlock.PreviousHash)
+	}
+
+	return nil
+}
+
 func (h *memoryHistoryStore) Length() (uint64) {
 	return uint64(len(h.blocks))
 }
@@ -62,4 +97,82 @@ func (h *memoryHistoryStore) StoreBlocks(blocks []*consensuspb.Block) error {
 		h.blocks[hexutil.Encode(hsh.Bytes())] = block
 	}
 	return nil
+}
+
+func (h *memoryHistoryStore) IteratorFrom(block *consensuspb.Block, transaction *consensuspb.Transaction) (TransactionIterator) {
+	index := indexOfTransaction(block.SignableBlock.Transactions, transaction)
+	if index > -1 {
+		return &memoryTransactionIterator{
+			history: h,
+			transaction: transaction,
+			blockHash: MustBlockToHash(block).Bytes(),
+			transactionIndex: index,
+		}
+	}
+	return nil
+}
+
+func indexOfTransaction(transactions []*consensuspb.Transaction, transaction *consensuspb.Transaction) int {
+	for i,t := range transactions {
+		if t == transaction {
+			return i
+		}
+	}
+	return -1
+}
+
+func (ti *memoryTransactionIterator) Next() TransactionIterator {
+	block := ti.history.GetBlock(ti.blockHash)
+	newIndex := ti.transactionIndex + 1
+	var transaction *consensuspb.Transaction
+
+	if newIndex < len(block.SignableBlock.Transactions) {
+		transaction = block.SignableBlock.Transactions[newIndex]
+	} else {
+		block = ti.history.NextBlock(ti.blockHash)
+	}
+
+	if block != nil {
+		newIndex = 0
+		transaction = block.SignableBlock.Transactions[0]
+
+		return &memoryTransactionIterator{
+			transaction: transaction,
+			transactionIndex: newIndex,
+			blockHash: MustBlockToHash(block).Bytes(),
+			history: ti.history,
+		}
+	}
+
+	return nil
+}
+
+func (ti *memoryTransactionIterator) Prev() TransactionIterator {
+	block := ti.history.GetBlock(ti.blockHash)
+	newIndex := ti.transactionIndex - 1
+	var transaction *consensuspb.Transaction
+
+	if newIndex >= 0 {
+		transaction = block.SignableBlock.Transactions[newIndex]
+	} else {
+		block = ti.history.PrevBlock(ti.blockHash)
+	}
+
+	if block != nil {
+		newIndex = len(block.SignableBlock.Transactions) - 1
+		transaction = block.SignableBlock.Transactions[newIndex]
+
+		return &memoryTransactionIterator{
+			transaction: transaction,
+			transactionIndex: newIndex,
+			blockHash: MustBlockToHash(block).Bytes(),
+			history: ti.history,
+		}
+	}
+
+	return nil
+}
+
+func (ti *memoryTransactionIterator) Transaction() *consensuspb.Transaction {
+	return ti.transaction
 }
