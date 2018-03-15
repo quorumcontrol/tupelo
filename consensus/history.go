@@ -20,6 +20,7 @@ type TransactionIterator interface {
 	Next() TransactionIterator
 	Prev() TransactionIterator
 	Transaction() *consensuspb.Transaction
+	Block() *consensuspb.Block
 }
 
 type memoryTransactionIterator struct {
@@ -175,4 +176,8 @@ func (ti *memoryTransactionIterator) Prev() TransactionIterator {
 
 func (ti *memoryTransactionIterator) Transaction() *consensuspb.Transaction {
 	return ti.transaction
+}
+
+func (ti *memoryTransactionIterator) Block() *consensuspb.Block {
+	return ti.history.GetBlock(ti.blockHash)
 }

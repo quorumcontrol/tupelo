@@ -10,13 +10,6 @@ import (
 	"bytes"
 )
 
-type History interface {
-	StoreBlocks([]*consensuspb.Block) error
-	GetBlock(hsh []byte) (*consensuspb.Block)
-	NextBlock(hsh []byte) (*consensuspb.Block)
-	Length() (uint64)
-}
-
 type Storage interface {
 	Set(id string, chain *consensuspb.ChainTip) (error)
 	Get(id string) (*consensuspb.ChainTip,error)
@@ -53,7 +46,7 @@ func (n *Signer) Id() (string) {
 	return consensus.BlsVerKeyToAddress(n.VerKey.Bytes()).Hex()
 }
 
-func (n *Signer) catchupTip(ctx context.Context, history History, tip *consensuspb.ChainTip) error {
+func (n *Signer) catchupTip(ctx context.Context, history consensus.History, tip *consensuspb.ChainTip) error {
 	block := history.NextBlock(tip.LastHash)
 
 	for block != nil {
@@ -72,7 +65,7 @@ func (n *Signer) catchupTip(ctx context.Context, history History, tip *consensus
 	return nil
 }
 
-func (n *Signer) ProcessBlock(ctx context.Context, history History, block *consensuspb.Block) (processed *consensuspb.Block, err error) {
+func (n *Signer) ProcessBlock(ctx context.Context, history consensus.History, block *consensuspb.Block) (processed *consensuspb.Block, err error) {
 	if block.SignableBlock == nil {
 		log.Debug("no signable block")
 		return nil, nil
@@ -137,7 +130,7 @@ func (n *Signer) ValidateBlockLevel(ctx context.Context, chainTip *consensuspb.C
 	return true, nil
 }
 
-func (n *Signer) RunTransactions(ctx context.Context, currentTip *consensuspb.ChainTip, history History, block *consensuspb.Block) (*consensuspb.ChainTip, bool, error) {
+func (n *Signer) RunTransactions(ctx context.Context, currentTip *consensuspb.ChainTip, history consensus.History, block *consensuspb.Block) (*consensuspb.ChainTip, bool, error) {
 	currentState := &TransactorState{
 		Signer: n,
 		MutatableBlock: block,

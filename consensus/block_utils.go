@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
@@ -150,6 +151,14 @@ func SignaturesByCreator(block *consensuspb.Block) (sigs map[string]*consensuspb
 	sigs = make(map[string]*consensuspb.Signature)
 	for _,sig := range block.Signatures {
 		sigs[sig.Creator] = sig
+	}
+	return sigs
+}
+
+func TransactionSignaturesByMemo(block *consensuspb.Block) (sigs map[string]*consensuspb.Signature) {
+	sigs = make(map[string]*consensuspb.Signature)
+	for _,sig := range block.TransactionSignatures {
+		sigs[hexutil.Encode(sig.Memo)] = sig
 	}
 	return sigs
 }

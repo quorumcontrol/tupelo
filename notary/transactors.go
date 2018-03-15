@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"fmt"
 	"reflect"
+	"github.com/quorumcontrol/qc3/consensus"
 )
 
 var DefaultTransactorRegistry TransactorRegistry
@@ -14,10 +15,11 @@ var DefaultTransactorRegistry TransactorRegistry
 type TransactorState struct {
 	MutatableTip *consensuspb.ChainTip
 	Signer *Signer
-	History History
+	History consensus.History
 	// A block can be mutated (by adding individual transaction signatures)
 	MutatableBlock *consensuspb.Block
-	Transaction interface{}
+	Transaction *consensuspb.Transaction
+	TypedTransaction interface{}
 }
 
 func init() {
@@ -42,9 +44,48 @@ func NewTransactorRegistry() TransactorRegistry {
 }
 
 func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
-	transaction := (state.Transaction).(*consensuspb.Transaction)
+	log.Debug("processing transaction", "id", state.Transaction.Id)
+	transactorRegistryEntry,ok := tr[state.Transaction.Type]
+	if ok {
+		log.Trace("executing transactor", "id", state.Transaction.Id)
+		typed,err := tr.typedTransactionFrom(state.Transaction)
+		if err != nil {
+			return state, true, fmt.Errorf("error getting typed transaction: %v", err)
+		}
+		state.TypedTransaction = typed
+		return transactorRegistryEntry.Transactor(ctx, state)
+	}
 
-	log.Debug("processing transaction", "id", transaction.Id)
+	log.Debug("unknown transaction type: ", "type", state.Transaction.Type)
+	return state, false, nil
+}
+
+func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+	transaction := (state.TypedTransaction).(*consensuspb.UpdateOwnershipTransaction)
+	state.MutatableTip.Authorizations = transaction.Authorizations
+	state.MutatableTip.Authentication = transaction.Authentication
+
+	return state, false, nil
+}
+
+func SendCoinTransaction (ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+	//transaction := (state.TypedTransaction).(*consensuspb.SendCoinTransaction)
+
+	// go back in time to the last validated balance transaction or the genesis block, then play up to this transaction
+	history := state.History
+	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
+
+	iterator := history.IteratorFrom(state.MutatableBlock, state.Transaction)
+	// start by just looking at genesis
+	for iterator != nil {
+
+	}
+
+
+	return state, false, nil
+}
+
+func (tr TransactorRegistry) typedTransactionFrom(transaction *consensuspb.Transaction) (interface{},error) {
 	transactorRegistryEntry,ok := tr[transaction.Type]
 	if ok {
 		instanceType := proto.MessageType(transactorRegistryEntry.Unmarshaler)
@@ -53,29 +94,9 @@ func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorSt
 		instance := reflect.New(instanceType.Elem()).Interface()
 		err := proto.Unmarshal(transaction.Payload, instance.(proto.Message))
 		if err != nil {
-			log.Debug("error unmarshaling", "error", err)
-			return nil, true, fmt.Errorf("error unmarshaling: %v", err)
+			return nil, fmt.Errorf("error unmarshaling: %v", err)
 		}
-		log.Trace("executing transactor with instance", "instance", instance)
-		state.Transaction = instance
-		return transactorRegistryEntry.Transactor(ctx, state)
+		return instance, nil
 	}
-
-	log.Debug("unknown transaction type: ", "type", transaction.Type)
-	return state, false, nil
+	return nil, nil
 }
-
-func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
-	castTransaction := (state.Transaction).(*consensuspb.UpdateOwnershipTransaction)
-	state.MutatableTip.Authorizations = castTransaction.Authorizations
-	state.MutatableTip.Authentication = castTransaction.Authentication
-
-	return state, false, nil
-}
-//
-//func SendCoinTransactor(ctx context.Context, chain *consensuspb.Chain, block *consensuspb.Block, transaction interface{}) (mutatedChain *consensuspb.Chain, shouldInterrupt bool, err error) {
-//	castTransaction := (transaction).(*consensuspb.SendCoinTransaction)
-//
-//
-//
-//}
