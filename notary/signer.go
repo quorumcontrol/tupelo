@@ -159,3 +159,35 @@ func (n *Signer) SignBlock(ctx context.Context, block *consensuspb.Block) (*cons
 func (n *Signer) SignTransaction(ctx context.Context, block *consensuspb.Block, transaction *consensuspb.Transaction) (*consensuspb.Block, error) {
 	return consensus.BlsSignTransaction(block, transaction, n.SignKey)
 }
+
+// check if we've signed it or if the group has signed it
+
+func (n *Signer) IsTransactionSigned(block *consensuspb.Block, transaction *consensuspb.Transaction) (bool,error) {
+	isSigned,err := n.Group.IsTransactionSigned(block, transaction)
+	if err != nil {
+		return false, fmt.Errorf("error checking for group sig: %v", err)
+	}
+	if isSigned {
+		return true, nil
+	}
+
+	if len(block.TransactionSignatures) == 0 {
+		return false, nil
+	}
+	sigs := sigsByMemo(block.TransactionSignatures)
+	sig,ok := sigs["tx:" + transaction.Id]
+	if !ok {
+		return false,nil
+	}
+
+	if sig.Creator != n.Id() {
+		return false, nil
+	}
+
+	hsh,err := consensus.TransactionToHash(transaction)
+	if err != nil {
+		return false, fmt.Errorf("error hashing block: %v",err)
+	}
+
+	return n.VerKey.Verify(sig.Signature, hsh.Bytes())
+}

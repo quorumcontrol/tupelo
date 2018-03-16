@@ -139,7 +139,7 @@ func (group *Group) ReplaceSignatures(block *consensuspb.Block) (*consensuspb.Bl
 	return block,nil
 }
 
-func (group *Group) IsSignedByGroup(block *consensuspb.Block) (bool,error) {
+func (group *Group) IsBlockSigned(block *consensuspb.Block) (bool,error) {
 	if len(block.Signatures) == 0 {
 		return false, nil
 	}
@@ -157,10 +157,40 @@ func (group *Group) IsSignedByGroup(block *consensuspb.Block) (bool,error) {
 	return group.VerifySignature(hsh.Bytes(),sig)
 }
 
+func (group *Group) IsTransactionSigned(block *consensuspb.Block, transaction *consensuspb.Transaction) (bool,error) {
+	if len(block.TransactionSignatures) == 0 {
+		return false, nil
+	}
+	sigs := sigsByMemo(block.TransactionSignatures)
+	sig,ok := sigs["tx:" + transaction.Id]
+	if !ok {
+		return false,nil
+	}
+
+	if sig.Creator != group.Id {
+		return false, nil
+	}
+
+	hsh,err := consensus.TransactionToHash(transaction)
+	if err != nil {
+		return false, fmt.Errorf("error hashing block: %v",err)
+	}
+
+	return group.VerifySignature(hsh.Bytes(),sig)
+}
+
 func sigsByCreator(sigs []*consensuspb.Signature) map[string]*consensuspb.Signature {
 	sigsByCreator := make(map[string]*consensuspb.Signature)
 	for _,sig := range sigs {
 		sigsByCreator[sig.Creator] = sig
 	}
 	return sigsByCreator
+}
+
+func sigsByMemo(sigs []*consensuspb.Signature) map[string]*consensuspb.Signature {
+	sigsByMemo := make(map[string]*consensuspb.Signature)
+	for _,sig := range sigs {
+		sigsByMemo[string(sig.Memo)] = sig
+	}
+	return sigsByMemo
 }

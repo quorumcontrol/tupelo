@@ -117,7 +117,7 @@ func TestFullIntegration(t *testing.T) {
 	walletChain,err := c.Wallet.GetChain(newChain.Id)
 	assert.Nil(t, err)
 
-	isSigned,err := cluster.Group.IsSignedByGroup(walletChain.Blocks[len(walletChain.Blocks) - 1])
+	isSigned,err := cluster.Group.IsBlockSigned(walletChain.Blocks[len(walletChain.Blocks) - 1])
 	assert.Nil(t, err)
 
 	assert.True(t, isSigned)

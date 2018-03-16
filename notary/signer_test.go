@@ -13,18 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-func defaultNotary(t *testing.T) *notary.Signer {
-	key,err := bls.NewSignKey()
-	assert.Nil(t, err)
-
-	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
-	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
-
-	storage := internalchain.NewMemStorage()
-
-	return notary.NewSigner(storage, group, key)
-}
-
 func TestNewNotary(t *testing.T) {
 	key,err := bls.NewSignKey()
 	assert.Nil(t, err)

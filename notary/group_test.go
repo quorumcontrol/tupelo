@@ -255,7 +255,7 @@ func TestGroup_ReplaceSignatures(t *testing.T) {
 		} else {
 			assert.Nil(t,err,test.Description)
 
-			verified,err := test.Group.IsSignedByGroup(block)
+			verified,err := test.Group.IsBlockSigned(block)
 			assert.Nil(t, err, "description: %v, err: %v", test.Description, err)
 
 			if test.ShouldVerify {

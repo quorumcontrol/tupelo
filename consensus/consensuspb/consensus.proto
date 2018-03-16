@@ -52,9 +52,9 @@ message Transaction {
     enum TransactionType {
         ADD_DATA = 0;
         UPDATE_OWNERSHIP = 1;
-        MINT_COINT = 2;
-        SEND_COINT = 3;
-        RECEIVE_COINT = 4;
+        MINT_COIN = 2;
+        SEND_COIN = 3;
+        RECEIVE_COIN = 4;
         BALANCE = 5;
     }
     TransactionType type = 2;

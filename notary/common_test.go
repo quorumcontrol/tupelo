@@ -6,6 +6,10 @@ import (
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/consensus"
 	"crypto/ecdsa"
+	"github.com/quorumcontrol/qc3/notary"
+	"github.com/quorumcontrol/qc3/internalchain"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/stretchr/testify/assert"
 )
 
 var aliceKey,_ = crypto.GenerateKey()
@@ -45,4 +49,16 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 
 func chainFromEcdsaKey(t *testing.T, key *ecdsa.PublicKey) *consensuspb.Chain {
 	return consensus.ChainFromEcdsaKey(key)
+}
+
+func defaultNotary(t *testing.T) *notary.Signer {
+	key,err := bls.NewSignKey()
+	assert.Nil(t, err)
+
+	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
+	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
+
+	storage := internalchain.NewMemStorage()
+
+	return notary.NewSigner(storage, group, key)
 }
