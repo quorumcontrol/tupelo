@@ -193,6 +193,48 @@ func TestSendCoinTransactor(t *testing.T) {
 				shouldError: false,
 			}
 		},
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 100, // 1 BILLION cat cat coin
+			})
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 101,
+			})
+
+			mintBlock := createBlockWithTransactions(t, []*consensuspb.Transaction{mintTransaction}, nil)
+			block := createBlockWithTransactions(t, []*consensuspb.Transaction{sendTransaction}, mintBlock)
+
+			chain.Blocks = []*consensuspb.Block{mintBlock, block}
+			history := consensus.NewMemoryHistoryStore()
+
+			block,err := signer.SignTransaction(context.Background(), block, mintTransaction)
+			assert.Nil(t,err)
+
+			chainTip,err := storage.Get(chain.Id)
+			assert.Nil(t,err)
+			state := &notary.TransactorState{
+				Signer: signer,
+				History: history,
+				MutatableTip: chainTip,
+				MutatableBlock: block,
+				Transaction: sendTransaction,
+			}
+
+			return &testDesc{
+				description: "with an over spend",
+				state: state,
+				transaction: sendTransaction,
+				shouldSign: false,
+				shouldInterrupt: true,
+				shouldError: false,
+			}
+		},
 	} {
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
