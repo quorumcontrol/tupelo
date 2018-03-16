@@ -61,7 +61,7 @@ func NewTransactorRegistry() TransactorRegistry {
 }
 
 func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
-	log.Debug("processing transaction", "id", state.Transaction.Id)
+	log.Info("processing transaction", "id", state.Transaction.Id)
 	transactorRegistryEntry,ok := tr[state.Transaction.Type]
 	if ok {
 		log.Trace("executing transactor", "id", state.Transaction.Id)
@@ -105,6 +105,7 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 	iterator := history.IteratorFrom(state.MutatableBlock, state.Transaction)
 	// get most recent balance transaction and/or go all the way back to genesis
 	for iterator != nil {
+		log.Trace("previous iterator")
 		lastSeenTransaction = iterator.Transaction()
 		lastSeenBlock = iterator.Block()
 
@@ -144,9 +145,10 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 	}
 
 	// now we have a sent balance (or 0) and we play forward from last seen and
-	iterator = history.IteratorFrom(lastSeenBlock, lastSeenTransaction)
+	iterator = history.IteratorFrom(lastSeenBlock, lastSeenTransaction).Next()
 	// get most recent balance transaction and/or go all the way back to genesis
 	for iterator != nil {
+		log.Trace("next iterator")
 		transaction := iterator.Transaction()
 		if transaction.Type == consensuspb.RECEIVE_COIN {
 			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
@@ -179,10 +181,9 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			}
 		}
 		if transaction.Type == consensuspb.SEND_COIN {
-			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
-			if !isSigned {
-				return state, true, nil
-			}
+			// we don't even check to see if a send coin is signed, because it's a negative balance so
+			// the user isn't incentivized to cheat here
+
 			_typed,err := typedTransactionFrom(transaction, sendCoinTransaction)
 			if err != nil {
 				return state, true, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
@@ -196,6 +197,7 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 		iterator = iterator.Next()
 	}
 
+	log.Debug("calculated balance", "balance", balance, "sending", transactionInQuestion.Amount)
 	// now we have a balance, we can see if it's greater than the current spend
 	if balance >= transactionInQuestion.Amount {
 		// if the balance is bigger, we can sign this transaction
@@ -204,10 +206,11 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			return state, true, fmt.Errorf("error signing transaction: %v", err)
 		}
 		state.MutatableBlock = blck
+		return state, false, nil
 	}
-
+	log.Info("attempted overspend","id", state.Transaction.Id, "balance", balance, "sending", transactionInQuestion.Amount)
 	// if balance isn't bigger, we should interrupt the signing of this block
-	return state, false, nil
+	return state, true, nil
 }
 
 // we allow a chain to mint its own coin, but no one elses

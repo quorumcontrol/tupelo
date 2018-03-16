@@ -86,6 +86,7 @@ message SendCoinTransaction {
 
 message ReceiveCoinTransaction {
     SendCoinTransaction send_transaction = 1;
+    Signature signature = 2;
 }
 
 message BalanceTransaction {

@@ -4,6 +4,7 @@ import (
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type History interface {
@@ -131,10 +132,10 @@ func (ti *memoryTransactionIterator) Next() TransactionIterator {
 		transaction = block.SignableBlock.Transactions[newIndex]
 	} else {
 		block = ti.history.NextBlock(ti.blockHash)
+		newIndex = 0
 	}
 
 	if block != nil {
-		newIndex = 0
 		transaction = block.SignableBlock.Transactions[0]
 
 		return &memoryTransactionIterator{
@@ -154,13 +155,16 @@ func (ti *memoryTransactionIterator) Prev() TransactionIterator {
 	var transaction *consensuspb.Transaction
 
 	if newIndex >= 0 {
+		log.Trace("new index from iterator", "index", newIndex)
 		transaction = block.SignableBlock.Transactions[newIndex]
 	} else {
 		block = ti.history.PrevBlock(ti.blockHash)
+		if block != nil {
+			newIndex = len(block.SignableBlock.Transactions) - 1
+		}
 	}
 
 	if block != nil {
-		newIndex = len(block.SignableBlock.Transactions) - 1
 		transaction = block.SignableBlock.Transactions[newIndex]
 
 		return &memoryTransactionIterator{
@@ -171,6 +175,7 @@ func (ti *memoryTransactionIterator) Prev() TransactionIterator {
 		}
 	}
 
+	log.Trace("return nil from iterator")
 	return nil
 }
 
