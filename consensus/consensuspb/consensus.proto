@@ -85,14 +85,14 @@ message SendCoinTransaction {
 }
 
 message ReceiveCoinTransaction {
-    SendCoinTransaction send_transaction = 1;
+    Transaction send_transaction = 1;
     Signature signature = 2;
 }
 
 message BalanceTransaction {
     string name = 1;
     uint64 balance = 2;
-    bytes transactions = 3;
+    repeated string transactions = 3; //TODO: make this an accumulator
 }
 
 message ChainTip {

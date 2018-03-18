@@ -68,6 +68,27 @@ func createBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction,
 	return retBlock
 }
 
+func createBobBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction, prevBlock *consensuspb.Block) (*consensuspb.Block) {
+	retBlock := &consensuspb.Block{
+		SignableBlock: &consensuspb.SignableBlock{
+			Sequence: 0,
+			ChainId: consensus.AddrToDid(bobAddr.Hex()),
+			Transactions: trans,
+		},
+	}
+
+	if prevBlock != nil {
+		prevHash,err := consensus.BlockToHash(prevBlock)
+		if err != nil {
+			t.Fatalf("error getting hash of previous block: %v", err)
+		}
+		retBlock.SignableBlock.PreviousHash = prevHash.Bytes()
+		retBlock.SignableBlock.Sequence = prevBlock.SignableBlock.Sequence + 1
+	}
+
+	return retBlock
+}
+
 func chainFromEcdsaKey(t *testing.T, key *ecdsa.PublicKey) *consensuspb.Chain {
 	return consensus.ChainFromEcdsaKey(key)
 }

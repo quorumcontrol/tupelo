@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"github.com/quorumcontrol/qc3/consensus"
 	"strings"
+	"bytes"
 )
 
 var DefaultTransactorRegistry TransactorRegistry
@@ -44,6 +45,10 @@ func init() {
 	DefaultTransactorRegistry[consensuspb.MINT_COIN] = &TransactorRegistryEntry{
 		Transactor:  MintCoinTransactor,
 		Unmarshaler: mintCoinTransaction,
+	}
+	DefaultTransactorRegistry[consensuspb.RECEIVE_COIN] = &TransactorRegistryEntry{
+		Transactor:  ReceiveCoinTransactor,
+		Unmarshaler: receiveCoinTransaction,
 	}
 }
 
@@ -85,6 +90,32 @@ func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mu
 	return state, false, nil
 }
 
+func iteratorAtLastBalanceOrGenerator(coinName string, currentBlock *consensuspb.Block, transaction *consensuspb.Transaction, history consensus.History) (consensus.TransactionIterator, error) {
+	var lastSeenTransaction *consensuspb.Transaction
+
+	iterator := history.IteratorFrom(currentBlock, transaction)
+
+	// get most recent balance transaction and/or go all the way back to genesis
+	for iterator.Prev() != nil {
+		lastSeenTransaction = iterator.Transaction()
+
+		if lastSeenTransaction.Type == consensuspb.BALANCE {
+			typed,err := typedTransactionFrom(lastSeenTransaction, balanceTransaction)
+			if err != nil {
+				return nil, fmt.Errorf("error getting typed transaction: %v", err)
+			}
+			typedLastBalance := (typed).(*consensuspb.BalanceTransaction)
+
+			if typedLastBalance.Name == coinName {
+				break
+			}
+		}
+		iterator = iterator.Prev()
+	}
+
+	return iterator, nil
+}
+
 // TODO: this needs some really good refactoring
 // SendCoinTransactin takes the history, looks back in history to find the last balance block (or all the way back to genesis)
 // it then plays forward to make sure there aren't any send/receive since that balance/genesis and makes sure that the current
@@ -96,39 +127,16 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 	history := state.History
 	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
 
-	var lastSeenBlock *consensuspb.Block
-	var lastSeenTransaction *consensuspb.Transaction
-	var lastBalance *consensuspb.Transaction
-	var typedLastBalance *consensuspb.BalanceTransaction
   	balance := uint64(0)
 
-	iterator := history.IteratorFrom(state.MutatableBlock, state.Transaction)
-	// get most recent balance transaction and/or go all the way back to genesis
-	for iterator != nil {
-		lastSeenTransaction = iterator.Transaction()
-		lastSeenBlock = iterator.Block()
-
-		if lastSeenTransaction.Type == consensuspb.BALANCE {
-			typed,err := typedTransactionFrom(lastSeenTransaction, balanceTransaction)
-			if err != nil {
-				return state, true, fmt.Errorf("error getting typed transaction: %v", err)
-			}
-			typedLastBalance = (typed).(*consensuspb.BalanceTransaction)
-
-			if typedLastBalance.Name == transactionInQuestion.Name {
-				lastBalance = lastSeenTransaction
-				break
-			}
-		}
-		iterator = iterator.Prev()
+	iterator,err := iteratorAtLastBalanceOrGenerator(transactionInQuestion.Name, state.MutatableBlock, state.Transaction, history)
+	if err != nil {
+		return state, true, fmt.Errorf("error getting iterator: %v", err)
 	}
-
-	log.Debug("lastSeenTransaction", "transactionId", lastSeenTransaction.Id, "type", lastSeenTransaction.Type, "lastBalance", lastBalance)
-
 	// if there is a balance transaction, see if it's been signed
-	if lastBalance != nil {
+	if iterator.Transaction().Type == consensuspb.BALANCE {
 		// is the transaction signed?
-		isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), lastBalance)
+		isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), iterator.Transaction())
 		if err != nil {
 			return state, true, fmt.Errorf("error getting is signed: %v", err)
 		}
@@ -136,17 +144,21 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			return state, true, nil
 		}
 
+		typed,err := typedTransactionFrom(iterator.Transaction(), balanceTransaction)
+		if err != nil {
+			return state, true, fmt.Errorf("error getting typed transaction: %v", err)
+		}
+		typedLastBalance := (typed).(*consensuspb.BalanceTransaction)
+
 		// if we got here, then we have a signed balance transaction
 		balance = typedLastBalance.Balance
 	} else {
 		// if there is not a last balance transaction, then the last block in history *must* be a genesis block
-		if lastSeenBlock == nil || lastSeenBlock.SignableBlock.Sequence != 0 {
+		if iterator.Block().SignableBlock.Sequence != 0 {
 			return state, true, nil
 		}
 	}
 
-	// now we have a sent balance (or 0) and we play forward from last seen and
-	iterator = history.IteratorFrom(lastSeenBlock, lastSeenTransaction)
 	// get most recent balance transaction and/or go all the way back to genesis
 	for iterator != nil && iterator.Transaction() != state.Transaction {
 		log.Trace("next iterator")
@@ -157,14 +169,20 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			if !isSigned {
 				return state, true, nil
 			}
-			_typed,err := typedTransactionFrom(transaction, receiveCoinTransaction)
+			_typedReceived,err := typedTransactionFrom(transaction, receiveCoinTransaction)
 			if err != nil {
 				return state, true, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
 			}
-			typed := _typed.(*consensuspb.ReceiveCoinTransaction)
+			typedReceived := _typedReceived.(*consensuspb.ReceiveCoinTransaction)
 
-			if typed.SendTransaction.Name == transactionInQuestion.Name {
-				balance += typed.SendTransaction.Amount
+			_typedSend,err := typedTransactionFrom(typedReceived.SendTransaction, sendCoinTransaction)
+			if err != nil {
+				return state, true, fmt.Errorf("error unmarshaling send coin transaction: %v", err)
+			}
+			typedSend := _typedSend.(*consensuspb.SendCoinTransaction)
+
+			if typedSend.Name == transactionInQuestion.Name {
+				balance += typedSend.Amount
 			}
 		}
 		if transaction.Type == consensuspb.MINT_COIN {
@@ -231,6 +249,137 @@ func MintCoinTransactor(ctx context.Context, state *TransactorState) (mutatedSta
 	}
 	// otherwise, this is an invalid mint
 	return state, true, nil
+}
+
+func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+	transactionInQuestion := (state.TypedTransaction).(*consensuspb.ReceiveCoinTransaction)
+	_typedSend,err := typedTransactionFrom(transactionInQuestion.SendTransaction, sendCoinTransaction)
+	if err != nil {
+		return state, true, fmt.Errorf("error unmarshaling send coin transaction: %v", err)
+	}
+	sendInQuestion := _typedSend.(*consensuspb.SendCoinTransaction)
+	// assert that the transaction is signed by the group
+	if transactionInQuestion.Signature == nil {
+		log.Error("no signature for receive blocK", "transactionId", state.Transaction.Id)
+		return state, true, nil
+	}
+
+	if !bytes.Equal(transactionInQuestion.Signature.Memo, []byte("tx:" +transactionInQuestion.SendTransaction.Id)) {
+		log.Error("memo didn't match", "transactionId", state.Transaction.Id, "memo", string(transactionInQuestion.Signature.Memo), "expectedMemo", []byte("tx:" + transactionInQuestion.SendTransaction.Id))
+		return state, true, nil
+	}
+
+	if transactionInQuestion.Signature.Creator != state.Signer.Group.Id {
+		log.Error("creator wasn't right", "transactionId", state.Transaction.Id, "creator", transactionInQuestion.Signature.Creator, "expectedCreator", state.Signer.Group.Id)
+		return state, true, nil
+	}
+
+
+	hsh,err := consensus.TransactionToHash(transactionInQuestion.SendTransaction)
+	if err != nil {
+		return state, true, fmt.Errorf("error hashing block: %v",err)
+	}
+
+	isVerified,err := state.Signer.Group.VerifySignature(hsh.Bytes(),transactionInQuestion.Signature)
+	if err != nil {
+		return state, true, fmt.Errorf("error hashing block: %v",err)
+	}
+
+	if !isVerified {
+		return state, true, nil
+	}
+
+	// go back in time to the last validated balance transaction or the genesis block, then play up to this transaction
+	history := state.History
+	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
+
+	var spentTransactions []string
+
+	iterator,err := iteratorAtLastBalanceOrGenerator(sendInQuestion.Name, state.MutatableBlock, state.Transaction, history)
+	if err != nil {
+		return state, true, fmt.Errorf("error getting iterator: %v", err)
+	}
+	// if there is a balance transaction, see if it's been signed
+	if iterator.Transaction().Type == consensuspb.BALANCE {
+		// is the transaction signed?
+		isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), iterator.Transaction())
+		if err != nil {
+			return state, true, fmt.Errorf("error getting is signed: %v", err)
+		}
+		if !isSigned {
+			return state, true, nil
+		}
+
+		typed,err := typedTransactionFrom(iterator.Transaction(), balanceTransaction)
+		if err != nil {
+			return state, true, fmt.Errorf("error getting typed transaction: %v", err)
+		}
+		typedLastBalance := (typed).(*consensuspb.BalanceTransaction)
+
+		// if we got here, then we have a signed balance transaction
+		spentTransactions = typedLastBalance.Transactions
+	} else {
+		// if there is not a last balance transaction, then the last block in history *must* be a genesis block
+		if iterator.Block().SignableBlock.Sequence != 0 {
+			return state, true, nil
+		}
+		log.Debug("proceeding from genesis block", "transactionId", iterator.Transaction().Id, "type", iterator.Transaction().Type)
+	}
+
+	// now play forward until we get to the current transaction and add all the received transaction ids
+
+	// get most recent balance transaction and/or go all the way back to genesis
+	for iterator != nil && iterator.Transaction() != state.Transaction {
+		log.Trace("next iterator")
+		transaction := iterator.Transaction()
+		log.Debug("processing transaction", "transactionId", transaction.Id, "type", transaction.Type)
+		if transaction.Type == consensuspb.RECEIVE_COIN {
+
+			_typedReceived,err := typedTransactionFrom(transaction, receiveCoinTransaction)
+			if err != nil {
+				return state, true, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
+			}
+			typedReceived := _typedReceived.(*consensuspb.ReceiveCoinTransaction)
+
+			_typedSend,err := typedTransactionFrom(typedReceived.SendTransaction, sendCoinTransaction)
+			if err != nil {
+				return state, true, fmt.Errorf("error unmarshaling send coin transaction: %v", err)
+			}
+			typedSend := _typedSend.(*consensuspb.SendCoinTransaction)
+
+			if typedSend.Name == sendInQuestion.Name {
+				spentTransactions = append(spentTransactions, typedSend.Id)
+			}
+		}
+
+		iterator = iterator.Next()
+		log.Debug("next iterator", "transactionId", transaction.Id, "type", transaction.Type)
+	}
+
+	log.Debug("spent transactions", "spentTransactions", spentTransactions)
+	// now we have a balance, we can see if it's greater than the current spend
+	if !hasId(spentTransactions, sendInQuestion.Id) {
+		log.Debug("send id is not spent", "transactionId", state.Transaction.Id)
+		// if the balance is bigger, we can sign this transaction
+		blck,err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
+		if err != nil {
+			return state, true, fmt.Errorf("error signing transaction: %v", err)
+		}
+		state.MutatableBlock = blck
+		return state, false, nil
+	}
+	log.Info("attempted double spend","id", state.Transaction.Id, "sendTransactionId", sendInQuestion.Id, "receiving", sendInQuestion.Amount)
+	// if balance isn't bigger, we should interrupt the signing of this block
+	return state, true, nil
+}
+
+func hasId(ids []string, id string) bool {
+	for _,str := range ids {
+		if str == id {
+			return true
+		}
+	}
+	return false
 }
 
 // if the block is signed by the group then we can assume the transaction is ok

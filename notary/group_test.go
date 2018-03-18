@@ -56,7 +56,7 @@ func TestVerifyNotaryGroupSignature(t *testing.T) {
 			sig1 := block.Signatures[0]
 			sig2 := block.Signatures[1]
 
-			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1,sig2})
+			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1,sig2}, nil)
 			assert.Nil(t, err, "error setting up working sig")
 
 			block.Signatures = append(block.Signatures, combined)
@@ -76,7 +76,7 @@ func TestVerifyNotaryGroupSignature(t *testing.T) {
 
 			sig1 := block.Signatures[0]
 
-			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1})
+			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1}, nil)
 			assert.Nil(t, err, "error setting up working sig")
 
 			block.Signatures = append(block.Signatures, combined)
@@ -145,7 +145,7 @@ func TestGroup_CombineSignatures(t *testing.T) {
 			sig1 := block.Signatures[0]
 			sig2 := block.Signatures[1]
 
-			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1,sig2})
+			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1,sig2}, nil)
 			assert.Nil(t, err, "error setting up working sig")
 
 			return &testDescription{
@@ -163,7 +163,7 @@ func TestGroup_CombineSignatures(t *testing.T) {
 
 			sig1 := block.Signatures[0]
 
-			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1})
+			combined,err := defaultGroup.CombineSignatures([]*consensuspb.Signature{sig1}, nil)
 			assert.Nil(t, err, "error setting up working sig")
 
 			return &testDescription{

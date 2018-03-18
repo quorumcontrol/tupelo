@@ -97,6 +97,142 @@ func TestMintCoinTransactor(t *testing.T) {
 	}
 }
 
+func TestReceiveCoinTransactor(t *testing.T) {
+	signer := defaultNotary(t)
+	//group := signer.Group
+
+	type testDesc struct {
+		description string
+		transaction *consensuspb.Transaction
+		state *notary.TransactorState
+		shouldError bool
+		shouldInterrupt bool
+		shouldSign bool
+	}
+
+	type testGenerator func(t *testing.T) *testDesc
+	for _,testGen := range []testGenerator{
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
+				Name:   chain.Id + "catCoin",
+				Amount: 10,
+			})
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name:   chain.Id + "catCoin",
+				Amount: 5,
+			})
+
+			bobBlock := createBobBlockWithTransactions(t, []*consensuspb.Transaction{mintTransaction, sendTransaction}, nil)
+			bobBlock, err := signer.SignTransaction(context.Background(), bobBlock, sendTransaction)
+			assert.Nil(t, err)
+
+			combinedSig,err := signer.Group.CombineSignatures(bobBlock.TransactionSignatures, bobBlock.TransactionSignatures[0].Memo)
+			assert.Nil(t,err)
+
+			receiveTransaction := consensus.EncapsulateTransaction(consensuspb.RECEIVE_COIN, &consensuspb.ReceiveCoinTransaction{
+				SendTransaction: sendTransaction,
+				Signature: combinedSig,
+			})
+
+			aliceBlock := createBobBlockWithTransactions(t, []*consensuspb.Transaction{receiveTransaction}, nil)
+
+			chain.Blocks = []*consensuspb.Block{aliceBlock}
+			history := consensus.NewMemoryHistoryStore()
+
+			chainTip, err := storage.Get(chain.Id)
+			assert.Nil(t, err)
+			state := &notary.TransactorState{
+				Signer:         signer,
+				History:        history,
+				MutatableTip:   chainTip,
+				MutatableBlock: aliceBlock,
+				Transaction:    receiveTransaction,
+			}
+
+			return &testDesc{
+				description:     "a genesis with a valid receive",
+				state:           state,
+				transaction:     receiveTransaction,
+				shouldSign:      true,
+				shouldInterrupt: false,
+				shouldError:     false,
+			}
+		},
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name:   chain.Id + "catCoin",
+				Amount: 5,
+			})
+
+
+			receiveTransaction := consensus.EncapsulateTransaction(consensuspb.RECEIVE_COIN, &consensuspb.ReceiveCoinTransaction{
+				SendTransaction: sendTransaction,
+			})
+
+			aliceBlock := createBobBlockWithTransactions(t, []*consensuspb.Transaction{receiveTransaction}, nil)
+
+			chain.Blocks = []*consensuspb.Block{aliceBlock}
+			history := consensus.NewMemoryHistoryStore()
+
+			chainTip, err := storage.Get(chain.Id)
+			assert.Nil(t, err)
+			state := &notary.TransactorState{
+				Signer:         signer,
+				History:        history,
+				MutatableTip:   chainTip,
+				MutatableBlock: aliceBlock,
+				Transaction:    receiveTransaction,
+			}
+
+			return &testDesc{
+				description:     "a genesis with a receive missing a signature",
+				state:           state,
+				transaction:     receiveTransaction,
+				shouldSign:      false,
+				shouldInterrupt: true,
+				shouldError:     false,
+			}
+		},
+	} {
+		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+		test := testGen(t)
+		t.Logf("chainId: %v", test.state.MutatableTip.Id)
+		retState, shouldInterrupt, err := notary.DefaultTransactorRegistry.Distribute(context.Background(), test.state)
+		if test.shouldError {
+			assert.NotNil(t, err, test.description)
+		} else {
+			assert.Nil(t, err, test.description)
+		}
+
+		if test.shouldInterrupt {
+			assert.True(t, shouldInterrupt, test.description)
+		} else {
+			assert.False(t, shouldInterrupt, test.description)
+		}
+
+		if test.shouldSign {
+			mutatedBlock := retState.MutatableBlock
+			isSigned,err := signer.IsTransactionSigned(mutatedBlock,test.transaction)
+			assert.Nil(t,err, test.description)
+			assert.True(t, isSigned, test.description)
+		} else {
+			mutatedBlock := retState.MutatableBlock
+			isSigned,err := signer.IsTransactionSigned(mutatedBlock,test.transaction)
+			assert.Nil(t,err, test.description)
+			assert.False(t, isSigned, test.description)
+		}
+	}
+
+}
+
 func TestSendCoinTransactor(t *testing.T) {
 	signer := defaultNotary(t)
 	//group := signer.Group
@@ -119,7 +255,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 				Name: chain.Id + "catCoin",
-				Amount: 1000000000, // 1 BILLION cat cat coin
+				Amount: 1000000000,
 			})
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -159,7 +295,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 				Name: chain.Id + "catCoin",
-				Amount: 100, // 1 BILLION cat cat coin
+				Amount: 100,
 			})
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -199,7 +335,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 				Name: chain.Id + "catCoin",
-				Amount: 100, // 1 BILLION cat cat coin
+				Amount: 100,
 			})
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -238,7 +374,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 				Name: chain.Id + "catCoin",
-				Amount: 100, // 1 BILLION cat cat coin
+				Amount: 100,
 			})
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -290,7 +426,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 				Name: chain.Id + "catCoin",
-				Amount: 101, // 1 BILLION cat cat coin
+				Amount: 101,
 			})
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -338,7 +474,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 				Name: chain.Id + "catCoin",
-				Amount: 100, // 1 BILLION cat cat coin
+				Amount: 100,
 			})
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{

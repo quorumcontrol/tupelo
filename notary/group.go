@@ -80,7 +80,7 @@ func (group *Group) VerifySignature(msg []byte, sig *consensuspb.Signature) (boo
 }
 
 
-func (group *Group) CombineSignatures(sigs []*consensuspb.Signature) (*consensuspb.Signature,error) {
+func (group *Group) CombineSignatures(sigs []*consensuspb.Signature, memo []byte) (*consensuspb.Signature,error) {
 	sigBytes := make([][]byte, 0)
 	sigMap := sigsByCreator(sigs)
 
@@ -104,18 +104,19 @@ func (group *Group) CombineSignatures(sigs []*consensuspb.Signature) (*consensus
 		Creator: group.Id,
 		Signers: signers,
 		Signature: combinedBytes,
+		Memo: memo,
 	}, nil
 }
 
 func (group *Group) ReplaceSignatures(block *consensuspb.Block) (*consensuspb.Block, error) {
-	combinedSig,err := group.CombineSignatures(block.Signatures)
-	if err != nil {
-		return nil, fmt.Errorf("error combining sig: %v", err)
-	}
-
 	hsh,err := consensus.BlockToHash(block)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing block")
+	}
+
+	combinedSig,err := group.CombineSignatures(block.Signatures, hsh.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("error combining sig: %v", err)
 	}
 
 	verified,err := group.VerifySignature(hsh.Bytes(), combinedSig)
@@ -136,6 +137,9 @@ func (group *Group) ReplaceSignatures(block *consensuspb.Block) (*consensuspb.Bl
 	}
 	newSigs[i] = combinedSig
 	block.Signatures = newSigs
+
+
+
 	return block,nil
 }
 
