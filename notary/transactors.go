@@ -274,7 +274,6 @@ func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutated
 		return state, true, nil
 	}
 
-
 	hsh,err := consensus.TransactionToHash(transactionInQuestion.SendTransaction)
 	if err != nil {
 		return state, true, fmt.Errorf("error hashing block: %v",err)
