@@ -136,7 +136,7 @@ func (ti *memoryTransactionIterator) Next() TransactionIterator {
 	}
 
 	if block != nil {
-		transaction = block.SignableBlock.Transactions[0]
+		transaction = block.SignableBlock.Transactions[newIndex]
 
 		return &memoryTransactionIterator{
 			transaction: transaction,

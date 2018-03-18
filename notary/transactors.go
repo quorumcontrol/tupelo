@@ -105,7 +105,6 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 	iterator := history.IteratorFrom(state.MutatableBlock, state.Transaction)
 	// get most recent balance transaction and/or go all the way back to genesis
 	for iterator != nil {
-		log.Trace("previous iterator")
 		lastSeenTransaction = iterator.Transaction()
 		lastSeenBlock = iterator.Block()
 
@@ -123,6 +122,8 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 		}
 		iterator = iterator.Prev()
 	}
+
+	log.Debug("lastSeenTransaction", "transactionId", lastSeenTransaction.Id, "type", lastSeenTransaction.Type, "lastBalance", lastBalance)
 
 	// if there is a balance transaction, see if it's been signed
 	if lastBalance != nil {
@@ -145,11 +146,12 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 	}
 
 	// now we have a sent balance (or 0) and we play forward from last seen and
-	iterator = history.IteratorFrom(lastSeenBlock, lastSeenTransaction).Next()
+	iterator = history.IteratorFrom(lastSeenBlock, lastSeenTransaction)
 	// get most recent balance transaction and/or go all the way back to genesis
-	for iterator != nil {
+	for iterator != nil && iterator.Transaction() != state.Transaction {
 		log.Trace("next iterator")
 		transaction := iterator.Transaction()
+		log.Debug("processing transaction", "transactionId", transaction.Id, "type", transaction.Type)
 		if transaction.Type == consensuspb.RECEIVE_COIN {
 			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
 			if !isSigned {
@@ -170,6 +172,7 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			if !isSigned {
 				return state, true, nil
 			}
+			log.Debug("mint transaction is approved")
 			_typed,err := typedTransactionFrom(transaction, mintCoinTransaction)
 			if err != nil {
 				return state, true, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
@@ -177,6 +180,7 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			typed := _typed.(*consensuspb.MintCoinTransaction)
 
 			if typed.Name == transactionInQuestion.Name {
+				log.Debug("adding amount to balance", "amount", typed.Amount)
 				balance += typed.Amount
 			}
 		}
@@ -195,6 +199,7 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 			}
 		}
 		iterator = iterator.Next()
+		log.Debug("next iterator", "transactionId", iterator.Transaction().Id, "type", iterator.Transaction().Type)
 	}
 
 	log.Debug("calculated balance", "balance", balance, "sending", transactionInQuestion.Amount)
