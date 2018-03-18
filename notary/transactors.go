@@ -50,6 +50,10 @@ func init() {
 		Transactor:  ReceiveCoinTransactor,
 		Unmarshaler: receiveCoinTransaction,
 	}
+	DefaultTransactorRegistry[consensuspb.BALANCE] = &TransactorRegistryEntry{
+		Transactor:  BalanceTransactor,
+		Unmarshaler: balanceTransaction,
+	}
 }
 
 type Transactor func(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error)
@@ -66,7 +70,7 @@ func NewTransactorRegistry() TransactorRegistry {
 }
 
 func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
-	log.Info("processing transaction", "id", state.Transaction.Id)
+	log.Info("processing transaction", "id", state.Transaction.Id, "type", state.Transaction.Type)
 	transactorRegistryEntry,ok := tr[state.Transaction.Type]
 	if ok {
 		log.Trace("executing transactor", "id", state.Transaction.Id)
@@ -217,11 +221,55 @@ func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutated
 	return state, true, nil
 }
 
+func BalanceTransactor(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+	transactionInQuestion := (state.TypedTransaction).(*consensuspb.BalanceTransaction)
+
+	history := state.History
+	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
+
+	iterator,err := iteratorAtLastBalanceOrGenerator(transactionInQuestion.Name, state.MutatableBlock, state.Transaction, history)
+	if err != nil {
+		return state, true, fmt.Errorf("error getting iterator: %v", err)
+	}
+
+	balance,spentTransactions,valid, err := balanceAndSpentTransactionsSince(iterator, transactionInQuestion.Name, state)
+	if err != nil {
+		log.Error("error iterating over transactions", "error", err)
+		return state,true, fmt.Errorf("error iterating over transactions: %v", err)
+	}
+	if !valid {
+		log.Error("invalid transaction")
+		return state, true, nil
+	}
+
+	if transactionInQuestion.Balance != balance {
+		log.Error("invalid balance", "balanceInTransaction", transactionInQuestion.Balance, "balance", balance)
+		return state, true, nil
+	}
+
+	if !areSlicesEqual(spentTransactions, transactionInQuestion.Transactions) {
+		log.Error("invalid transactions", "balanceInTransaction", transactionInQuestion.Transactions, "expectedTransactions", spentTransactions)
+		return state, true, nil
+	}
+
+	log.Debug("signing transaction")
+	blck,err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
+	if err != nil {
+		return state, true, fmt.Errorf("error signing transaction: %v", err)
+	}
+	state.MutatableBlock = blck
+	return state, false, nil
+}
+
 
 func iteratorAtLastBalanceOrGenerator(coinName string, currentBlock *consensuspb.Block, transaction *consensuspb.Transaction, history consensus.History) (consensus.TransactionIterator, error) {
 	var lastSeenTransaction *consensuspb.Transaction
 
 	iterator := history.IteratorFrom(currentBlock, transaction)
+
+	if iterator.Transaction().Type == consensuspb.BALANCE {
+		iterator = iterator.Prev()
+	}
 
 	// get most recent balance transaction and/or go all the way back to genesis
 	for iterator.Prev() != nil {
@@ -268,6 +316,7 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 	} else {
 		// if there is not a last balance transaction, then the last block in history *must* be a genesis block
 		if iterator.Block().SignableBlock.Sequence != 0 {
+			log.Error("did not receive genesis or balance")
 			return 0,nil, false, nil
 		}
 	}
@@ -275,7 +324,7 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 	for iterator != nil && iterator.Transaction() != state.Transaction {
 		log.Trace("next iterator")
 		transaction := iterator.Transaction()
-		log.Debug("processing transaction", "transactionId", transaction.Id, "type", transaction.Type)
+		log.Debug("iterating transaction", "transactionId", transaction.Id, "type", transaction.Type)
 		if transaction.Type == consensuspb.RECEIVE_COIN {
 			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
 			if !isSigned {
@@ -375,3 +424,27 @@ func typedTransactionFrom(transaction *consensuspb.Transaction, messageType stri
 	}
 	return instance, nil
 }
+
+func areSlicesEqual(a, b []string) bool {
+
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a == nil || b == nil {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
