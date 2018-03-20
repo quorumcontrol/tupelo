@@ -58,8 +58,8 @@ func (wn *WhisperNode) Stop() {
 	wn.stopChan<-true
 }
 
-func historiesByChainId(chains []*consensuspb.Chain) (chainMap map[string]notary.History) {
-	chainMap = make(map[string]notary.History)
+func historiesByChainId(chains []*consensuspb.Chain) (chainMap map[string]consensus.History) {
+	chainMap = make(map[string]consensus.History)
 	for _,chain := range chains {
 		history := consensus.NewMemoryHistoryStore()
 		history.StoreBlocks(chain.Blocks)

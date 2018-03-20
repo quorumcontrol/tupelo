@@ -45,7 +45,7 @@ func NewClient(group *notary.Group, wallet Wallet) *Client {
 
 func (c *Client) Start() {
 	ticker := time.NewTicker(1000 * time.Millisecond)
-	log.Debug("starting client whisper")
+	log.Debug("starting client whisper", "key", c.sessionKey.PublicKey)
 	whisp := network.Start(c.sessionKey)
 	c.whisper = whisp
 	whisp.Subscribe(c.filter)
@@ -72,7 +72,7 @@ func (c *Client) Stop() {
 }
 
 func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
-	log.Debug("received message", "message", msg, "stats", c.whisper.Stats())
+	log.Debug("CLIENT received message", "message", msg, "stats", c.whisper.Stats())
 	resp := &consensuspb.SignatureResponse{}
 	err := proto.Unmarshal(msg.Payload, resp)
 	if err != nil {
@@ -86,6 +86,7 @@ func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 		return
 	}
 	if existing != nil {
+		log.Info("appending signatures to block", "signatures", resp.Block.Signatures)
 		existing.Blocks[len(existing.Blocks) - 1].Signatures = append(existing.Blocks[len(existing.Blocks) - 1].Signatures, resp.Block.Signatures...)
 		c.Wallet.SetChain(existing.Id, existing)
 	} else {
@@ -103,7 +104,6 @@ func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 		}
 		c.Wallet.SetChain(existing.Id, existing)
 	}
-
 }
 
 
@@ -148,6 +148,7 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 			Sequence: 0,
 			Transactions: []*consensuspb.Transaction{
 				{
+					Id: uuid.New().String(),
 					Type: consensuspb.ADD_DATA,
 					Payload: []byte("genesis chain"),
 				},
