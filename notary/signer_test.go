@@ -4,7 +4,6 @@ import (
 	"testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/quorumcontrol/qc3/bls"
-	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/consensus"
 	"context"
@@ -20,7 +19,7 @@ func TestNewNotary(t *testing.T) {
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
 	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
 
-	storage := internalchain.NewMemStorage()
+	storage := notary.NewMemStorage()
 
 	notary := notary.NewSigner(storage, group, key)
 	assert.Equal(t, notary.ChainStore, storage)

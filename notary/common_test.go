@@ -7,7 +7,6 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"crypto/ecdsa"
 	"github.com/quorumcontrol/qc3/notary"
-	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/stretchr/testify/assert"
 )
@@ -100,7 +99,7 @@ func defaultNotary(t *testing.T) *notary.Signer {
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
 	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
 
-	storage := internalchain.NewMemStorage()
+	storage := notary.NewMemStorage()
 
 	return notary.NewSigner(storage, group, key)
 }

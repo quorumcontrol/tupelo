@@ -7,7 +7,6 @@ import (
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"context"
 	"github.com/stretchr/testify/assert"
-	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/ethereum/go-ethereum/log"
 	"os"
 )
@@ -44,7 +43,7 @@ func TestMintCoinTransactor(t *testing.T) {
 			shouldSign: false,
 		},
 	} {
-		storage := internalchain.NewMemStorage()
+		storage := notary.NewMemStorage()
 		chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 		block := &consensuspb.Block{
@@ -113,7 +112,7 @@ func TestReceiveCoinTransactor(t *testing.T) {
 	type testGenerator func(t *testing.T) *testDesc
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -163,7 +162,7 @@ func TestReceiveCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -250,7 +249,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -290,7 +289,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -330,7 +329,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -369,7 +368,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -421,7 +420,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -469,7 +468,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
@@ -517,7 +516,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
@@ -561,7 +560,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -651,7 +650,7 @@ func TestBalanceTransactor(t *testing.T) {
 
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -699,7 +698,7 @@ func TestBalanceTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -747,7 +746,7 @@ func TestBalanceTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := internalchain.NewMemStorage()
+			storage := notary.NewMemStorage()
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{

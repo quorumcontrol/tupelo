@@ -4,7 +4,6 @@ package client_test
 
 import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/quorumcontrol/qc3/notary"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/client/wallet"
@@ -68,7 +67,7 @@ func NewDefaultTestCluster(t *testing.T) *TestCluster {
 
 	nodes := make([]*node.WhisperNode, len(BlsSignKeys))
 	for i,key := range BlsSignKeys {
-		storage := internalchain.NewMemStorage()
+		storage := notary.NewMemStorage()
 		signer := notary.NewSigner(storage, group, key)
 		nodes[i] = node.NewWhisperNode(signer, EcdsaKeys[i])
 	}

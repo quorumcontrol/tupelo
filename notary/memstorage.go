@@ -1,4 +1,4 @@
-package internalchain
+package notary
 
 import "github.com/quorumcontrol/qc3/consensus/consensuspb"
 

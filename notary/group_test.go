@@ -1,7 +1,6 @@
 package notary_test
 
 import (
-	"github.com/quorumcontrol/qc3/internalchain"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/notary"
 	"testing"
@@ -12,7 +11,7 @@ import (
 )
 
 func TestVerifyNotaryGroupSignature(t *testing.T) {
-	store := internalchain.NewMemStorage()
+	store := notary.NewMemStorage()
 
 	privateKeys := make([]*bls.SignKey, 3)
 	for i := 0; i < 3; i++ {
