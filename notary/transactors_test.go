@@ -394,7 +394,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			assert.Nil(t,err)
 
 			isSigned,_ := signer.Group.IsBlockSigned(mintBlock)
-			assert.True(t,isSigned, "signing by group did not sign the mint block")
+			assert.True(t,isSigned)
 
 			block := createBlockWithTransactions(t, []*consensuspb.Transaction{sendTransaction, sendTransaction2}, mintBlock)
 			chain.Blocks = []*consensuspb.Block{block}
@@ -441,7 +441,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			assert.Nil(t,err)
 
 			isSigned,_ := signer.Group.IsBlockSigned(mintBlock)
-			assert.True(t,isSigned, "signing by group did not sign the mint block")
+			assert.True(t,isSigned)
 
 			block := createBlockWithTransactions(t, []*consensuspb.Transaction{sendTransaction}, mintBlock)
 			chain.Blocks = []*consensuspb.Block{block}
@@ -465,6 +465,98 @@ func TestSendCoinTransactor(t *testing.T) {
 				transaction: sendTransaction,
 				shouldSign: true,
 				shouldInterrupt: false,
+				shouldError: false,
+			}
+		},
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
+				Name: chain.Id + "catCoin",
+				Balance: 101,
+			})
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 100,
+			})
+
+			balanceBlock := createBlockWithTransactions(t, []*consensuspb.Transaction{balanceTransaction}, nil)
+			balanceBlock,err := signer.SignBlock(context.Background(), balanceBlock)
+			assert.Nil(t,err)
+			balanceBlock,err = signer.Group.ReplaceSignatures(balanceBlock)
+			assert.Nil(t,err)
+
+			isSigned,_ := signer.Group.IsBlockSigned(balanceBlock)
+			assert.True(t,isSigned)
+
+			block := createBlockWithTransactions(t, []*consensuspb.Transaction{sendTransaction}, balanceBlock)
+			chain.Blocks = []*consensuspb.Block{block}
+
+			history := consensus.NewMemoryHistoryStore()
+			history.StoreBlocks([]*consensuspb.Block{balanceBlock})
+
+			chainTip,err := storage.Get(chain.Id)
+			assert.Nil(t,err)
+			state := &notary.TransactorState{
+				Signer: signer,
+				History: history,
+				MutatableTip: chainTip,
+				MutatableBlock: block,
+				Transaction: sendTransaction,
+			}
+
+			return &testDesc{
+				description: "when a balance transaction is used as a checkpoint",
+				state: state,
+				transaction: sendTransaction,
+				shouldSign: true,
+				shouldInterrupt: false,
+				shouldError: false,
+			}
+		},
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
+				Name: chain.Id + "catCoin",
+				Balance: 101,
+			})
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 100,
+			})
+
+			balanceBlock := createBlockWithTransactions(t, []*consensuspb.Transaction{balanceTransaction}, nil)
+
+			isSigned,_ := signer.Group.IsBlockSigned(balanceBlock)
+			assert.False(t,isSigned)
+
+			block := createBlockWithTransactions(t, []*consensuspb.Transaction{sendTransaction}, balanceBlock)
+			chain.Blocks = []*consensuspb.Block{block}
+
+			history := consensus.NewMemoryHistoryStore()
+			history.StoreBlocks([]*consensuspb.Block{balanceBlock})
+
+			chainTip,err := storage.Get(chain.Id)
+			assert.Nil(t,err)
+			state := &notary.TransactorState{
+				Signer: signer,
+				History: history,
+				MutatableTip: chainTip,
+				MutatableBlock: block,
+				Transaction: sendTransaction,
+			}
+
+			return &testDesc{
+				description: "when trying to cheat with an unsigned balance",
+				state: state,
+				transaction: sendTransaction,
+				shouldSign: false,
+				shouldInterrupt: true,
 				shouldError: false,
 			}
 		},
