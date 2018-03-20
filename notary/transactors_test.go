@@ -606,6 +606,108 @@ func TestBalanceTransactor(t *testing.T) {
 				shouldError: false,
 			}
 		},
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 101,
+			})
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 100,
+			})
+
+			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
+				Name: chain.Id + "catCoin",
+				Balance: 2,
+			})
+
+			block := createBlockWithTransactions(t, []*consensuspb.Transaction{mintTransaction, sendTransaction, balanceTransaction}, nil)
+			chain.Blocks = []*consensuspb.Block{block}
+			history := consensus.NewMemoryHistoryStore()
+
+			block,err := signer.SignTransaction(context.Background(), block, mintTransaction)
+			assert.Nil(t,err)
+
+			block,err = signer.SignTransaction(context.Background(), block, sendTransaction)
+			assert.Nil(t,err)
+
+			chainTip,err := storage.Get(chain.Id)
+			assert.Nil(t,err)
+			state := &notary.TransactorState{
+				Signer: signer,
+				History: history,
+				MutatableTip: chainTip,
+				MutatableBlock: block,
+				Transaction: balanceTransaction,
+			}
+
+			return &testDesc{
+				description: "a fraudulent balance",
+				state: state,
+				transaction: balanceTransaction,
+				shouldSign: false,
+				shouldInterrupt: true,
+				shouldError: false,
+			}
+		},
+		func(t *testing.T) *testDesc {
+			storage := internalchain.NewMemStorage()
+			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
+
+			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 101,
+			})
+
+			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+				Name: chain.Id + "catCoin",
+				Amount: 100,
+			})
+
+			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
+				Name: chain.Id + "catCoin",
+				Balance: 1,
+			})
+
+			block := createBlockWithTransactions(t, []*consensuspb.Transaction{mintTransaction, sendTransaction}, nil)
+
+			block,err := signer.SignBlock(context.Background(), block)
+			assert.Nil(t,err)
+
+			block,err = signer.Group.ReplaceSignatures(block)
+			assert.Nil(t,err)
+
+			chain.Blocks = []*consensuspb.Block{block}
+			storage.Set(chain.Id, consensus.ChainToTip(chain))
+
+			history := consensus.NewMemoryHistoryStore()
+			history.StoreBlocks([]*consensuspb.Block{block})
+
+			balanceBlock := createBlockWithTransactions(t, []*consensuspb.Transaction{balanceTransaction}, block)
+
+			chainTip,err := storage.Get(chain.Id)
+			assert.Nil(t,err)
+			state := &notary.TransactorState{
+				Signer: signer,
+				History: history,
+				MutatableTip: chainTip,
+				MutatableBlock: balanceBlock,
+				Transaction: balanceTransaction,
+			}
+
+			return &testDesc{
+				description: "balance in its own block",
+				state: state,
+				transaction: balanceTransaction,
+				shouldSign: true,
+				shouldInterrupt: false,
+				shouldError: false,
+			}
+		},
 	} {
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 

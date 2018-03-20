@@ -70,7 +70,7 @@ func NewTransactorRegistry() TransactorRegistry {
 }
 
 func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
-	log.Info("processing transaction", "id", state.Transaction.Id, "type", state.Transaction.Type)
+	log.Info("distributing transaction", "id", state.Transaction.Id, "type", state.Transaction.Type)
 	transactorRegistryEntry,ok := tr[state.Transaction.Type]
 	if ok {
 		log.Trace("executing transactor", "id", state.Transaction.Id)
@@ -298,14 +298,17 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 		// is the transaction signed?
 		isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), iterator.Transaction())
 		if err != nil {
+			log.Error("iterated transaction had error getting approved", "transactionId", iterator.Transaction().Id)
 			return 0, nil, false, fmt.Errorf("error getting is signed: %v", err)
 		}
 		if !isSigned {
+			log.Debug("iterated transaction is not signed", "transactionId", iterator.Transaction().Id)
 			return 0, nil, false, nil
 		}
 
 		typed,err := typedTransactionFrom(iterator.Transaction(), balanceTransaction)
 		if err != nil {
+			log.Error("iterated transaction had error getting typed transactio", "transactionId", iterator.Transaction().Id)
 			return 0,nil, false, fmt.Errorf("error getting typed transaction: %v", err)
 		}
 		typedLastBalance := (typed).(*consensuspb.BalanceTransaction)
@@ -350,6 +353,7 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 		if transaction.Type == consensuspb.MINT_COIN {
 			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
 			if !isSigned {
+				log.Error("iterated transaction had unsigned transaction", "transactionId", iterator.Transaction().Id, "type", iterator.Transaction().Type)
 				return 0, nil, false, nil
 			}
 			log.Debug("mint transaction is approved")
