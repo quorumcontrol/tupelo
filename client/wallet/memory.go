@@ -26,3 +26,13 @@ func (mw *MemoryWallet) SetChain(id string, chain *consensuspb.Chain) (error) {
 	mw.chains[id] = chain
 	return nil
 }
+
+func (mw *MemoryWallet) GetChainIds() ([]string,error) {
+	ids := make([]string, len(mw.chains))
+	i := 0
+	for k := range mw.chains {
+		ids[i] = k
+		i++
+	}
+	return ids, nil
+}

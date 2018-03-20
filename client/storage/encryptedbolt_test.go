@@ -1,0 +1,33 @@
+package storage_test
+
+import (
+	"testing"
+	"path/filepath"
+	"os"
+	"github.com/quorumcontrol/qc3/client/storage"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestEncryptedBoltStorage_PassphraseToKey(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+	ebs := storage.NewEncryptedBoltStorage(filepath.Join("testtmp", "testdb"))
+	assert.Len(t, ebs.PassphraseToKey("somepassword"), 32)
+}
+
+func TestEncryptedBoltStorage_Set(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+	ebs := storage.NewEncryptedBoltStorage(filepath.Join("testtmp", "testdb"))
+	ebs.Unlock("test")
+
+	ebs.CreateBucketIfNotExists([]byte("test"))
+
+	err := ebs.Set([]byte("test"), []byte("key"), []byte("value"))
+	assert.Nil(t, err)
+	val,err := ebs.Get([]byte("test"), []byte("key"))
+	assert.Nil(t, err)
+	assert.Equal(t, val, []byte("value"))
+}

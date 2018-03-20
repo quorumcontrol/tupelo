@@ -19,6 +19,7 @@ import (
 type Wallet interface {
 	GetChain(id string) (*consensuspb.Chain, error)
 	SetChain(id string, chain *consensuspb.Chain) (error)
+	GetChainIds() ([]string,error)
 }
 
 type Client struct {
