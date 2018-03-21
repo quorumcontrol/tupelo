@@ -16,7 +16,7 @@ func TestEncryptedBoltStorage_PassphraseToKey(t *testing.T) {
 	assert.Len(t, ebs.PassphraseToKey("somepassword"), 32)
 }
 
-func TestEncryptedBoltStorage_Set(t *testing.T) {
+func TestEncryptedBoltStorage_SetGet(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
 	defer os.RemoveAll("testtmp")
@@ -30,4 +30,20 @@ func TestEncryptedBoltStorage_Set(t *testing.T) {
 	val,err := ebs.Get([]byte("test"), []byte("key"))
 	assert.Nil(t, err)
 	assert.Equal(t, val, []byte("value"))
+}
+
+func TestEncryptedBoltStorage_GetKeys(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+	ebs := storage.NewEncryptedBoltStorage(filepath.Join("testtmp", "testdb"))
+	ebs.Unlock("test")
+
+	ebs.CreateBucketIfNotExists([]byte("test"))
+
+	err := ebs.Set([]byte("test"), []byte("key"), []byte("value"))
+	assert.Nil(t, err)
+	keys,err := ebs.GetKeys([]byte("test"))
+	assert.Nil(t, err)
+	assert.Equal(t, keys, [][]byte{[]byte("key")})
 }

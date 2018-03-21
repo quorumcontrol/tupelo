@@ -95,6 +95,22 @@ func (ebs *EncryptedBoltStorage) Get(bucketName []byte, key []byte) ([]byte, err
 	return decrypted,nil
 }
 
+func (ebs *EncryptedBoltStorage) GetKeys(bucketName []byte) ([][]byte,error) {
+	var keys [][]byte
+	ebs.db.View(func(tx *bolt.Tx) error {
+		// Assume bucket exists and has keys
+		b := tx.Bucket(bucketName)
+
+		b.ForEach(func(k,_ []byte) error {
+			keys = append(keys, k)
+			return nil
+		})
+
+		return nil
+	})
+	return keys,nil
+}
+
 func (ebs *EncryptedBoltStorage) setUnencrypted(bucketName []byte, key []byte, value []byte) error {
 	return ebs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketName)
