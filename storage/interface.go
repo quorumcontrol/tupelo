@@ -2,7 +2,7 @@ package storage
 
 type Storage interface {
 	Close()
-	CreateBucketIfNotExists(bucketName []byte)
+	CreateBucketIfNotExists(bucketName []byte) error
 	Set(bucketName []byte, key []byte, value []byte) error
 	Get(bucketName []byte, key []byte) ([]byte, error)
 	Delete(bucketName []byte, key []byte) (error)

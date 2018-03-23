@@ -1,10 +1,10 @@
-package storage
+package storage_test
 
 import (
 	"testing"
 	"path/filepath"
 	"os"
-	"github.com/quorumcontrol/qc3/client/storage"
+	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
 )
 

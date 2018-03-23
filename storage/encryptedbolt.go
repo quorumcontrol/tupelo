@@ -19,6 +19,9 @@ type EncryptedBoltStorage struct {
 	secretKey *[32]byte
 }
 
+var _ EncryptedStorage = (*EncryptedBoltStorage)(nil)
+
+
 func NewEncryptedBoltStorage(path string) *EncryptedBoltStorage {
 	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
@@ -89,7 +92,7 @@ func (ebs *EncryptedBoltStorage) Set(bucketName []byte, key []byte, value []byte
 	return ebs.setUnencrypted(bucketName, key, encryptedValue)
 }
 
-func (ebs *EncryptedBoltStorage) Delete(bucketName []byte, key []byte, value []byte) error {
+func (ebs *EncryptedBoltStorage) Delete(bucketName []byte, key []byte) error {
 	return ebs.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucketName)
 		err := b.Delete([]byte(key))
