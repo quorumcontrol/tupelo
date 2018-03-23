@@ -17,7 +17,7 @@ func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
 		return hsh, fmt.Errorf("error marshaling: %v", err)
 	}
 
-	return common.BytesToHash(bytes), nil
+	return crypto.Keccak256Hash(bytes), nil
 }
 
 func MustBlockToHash(block *consensuspb.Block) (hsh common.Hash) {
@@ -34,7 +34,7 @@ func TransactionToHash(transaction *consensuspb.Transaction) (hsh common.Hash, e
 		return hsh, fmt.Errorf("error marshaling: %v", err)
 	}
 
-	return common.BytesToHash(bytes), nil
+	return crypto.Keccak256Hash(bytes), nil
 }
 
 func MustTransactionToHash(transaction *consensuspb.Transaction) (hsh common.Hash) {

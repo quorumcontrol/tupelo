@@ -3,7 +3,7 @@ package bls
 import (
 	"testing"
 	"github.com/stretchr/testify/assert"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func TestNewSignKey(t *testing.T) {
@@ -14,7 +14,7 @@ func TestNewSignKey(t *testing.T) {
 
 func TestSignKey_Sign(t *testing.T) {
 	msg := []byte("hi")
-	hsh := common.BytesToHash(msg).Bytes()
+	hsh := crypto.Keccak256(msg)
 
 	key,err := NewSignKey()
 	assert.Nil(t, err)
@@ -46,7 +46,7 @@ func TestSignKey_VerKey(t *testing.T) {
 
 func TestCSignatureFrom(t *testing.T) {
 	msg := []byte("hi")
-	hsh := common.BytesToHash(msg).Bytes()
+	hsh := crypto.Keccak256(msg)
 
 	key,err := NewSignKey()
 	assert.Nil(t, err)
@@ -60,7 +60,7 @@ func TestCSignatureFrom(t *testing.T) {
 
 func TestVerKey_Verify(t *testing.T) {
 	msg := []byte("hi")
-	hsh := common.BytesToHash(msg).Bytes()
+	hsh := crypto.Keccak256(msg)
 
 	key,err := NewSignKey()
 	assert.Nil(t, err)
@@ -76,14 +76,14 @@ func TestVerKey_Verify(t *testing.T) {
 	assert.True(t, isValid)
 
 	// with invalid message
-	invalidRes,err := verKey.Verify(sig, common.BytesToHash([]byte("abc")).Bytes())
+	invalidRes,err := verKey.Verify(sig, crypto.Keccak256([]byte("abc")))
 	assert.Nil(t, err)
 	assert.False(t, invalidRes)
 }
 
 func TestSumSignatures(t *testing.T) {
 	msg := []byte("hi")
-	hsh := common.BytesToHash(msg).Bytes()
+	hsh := crypto.Keccak256(msg)
 
 	key1,err := NewSignKey()
 	assert.Nil(t, err)
@@ -104,7 +104,7 @@ func TestSumSignatures(t *testing.T) {
 
 func TestVerifyMultiSig(t *testing.T) {
 	msg := []byte("hi")
-	hsh := common.BytesToHash(msg).Bytes()
+	hsh := crypto.Keccak256(msg)
 
 	key1,err := NewSignKey()
 	assert.Nil(t, err)
@@ -140,7 +140,7 @@ func TestVerifyMultiSig(t *testing.T) {
 	assert.True(t, isValid)
 
 	// with invalid message
-	invalidRes,err := VerifyMultiSig(multiSig, common.BytesToHash([]byte("abc")).Bytes(), verKeys)
+	invalidRes,err := VerifyMultiSig(multiSig, crypto.Keccak256([]byte("abc")), verKeys)
 	assert.Nil(t, err)
 	assert.False(t, invalidRes)
 

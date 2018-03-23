@@ -7,7 +7,6 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/quorumcontrol/qc3/bls"
 )
 
@@ -118,7 +117,7 @@ func TestBlsSignTransaction(t *testing.T) {
 }
 
 func TestSanity(t *testing.T) {
-	hsh := common.BytesToHash([]byte("data"))
+	hsh := crypto.Keccak256Hash([]byte("data"))
 	hshBytes := hsh.Bytes()
 	assert.Len(t, hsh.Bytes(), 32)
 	assert.Equal(t, hsh.Bytes(), hsh.Bytes())
