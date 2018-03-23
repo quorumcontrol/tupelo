@@ -7,26 +7,39 @@ import (
 	"crypto/ecdsa"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/golang/protobuf/proto"
 	"context"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/gogo/protobuf/types"
+	"reflect"
+	"github.com/gogo/protobuf/proto"
 )
+
+type MessageHandlerFunc func(whisp *whisper.Whisper, msg proto.Message)
 
 type WhisperNode struct {
 	Signer *notary.Signer
 	Key *ecdsa.PrivateKey
 	stopChan chan bool
+	handlers map[string]MessageHandlerFunc
 }
 
 func NewWhisperNode(signer *notary.Signer, key *ecdsa.PrivateKey) *WhisperNode {
-	return &WhisperNode{
+	wn := &WhisperNode{
 		Signer: signer,
 		Key: key,
 		stopChan: make(chan bool),
+		handlers: make(map[string]MessageHandlerFunc),
 	}
+	wn.RegisterHandler(proto.MessageName(&consensuspb.SignatureRequest{}), wn.handleSignatureRequest)
+	return wn
+}
+
+func (wn *WhisperNode) RegisterHandler(typeName string, function MessageHandlerFunc) {
+	log.Debug("resgistering handler", "typeName", typeName)
+	wn.handlers[typeName] = function
 }
 
 func (wn *WhisperNode) Start() {
@@ -68,14 +81,8 @@ func historiesByChainId(chains []*consensuspb.Chain) (chainMap map[string]consen
 	return chainMap
 }
 
-func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.ReceivedMessage) {
-	sigRequest := &consensuspb.SignatureRequest{}
-	err := proto.Unmarshal(msg.Payload, sigRequest)
-	if err != nil {
-		log.Error("error unmarshaling", "error", err)
-		return
-	}
-
+func (wn *WhisperNode) handleSignatureRequest(whisp *whisper.Whisper, sigRequestMsg proto.Message) {
+	sigRequest := sigRequestMsg.(*consensuspb.SignatureRequest)
 	histories := historiesByChainId(sigRequest.Histories)
 
 	for _,block := range sigRequest.Blocks {
@@ -86,12 +93,17 @@ func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.Receiv
 		}
 		if processed != nil {
 			log.Debug("processed succeeded, marshaling")
-			payload,err := proto.Marshal(&consensuspb.SignatureResponse{
+			any,err := objToAny(&consensuspb.SignatureResponse{
 				Id: sigRequest.Id,
 				SignerId: wn.Signer.Id(),
 				Block: processed,
 				Error: consensuspb.SUCCESS,
 			})
+			if err != nil {
+				log.Error("error converting to any", "error", err)
+			}
+
+			payload,err := proto.Marshal(any)
 			if err != nil {
 				log.Error("error marshaling", "error", err)
 			}
@@ -114,4 +126,53 @@ func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.Receiv
 			log.Error("did not process block", "block", block)
 		}
 	}
+}
+
+func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.ReceivedMessage) {
+	any := &types.Any{}
+	err := proto.Unmarshal(msg.Payload, any)
+	if err != nil {
+		log.Error("error unmarshaling", "error", err)
+		return
+	}
+
+	handlerFunc,ok := wn.handlers[any.TypeUrl]
+	if ok {
+		obj,err := anyToObj(any)
+		if err != nil {
+			log.Error("error converting any to obj", "error", err)
+		}
+		handlerFunc(whisp, obj)
+	} else {
+		log.Info("unknown message type received", "type", any.TypeUrl)
+	}
+
+}
+
+func anyToObj(any *types.Any) (proto.Message, error) {
+	typeName := any.TypeUrl
+	instanceType := proto.MessageType(typeName)
+	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
+
+	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
+	// so that we can change it to the kind of object we want
+	instance := reflect.New(instanceType.Elem()).Interface()
+	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
+	if err != nil {
+		return nil, err
+	}
+	return instance.(proto.Message), nil
+}
+
+
+func objToAny(obj proto.Message) (*types.Any, error) {
+	objectType := proto.MessageName(obj)
+	bytes, err := proto.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: objectType,
+		Value:   bytes,
+	}, nil
 }

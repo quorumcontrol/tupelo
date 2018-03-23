@@ -15,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/quorumcontrol/qc3/client/wallet"
+	"github.com/gogo/protobuf/types"
+	"reflect"
 )
 
 type Client struct {
@@ -69,12 +71,19 @@ func (c *Client) Stop() {
 
 func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 	log.Debug("CLIENT received message", "message", msg, "stats", c.whisper.Stats())
-	resp := &consensuspb.SignatureResponse{}
-	err := proto.Unmarshal(msg.Payload, resp)
+	respAny := &types.Any{}
+	err := proto.Unmarshal(msg.Payload, respAny)
 	if err != nil {
 		log.Error("error unmarshaling message", "error", err)
 		return
 	}
+
+	respProto,err := anyToObj(respAny)
+	if err != nil {
+		log.Error("error converting any to known message type", "type", respAny.TypeUrl)
+		return
+	}
+	resp := respProto.(*consensuspb.SignatureResponse)
 
 	existing,err := c.Wallet.GetChain(resp.Block.SignableBlock.ChainId)
 	if err != nil {
@@ -103,7 +112,16 @@ func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 }
 
 
-func (c *Client) broadcast(payload []byte) error {
+func (c *Client) broadcast(msg proto.Message) error {
+	any,err := objToAny(msg)
+	if err != nil {
+		return fmt.Errorf("error converting to any: %v", err)
+	}
+	payload,err := proto.Marshal(any)
+	if err != nil {
+		return fmt.Errorf("error marshaling any: %v", err)
+	}
+
 	return network.Send(c.whisper, &whisper.MessageParams{
 		TTL: 60, // 1 minute TODO: what are the right TTL settings?
 		KeySym: common.StringToHash(c.Group.Id).Bytes(),
@@ -125,9 +143,8 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 	}
 
 	c.protocols[signRequest.Id] = make(map[string]*consensuspb.SignatureResponse)
-	requestBytes,_ := proto.Marshal(signRequest)
 
-	err := c.broadcast(requestBytes)
+	err := c.broadcast(signRequest)
 
 	if err != nil {
 		return fmt.Errorf("error sending: %v", err)
@@ -162,4 +179,31 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	}
 
 	return chain, nil
+}
+
+func anyToObj(any *types.Any) (proto.Message, error) {
+	typeName := any.TypeUrl
+	instanceType := proto.MessageType(typeName)
+	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
+
+	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
+	// so that we can change it to the kind of object we want
+	instance := reflect.New(instanceType.Elem()).Interface()
+	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
+	if err != nil {
+		return nil, err
+	}
+	return instance.(proto.Message), nil
+}
+
+func objToAny(obj proto.Message) (*types.Any, error) {
+	objectType := proto.MessageName(obj)
+	bytes, err := proto.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	return &types.Any{
+		TypeUrl: objectType,
+		Value:   bytes,
+	}, nil
 }
