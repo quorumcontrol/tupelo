@@ -4,7 +4,7 @@ import (
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"fmt"
 	"github.com/gogo/protobuf/proto"
-	"github.com/quorumcontrol/qc3/client/storage"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 var chainBucket = []byte("chains")
