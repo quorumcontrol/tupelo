@@ -56,6 +56,15 @@
   name = "github.com/tendermint/tmlibs"
   revision = "d4c6a68e5871be2d3091f12627eaf3ee15b42ed2"
 
+# v1.4 (the latest tagged) does not work with ishell
+[[override]]
+  name = "github.com/chzyer/readline"
+  revision = "f6d7a1f6fbf35bbf9beb80dc63c56a29dcfb759f"
+
+[[constraint]]
+  name = "github.com/abiosoft/ishell"
+  revision = "a1085105335bd19f4101afe99e02948a0b41bf15"
+
 [[override]]
   name = "github.com/attic-labs/graphql"
   revision = "917f92ca24a759a0e3bfd1b135850f9b0c04682e"

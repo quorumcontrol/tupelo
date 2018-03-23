@@ -7,6 +7,9 @@ type MemoryWallet struct {
 	chains map[string]*consensuspb.Chain
 }
 
+// just make sure that implementation conforms to the interface
+var _ Wallet = (*MemoryWallet)(nil)
+
 func NewMemoryWallet(id string) *MemoryWallet {
 	return &MemoryWallet{
 		Id: id,
@@ -35,4 +38,8 @@ func (mw *MemoryWallet) GetChainIds() ([]string,error) {
 		i++
 	}
 	return ids, nil
+}
+
+func (mw *MemoryWallet) Close() {
+	return // just fulfilling the interface
 }

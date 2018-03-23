@@ -14,17 +14,12 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/quorumcontrol/qc3/client/wallet"
 )
-
-type Wallet interface {
-	GetChain(id string) (*consensuspb.Chain, error)
-	SetChain(id string, chain *consensuspb.Chain) (error)
-	GetChainIds() ([]string,error)
-}
 
 type Client struct {
 	Group *notary.Group
-	Wallet Wallet
+	Wallet wallet.Wallet
 	filter *whisper.Filter
 	sessionKey *ecdsa.PrivateKey
 	stopChan chan bool
@@ -32,11 +27,11 @@ type Client struct {
 	protocols map[string]map[string]*consensuspb.SignatureResponse
 }
 
-func NewClient(group *notary.Group, wallet Wallet) *Client {
+func NewClient(group *notary.Group, walletImpl wallet.Wallet) *Client {
 	sessionKey,_ := crypto.GenerateKey()
 	return &Client{
 		Group: group,
-		Wallet: wallet,
+		Wallet: walletImpl,
 		stopChan: make(chan bool),
 		filter: network.NewP2PFilter(sessionKey),
 		sessionKey: sessionKey,

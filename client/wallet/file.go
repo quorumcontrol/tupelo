@@ -10,6 +10,9 @@ import (
 var chainBucket = []byte("chains")
 var keyBucket = []byte("keys")
 
+// just make sure that implementation conforms to the interface
+var _ Wallet = (*FileWallet)(nil)
+
 type FileWallet struct {
 	ebs *storage.EncryptedBoltStorage
 }
@@ -21,6 +24,10 @@ func NewFileWallet(passphrase, path string) *FileWallet {
 	return &FileWallet{
 		ebs: ebs,
 	}
+}
+
+func (fw *FileWallet) Close() {
+	fw.ebs.Close()
 }
 
 func (fw *FileWallet) GetChain(id string) (*consensuspb.Chain, error) {

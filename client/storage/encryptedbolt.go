@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/scrypt"
+	"time"
 )
 
 var internalBucketName = []byte("_internal")
@@ -19,7 +20,7 @@ type EncryptedBoltStorage struct {
 }
 
 func NewEncryptedBoltStorage(path string) *EncryptedBoltStorage {
-	db, err := bolt.Open(path, 0600, nil)
+	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
 		log.Crit("error opening db", "error", err)
 	}
@@ -32,6 +33,10 @@ func NewEncryptedBoltStorage(path string) *EncryptedBoltStorage {
 	}
 
 	return ebs
+}
+
+func (ebs *EncryptedBoltStorage) Close() {
+	ebs.db.Close()
 }
 
 func (ebs *EncryptedBoltStorage) Unlock(passphrase string) {
