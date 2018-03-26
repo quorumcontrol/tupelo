@@ -9,6 +9,7 @@ import (
 	"github.com/quorumcontrol/qc3/notary"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/stretchr/testify/assert"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 var aliceKey,_ = crypto.GenerateKey()
@@ -99,7 +100,7 @@ func defaultNotary(t *testing.T) *notary.Signer {
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
 	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
 
-	storage := notary.NewMemStorage()
+	store := notary.NewChainStore("testTips", storage.NewMemStorage())
 
-	return notary.NewSigner(storage, group, key)
+	return notary.NewSigner(store, group, key)
 }

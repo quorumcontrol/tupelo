@@ -39,15 +39,15 @@ func validEnvelope(t *testing.T) *whisper.Envelope {
 	return env
 }
 
-func defaultMailServer(t *testing.T) *mailserver.MailServer {
+func defaultMailServer(t *testing.T) *mailserver.Mailbox {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
 	bolt := storage.NewBoltStorage(filepath.Join("testtmp", "testdb"))
-	return mailserver.NewMailServer(bolt)
+	return mailserver.NewMailbox(bolt)
 
 }
 
-func cleanup(ms *mailserver.MailServer) {
+func cleanup(ms *mailserver.Mailbox) {
 	ms.Close()
 	os.RemoveAll("testtmp")
 }

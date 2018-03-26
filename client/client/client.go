@@ -12,11 +12,12 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/gogo/protobuf/proto"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/quorumcontrol/qc3/client/wallet"
 	"github.com/gogo/protobuf/types"
 	"reflect"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 type Client struct {
@@ -112,7 +113,7 @@ func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 }
 
 
-func (c *Client) broadcast(msg proto.Message) error {
+func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
 	any,err := objToAny(msg)
 	if err != nil {
 		return fmt.Errorf("error converting to any: %v", err)
@@ -124,7 +125,7 @@ func (c *Client) broadcast(msg proto.Message) error {
 
 	return network.Send(c.whisper, &whisper.MessageParams{
 		TTL: 60, // 1 minute TODO: what are the right TTL settings?
-		KeySym: common.StringToHash(c.Group.Id).Bytes(),
+		KeySym: symKey,
 		Topic: whisper.BytesToTopic(network.CothorityTopic),
 		PoW: .02,  // TODO: what are the right settings for PoW?
 		WorkTime: 10,
@@ -144,7 +145,7 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 
 	c.protocols[signRequest.Id] = make(map[string]*consensuspb.SignatureResponse)
 
-	err := c.broadcast(signRequest)
+	err := c.Broadcast(crypto.Keccak256([]byte(c.Group.Id)), signRequest)
 
 	if err != nil {
 		return fmt.Errorf("error sending: %v", err)
@@ -179,6 +180,42 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	}
 
 	return chain, nil
+}
+
+func (c *Client) SendMessage(symKey []byte, destKey *ecdsa.PublicKey, msg proto.Message) (error) {
+	any,err := objToAny(msg)
+	if err != nil {
+		return fmt.Errorf("error converting to any: %v", err)
+	}
+	payload,err := proto.Marshal(any)
+	if err != nil {
+		return fmt.Errorf("error marshaling any: %v", err)
+	}
+
+	params := &whisper.MessageParams{
+		TTL: 60,
+		Dst: destKey,
+		Topic: whisper.BytesToTopic(network.CothorityTopic),
+		PoW: .02,  // TODO: what are the right settings for PoW?
+		WorkTime: 10,
+		Payload: payload,
+	}
+	innerMsg,err := whisper.NewSentMessage(params)
+	env,err := innerMsg.Wrap(params)
+	if err != nil {
+		return fmt.Errorf("error wrapping: %v", err)
+	}
+	envBytes,err := rlp.EncodeToBytes(env)
+	if err != nil {
+		return fmt.Errorf("error encoding: %v", err)
+	}
+
+	nestedEnvelope := &mailserverpb.NestedEnvelope{
+		Envelope: envBytes,
+		Destination: crypto.FromECDSAPub(destKey),
+	}
+
+	return c.Broadcast(symKey, nestedEnvelope)
 }
 
 func anyToObj(any *types.Any) (proto.Message, error) {

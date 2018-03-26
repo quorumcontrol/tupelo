@@ -8,10 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"context"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 func TestVerifyNotaryGroupSignature(t *testing.T) {
-	store := notary.NewMemStorage()
+	store := notary.NewChainStore("testTips", storage.NewMemStorage())
 
 	privateKeys := make([]*bls.SignKey, 3)
 	for i := 0; i < 3; i++ {

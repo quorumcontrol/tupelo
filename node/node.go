@@ -10,7 +10,6 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/gogo/protobuf/types"
 	"reflect"
@@ -24,14 +23,18 @@ type WhisperNode struct {
 	Key *ecdsa.PrivateKey
 	stopChan chan bool
 	handlers map[string]MessageHandlerFunc
+	messageChan chan *whisper.ReceivedMessage
+	filters []*whisper.Filter
 }
 
 func NewWhisperNode(signer *notary.Signer, key *ecdsa.PrivateKey) *WhisperNode {
 	wn := &WhisperNode{
 		Signer: signer,
 		Key: key,
-		stopChan: make(chan bool),
+		stopChan: make(chan bool, 1),
 		handlers: make(map[string]MessageHandlerFunc),
+		messageChan: make(chan *whisper.ReceivedMessage),
+		filters: []*whisper.Filter{network.NewFilter(network.CothorityTopic, crypto.Keccak256([]byte(signer.Group.Id)))},
 	}
 	wn.RegisterHandler(proto.MessageName(&consensuspb.SignatureRequest{}), wn.handleSignatureRequest)
 	return wn
@@ -42,22 +45,42 @@ func (wn *WhisperNode) RegisterHandler(typeName string, function MessageHandlerF
 	wn.handlers[typeName] = function
 }
 
+func (wn *WhisperNode) RegisterFilter(filter *whisper.Filter) {
+	wn.filters = append(wn.filters, filter)
+}
+
 func (wn *WhisperNode) Start() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	log.Debug("starting node whisper")
 	whisp := network.Start(wn.Key)
-	filter := network.NewFilter(network.CothorityTopic, common.StringToHash(wn.Signer.Group.Id).Bytes())
-	whisp.Subscribe(filter)
+	for _,filter := range wn.filters {
+		whisp.Subscribe(filter)
+	}
+
+	//TODO: this is shitty paralellization - should have workers , etc
+	// see https://nesv.github.io/golang/2014/02/25/worker-queues-in-go.html or
+	// other better job distribution
+	go func() {
+		for {
+			select {
+			case msg := <-wn.messageChan:
+				log.Debug("received message", "message", msg, "stats", whisp.Stats())
+				wn.handleMessage(whisp, msg)
+			case <-wn.stopChan:
+			return
+			}
+		}
+	}()
 
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				msgs := filter.Retrieve()
-				for _,msg := range msgs {
-					//TODO: parallel processing
-					log.Debug("received message", "message", msg, "stats", whisp.Stats())
-					wn.handleMessage(whisp, msg)
+				for _,filter := range wn.filters {
+					msgs := filter.Retrieve()
+					for _,msg := range msgs {
+						wn.messageChan<-msg
+					}
 				}
 			case <-wn.stopChan:
 				whisp.Stop()
@@ -68,6 +91,7 @@ func (wn *WhisperNode) Start() {
 }
 
 func (wn *WhisperNode) Stop() {
+	wn.stopChan<-true
 	wn.stopChan<-true
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/notary"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 func TestNewNotary(t *testing.T) {
@@ -19,10 +20,10 @@ func TestNewNotary(t *testing.T) {
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
 	group := notary.GroupFromPublicKeys([]*consensuspb.PublicKey{pubKey})
 
-	storage := notary.NewMemStorage()
+	store := notary.NewChainStore("testTips", storage.NewMemStorage())
 
-	notary := notary.NewSigner(storage, group, key)
-	assert.Equal(t, notary.ChainStore, storage)
+	notary := notary.NewSigner(store, group, key)
+	assert.Equal(t, notary.ChainStore, store)
 }
 
 func TestNotary_CanSignBlock(t *testing.T) {

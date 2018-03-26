@@ -69,6 +69,7 @@ message UpdateOwnershipTransaction {
     string chain_id = 1;
     Authentication authentication = 2;
     repeated Authorization authorizations = 3;
+    bytes agent = 4;
 }
 
 message MintCoinTransaction {
@@ -102,6 +103,7 @@ message ChainTip {
     repeated Signature last_signatures = 4;
     Authentication authentication = 5;
     repeated Authorization authorizations = 6;
+    bytes agent = 7;
 }
 
 message Chain {

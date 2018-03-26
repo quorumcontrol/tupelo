@@ -19,3 +19,8 @@ message NestedEnvelope {
 message AckEnvelope {
     bytes envelope_hash = 1;
 }
+
+message ChatMessage {
+    bytes src = 1;
+    bytes message = 2;
+}

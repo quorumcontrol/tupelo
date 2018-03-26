@@ -1,25 +1,29 @@
 // +build integration
 
-package client_test
+package mailserver_test
 
 import (
+	"testing"
+	"crypto/ecdsa"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/quorumcontrol/qc3/notary"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/client/wallet"
-	"testing"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/node"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/qc3/mailserver"
+	"os"
+	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/qc3/client/wallet"
 	"github.com/quorumcontrol/qc3/client/client"
 	"time"
-	"github.com/ethereum/go-ethereum/crypto"
-	"os"
-	"crypto/ecdsa"
-	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
 	"github.com/stretchr/testify/assert"
-	"github.com/quorumcontrol/qc3/storage"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 )
+
 
 var blsHexKeys = []string{
 	"0x1cbf9876aab27c7261ba8554fbb60b88b9a5e4ce9fe08cd2a368d1b3558045e1",
@@ -57,6 +61,7 @@ func init() {
 type TestCluster struct {
 	Nodes []*node.WhisperNode
 	Group *notary.Group
+	MailServers []*mailserver.MailServer
 }
 
 func NewDefaultTestCluster(t *testing.T) *TestCluster {
@@ -67,15 +72,22 @@ func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	group := notary.GroupFromPublicKeys(keys)
 
 	nodes := make([]*node.WhisperNode, len(BlsSignKeys))
+	mailservers := make([]*mailserver.MailServer, len(BlsSignKeys))
 	for i,key := range BlsSignKeys {
-		store := notary.NewChainStore("testTips", storage.NewMemStorage())
-		signer := notary.NewSigner(store, group, key)
+		store := storage.NewMemStorage()
+		chainStore := notary.NewChainStore("testTips", store)
+		signer := notary.NewSigner(chainStore, group, key)
 		nodes[i] = node.NewWhisperNode(signer, EcdsaKeys[i])
+
+		mailbox := mailserver.NewMailbox(store)
+		mailservers[i] = mailserver.NewMailServer(mailbox)
+		mailservers[i].AttachToNode(nodes[i])
 	}
 
 	return &TestCluster{
 		Nodes: nodes,
 		Group: group,
+		MailServers: mailservers,
 	}
 }
 
@@ -91,8 +103,11 @@ func (tc *TestCluster) Stop() {
 	}
 }
 
-func TestFullIntegration(t *testing.T) {
+func TestMailserverIntegration(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+
+	destKey,err := crypto.GenerateKey()
+	assert.Nil(t, err)
 
 	cluster := NewDefaultTestCluster(t)
 	cluster.Start()
@@ -104,21 +119,18 @@ func TestFullIntegration(t *testing.T) {
 	c.Start()
 	defer c.Stop()
 
+	c.SendMessage(mailserver.AlphaMailServerKey, &destKey.PublicKey, &mailserverpb.ChatMessage{
+		Message: []byte("ojai"),
+	})
+
 	time.Sleep(time.Duration(5) * time.Second)
 
-	newChainKey,_ := crypto.GenerateKey()
-	t.Log("creating chain")
-	newChain,err := c.CreateChain(newChainKey)
-	assert.Nil(t, err)
+	count := 0
+	cluster.MailServers[0].Mailbox.ForEach(crypto.FromECDSAPub(&destKey.PublicKey), func (env *whisper.Envelope) error {
+		count++
+		return nil
+	})
 
-	t.Log("sleeping")
-	time.Sleep(time.Duration(10) * time.Second)
+	assert.Equal(t, count, 1)
 
-	walletChain,err := c.Wallet.GetChain(newChain.Id)
-	assert.Nil(t, err)
-
-	isSigned,err := cluster.Group.IsBlockSigned(walletChain.Blocks[len(walletChain.Blocks) - 1])
-	assert.Nil(t, err)
-
-	assert.True(t, isSigned)
 }

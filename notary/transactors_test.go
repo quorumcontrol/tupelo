@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/ethereum/go-ethereum/log"
 	"os"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 func TestMintCoinTransactor(t *testing.T) {
@@ -43,7 +44,7 @@ func TestMintCoinTransactor(t *testing.T) {
 			shouldSign: false,
 		},
 	} {
-		storage := notary.NewMemStorage()
+		store := notary.NewChainStore("testTips", storage.NewMemStorage())
 		chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 		block := &consensuspb.Block{
@@ -58,7 +59,7 @@ func TestMintCoinTransactor(t *testing.T) {
 		chain.Blocks = []*consensuspb.Block{block}
 		history := consensus.NewMemoryHistoryStore()
 
-		chainTip,err := storage.Get(chain.Id)
+		chainTip,err := store.Get(chain.Id)
 		assert.Nil(t,err)
 		state := &notary.TransactorState{
 			Signer: signer,
@@ -112,7 +113,7 @@ func TestReceiveCoinTransactor(t *testing.T) {
 	type testGenerator func(t *testing.T) *testDesc
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -142,7 +143,7 @@ func TestReceiveCoinTransactor(t *testing.T) {
 			chain.Blocks = []*consensuspb.Block{aliceBlock}
 			history := consensus.NewMemoryHistoryStore()
 
-			chainTip, err := storage.Get(chain.Id)
+			chainTip, err := store.Get(chain.Id)
 			assert.Nil(t, err)
 			state := &notary.TransactorState{
 				Signer:         signer,
@@ -162,7 +163,7 @@ func TestReceiveCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
@@ -180,7 +181,7 @@ func TestReceiveCoinTransactor(t *testing.T) {
 			chain.Blocks = []*consensuspb.Block{aliceBlock}
 			history := consensus.NewMemoryHistoryStore()
 
-			chainTip, err := storage.Get(chain.Id)
+			chainTip, err := store.Get(chain.Id)
 			assert.Nil(t, err)
 			state := &notary.TransactorState{
 				Signer:         signer,
@@ -249,7 +250,7 @@ func TestSendCoinTransactor(t *testing.T) {
 
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -269,7 +270,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			block,err := signer.SignTransaction(context.Background(), block, mintTransaction)
 			assert.Nil(t,err)
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -289,7 +290,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -309,7 +310,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			block,err := signer.SignTransaction(context.Background(), block, mintTransaction)
 			assert.Nil(t,err)
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -329,7 +330,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -348,7 +349,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			history := consensus.NewMemoryHistoryStore()
 			history.StoreBlocks([]*consensuspb.Block{mintBlock})
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -368,7 +369,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -400,7 +401,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			history := consensus.NewMemoryHistoryStore()
 			history.StoreBlocks([]*consensuspb.Block{mintBlock})
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -420,7 +421,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -448,7 +449,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			history := consensus.NewMemoryHistoryStore()
 			history.StoreBlocks([]*consensuspb.Block{mintBlock})
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -468,7 +469,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
@@ -496,7 +497,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			history := consensus.NewMemoryHistoryStore()
 			history.StoreBlocks([]*consensuspb.Block{balanceBlock})
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -516,7 +517,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			balanceTransaction := consensus.EncapsulateTransaction(consensuspb.BALANCE, &consensuspb.BalanceTransaction{
@@ -540,7 +541,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			history := consensus.NewMemoryHistoryStore()
 			history.StoreBlocks([]*consensuspb.Block{balanceBlock})
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -560,7 +561,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -582,7 +583,7 @@ func TestSendCoinTransactor(t *testing.T) {
 			block,err := signer.SignTransaction(context.Background(), block, mintTransaction)
 			assert.Nil(t,err)
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -650,7 +651,7 @@ func TestBalanceTransactor(t *testing.T) {
 
 	for _,testGen := range []testGenerator{
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -678,7 +679,7 @@ func TestBalanceTransactor(t *testing.T) {
 			block,err = signer.SignTransaction(context.Background(), block, sendTransaction)
 			assert.Nil(t,err)
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -698,7 +699,7 @@ func TestBalanceTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -726,7 +727,7 @@ func TestBalanceTransactor(t *testing.T) {
 			block,err = signer.SignTransaction(context.Background(), block, sendTransaction)
 			assert.Nil(t,err)
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,
@@ -746,7 +747,7 @@ func TestBalanceTransactor(t *testing.T) {
 			}
 		},
 		func(t *testing.T) *testDesc {
-			storage := notary.NewMemStorage()
+			store := notary.NewChainStore("testTips", storage.NewMemStorage())
 			chain := chainFromEcdsaKey(t, &aliceKey.PublicKey)
 
 			mintTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
@@ -773,14 +774,14 @@ func TestBalanceTransactor(t *testing.T) {
 			assert.Nil(t,err)
 
 			chain.Blocks = []*consensuspb.Block{block}
-			storage.Set(chain.Id, consensus.ChainToTip(chain))
+			store.Set(chain.Id, consensus.ChainToTip(chain))
 
 			history := consensus.NewMemoryHistoryStore()
 			history.StoreBlocks([]*consensuspb.Block{block})
 
 			balanceBlock := createBlockWithTransactions(t, []*consensuspb.Transaction{balanceTransaction}, block)
 
-			chainTip,err := storage.Get(chain.Id)
+			chainTip,err := store.Get(chain.Id)
 			assert.Nil(t,err)
 			state := &notary.TransactorState{
 				Signer: signer,

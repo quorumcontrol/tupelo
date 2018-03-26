@@ -90,7 +90,7 @@ func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mu
 	transaction := (state.TypedTransaction).(*consensuspb.UpdateOwnershipTransaction)
 	state.MutatableTip.Authorizations = transaction.Authorizations
 	state.MutatableTip.Authentication = transaction.Authentication
-
+	state.MutatableTip.Agent = transaction.Agent
 	return state, false, nil
 }
 

@@ -11,6 +11,7 @@
 	It has these top-level messages:
 		NestedEnvelope
 		AckEnvelope
+		ChatMessage
 */
 package mailserverpb
 
@@ -75,9 +76,33 @@ func (m *AckEnvelope) GetEnvelopeHash() []byte {
 	return nil
 }
 
+type ChatMessage struct {
+	Src     []byte `protobuf:"bytes,1,opt,name=src,proto3" json:"src,omitempty"`
+	Message []byte `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+}
+
+func (m *ChatMessage) Reset()                    { *m = ChatMessage{} }
+func (*ChatMessage) ProtoMessage()               {}
+func (*ChatMessage) Descriptor() ([]byte, []int) { return fileDescriptorMailserver, []int{2} }
+
+func (m *ChatMessage) GetSrc() []byte {
+	if m != nil {
+		return m.Src
+	}
+	return nil
+}
+
+func (m *ChatMessage) GetMessage() []byte {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*NestedEnvelope)(nil), "mailserverpb.NestedEnvelope")
 	proto.RegisterType((*AckEnvelope)(nil), "mailserverpb.AckEnvelope")
+	proto.RegisterType((*ChatMessage)(nil), "mailserverpb.ChatMessage")
 }
 func (this *NestedEnvelope) Equal(that interface{}) bool {
 	if that == nil {
@@ -142,6 +167,39 @@ func (this *AckEnvelope) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *ChatMessage) Equal(that interface{}) bool {
+	if that == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	}
+
+	that1, ok := that.(*ChatMessage)
+	if !ok {
+		that2, ok := that.(ChatMessage)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		if this == nil {
+			return true
+		}
+		return false
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.Src, that1.Src) {
+		return false
+	}
+	if !bytes.Equal(this.Message, that1.Message) {
+		return false
+	}
+	return true
+}
 func (this *NestedEnvelope) GoString() string {
 	if this == nil {
 		return "nil"
@@ -160,6 +218,17 @@ func (this *AckEnvelope) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&mailserverpb.AckEnvelope{")
 	s = append(s, "EnvelopeHash: "+fmt.Sprintf("%#v", this.EnvelopeHash)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *ChatMessage) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&mailserverpb.ChatMessage{")
+	s = append(s, "Src: "+fmt.Sprintf("%#v", this.Src)+",\n")
+	s = append(s, "Message: "+fmt.Sprintf("%#v", this.Message)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -225,6 +294,36 @@ func (m *AckEnvelope) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ChatMessage) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ChatMessage) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Src) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintMailserver(dAtA, i, uint64(len(m.Src)))
+		i += copy(dAtA[i:], m.Src)
+	}
+	if len(m.Message) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintMailserver(dAtA, i, uint64(len(m.Message)))
+		i += copy(dAtA[i:], m.Message)
+	}
+	return i, nil
+}
+
 func encodeFixed64Mailserver(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	dAtA[offset+1] = uint8(v >> 8)
@@ -281,6 +380,23 @@ func NewPopulatedAckEnvelope(r randyMailserver, easy bool) *AckEnvelope {
 	return this
 }
 
+func NewPopulatedChatMessage(r randyMailserver, easy bool) *ChatMessage {
+	this := &ChatMessage{}
+	v4 := r.Intn(100)
+	this.Src = make([]byte, v4)
+	for i := 0; i < v4; i++ {
+		this.Src[i] = byte(r.Intn(256))
+	}
+	v5 := r.Intn(100)
+	this.Message = make([]byte, v5)
+	for i := 0; i < v5; i++ {
+		this.Message[i] = byte(r.Intn(256))
+	}
+	if !easy && r.Intn(10) != 0 {
+	}
+	return this
+}
+
 type randyMailserver interface {
 	Float32() float32
 	Float64() float64
@@ -300,9 +416,9 @@ func randUTF8RuneMailserver(r randyMailserver) rune {
 	return rune(ru + 61)
 }
 func randStringMailserver(r randyMailserver) string {
-	v4 := r.Intn(100)
-	tmps := make([]rune, v4)
-	for i := 0; i < v4; i++ {
+	v6 := r.Intn(100)
+	tmps := make([]rune, v6)
+	for i := 0; i < v6; i++ {
 		tmps[i] = randUTF8RuneMailserver(r)
 	}
 	return string(tmps)
@@ -324,11 +440,11 @@ func randFieldMailserver(dAtA []byte, r randyMailserver, fieldNumber int, wire i
 	switch wire {
 	case 0:
 		dAtA = encodeVarintPopulateMailserver(dAtA, uint64(key))
-		v5 := r.Int63()
+		v7 := r.Int63()
 		if r.Intn(2) == 0 {
-			v5 *= -1
+			v7 *= -1
 		}
-		dAtA = encodeVarintPopulateMailserver(dAtA, uint64(v5))
+		dAtA = encodeVarintPopulateMailserver(dAtA, uint64(v7))
 	case 1:
 		dAtA = encodeVarintPopulateMailserver(dAtA, uint64(key))
 		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
@@ -377,6 +493,20 @@ func (m *AckEnvelope) Size() (n int) {
 	return n
 }
 
+func (m *ChatMessage) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Src)
+	if l > 0 {
+		n += 1 + l + sovMailserver(uint64(l))
+	}
+	l = len(m.Message)
+	if l > 0 {
+		n += 1 + l + sovMailserver(uint64(l))
+	}
+	return n
+}
+
 func sovMailserver(x uint64) (n int) {
 	for {
 		n++
@@ -407,6 +537,17 @@ func (this *AckEnvelope) String() string {
 	}
 	s := strings.Join([]string{`&AckEnvelope{`,
 		`EnvelopeHash:` + fmt.Sprintf("%v", this.EnvelopeHash) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *ChatMessage) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ChatMessage{`,
+		`Src:` + fmt.Sprintf("%v", this.Src) + `,`,
+		`Message:` + fmt.Sprintf("%v", this.Message) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -612,6 +753,118 @@ func (m *AckEnvelope) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ChatMessage) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowMailserver
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ChatMessage: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ChatMessage: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Src", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMailserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMailserver
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Src = append(m.Src[:0], dAtA[iNdEx:postIndex]...)
+			if m.Src == nil {
+				m.Src = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowMailserver
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthMailserver
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Message = append(m.Message[:0], dAtA[iNdEx:postIndex]...)
+			if m.Message == nil {
+				m.Message = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipMailserver(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthMailserver
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipMailserver(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -720,7 +973,7 @@ var (
 func init() { proto.RegisterFile("mailserver.proto", fileDescriptorMailserver) }
 
 var fileDescriptorMailserver = []byte{
-	// 219 bytes of a gzipped FileDescriptorProto
+	// 255 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0xc8, 0x4d, 0xcc, 0xcc,
 	0x29, 0x4e, 0x2d, 0x2a, 0x4b, 0x2d, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x41, 0x88,
 	0x14, 0x24, 0x49, 0xe9, 0xa6, 0x67, 0x96, 0x64, 0x94, 0x26, 0xe9, 0x25, 0xe7, 0xe7, 0xea, 0xa7,
@@ -730,9 +983,11 @@ var fileDescriptorMailserver = []byte{
 	0x9f, 0x27, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x13, 0x84, 0x2c, 0x24, 0x24, 0xc5, 0xc5, 0x91, 0x0a,
 	0x55, 0x2d, 0xc1, 0x04, 0x96, 0x86, 0xf3, 0x95, 0x8c, 0xb8, 0xb8, 0x1d, 0x93, 0xb3, 0xe1, 0x86,
 	0x29, 0x73, 0xf1, 0xc2, 0xa4, 0xe2, 0x33, 0x12, 0x8b, 0x33, 0xa0, 0xc6, 0xf1, 0xc0, 0x04, 0x3d,
-	0x12, 0x8b, 0x33, 0x9c, 0x0c, 0x2e, 0x3c, 0x94, 0x63, 0xb8, 0xf1, 0x50, 0x8e, 0xe1, 0xc3, 0x43,
-	0x39, 0xc6, 0x1f, 0x0f, 0xe5, 0x18, 0x1b, 0x1e, 0xc9, 0x31, 0xae, 0x78, 0x24, 0xc7, 0x78, 0xe2,
-	0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31, 0xbe, 0x78, 0x24, 0xc7, 0xf0,
-	0xe1, 0x91, 0x1c, 0xe3, 0x84, 0xc7, 0x72, 0x0c, 0x49, 0x6c, 0x60, 0xc7, 0x1b, 0x03, 0x02, 0x00,
-	0x00, 0xff, 0xff, 0x7b, 0xc7, 0x80, 0x29, 0x0d, 0x01, 0x00, 0x00,
+	0x12, 0x8b, 0x33, 0x94, 0x2c, 0xb9, 0xb8, 0x9d, 0x33, 0x12, 0x4b, 0x7c, 0x53, 0x8b, 0x8b, 0x13,
+	0xd3, 0x53, 0x85, 0x04, 0xb8, 0x98, 0x8b, 0x8b, 0x92, 0xa1, 0x2a, 0x41, 0x4c, 0x21, 0x09, 0x2e,
+	0xf6, 0x5c, 0x88, 0x24, 0xd4, 0x3e, 0x18, 0xd7, 0xc9, 0xe0, 0xc2, 0x43, 0x39, 0x86, 0x1b, 0x0f,
+	0xe5, 0x18, 0x3e, 0x3c, 0x94, 0x63, 0xfc, 0xf1, 0x50, 0x8e, 0xb1, 0xe1, 0x91, 0x1c, 0xe3, 0x8a,
+	0x47, 0x72, 0x8c, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3,
+	0x8b, 0x47, 0x72, 0x0c, 0x1f, 0x1e, 0xc9, 0x31, 0x4e, 0x78, 0x2c, 0xc7, 0x90, 0xc4, 0x06, 0xf6,
+	0xb7, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x19, 0x4e, 0xd6, 0xfd, 0x48, 0x01, 0x00, 0x00,
 }

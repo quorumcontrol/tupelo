@@ -10,20 +10,20 @@ import (
 	"bytes"
 )
 
-type Storage interface {
+type ChainStorage interface {
 	Set(id string, chain *consensuspb.ChainTip) (error)
 	Get(id string) (*consensuspb.ChainTip,error)
 }
 
 type Signer struct {
-	Group *Group
-	ChainStore Storage
-	VerKey *bls.VerKey
-	SignKey *bls.SignKey
+	Group      *Group
+	ChainStore ChainStorage
+	VerKey     *bls.VerKey
+	SignKey    *bls.SignKey
 	Validators []ValidatorFunc
 }
 
-func NewSigner(storage Storage, group *Group, signKey *bls.SignKey) *Signer {
+func NewSigner(storage ChainStorage, group *Group, signKey *bls.SignKey) *Signer {
 	verKey,err := signKey.VerKey()
 	if err != nil {
 		log.Crit("error getting verkey from sign key", "error", err)
