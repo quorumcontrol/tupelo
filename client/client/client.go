@@ -244,7 +244,12 @@ func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, ms
 		Destination: crypto.FromECDSAPub(destKey),
 	}
 
-	return c.Broadcast(symKeyForAgent, nestedEnvelope)
+	req := &consensuspb.ProtocolRequest{
+		Id: uuid.New().String(),
+		Request: objToAny(nestedEnvelope),
+	}
+
+	return c.Broadcast(symKeyForAgent, req)
 }
 
 func anyToObj(any *types.Any) (proto.Message, error) {
