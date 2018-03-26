@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
 	"github.com/ethereum/go-ethereum/rlp"
+	"sync"
 )
 
 type Client struct {
@@ -27,7 +28,7 @@ type Client struct {
 	sessionKey *ecdsa.PrivateKey
 	stopChan chan bool
 	whisper *whisper.Whisper
-	protocols map[string]map[string]*consensuspb.SignatureResponse
+	protocols map[string]chan *consensuspb.ProtocolResponse
 }
 
 func NewClient(group *notary.Group, walletImpl wallet.Wallet) *Client {
@@ -38,7 +39,7 @@ func NewClient(group *notary.Group, walletImpl wallet.Wallet) *Client {
 		stopChan: make(chan bool),
 		filter: network.NewP2PFilter(sessionKey),
 		sessionKey: sessionKey,
-		protocols: make(map[string]map[string]*consensuspb.SignatureResponse),
+		protocols: make(map[string]chan *consensuspb.ProtocolResponse),
 	}
 }
 
@@ -72,53 +73,25 @@ func (c *Client) Stop() {
 
 func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 	log.Debug("CLIENT received message", "message", msg, "stats", c.whisper.Stats())
-	respAny := &types.Any{}
-	err := proto.Unmarshal(msg.Payload, respAny)
+	resp := &consensuspb.ProtocolResponse{}
+	err := proto.Unmarshal(msg.Payload, resp)
 	if err != nil {
 		log.Error("error unmarshaling message", "error", err)
 		return
 	}
 
-	respProto,err := anyToObj(respAny)
-	if err != nil {
-		log.Error("error converting any to known message type", "type", respAny.TypeUrl)
+	channel,ok := c.protocols[resp.Id]
+	if !ok {
+		log.Error("received response for unknown protocol", "id", resp.Id)
 		return
 	}
-	resp := respProto.(*consensuspb.SignatureResponse)
 
-	existing,err := c.Wallet.GetChain(resp.Block.SignableBlock.ChainId)
-	if err != nil {
-		log.Error("error getting chain", "error", err)
-		return
-	}
-	if existing != nil {
-		log.Info("appending signatures to block", "signatures", resp.Block.Signatures)
-		existing.Blocks[len(existing.Blocks) - 1].Signatures = append(existing.Blocks[len(existing.Blocks) - 1].Signatures, resp.Block.Signatures...)
-		c.Wallet.SetChain(existing.Id, existing)
-	} else {
-		log.Error("received block for unknown chain", "chainId", resp.Block.SignableBlock.ChainId)
-	}
-
-	c.protocols[resp.Id][resp.SignerId] = resp
-
-	//TODO: handle timeouts
-	if len(c.protocols[resp.Id]) == len(c.Group.SortedPublicKeys) {
-		log.Debug("All Responses In", "id", resp.Id)
-		_,err = c.Group.ReplaceSignatures(existing.Blocks[len(existing.Blocks) - 1])
-		if err != nil {
-			log.Error("error replacing signatures", "error", err)
-		}
-		c.Wallet.SetChain(existing.Id, existing)
-	}
+	channel<-resp
 }
 
 
 func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
-	any,err := objToAny(msg)
-	if err != nil {
-		return fmt.Errorf("error converting to any: %v", err)
-	}
-	payload,err := proto.Marshal(any)
+	payload,err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("error marshaling any: %v", err)
 	}
@@ -137,19 +110,71 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 	responseKey := crypto.FromECDSAPub(&c.sessionKey.PublicKey)
 
 	signRequest := &consensuspb.SignatureRequest{
-		Id: uuid.New().String(),
 		Blocks: blocks,
 		Histories: histories,
 		ResponseKey: responseKey,
 	}
 
-	c.protocols[signRequest.Id] = make(map[string]*consensuspb.SignatureResponse)
+	req := &consensuspb.ProtocolRequest{
+		Id: uuid.New().String(),
+		Request: objToAny(signRequest),
+	}
 
-	err := c.Broadcast(crypto.Keccak256([]byte(c.Group.Id)), signRequest)
+	respChan := make(chan *consensuspb.ProtocolResponse)
+
+	c.protocols[req.Id] = respChan
+
+	err := c.Broadcast(crypto.Keccak256([]byte(c.Group.Id)), req)
 
 	if err != nil {
 		return fmt.Errorf("error sending: %v", err)
 	}
+
+	timeout := time.NewTimer(2000 * time.Millisecond)
+
+	responses := make(map[string]*consensuspb.SignatureResponse)
+	var respMutex sync.Mutex
+
+	go func() {
+		for {
+			select {
+			case protocolResponse := <- respChan:
+				_signatureResponse,err := anyToObj(protocolResponse.Response)
+				if err != nil {
+					log.Error("error converting protocol response", "error", err)
+				}
+				resp := _signatureResponse.(*consensuspb.SignatureResponse)
+				existing,err := c.Wallet.GetChain(resp.Block.SignableBlock.ChainId)
+				if err != nil {
+					log.Error("error getting chain", "error", err)
+					return
+				}
+				if existing != nil {
+					log.Info("appending signatures to block", "signatures", resp.Block.Signatures)
+					existing.Blocks[len(existing.Blocks) - 1].Signatures = append(existing.Blocks[len(existing.Blocks) - 1].Signatures, resp.Block.Signatures...)
+					c.Wallet.SetChain(existing.Id, existing)
+				} else {
+					log.Error("received block for unknown chain", "chainId", resp.Block.SignableBlock.ChainId)
+				}
+
+				respMutex.Lock()
+				responses[resp.SignerId] = resp
+				respMutex.Unlock()
+
+				if len(responses) == len(c.Group.SortedPublicKeys) {
+					log.Debug("All Responses In", "id", resp.SignerId)
+					_,err = c.Group.ReplaceSignatures(existing.Blocks[len(existing.Blocks) - 1])
+					if err != nil {
+						log.Error("error replacing signatures", "error", err)
+					}
+					c.Wallet.SetChain(existing.Id, existing)
+				}
+
+			case <-timeout.C:
+
+			}
+		}
+	}()
 
 	return nil
 }
@@ -182,11 +207,15 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	return chain, nil
 }
 
-func (c *Client) SendMessage(symKey []byte, destKey *ecdsa.PublicKey, msg proto.Message) (error) {
-	any,err := objToAny(msg)
-	if err != nil {
-		return fmt.Errorf("error converting to any: %v", err)
-	}
+//func (c *Client) GetTip(chainId string) {
+//	tipMsg := &consensuspb.TipRequest{
+//		Id: chainId,
+//	}
+//}
+
+func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, msg proto.Message) (error) {
+	any := objToAny(msg)
+
 	payload,err := proto.Marshal(any)
 	if err != nil {
 		return fmt.Errorf("error marshaling any: %v", err)
@@ -215,7 +244,7 @@ func (c *Client) SendMessage(symKey []byte, destKey *ecdsa.PublicKey, msg proto.
 		Destination: crypto.FromECDSAPub(destKey),
 	}
 
-	return c.Broadcast(symKey, nestedEnvelope)
+	return c.Broadcast(symKeyForAgent, nestedEnvelope)
 }
 
 func anyToObj(any *types.Any) (proto.Message, error) {
@@ -233,14 +262,15 @@ func anyToObj(any *types.Any) (proto.Message, error) {
 	return instance.(proto.Message), nil
 }
 
-func objToAny(obj proto.Message) (*types.Any, error) {
+func objToAny(obj proto.Message) (*types.Any) {
 	objectType := proto.MessageName(obj)
 	bytes, err := proto.Marshal(obj)
 	if err != nil {
-		return nil, err
+		log.Crit("error marshaling", "error", err)
+		return nil
 	}
 	return &types.Any{
 		TypeUrl: objectType,
 		Value:   bytes,
-	}, nil
+	}
 }

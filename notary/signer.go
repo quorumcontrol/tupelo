@@ -71,7 +71,7 @@ func (n *Signer) ProcessBlock(ctx context.Context, history consensus.History, bl
 		return nil, nil
 	}
 
-	chainTip,err := n.ChainStore.Get(block.SignableBlock.ChainId)
+	chainTip,err := n.GetTip(ctx, block.SignableBlock.ChainId)
 	if err != nil {
 		log.Debug("error getting existing chain")
 		return nil, fmt.Errorf("error getting existing chain: %v", err)
@@ -158,6 +158,16 @@ func (n *Signer) SignBlock(ctx context.Context, block *consensuspb.Block) (*cons
 
 func (n *Signer) SignTransaction(ctx context.Context, block *consensuspb.Block, transaction *consensuspb.Transaction) (*consensuspb.Block, error) {
 	return consensus.BlsSignTransaction(block, transaction, n.SignKey)
+}
+
+
+func (n *Signer) GetTip(ctx context.Context, id string) (*consensuspb.ChainTip,error) {
+	chainTip,err := n.ChainStore.Get(id)
+	if err != nil {
+		log.Debug("error getting existing chain")
+		return nil, fmt.Errorf("error getting existing chain: %v", err)
+	}
+	return chainTip,nil
 }
 
 // check if we've signed it or if the group has signed it

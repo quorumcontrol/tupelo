@@ -2,6 +2,7 @@ syntax = "proto3";
 
 // extensions:
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "google/protobuf/any.proto";
 
 option (gogoproto.sizer_all) = true;
 option (gogoproto.populate_all) = true;
@@ -22,15 +23,28 @@ enum ErrorCodes {
     INVALID = 1;
 }
 
-message SignatureRequest {
+message ProtocolRequest {
     string id = 1;
+    google.protobuf.Any Request = 2;
+}
+
+message ProtocolResponse {
+    string id = 1;
+    google.protobuf.Any Response = 2;
+    ErrorCodes error_code = 3;
+}
+
+message SignatureRequest {
     repeated Block blocks = 2;
     repeated Chain histories = 3;
     bytes response_key = 4;
 }
 
+message TipRequest {
+    string chain_id = 1;
+}
+
 message SignatureResponse {
-    string id = 1;
     string signer_id = 2;
     Block block = 3;
     ErrorCodes error = 4;

@@ -28,7 +28,7 @@ func (ms *MailServer) AttachToNode(node *node.WhisperNode) {
 	node.RegisterHandler("mailserverpb.NestedEnvelope", ms.messageHandler)
 }
 
-func (ms *MailServer) messageHandler(whisp *whisper.Whisper, msg proto.Message) {
+func (ms *MailServer) messageHandler(whisp *whisper.Whisper, msg proto.Message, metadata *node.MessageMetadata) {
 	log.Debug("message received")
 	nestedEnvelope := msg.(*mailserverpb.NestedEnvelope)
 	err := ms.Mailbox.Archive(nestedEnvelope)

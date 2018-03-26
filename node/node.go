@@ -16,7 +16,14 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-type MessageHandlerFunc func(whisp *whisper.Whisper, msg proto.Message)
+type MessageHandlerFunc func(whisp *whisper.Whisper, msg proto.Message, metadata *MessageMetadata)
+
+type MessageMetadata struct {
+	Src *ecdsa.PublicKey
+	Dst *ecdsa.PublicKey
+	MessageId []byte
+	ProtocolId string
+}
 
 type WhisperNode struct {
 	Signer *notary.Signer
@@ -37,6 +44,7 @@ func NewWhisperNode(signer *notary.Signer, key *ecdsa.PrivateKey) *WhisperNode {
 		filters: []*whisper.Filter{network.NewFilter(network.CothorityTopic, crypto.Keccak256([]byte(signer.Group.Id)))},
 	}
 	wn.RegisterHandler(proto.MessageName(&consensuspb.SignatureRequest{}), wn.handleSignatureRequest)
+	wn.RegisterHandler(proto.MessageName(&consensuspb.TipRequest{}), wn.handleTipRequest)
 	return wn
 }
 
@@ -105,7 +113,39 @@ func historiesByChainId(chains []*consensuspb.Chain) (chainMap map[string]consen
 	return chainMap
 }
 
-func (wn *WhisperNode) handleSignatureRequest(whisp *whisper.Whisper, sigRequestMsg proto.Message) {
+func (wn *WhisperNode) handleTipRequest(whisp *whisper.Whisper, tipRequestMsg proto.Message, metadata *MessageMetadata) {
+	tipRequest := tipRequestMsg.(*consensuspb.TipRequest)
+	tip,err := wn.Signer.GetTip(context.Background(), tipRequest.ChainId)
+	if err != nil {
+		log.Error("error getting tip", "error", err)
+		return
+	}
+
+	payload,err := proto.Marshal(&consensuspb.ProtocolResponse{
+		Id: metadata.ProtocolId,
+		Response: objToAny(tip),
+	})
+	if err != nil {
+		log.Error("error marshaling", "error", err)
+	}
+
+	err = network.Send(whisp, &whisper.MessageParams{
+		TTL: 60*60, // 1 hour, TODO: what are the right TTL settings?
+		Dst: metadata.Dst,
+		Src: wn.Key,
+		Topic: whisper.BytesToTopic(network.CothorityTopic),
+		PoW: .02,  // TODO: what are the right settings for PoW?
+		WorkTime: 10,
+		Payload: payload,
+	})
+
+	if err != nil {
+		log.Error("error sending message", "error", err)
+	}
+
+}
+
+func (wn *WhisperNode) handleSignatureRequest(whisp *whisper.Whisper, sigRequestMsg proto.Message, metadata *MessageMetadata) {
 	sigRequest := sigRequestMsg.(*consensuspb.SignatureRequest)
 	histories := historiesByChainId(sigRequest.Histories)
 
@@ -117,17 +157,19 @@ func (wn *WhisperNode) handleSignatureRequest(whisp *whisper.Whisper, sigRequest
 		}
 		if processed != nil {
 			log.Debug("processed succeeded, marshaling")
-			any,err := objToAny(&consensuspb.SignatureResponse{
-				Id: sigRequest.Id,
-				SignerId: wn.Signer.Id(),
-				Block: processed,
-				Error: consensuspb.SUCCESS,
-			})
+			resp := &consensuspb.ProtocolResponse{
+				Id: metadata.ProtocolId,
+				Response: objToAny(&consensuspb.SignatureResponse{
+					SignerId: wn.Signer.Id(),
+					Block: processed,
+					Error: consensuspb.SUCCESS,
+				}),
+			}
 			if err != nil {
 				log.Error("error converting to any", "error", err)
 			}
 
-			payload,err := proto.Marshal(any)
+			payload,err := proto.Marshal(resp)
 			if err != nil {
 				log.Error("error marshaling", "error", err)
 			}
@@ -153,22 +195,28 @@ func (wn *WhisperNode) handleSignatureRequest(whisp *whisper.Whisper, sigRequest
 }
 
 func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.ReceivedMessage) {
-	any := &types.Any{}
-	err := proto.Unmarshal(msg.Payload, any)
+	protocolRequest := &consensuspb.ProtocolRequest{}
+	err := proto.Unmarshal(msg.Payload, protocolRequest)
 	if err != nil {
 		log.Error("error unmarshaling", "error", err)
 		return
 	}
 
-	handlerFunc,ok := wn.handlers[any.TypeUrl]
+	handlerFunc,ok := wn.handlers[protocolRequest.Request.TypeUrl]
 	if ok {
-		obj,err := anyToObj(any)
+		metadata := &MessageMetadata{
+			Src: msg.Src,
+			Dst: msg.Dst,
+			MessageId: msg.EnvelopeHash.Bytes(),
+			ProtocolId: protocolRequest.Id,
+		}
+		obj,err := anyToObj(protocolRequest.Request)
 		if err != nil {
 			log.Error("error converting any to obj", "error", err)
 		}
-		handlerFunc(whisp, obj)
+		handlerFunc(whisp, obj, metadata)
 	} else {
-		log.Info("unknown message type received", "type", any.TypeUrl)
+		log.Info("unknown message type received", "type", protocolRequest.Request.TypeUrl)
 	}
 
 }
@@ -189,14 +237,14 @@ func anyToObj(any *types.Any) (proto.Message, error) {
 }
 
 
-func objToAny(obj proto.Message) (*types.Any, error) {
+func objToAny(obj proto.Message) (*types.Any) {
 	objectType := proto.MessageName(obj)
 	bytes, err := proto.Marshal(obj)
 	if err != nil {
-		return nil, err
+		log.Crit("error marshaling", "error", err)
 	}
 	return &types.Any{
 		TypeUrl: objectType,
 		Value:   bytes,
-	}, nil
+	}
 }
