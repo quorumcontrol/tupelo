@@ -22,6 +22,9 @@ import (
 	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
 	"github.com/stretchr/testify/assert"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
+	"github.com/gogo/protobuf/types"
+	"reflect"
+	"github.com/gogo/protobuf/proto"
 )
 
 
@@ -119,18 +122,49 @@ func TestMailserverIntegration(t *testing.T) {
 	c.Start()
 	defer c.Stop()
 
-	c.SendMessage(mailserver.AlphaMailServerKey, &destKey.PublicKey, &mailserverpb.ChatMessage{
+	sentChat := &mailserverpb.ChatMessage{
 		Message: []byte("ojai"),
-	})
+	}
+
+	err = c.SendMessage(mailserver.AlphaMailServerKey, &destKey.PublicKey, sentChat)
+	assert.Nil(t, err)
 
 	time.Sleep(time.Duration(5) * time.Second)
 
 	count := 0
 	cluster.MailServers[0].Mailbox.ForEach(crypto.FromECDSAPub(&destKey.PublicKey), func (env *whisper.Envelope) error {
 		count++
+		received,err := env.OpenAsymmetric(destKey)
+		assert.Nil(t, err)
+		assert.True(t, received.Validate())
+
+		receivedAny := &types.Any{}
+		err = proto.Unmarshal(received.Payload, receivedAny)
+		assert.Nil(t, err)
+
+		receivedChat,err := anyToObj(receivedAny)
+		assert.Nil(t,err)
+
+		assert.Equal(t, sentChat, receivedChat)
+
 		return nil
 	})
 
 	assert.Equal(t, count, 1)
+}
 
+
+func anyToObj(any *types.Any) (proto.Message, error) {
+	typeName := any.TypeUrl
+	instanceType := proto.MessageType(typeName)
+	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
+
+	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
+	// so that we can change it to the kind of object we want
+	instance := reflect.New(instanceType.Elem()).Interface()
+	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
+	if err != nil {
+		return nil, err
+	}
+	return instance.(proto.Message), nil
 }

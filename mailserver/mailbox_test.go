@@ -59,7 +59,6 @@ func TestMailServer_Archive(t *testing.T) {
 	dst := []byte("nomatter")
 
 	testEnv := validEnvelope(t)
-
 	bytes,err := rlp.EncodeToBytes(testEnv)
 	assert.Nil(t,err)
 
@@ -72,6 +71,10 @@ func TestMailServer_Archive(t *testing.T) {
 
 	ms.ForEach(dst, func(env *whisper.Envelope) error {
 		assert.Equal(t, env.Hash(),testEnv.Hash())
+		msg,err := env.OpenAsymmetric(bobKey)
+		assert.Nil(t, err)
+		assert.True(t, msg.Validate())
+		assert.Equal(t, commonPayload, msg.Payload)
 		return nil
 	})
 }
