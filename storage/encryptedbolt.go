@@ -79,6 +79,8 @@ func (ebs *EncryptedBoltStorage) CreateBucketIfNotExists(bucketName []byte) erro
 }
 
 func (ebs *EncryptedBoltStorage) Set(bucketName []byte, key []byte, value []byte) error {
+	log.Debug("setting value for ", string(bucketName), string(key))
+
 	var nonce [24]byte
 	if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
 		return fmt.Errorf("error getting nonce: %v", err)
@@ -101,7 +103,12 @@ func (ebs *EncryptedBoltStorage) Delete(bucketName []byte, key []byte) error {
 }
 
 func (ebs *EncryptedBoltStorage) Get(bucketName []byte, key []byte) ([]byte, error) {
+	log.Debug("getting value for ", string(bucketName), string(key))
+
 	encryptedBytes := ebs.getUnencrypted(bucketName, key)
+	if len(encryptedBytes) == 0 {
+		return nil, nil
+	}
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], encryptedBytes[:24])
 	decrypted, ok := secretbox.Open(nil, encryptedBytes[24:], &decryptNonce, ebs.secretKey)

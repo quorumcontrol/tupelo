@@ -19,23 +19,21 @@ import (
 	"github.com/quorumcontrol/qc3/client/walletshell"
 )
 
+var testShellName string
+
 // shellCmd represents the shell command
 var shellCmd = &cobra.Command{
-	Use:   "shell",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "test-shell",
+	Short: "launches a shell wallet that can only talk to the testnet",
+	Long: `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
-		walletshell.Run()
+		walletshell.Run(testShellName, TestNetGroup)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(shellCmd)
+	shellCmd.Flags().StringVarP(&testShellName, "name", "n", "alice", "the name to use for the wallet")
 
 	// Here you will define your flags and configuration settings.
 

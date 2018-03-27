@@ -76,10 +76,7 @@ func init() {
 		TestNetPublicKeys[i] = consensus.BlsKeyToPublicKey(key.MustVerKey())
 	}
 
-	fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
-
 	TestNetGroup = notary.GroupFromPublicKeys(TestNetPublicKeys)
-
 }
 
 var nodeIndex int
@@ -89,8 +86,9 @@ var testnodeCmd = &cobra.Command{
 	Use:   "test-node [index of key]",
 	Short: "Run a testnet node with hardcoded (insecure) keys",
 	Long: ``,
-	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
+
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 		os.MkdirAll(".storage", 0700)
