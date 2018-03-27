@@ -1,5 +1,7 @@
 package storage
 
+import "github.com/ethereum/go-ethereum/log"
+
 type MemBucket struct {
 	Keys map[string][]byte
 }
@@ -61,7 +63,11 @@ func (ms *MemStorage) GetKeys(bucketName []byte) ([][]byte,error) {
 
 func (ms *MemStorage) ForEach(bucketName []byte, iterator func(k,v []byte) error) error {
 	var err error
-	for k, v := range ms.Buckets[string(bucketName)].Keys {
+	bucket, ok := ms.Buckets[string(bucketName)]
+	if !ok {
+		log.Crit("unknown bucket", "bucket", string(bucketName))
+	}
+	for k, v := range bucket.Keys {
 		err = iterator([]byte(k),v)
 		if err != nil {
 			break
