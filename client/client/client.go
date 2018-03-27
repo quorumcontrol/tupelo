@@ -103,6 +103,7 @@ func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
 		PoW: .02,  // TODO: what are the right settings for PoW?
 		WorkTime: 10,
 		Payload: payload,
+		Src: c.sessionKey,
 	})
 }
 
@@ -168,10 +169,11 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 						log.Error("error replacing signatures", "error", err)
 					}
 					c.Wallet.SetChain(existing.Id, existing)
+					return
 				}
 
 			case <-timeout.C:
-
+				log.Error("timeout received")
 			}
 		}
 	}()
@@ -207,11 +209,64 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	return chain, nil
 }
 
-//func (c *Client) GetTip(chainId string) {
-//	tipMsg := &consensuspb.TipRequest{
-//		Id: chainId,
-//	}
-//}
+func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
+	tipMsg := &consensuspb.TipRequest{
+		ChainId: chainId,
+	}
+	req := &consensuspb.ProtocolRequest{
+		Id: uuid.New().String(),
+		Request: objToAny(tipMsg),
+	}
+
+	respChan := make(chan *consensuspb.ProtocolResponse)
+
+	c.protocols[req.Id] = respChan
+
+	err := c.Broadcast(crypto.Keccak256([]byte(c.Group.Id)), req)
+
+	if err != nil {
+		return nil, fmt.Errorf("error sending: %v", err)
+	}
+
+	timeout := time.NewTimer(2000 * time.Millisecond)
+
+	responses := make([]*consensuspb.ChainTip, 0)
+	var respMutex sync.Mutex
+	chainTipChan := make(chan *consensuspb.ChainTip, 1)
+
+	go func() {
+		for {
+			select {
+			case protocolResponse := <- respChan:
+				_chainTip,err := anyToObj(protocolResponse.Response)
+				if err != nil {
+					log.Error("error converting protocol response", "error", err)
+				}
+				chainTip := _chainTip.(*consensuspb.ChainTip)
+				log.Debug("received chain tip response", "chainTip", chainTip)
+
+
+				respMutex.Lock()
+				responses = append(responses, chainTip)
+				respMutex.Unlock()
+
+				if len(responses) == len(c.Group.SortedPublicKeys) {
+					log.Debug("All Responses In", "id", chainTip.Id)
+					chainTipChan<- chainTip
+					close(chainTipChan)
+					return
+				} else {
+					log.Debug("response count", "count", len(responses))
+				}
+			case <-timeout.C:
+				log.Error("timeout received")
+				close(chainTipChan)
+				return
+			}
+		}
+	}()
+	return chainTipChan, nil
+}
 
 func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, msg proto.Message) (error) {
 	any := objToAny(msg)

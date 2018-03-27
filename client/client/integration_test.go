@@ -121,4 +121,18 @@ func TestFullIntegration(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.True(t, isSigned)
+
+	// now test that we can get the proper chain tip back
+
+	tipChan,err := c.GetTip(newChain.Id)
+	assert.Nil(t, err)
+	assert.NotNil(t, tipChan)
+
+	tip := <-tipChan
+	hsh,err := consensus.BlockToHash(newChain.Blocks[0])
+	assert.Nil(t,err)
+	assert.NotNil(t, tip)
+
+	assert.Equal(t, tip.LastHash, hsh.Bytes())
 }
+

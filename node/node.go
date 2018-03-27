@@ -131,7 +131,7 @@ func (wn *WhisperNode) handleTipRequest(whisp *whisper.Whisper, tipRequestMsg pr
 
 	err = network.Send(whisp, &whisper.MessageParams{
 		TTL: 60*60, // 1 hour, TODO: what are the right TTL settings?
-		Dst: metadata.Dst,
+		Dst: metadata.Src,
 		Src: wn.Key,
 		Topic: whisper.BytesToTopic(network.CothorityTopic),
 		PoW: .02,  // TODO: what are the right settings for PoW?
@@ -140,7 +140,7 @@ func (wn *WhisperNode) handleTipRequest(whisp *whisper.Whisper, tipRequestMsg pr
 	})
 
 	if err != nil {
-		log.Error("error sending message", "error", err)
+		log.Error("error sending tip request message", "error", err)
 	}
 
 }
