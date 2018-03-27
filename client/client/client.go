@@ -107,7 +107,14 @@ func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
 	})
 }
 
-func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*consensuspb.Chain) error {
+
+// BUG: I think this has a bug when requesting multiple blocks to be signed
+// where we're only counting responses and the signers could be sending one
+// block at a time
+// In fact, TODO: rewrite this whole method - the logic doesn't make sense as advertised
+// it is confusing an array of blocks with a chain and doing no checking on whether
+// the returned block is the last block in the saved chain or not
+func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*consensuspb.Chain) (chan bool, error) {
 	responseKey := crypto.FromECDSAPub(&c.sessionKey.PublicKey)
 
 	signRequest := &consensuspb.SignatureRequest{
@@ -128,13 +135,15 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 	err := c.Broadcast(crypto.Keccak256([]byte(c.Group.Id)), req)
 
 	if err != nil {
-		return fmt.Errorf("error sending: %v", err)
+		return nil, fmt.Errorf("error sending: %v", err)
 	}
 
 	timeout := time.NewTimer(2000 * time.Millisecond)
 
 	responses := make(map[string]*consensuspb.SignatureResponse)
 	var respMutex sync.Mutex
+
+	returnChan := make(chan bool)
 
 	go func() {
 		for {
@@ -169,6 +178,7 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 						log.Error("error replacing signatures", "error", err)
 					}
 					c.Wallet.SetChain(existing.Id, existing)
+					returnChan<-true
 					return
 				}
 
@@ -178,7 +188,7 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 		}
 	}()
 
-	return nil
+	return returnChan, nil
 }
 
 func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) {
@@ -201,10 +211,12 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 
 	c.Wallet.SetChain(chain.Id, chain)
 
-	err := c.RequestSignature(chain.Blocks, nil)
+	respChan, err := c.RequestSignature(chain.Blocks, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error requesting signature: %v", err)
 	}
+	//TODO: this is just for blocking, maybe make sync/async versions of all these methods
+	<-respChan
 
 	return chain, nil
 }
@@ -232,7 +244,7 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 
 	responses := make([]*consensuspb.ChainTip, 0)
 	var respMutex sync.Mutex
-	chainTipChan := make(chan *consensuspb.ChainTip, 1)
+	chainTipChan := make(chan *consensuspb.ChainTip)
 
 	go func() {
 		for {
@@ -249,6 +261,10 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 				respMutex.Lock()
 				responses = append(responses, chainTip)
 				respMutex.Unlock()
+
+				if len(responses) >= 2 {
+					log.Debug("chain tips equal?", "equal", responses[len(responses)-1].Equal(responses[len(responses)-2]))
+				}
 
 				if len(responses) == len(c.Group.SortedPublicKeys) {
 					log.Debug("All Responses In", "id", chainTip.Id)

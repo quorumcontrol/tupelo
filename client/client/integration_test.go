@@ -12,7 +12,6 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/node"
 	"github.com/quorumcontrol/qc3/client/client"
-	"time"
 	"github.com/ethereum/go-ethereum/crypto"
 	"os"
 	"crypto/ecdsa"
@@ -104,7 +103,7 @@ func TestFullIntegration(t *testing.T) {
 	c.Start()
 	defer c.Stop()
 
-	time.Sleep(time.Duration(5) * time.Second)
+	//time.Sleep(time.Duration(5) * time.Second)
 
 	newChainKey,_ := crypto.GenerateKey()
 	t.Log("creating chain")
@@ -112,7 +111,7 @@ func TestFullIntegration(t *testing.T) {
 	assert.Nil(t, err)
 
 	t.Log("sleeping")
-	time.Sleep(time.Duration(10) * time.Second)
+	//time.Sleep(time.Duration(10) * time.Second)
 
 	walletChain,err := c.Wallet.GetChain(newChain.Id)
 	assert.Nil(t, err)
