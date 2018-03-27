@@ -29,6 +29,7 @@ func IsSigned(_ context.Context, _ *consensuspb.ChainTip, block *consensuspb.Blo
 }
 
 func IsValidSequenceNumber(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+	log.Debug("validating sequence number", "chain", chainTip.Id, "expectedSequence", chainTip.Sequence, "sequence", block.SignableBlock.Sequence)
 	if chainTip.LastHash == nil && block.SignableBlock.Sequence == 0 {
 		return true, nil
 	}
@@ -37,7 +38,7 @@ func IsValidSequenceNumber(_ context.Context, chainTip *consensuspb.ChainTip, bl
 		return true,nil
 	}
 
-	log.Debug("block sequence was incorrect", "chain", chainTip.Id, "sequence", block.SignableBlock.Sequence)
+	log.Debug("block sequence was incorrect", "chain", chainTip.Id, "expectedSequence", chainTip.Sequence, "sequence", block.SignableBlock.Sequence)
 	return false,nil
 }
 
@@ -89,6 +90,8 @@ func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consens
 		return true,nil
 	}
 
+	log.Debug("chain tip", "tip", chainTip)
+
 	authorizations := consensus.AuthorizationsByType(chainTip.Authorizations)
 	updateAuth,ok := authorizations[consensuspb.UPDATE]
 	var owners []*consensuspb.Chain
@@ -108,7 +111,7 @@ func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consens
 
 	signedByCount := uint64(0)
 	for _,owner := range owners {
-		log.Trace("detecting if signed by: %v", owner)
+		log.Debug("detecting if signed by", "owner", owner, "block", block)
 		signed,err := IsSignedBy(ctx, block, owner)
 		if err != nil {
 			return false, fmt.Errorf("error seeing if signed: %v", err)

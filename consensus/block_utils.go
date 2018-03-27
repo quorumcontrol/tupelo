@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 func BlockToHash(block *consensuspb.Block) (hsh common.Hash, err error) {
@@ -146,10 +147,45 @@ func VerifySignature(block *consensuspb.Block, key *consensuspb.PublicKey, sig *
 }
 
 
+func BlockWithTransactions(chainId string, trans []*consensuspb.Transaction, prevBlock *consensuspb.Block) (*consensuspb.Block,error) {
+	retBlock := &consensuspb.Block{
+		SignableBlock: &consensuspb.SignableBlock{
+			Sequence: 0,
+			ChainId: chainId,
+			Transactions: trans,
+		},
+	}
+
+	if prevBlock != nil {
+		prevHash,err := BlockToHash(prevBlock)
+		if err != nil {
+			return nil, fmt.Errorf("error getting hash of previous block: %v", err)
+		}
+		retBlock.SignableBlock.PreviousHash = prevHash.Bytes()
+		retBlock.SignableBlock.Sequence = prevBlock.SignableBlock.Sequence + 1
+	}
+
+	return retBlock, nil
+}
+
+
 func SignaturesByCreator(block *consensuspb.Block) (sigs map[string]*consensuspb.Signature) {
 	sigs = make(map[string]*consensuspb.Signature)
 	for _,sig := range block.Signatures {
 		sigs[sig.Creator] = sig
+	}
+	return sigs
+}
+
+func TransactionSignaturesByMemo(block *consensuspb.Block) (sigs map[string][]*consensuspb.Signature) {
+	sigs = make(map[string][]*consensuspb.Signature)
+	for _,sig := range block.TransactionSignatures {
+		slice,ok := sigs[hexutil.Encode(sig.Memo)]
+		if ok {
+			sigs[hexutil.Encode(sig.Memo)] = append(slice, sig)
+		} else {
+			sigs[hexutil.Encode(sig.Memo)] = []*consensuspb.Signature{sig}
+		}
 	}
 	return sigs
 }

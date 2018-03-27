@@ -52,6 +52,14 @@ func BlsVerKeyToAddress(pubBytes []byte) common.Address {
 	return common.BytesToAddress(crypto.Keccak256(pubBytes)[12:])
 }
 
+func EcdsaToPublicKey(key *ecdsa.PublicKey) (*consensuspb.PublicKey) {
+	return &consensuspb.PublicKey{
+		Type: consensuspb.Secp256k1,
+		PublicKey: crypto.CompressPubkey(key),
+		Id: crypto.PubkeyToAddress(*key).Hex(),
+	}
+}
+
 func BlsKeyToPublicKey(key *bls.VerKey) (*consensuspb.PublicKey) {
 	return &consensuspb.PublicKey{
 			Id: BlsVerKeyToAddress(key.Bytes()).Hex(),

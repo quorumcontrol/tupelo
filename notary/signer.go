@@ -96,9 +96,10 @@ func (n *Signer) ProcessBlock(ctx context.Context, history consensus.History, bl
 				return nil, fmt.Errorf("error signing block: %v", err)
 			}
 
-			log.Debug("saving chain", "chainId", newTip.Id)
-			// TODO: we should not set the store until it's been broadcast on the network
 			newTip.LastHash = consensus.MustBlockToHash(signedBlock).Bytes()
+			newTip.Sequence = signedBlock.SignableBlock.Sequence
+
+			log.Debug("saving chain", "chainId", newTip.Id, "tip", newTip)
 			n.ChainStore.Set(newTip.Id, newTip)
 
 			log.Debug("returning block with no error")

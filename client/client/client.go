@@ -19,11 +19,14 @@ import (
 	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"sync"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/quorumcontrol/qc3/mailserver"
 )
 
 type Client struct {
 	Group *notary.Group
 	Wallet wallet.Wallet
+	currentIdentity *ecdsa.PrivateKey
 	filter *whisper.Filter
 	sessionKey *ecdsa.PrivateKey
 	stopChan chan bool
@@ -41,6 +44,10 @@ func NewClient(group *notary.Group, walletImpl wallet.Wallet) *Client {
 		sessionKey: sessionKey,
 		protocols: make(map[string]chan *consensuspb.ProtocolResponse),
 	}
+}
+
+func (c *Client) SetCurrentIdentity(key *ecdsa.PrivateKey) {
+	c.currentIdentity = key
 }
 
 func (c *Client) Start() {
@@ -160,8 +167,9 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 					return
 				}
 				if existing != nil {
-					log.Info("appending signatures to block", "signatures", resp.Block.Signatures)
+					log.Info("appending signatures to block", "signatures", resp.Block.Signatures, "transactionSignatures", resp.Block.TransactionSignatures)
 					existing.Blocks[len(existing.Blocks) - 1].Signatures = append(existing.Blocks[len(existing.Blocks) - 1].Signatures, resp.Block.Signatures...)
+					existing.Blocks[len(existing.Blocks) - 1].TransactionSignatures = append(existing.Blocks[len(existing.Blocks) - 1].TransactionSignatures, resp.Block.TransactionSignatures...)
 					c.Wallet.SetChain(existing.Id, existing)
 				} else {
 					log.Error("received block for unknown chain", "chainId", resp.Block.SignableBlock.ChainId)
@@ -198,11 +206,14 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 			ChainId: chain.Id,
 			Sequence: 0,
 			Transactions: []*consensuspb.Transaction{
-				{
-					Id: uuid.New().String(),
-					Type: consensuspb.ADD_DATA,
-					Payload: []byte("genesis chain"),
-				},
+				consensus.EncapsulateTransaction(consensuspb.UPDATE_OWNERSHIP, &consensuspb.UpdateOwnershipTransaction{
+					Agent: crypto.FromECDSAPub(&key.PublicKey),
+					Authentication: &consensuspb.Authentication{
+						PublicKeys: []*consensuspb.PublicKey{
+							consensus.EcdsaToPublicKey(&key.PublicKey),
+						},
+					},
+				}),
 			},
 		},
 	})
@@ -219,6 +230,112 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	<-respChan
 
 	return chain, nil
+}
+
+func (c *Client) MintCoin(chainId, coinName string, amount int) (chan bool, error) {
+	existing,err := c.Wallet.GetChain(chainId)
+	if err != nil {
+		log.Error("error getting chain", "error", err)
+		return nil, fmt.Errorf("error getting existing chain: %v", err)
+	}
+
+	coinTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
+		Amount: uint64(amount),
+		Name: existing.Id + ":" + coinName,
+	})
+
+	block,err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{coinTransaction}, existing.Blocks[len(existing.Blocks)-1])
+	if err != nil {
+		return nil, fmt.Errorf("error creating new blocK: %v", err)
+	}
+
+	signed,err := consensus.OwnerSignBlock(block, c.currentIdentity)
+	if err != nil {
+		return nil, fmt.Errorf("error creating current identity: %v", err)
+	}
+
+	existing.Blocks = append(existing.Blocks, signed)
+	c.Wallet.SetChain(existing.Id, existing)
+
+	respChan, err := c.RequestSignature([]*consensuspb.Block{signed}, []*consensuspb.Chain{existing})
+	if err != nil {
+		return nil, fmt.Errorf("error requesting signature: %v", err)
+	}
+	//TODO: this is just for blocking, maybe make sync/async versions of all these methods
+	return respChan, nil
+}
+
+func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (error) {
+	destinationTipChan,err := c.GetTip(destination)
+	if err != nil {
+		return fmt.Errorf("error getting destination: %v", err)
+	}
+
+	destinationTip := <-destinationTipChan
+
+	if destinationTip.Agent == nil {
+		return fmt.Errorf("destination must have an agent to prevent money loss")
+	}
+
+	existing,err := c.Wallet.GetChain(chainId)
+	if err != nil {
+		log.Error("error getting chain", "error", err)
+		return fmt.Errorf("error getting existing chain: %v", err)
+	}
+
+	sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
+		Amount: uint64(amount),
+		Name: existing.Id + ":" + coinName,
+		Destination: destination,
+	})
+
+	block,err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{sendTransaction}, existing.Blocks[len(existing.Blocks)-1])
+	if err != nil {
+		return fmt.Errorf("error creating new blocK: %v", err)
+	}
+
+	signed,err := consensus.OwnerSignBlock(block, c.currentIdentity)
+	if err != nil {
+		return fmt.Errorf("error creating current identity: %v", err)
+	}
+
+	existing.Blocks = append(existing.Blocks, signed)
+	c.Wallet.SetChain(existing.Id, existing)
+
+	respChan, err := c.RequestSignature([]*consensuspb.Block{signed}, []*consensuspb.Chain{existing})
+	if err != nil {
+		return fmt.Errorf("error requesting signature: %v", err)
+	}
+	<-respChan
+
+	// now we send the send coin to our destination
+
+	existing,err = c.Wallet.GetChain(chainId)
+	if err != nil {
+		log.Error("error getting chain", "error", err)
+		return fmt.Errorf("error getting existing chain: %v", err)
+	}
+
+	log.Debug("existing after sending coin", "existing", existing)
+
+	// get the transaction signature
+	sigs := consensus.TransactionSignaturesByMemo(existing.Blocks[len(existing.Blocks)-1])
+	sig := sigs[hexutil.Encode([]byte("tx:" + sendTransaction.Id))]
+
+	msg := &consensuspb.SendCoinMessage{
+		Transaction: sendTransaction,
+		Signature: sig[0],
+		Memo: []byte("you got some alpha coins"),
+	}
+
+	err = c.SendMessage(mailserver.AlphaMailServerKey, crypto.ToECDSAPub(destinationTip.Agent), msg)
+	if err != nil {
+		return fmt.Errorf("error sending message")
+	}
+	// send message to the agent
+
+
+	return nil
 }
 
 func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
@@ -262,8 +379,15 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 				responses = append(responses, chainTip)
 				respMutex.Unlock()
 
+				//TODO: handle 1/3 giving bad info
 				if len(responses) >= 2 {
-					log.Debug("chain tips equal?", "equal", responses[len(responses)-1].Equal(responses[len(responses)-2]))
+					areEqual := responses[len(responses)-1].Equal(responses[len(responses)-2])
+					if !areEqual {
+						log.Error("non-matching responses", "new", responses[len(responses)-1], "last", responses[len(responses)-2])
+						close(chainTipChan)
+						return
+					}
+					log.Debug("chain tips equal?", "equal", areEqual)
 				}
 
 				if len(responses) == len(c.Group.SortedPublicKeys) {

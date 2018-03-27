@@ -8,6 +8,8 @@ import (
 	"math"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // see https://golang.org/pkg/sort/#Slice
@@ -39,9 +41,9 @@ func NewGroup(id string, keys []*consensuspb.PublicKey) *Group {
 	}
 }
 
-func (g *Group) Address() common.Address {
-	pubKeys := make([][]byte, len(g.SortedPublicKeys))
-	for i,pubKey := range g.SortedPublicKeys {
+func (group *Group) Address() common.Address {
+	pubKeys := make([][]byte, len(group.SortedPublicKeys))
+	for i,pubKey := range group.SortedPublicKeys {
 		pubKeys[i] = pubKey.PublicKey
 	}
 
@@ -88,9 +90,11 @@ func (group *Group) CombineSignatures(sigs []*consensuspb.Signature, memo []byte
 	for i,pubKey := range group.SortedPublicKeys {
 		sig,ok := sigMap[pubKey.Id]
 		if ok {
+			log.Debug("signer signed", "signerId", consensus.BlsVerKeyToAddress(pubKey.PublicKey).Hex())
 			sigBytes = append(sigBytes, sig.Signature)
 			signers[i] = true
 		} else {
+			log.Debug("signer not signed", "signerId", consensus.BlsVerKeyToAddress(pubKey.PublicKey).Hex())
 			signers[i] = false
 		}
 	}
@@ -109,6 +113,7 @@ func (group *Group) CombineSignatures(sigs []*consensuspb.Signature, memo []byte
 }
 
 func (group *Group) ReplaceSignatures(block *consensuspb.Block) (*consensuspb.Block, error) {
+	log.Debug("replacing signatures", "block", block)
 	hsh,err := consensus.BlockToHash(block)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing block")
@@ -138,7 +143,18 @@ func (group *Group) ReplaceSignatures(block *consensuspb.Block) (*consensuspb.Bl
 	newSigs[i] = combinedSig
 	block.Signatures = newSigs
 
+	var newTransactionSigs []*consensuspb.Signature
 
+	for memo,transactionSigs := range consensus.TransactionSignaturesByMemo(block) {
+		combinedSig,err := group.CombineSignatures(transactionSigs, hexutil.MustDecode(memo))
+		if err != nil {
+			return nil, fmt.Errorf("error combining transaction sigs: %v", err)
+		}
+
+		newTransactionSigs = append(newTransactionSigs, combinedSig)
+	}
+
+	block.TransactionSignatures = newTransactionSigs
 
 	return block,nil
 }

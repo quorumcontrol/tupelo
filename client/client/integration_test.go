@@ -97,21 +97,16 @@ func TestFullIntegration(t *testing.T) {
 	cluster.Start()
 	defer cluster.Stop()
 
-	t.Log("creating client")
+	log.Debug("creating client")
 	memWallet := wallet.NewMemoryWallet("test")
 	c := client.NewClient(cluster.Group, memWallet)
 	c.Start()
 	defer c.Stop()
 
-	//time.Sleep(time.Duration(5) * time.Second)
-
 	newChainKey,_ := crypto.GenerateKey()
-	t.Log("creating chain")
+	log.Debug("creating chain")
 	newChain,err := c.CreateChain(newChainKey)
 	assert.Nil(t, err)
-
-	t.Log("sleeping")
-	//time.Sleep(time.Duration(10) * time.Second)
 
 	walletChain,err := c.Wallet.GetChain(newChain.Id)
 	assert.Nil(t, err)
@@ -122,6 +117,7 @@ func TestFullIntegration(t *testing.T) {
 	assert.True(t, isSigned)
 
 	// now test that we can get the proper chain tip back
+	log.Debug("getting chain tip")
 
 	tipChan,err := c.GetTip(newChain.Id)
 	assert.Nil(t, err)
@@ -133,5 +129,26 @@ func TestFullIntegration(t *testing.T) {
 	assert.NotNil(t, tip)
 
 	assert.Equal(t, tip.LastHash, hsh.Bytes())
+
+	// test minting coins
+	log.Debug("minting coins")
+
+	c.SetCurrentIdentity(newChainKey)
+
+	doneChan, err := c.MintCoin(newChain.Id, "cat_coin", 100)
+	assert.Nil(t, err)
+	assert.True(t, <-doneChan)
+
+	// sending coins doesn't error
+
+	log.Debug("creating receive chain")
+
+	receiveChainKey,_ := crypto.GenerateKey()
+	receiveChain,err := c.CreateChain(receiveChainKey)
+	assert.Nil(t, err)
+
+	t.Log("sending coin")
+	err = c.SendCoin(newChain.Id, receiveChain.Id, "cat_coin", 1)
+	assert.Nil(t, err)
 }
 

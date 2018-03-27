@@ -44,6 +44,12 @@ message TipRequest {
     string chain_id = 1;
 }
 
+message SendCoinMessage {
+    Transaction transaction = 1;
+    Signature signature = 2;
+    bytes memo = 3;
+}
+
 message SignatureResponse {
     string signer_id = 2;
     Block block = 3;

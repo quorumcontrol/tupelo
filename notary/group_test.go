@@ -216,6 +216,7 @@ func TestGroup_ReplaceSignatures(t *testing.T) {
 		Group *notary.Group
 		ShouldError        bool
 		ShouldVerify bool
+		TransactionsToVerify []*consensuspb.Transaction
 	}
 	type testGenerator func(t *testing.T) (*testDescription)
 
@@ -231,6 +232,29 @@ func TestGroup_ReplaceSignatures(t *testing.T) {
 				Group: defaultGroup,
 				Block: block,
 				ShouldVerify: true,
+			}
+		},
+		func(t *testing.T) (*testDescription) {
+			block := createBlock(t, nil)
+			transaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
+				Amount: 1,
+				Name: block.SignableBlock.ChainId + ":catcoin",
+			})
+			block.SignableBlock.Transactions = []*consensuspb.Transaction{
+				transaction,
+			}
+			block,_ = consensus.BlsSignTransaction(block, transaction, privateKeys[0])
+			block,_ = consensus.BlsSignTransaction(block, transaction, privateKeys[1])
+
+			block,_ = consensus.BlsSignBlock(block, privateKeys[0])
+			block,_ = consensus.BlsSignBlock(block, privateKeys[1])
+
+			return &testDescription{
+				Description: "a block with signed transactions",
+				Group: defaultGroup,
+				Block: block,
+				ShouldVerify: true,
+				TransactionsToVerify: []*consensuspb.Transaction{transaction},
 			}
 		},
 		func(t *testing.T) (*testDescription) {
@@ -263,8 +287,12 @@ func TestGroup_ReplaceSignatures(t *testing.T) {
 			} else {
 				assert.False(t, verified, test.Description)
 			}
+
+			for _,transaction := range test.TransactionsToVerify {
+				verified,err = test.Group.IsTransactionSigned(block, transaction)
+				assert.Nil(t,err, test.Description)
+				assert.True(t,verified, test.Description)
+			}
 		}
-
-
 	}
 }
