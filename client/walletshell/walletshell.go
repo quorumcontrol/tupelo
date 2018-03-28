@@ -8,6 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"strconv"
 	"github.com/quorumcontrol/qc3/notary"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/davecgh/go-spew/spew"
+	"time"
 )
 
 func Run(name string, group *notary.Group) {
@@ -30,6 +37,12 @@ func Run(name string, group *notary.Group) {
 			passphrase := c.ReadPassword()
 			currentWallet = wallet.NewFileWallet(passphrase, pathToWallet)
 			c.Println("unlocked wallet at: ", pathToWallet)
+			c.Println("starting client")
+			if currentClient != nil {
+				currentClient.Stop()
+			}
+			currentClient = client.NewClient(group, currentWallet)
+			currentClient.Start()
 		},
 	})
 
@@ -97,6 +110,19 @@ func Run(name string, group *notary.Group) {
 	})
 
 	shell.AddCmd(&ishell.Cmd{
+		Name: "print-chain",
+		Help: "set the current identity to a key address",
+		Func: func(c *ishell.Context) {
+			chain,err := currentWallet.GetChain(c.Args[0])
+			if err != nil {
+				c.Println("error getting key", err)
+				return
+			}
+			c.Println(spew.Sdump(chain))
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
 		Name: "create-chain",
 		Help: "create a new chain based on a key",
 		Func: func(c *ishell.Context) {
@@ -133,11 +159,153 @@ func Run(name string, group *notary.Group) {
 			tipChan,err := currentClient.GetTip(c.Args[0])
 			if err != nil {
 				c.Printf("error getting: %v", err)
+				return
 			}
 			tip := <-tipChan
 			c.Printf("tip: %v", tip)
 		},
 	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "balances",
+		Help: "gets the various balances for a chain id",
+		Func: func(c *ishell.Context) {
+			bals,err := currentWallet.Balances(c.Args[0])
+			if err != nil {
+				c.Printf("error getting balance: %v", err)
+				return
+			}
+			if len(bals) == 0 {
+				c.Println("no balances")
+			} else {
+				for name,bal := range bals {
+					c.Printf("%s: %d\n", name, bal)
+				}
+			}
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "send-coin",
+		Help: "send coin to a destination chain",
+		Func: func(c *ishell.Context) {
+			c.Print("From chain: ")
+			from := c.ReadLine()
+			c.Print("Coin name: ")
+			name := c.ReadLine()
+			c.Print("Destination: ")
+			dest := c.ReadLine()
+			c.Print("Amount: ")
+			amountStr := c.ReadLine()
+			amount,_ := strconv.Atoi(amountStr)
+
+			c.ProgressBar().Indeterminate(true)
+			c.ProgressBar().Start()
+
+			err := currentClient.SendCoin(from, dest, name, amount)
+			if err != nil {
+				c.Printf("error sending: %v", err)
+			}
+			c.ProgressBar().Stop()
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "mint-coin",
+		Help: "send coin to a destination chain",
+		Func: func(c *ishell.Context) {
+			c.Print("From chain: ")
+			from := c.ReadLine()
+			c.Print("Coin name: ")
+			name := c.ReadLine()
+			c.Print("Amount: ")
+			amountStr := c.ReadLine()
+			amount,_ := strconv.Atoi(amountStr)
+
+			c.ProgressBar().Indeterminate(true)
+			c.ProgressBar().Start()
+
+			done, err := currentClient.MintCoin(from, name, amount)
+			if err != nil {
+				c.Printf("error sending: %v", err)
+				return
+			}
+			<-done
+			c.ProgressBar().Stop()
+		},
+	})
+
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "process-messages",
+		Help: "get the messages and process chat and receive messages",
+		Func: func(c *ishell.Context) {
+			c.Print("chain: ")
+			chainId := c.ReadLine()
+
+			c.ProgressBar().Indeterminate(true)
+
+			c.ProgressBar().Start()
+
+			tipChan,err := currentClient.GetTip(chainId)
+			if err != nil {
+				c.Printf("error getting: %v", err)
+				return
+			}
+			tip := <-tipChan
+			c.ProgressBar().Stop()
+
+			agentAddr := crypto.PubkeyToAddress(*crypto.ToECDSAPub(tip.Agent))
+
+			c.Println("agentAddr: ", agentAddr.String())
+
+			key,err := currentWallet.GetKey(agentAddr.String())
+			if err != nil || key == nil {
+				c.Printf("error getting key for that chain: %v", err)
+				return
+			}
+
+			c.ProgressBar().Start()
+
+			currentClient.SetCurrentIdentity(key)
+
+			messageChan,err := currentClient.GetMessages(key)
+			if err != nil {
+				c.Printf("error getting key for that chain: %v", err)
+				return
+			}
+
+			time.Sleep(5 * time.Second)
+
+			for len(messageChan) > 0 {
+				any := (<-messageChan).(*types.Any)
+				obj,err := consensus.AnyToObj(any)
+				if err != nil {
+					c.Printf("error converting any: %v", err)
+					return
+				}
+				switch any.TypeUrl {
+				case proto.MessageName(&consensuspb.SendCoinMessage{}):
+					c.Println("You got coin! Processing send coin message to receive the coin")
+					done,err := currentClient.ProcessSendCoinMessage(obj.(*consensuspb.SendCoinMessage))
+					if err != nil {
+						c.Printf("error processing send coin: %v", err)
+						return
+					}
+					<-done
+				case proto.MessageName(&mailserverpb.ChatMessage{}):
+					c.Println("you got mail")
+					c.Println(string(obj.(*mailserverpb.ChatMessage).Message))
+				default:
+					c.Printf("unknown message type received", "typeUrl", any.TypeUrl)
+				}
+			}
+
+			c.ProgressBar().Stop()
+			c.Println("messages received")
+		},
+	})
+
 
 	// run shell
 	shell.Run()

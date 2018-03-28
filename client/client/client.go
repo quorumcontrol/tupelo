@@ -113,6 +113,8 @@ func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
 	})
 }
 
+// TODO: rethink message handling... this is only good for chains that have
+// single owners at the moment
 func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error) {
 	replayRequest := &mailserverpb.ReplayRequest{
 		Destination: crypto.FromECDSAPub(&agent.PublicKey),
@@ -123,6 +125,7 @@ func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error
 	respChan := make(chan *consensuspb.ProtocolResponse)
 
 	c.protocols[req.Id] = respChan
+	log.Debug("broadcasting the message replay")
 	err := c.Broadcast(mailserver.AlphaMailServerKey, req)
 
 	if err != nil {
@@ -198,17 +201,6 @@ func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error
 	}()
 
 	return retChan, nil
-}
-
-func (c *Client) processMailserverReceived(any *types.Any) {
-	switch any.TypeUrl {
-	case proto.MessageName(&consensuspb.SendCoinMessage{}):
-		log.Debug("you got coin!")
-	case proto.MessageName(&mailserverpb.ChatMessage{}):
-		log.Debug("you got mail")
-	default:
-		log.Error("unknown message type received", "typeUrl", any.TypeUrl)
-	}
 }
 
 func (c *Client) ProcessSendCoinMessage(sendCoinMessage *consensuspb.SendCoinMessage) (chan bool, error) {

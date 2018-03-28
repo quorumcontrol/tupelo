@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"syscall"
 	"os/signal"
+	"github.com/quorumcontrol/qc3/mailserver"
 )
 
 // These are private keys and they are PURPOSEFULLY checked in
@@ -93,9 +94,14 @@ var testnodeCmd = &cobra.Command{
 
 		os.MkdirAll(".storage", 0700)
 
-		store := notary.NewChainStore("testTips", storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-" + strconv.Itoa(nodeIndex))))
+		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-" + strconv.Itoa(nodeIndex)))
+		store := notary.NewChainStore("testTips", boltStorage)
 		signer := notary.NewSigner(store, TestNetGroup, BlsSignKeys[nodeIndex])
 		node := node.NewWhisperNode(signer, EcdsaKeys[nodeIndex])
+
+		mailbox := mailserver.NewMailbox(boltStorage)
+		mailServer := mailserver.NewMailServer(mailbox)
+		mailServer.AttachToNode(node)
 
 		node.Start()
 
