@@ -145,7 +145,10 @@ func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error
 
 					_,existed := deDuper.LoadOrStore(crypto.Keccak256Hash(resp.Response.Value).String(), true)
 
-					if !existed {
+					if existed {
+						log.Debug("message duplicate received")
+					} else {
+						log.Debug("new message, processing and acking")
 						replayMsg,err := consensus.AnyToObj(resp.Response)
 						if err != nil {
 							log.Error("error converting response", "error", err)
@@ -173,6 +176,7 @@ func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error
 							continue
 						}
 
+						log.Debug("acking message")
 						ack := &mailserverpb.AckEnvelope{
 							Destination:  crypto.FromECDSAPub(&agent.PublicKey),
 							EnvelopeHash: env.Hash().Bytes(),
@@ -205,6 +209,49 @@ func (c *Client) processMailserverReceived(any *types.Any) {
 	default:
 		log.Error("unknown message type received", "typeUrl", any.TypeUrl)
 	}
+}
+
+func (c *Client) ProcessSendCoinMessage(sendCoinMessage *consensuspb.SendCoinMessage) (chan bool, error) {
+	log.Debug("processing send coin message")
+
+	log.Info("message from send coin", "message", sendCoinMessage.Memo)
+
+	transaction := sendCoinMessage.Transaction
+	sendCoinTransaction := &consensuspb.SendCoinTransaction{}
+	proto.Unmarshal(transaction.Payload, sendCoinTransaction)
+
+	existing,err := c.Wallet.GetChain(sendCoinTransaction.Destination)
+	if err != nil {
+		log.Error("error getting chain", "error", err)
+		return nil, fmt.Errorf("error getting existing chain: %v", err)
+	}
+
+	receiveCoinTransaction := consensus.EncapsulateTransaction(consensuspb.RECEIVE_COIN, &consensuspb.ReceiveCoinTransaction{
+		SendTransaction: transaction,
+		Signature: sendCoinMessage.Signature,
+	})
+
+	block,err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{receiveCoinTransaction}, existing.Blocks[len(existing.Blocks)-1])
+	if err != nil {
+		return nil, fmt.Errorf("error creating new blocK: %v", err)
+	}
+
+	signed,err := consensus.OwnerSignBlock(block, c.currentIdentity)
+	if err != nil {
+		return nil, fmt.Errorf("error creating current identity: %v", err)
+	}
+
+	existing.Blocks = append(existing.Blocks, signed)
+	c.Wallet.SetChain(existing.Id, existing)
+
+	respChan, err := c.RequestSignature([]*consensuspb.Block{signed}, []*consensuspb.Chain{existing})
+	if err != nil {
+		return nil, fmt.Errorf("error requesting signature: %v", err)
+	}
+
+	//TODO: this is just for blocking, maybe make sync/async versions of all these methods
+	return respChan, nil
+
 }
 
 
@@ -418,11 +465,13 @@ func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (er
 		Memo: []byte("you got some alpha coins"),
 	}
 
+	log.Debug("sending the payment to the agent of the destination", "agent", destinationTip.Agent)
+
 	err = c.SendMessage(mailserver.AlphaMailServerKey, crypto.ToECDSAPub(destinationTip.Agent), msg)
 	if err != nil {
-		return fmt.Errorf("error sending message")
+		log.Error("error sending message", "error", err)
+		return fmt.Errorf("error sending message: %v", err)
 	}
-	// send message to the agent
 
 
 	return nil

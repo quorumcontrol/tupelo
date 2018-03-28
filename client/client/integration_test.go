@@ -18,6 +18,9 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/quorumcontrol/qc3/storage"
+	"github.com/gogo/protobuf/types"
+	"github.com/quorumcontrol/qc3/mailserver"
+	"time"
 )
 
 var blsHexKeys = []string{
@@ -56,6 +59,7 @@ func init() {
 type TestCluster struct {
 	Nodes []*node.WhisperNode
 	Group *notary.Group
+	MailServers []*mailserver.MailServer
 }
 
 func NewDefaultTestCluster(t *testing.T) *TestCluster {
@@ -66,15 +70,22 @@ func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	group := notary.GroupFromPublicKeys(keys)
 
 	nodes := make([]*node.WhisperNode, len(BlsSignKeys))
+	mailservers := make([]*mailserver.MailServer, len(BlsSignKeys))
 	for i,key := range BlsSignKeys {
-		store := notary.NewChainStore("testTips", storage.NewMemStorage())
-		signer := notary.NewSigner(store, group, key)
+		store := storage.NewMemStorage()
+		chainStore := notary.NewChainStore("testTips", store)
+		signer := notary.NewSigner(chainStore, group, key)
 		nodes[i] = node.NewWhisperNode(signer, EcdsaKeys[i])
+
+		mailbox := mailserver.NewMailbox(store)
+		mailservers[i] = mailserver.NewMailServer(mailbox)
+		mailservers[i].AttachToNode(nodes[i])
 	}
 
 	return &TestCluster{
 		Nodes: nodes,
 		Group: group,
+		MailServers: mailservers,
 	}
 }
 
@@ -147,8 +158,37 @@ func TestFullIntegration(t *testing.T) {
 	receiveChain,err := c.CreateChain(receiveChainKey)
 	assert.Nil(t, err)
 
-	t.Log("sending coin")
+	log.Debug("sending coin")
 	err = c.SendCoin(newChain.Id, receiveChain.Id, "cat_coin", 1)
 	assert.Nil(t, err)
+
+	balances,err := c.Wallet.Balances(newChain.Id)
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(99), balances[newChain.Id + ":cat_coin"])
+
+	// now let's get that coin
+	log.Debug("receiving coin")
+	time.Sleep(1 * time.Second)
+	c.SetCurrentIdentity(receiveChainKey)
+
+	messageChan,err := c.GetMessages(receiveChainKey)
+	assert.Nil(t, err)
+
+	anyMsg := <-messageChan
+	assert.NotNil(t, anyMsg)
+
+	sendCoinMessage,err := consensus.AnyToObj(anyMsg.(*types.Any))
+	assert.Nil(t,err)
+
+
+	log.Debug("processing send coin message to receive the coin")
+	done,err := c.ProcessSendCoinMessage(sendCoinMessage.(*consensuspb.SendCoinMessage))
+	assert.Nil(t,err)
+	assert.True(t, <-done)
+
+	balances,err = c.Wallet.Balances(receiveChain.Id)
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(1), balances[newChain.Id + ":cat_coin"])
+
 }
 

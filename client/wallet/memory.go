@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gogo/protobuf/proto"
 )
 
 type MemoryWallet struct {
@@ -74,4 +75,38 @@ func (mw *MemoryWallet) ListKeys() ([]string, error) {
 		addrs[i] = addr
 	}
 	return addrs, nil
+}
+
+
+func (mw *MemoryWallet) Balances(id string) (map[string]uint64, error) {
+	chain,err := mw.GetChain(id)
+	if err != nil {
+		return nil, fmt.Errorf("error getting chain: %v", err)
+	}
+	balances := make(map[string]uint64)
+
+	for _,b := range chain.Blocks {
+		for _,t := range b.SignableBlock.Transactions {
+			if t.Type == consensuspb.RECEIVE_COIN {
+				_typedReceived,_ := typedTransactionFrom(t, proto.MessageName(&consensuspb.ReceiveCoinTransaction{}))
+				typedReceived := _typedReceived.(*consensuspb.ReceiveCoinTransaction)
+
+				_typedSend,_ := typedTransactionFrom(typedReceived.SendTransaction, proto.MessageName(&consensuspb.SendCoinTransaction{}))
+				typedSend := _typedSend.(*consensuspb.SendCoinTransaction)
+				incBalance(balances, typedSend.Name, int64(typedSend.Amount))
+			}
+			if t.Type == consensuspb.MINT_COIN {
+				_typed,_ := typedTransactionFrom(t, proto.MessageName(&consensuspb.MintCoinTransaction{}))
+				typed := _typed.(*consensuspb.MintCoinTransaction)
+				incBalance(balances, typed.Name, int64(typed.Amount))
+
+			}
+			if t.Type == consensuspb.SEND_COIN {
+				_typed,_ := typedTransactionFrom(t, proto.MessageName(&consensuspb.SendCoinTransaction{}))
+				typed := _typed.(*consensuspb.SendCoinTransaction)
+				incBalance(balances, typed.Name, -1 * int64(typed.Amount))
+			}
+		}
+	}
+	return balances, nil
 }

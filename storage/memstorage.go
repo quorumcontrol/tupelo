@@ -39,7 +39,10 @@ func (ms *MemStorage) Set(bucketName []byte, key []byte, value []byte) error {
 }
 
 func (ms *MemStorage) Delete(bucketName []byte, key []byte) error {
-	delete(ms.Buckets[string(bucketName)].Keys, string(key))
+	_,ok := ms.Buckets[string(bucketName)]
+	if ok {
+		delete(ms.Buckets[string(bucketName)].Keys, string(key))
+	}
 	return nil
 }
 

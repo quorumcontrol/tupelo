@@ -8,6 +8,7 @@ import (
 type Wallet interface {
 	GetChain(id string) (*consensuspb.Chain, error)
 	SetChain(id string, chain *consensuspb.Chain) (error)
+	Balances(id string) (map[string]uint64, error)
 	GetChainIds() ([]string,error)
 	Close()
 
