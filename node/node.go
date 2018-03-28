@@ -11,8 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/gogo/protobuf/types"
-	"reflect"
 	"github.com/gogo/protobuf/proto"
 )
 
@@ -123,7 +121,7 @@ func (wn *WhisperNode) handleTipRequest(whisp *whisper.Whisper, tipRequestMsg pr
 
 	payload,err := proto.Marshal(&consensuspb.ProtocolResponse{
 		Id: metadata.ProtocolId,
-		Response: objToAny(tip),
+		Response: consensus.ObjToAny(tip),
 	})
 	if err != nil {
 		log.Error("error marshaling", "error", err)
@@ -159,7 +157,7 @@ func (wn *WhisperNode) handleSignatureRequest(whisp *whisper.Whisper, sigRequest
 			log.Debug("processed succeeded, marshaling")
 			resp := &consensuspb.ProtocolResponse{
 				Id: metadata.ProtocolId,
-				Response: objToAny(&consensuspb.SignatureResponse{
+				Response: consensus.ObjToAny(&consensuspb.SignatureResponse{
 					SignerId: wn.Signer.Id(),
 					Block: processed,
 					Error: consensuspb.SUCCESS,
@@ -210,7 +208,7 @@ func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.Receiv
 			MessageId: msg.EnvelopeHash.Bytes(),
 			ProtocolId: protocolRequest.Id,
 		}
-		obj,err := anyToObj(protocolRequest.Request)
+		obj,err := consensus.AnyToObj(protocolRequest.Request)
 		if err != nil {
 			log.Error("error converting any to obj", "error", err)
 		}
@@ -219,32 +217,4 @@ func (wn *WhisperNode) handleMessage(whisp *whisper.Whisper, msg *whisper.Receiv
 		log.Info("unknown message type received", "type", protocolRequest.Request.TypeUrl)
 	}
 
-}
-
-func anyToObj(any *types.Any) (proto.Message, error) {
-	typeName := any.TypeUrl
-	instanceType := proto.MessageType(typeName)
-	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
-
-	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
-	// so that we can change it to the kind of object we want
-	instance := reflect.New(instanceType.Elem()).Interface()
-	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
-	if err != nil {
-		return nil, err
-	}
-	return instance.(proto.Message), nil
-}
-
-
-func objToAny(obj proto.Message) (*types.Any) {
-	objectType := proto.MessageName(obj)
-	bytes, err := proto.Marshal(obj)
-	if err != nil {
-		log.Crit("error marshaling", "error", err)
-	}
-	return &types.Any{
-		TypeUrl: objectType,
-		Value:   bytes,
-	}
 }

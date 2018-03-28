@@ -17,10 +17,19 @@ message NestedEnvelope {
 }
 
 message AckEnvelope {
-    bytes envelope_hash = 1;
+    bytes destination = 1;
+    bytes envelope_hash = 2;
 }
 
 message ChatMessage {
     bytes src = 1;
     bytes message = 2;
+}
+
+message ReplayRequest {
+    bytes destination = 1;
+}
+
+message ReplayResponse {
+    bytes envelope = 1;
 }

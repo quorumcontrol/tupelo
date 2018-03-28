@@ -23,25 +23,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/gogo/protobuf/types"
-	"reflect"
 	"github.com/gogo/protobuf/proto"
 )
 
 
 var blsHexKeys = []string{
-	"0x1cbf9876aab27c7261ba8554fbb60b88b9a5e4ce9fe08cd2a368d1b3558045e1",
-	"0x10aa5d86e4b4b79cfa1363b7930702e3dcee34e17fb51b3ddd4c58d752ebcb88",
-	"0x0bb749fe4f2b269f8891e15f04225a68088eb2db489101d7cd4d3c5cd35f93fc",
-	"0x22c8be919bc9d220b5dd0f7c8fa5781688ef494894969813172b6ffa689909f2",
-	"0x1144c42cbaccd196e0811501a2a8f9850f8a37aab085e461507f3594d3ea7523",
+	"0x0d8594abe3a33cc0210201ad33911defd69595990c1e54269c02a1f4b1487819",
+	"0x107b54d1ccb67e0a89e523ceeacbbcc3aa2cdb3532920cf16734d0257235c890",
+	"0x13d3744feea2a2167dbbdf25d38b394402deef1503e1561fef981e75c3aa85e1",
 }
 
 var ecdsaHexKeys = []string{
-	"0x29820eed8a4d15258a614b257542e905a12d4dee577f15b3daa38a5171b4f998",
-	"0x7666c571635732722f036befa11f931ffa67c3bd337df63ee17aadc6a4d95ce0",
-	"0xcd98169b4540f39e9266efad60498832fa8f713a1ed7d720ff8b4ec864acd4c7",
-	"0x57dc7c4ae06b9a0d8dfaa4236f42bc33d3184b4ef65df7b32608c0fbf2410fde",
-	"0x4d8a392f682359ec6c0071034d65c52667c54adc130a2e7648e149fd4cdb144b",
+	"0xa3ec9da31e1daae7836f421dbdcc0636c82060cabb4d561b51772b4ba7f58510",
+	"0xa3f35e4b79ecfc7cceb8f8b2db2335be9b59f7fd0e0db8b752e314be181654c9",
+	"0xa1ee2cc2d5669c9e01db473c764db58036f84bf8eb061438dc468b6be1accc65",
 }
 
 var BlsSignKeys []*bls.SignKey
@@ -142,7 +137,7 @@ func TestMailserverIntegration(t *testing.T) {
 		err = proto.Unmarshal(received.Payload, receivedAny)
 		assert.Nil(t, err)
 
-		receivedChat,err := anyToObj(receivedAny)
+		receivedChat,err := consensus.AnyToObj(receivedAny)
 		assert.Nil(t,err)
 
 		assert.Equal(t, sentChat, receivedChat)
@@ -151,20 +146,11 @@ func TestMailserverIntegration(t *testing.T) {
 	})
 
 	assert.Equal(t, count, 1)
-}
 
+	// now that we know the message is stored, let's ask for it back
 
-func anyToObj(any *types.Any) (proto.Message, error) {
-	typeName := any.TypeUrl
-	instanceType := proto.MessageType(typeName)
-	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
-
-	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
-	// so that we can change it to the kind of object we want
-	instance := reflect.New(instanceType.Elem()).Interface()
-	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
-	if err != nil {
-		return nil, err
-	}
-	return instance.(proto.Message), nil
+	msgChan,err := c.GetMessages(destKey)
+	assert.Nil(t, err)
+	time.Sleep(time.Duration(2) * time.Second)
+	assert.Equal(t, 1, len(msgChan))
 }

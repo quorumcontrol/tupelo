@@ -11,6 +11,8 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/gogo/protobuf/types"
+	"reflect"
 )
 
 func AddrToDid (addr string) string {
@@ -91,4 +93,32 @@ func ChainToTip(chain *consensuspb.Chain) (*consensuspb.ChainTip) {
 		Authorizations: chain.Authorizations,
 	}
 	return chainTip
+}
+
+
+func ObjToAny(obj proto.Message) (*types.Any) {
+	objectType := proto.MessageName(obj)
+	bytes, err := proto.Marshal(obj)
+	if err != nil {
+		log.Crit("error marshaling", "error", err)
+	}
+	return &types.Any{
+		TypeUrl: objectType,
+		Value:   bytes,
+	}
+}
+
+func AnyToObj(any *types.Any) (proto.Message, error) {
+	typeName := any.TypeUrl
+	instanceType := proto.MessageType(typeName)
+	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
+
+	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
+	// so that we can change it to the kind of object we want
+	instance := reflect.New(instanceType.Elem()).Interface()
+	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
+	if err != nil {
+		return nil, err
+	}
+	return instance.(proto.Message), nil
 }

@@ -57,11 +57,22 @@ func (ms *Mailbox) Ack(destination, envHash []byte) error {
 
 func (ms *Mailbox) ForEach(destination []byte, iteratorFunc func(env *whisper.Envelope) error) error {
 	return ms.storage.ForEach(DestinationToBucket(destination), func(_,v []byte) error {
-		reader := bytes.NewReader(v)
-		stream := rlp.NewStream(reader, 10 * 1024 * 1024) // 10MB limit
-		env := &whisper.Envelope{}
-		env.DecodeRLP(stream)
+		env,err := EnvFromBytes(v)
+		if err != nil {
+			return fmt.Errorf("error EnvFromBytes: %v", err)
+		}
 		return iteratorFunc(env)
 	})
+}
+
+func EnvFromBytes(envBytes []byte) (*whisper.Envelope,error) {
+	reader := bytes.NewReader(envBytes)
+	stream := rlp.NewStream(reader, 10 * 1024 * 1024) // 10MB limit
+	env := &whisper.Envelope{}
+	err := env.DecodeRLP(stream)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+	return env,nil
 }
 

@@ -14,13 +14,12 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/quorumcontrol/qc3/client/wallet"
-	"github.com/gogo/protobuf/types"
-	"reflect"
 	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
 	"github.com/ethereum/go-ethereum/rlp"
 	"sync"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/quorumcontrol/qc3/mailserver"
+	"github.com/gogo/protobuf/types"
 )
 
 type Client struct {
@@ -114,6 +113,100 @@ func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
 	})
 }
 
+func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error) {
+	replayRequest := &mailserverpb.ReplayRequest{
+		Destination: crypto.FromECDSAPub(&agent.PublicKey),
+	}
+
+	req := msgToProtocolRequest(replayRequest)
+
+	respChan := make(chan *consensuspb.ProtocolResponse)
+
+	c.protocols[req.Id] = respChan
+	err := c.Broadcast(mailserver.AlphaMailServerKey, req)
+
+	if err != nil {
+		return nil, fmt.Errorf("error sending: %v", err)
+	}
+
+	retChan := make(chan proto.Message, len(c.Group.SortedPublicKeys) + 1)
+
+	deDuper := &sync.Map{}
+
+	go func() {
+		timeout := time.NewTimer(10000 * time.Millisecond)
+		for {
+			select {
+				case <-timeout.C:
+					log.Debug("timeout received on get messages")
+					return
+				case resp := <- respChan:
+					log.Debug("get messages received", "resp", resp)
+
+					_,existed := deDuper.LoadOrStore(crypto.Keccak256Hash(resp.Response.Value).String(), true)
+
+					if !existed {
+						replayMsg,err := consensus.AnyToObj(resp.Response)
+						if err != nil {
+							log.Error("error converting response", "error", err)
+							continue
+						}
+						replayResponse := replayMsg.(*mailserverpb.ReplayResponse)
+						env,err := mailserver.EnvFromBytes(replayResponse.Envelope)
+						if err != nil {
+							log.Error("error getting envelope", "error", err)
+							continue
+						}
+
+						msg,err := env.OpenAsymmetric(agent)
+						if err != nil {
+							log.Error("error opening envelope", "error", err)
+							continue
+						}
+						isValidated := msg.Validate()
+						log.Debug("message validation", "validated", isValidated)
+
+						any := &types.Any{}
+						err = proto.Unmarshal(msg.Payload, any)
+						if err != nil {
+							log.Error("error unmarshaling payload", "error", err)
+							continue
+						}
+
+						ack := &mailserverpb.AckEnvelope{
+							Destination:  crypto.FromECDSAPub(&agent.PublicKey),
+							EnvelopeHash: env.Hash().Bytes(),
+						}
+
+						req := msgToProtocolRequest(ack)
+
+						err = c.Broadcast(mailserver.AlphaMailServerKey, req)
+
+						if err != nil {
+							log.Error("error sending", "error",err)
+							continue
+						}
+
+						retChan<-any
+					}
+			}
+		}
+	}()
+
+	return retChan, nil
+}
+
+func (c *Client) processMailserverReceived(any *types.Any) {
+	switch any.TypeUrl {
+	case proto.MessageName(&consensuspb.SendCoinMessage{}):
+		log.Debug("you got coin!")
+	case proto.MessageName(&mailserverpb.ChatMessage{}):
+		log.Debug("you got mail")
+	default:
+		log.Error("unknown message type received", "typeUrl", any.TypeUrl)
+	}
+}
+
 
 // BUG: I think this has a bug when requesting multiple blocks to be signed
 // where we're only counting responses and the signers could be sending one
@@ -130,10 +223,7 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 		ResponseKey: responseKey,
 	}
 
-	req := &consensuspb.ProtocolRequest{
-		Id: uuid.New().String(),
-		Request: objToAny(signRequest),
-	}
+	req := msgToProtocolRequest(signRequest)
 
 	respChan := make(chan *consensuspb.ProtocolResponse)
 
@@ -156,7 +246,7 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 		for {
 			select {
 			case protocolResponse := <- respChan:
-				_signatureResponse,err := anyToObj(protocolResponse.Response)
+				_signatureResponse,err := consensus.AnyToObj(protocolResponse.Response)
 				if err != nil {
 					log.Error("error converting protocol response", "error", err)
 				}
@@ -342,10 +432,7 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 	tipMsg := &consensuspb.TipRequest{
 		ChainId: chainId,
 	}
-	req := &consensuspb.ProtocolRequest{
-		Id: uuid.New().String(),
-		Request: objToAny(tipMsg),
-	}
+	req := msgToProtocolRequest(tipMsg)
 
 	respChan := make(chan *consensuspb.ProtocolResponse)
 
@@ -367,7 +454,7 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 		for {
 			select {
 			case protocolResponse := <- respChan:
-				_chainTip,err := anyToObj(protocolResponse.Response)
+				_chainTip,err := consensus.AnyToObj(protocolResponse.Response)
 				if err != nil {
 					log.Error("error converting protocol response", "error", err)
 				}
@@ -409,7 +496,7 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 }
 
 func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, msg proto.Message) (error) {
-	any := objToAny(msg)
+	any := consensus.ObjToAny(msg)
 
 	payload,err := proto.Marshal(any)
 	if err != nil {
@@ -439,38 +526,14 @@ func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, ms
 		Destination: crypto.FromECDSAPub(destKey),
 	}
 
-	req := &consensuspb.ProtocolRequest{
-		Id: uuid.New().String(),
-		Request: objToAny(nestedEnvelope),
-	}
+	req := msgToProtocolRequest(nestedEnvelope)
 
 	return c.Broadcast(symKeyForAgent, req)
 }
 
-func anyToObj(any *types.Any) (proto.Message, error) {
-	typeName := any.TypeUrl
-	instanceType := proto.MessageType(typeName)
-	log.Debug("unmarshaling from Any type to type: %v from typeName %s", "type", instanceType, "name", typeName)
-
-	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
-	// so that we can change it to the kind of object we want
-	instance := reflect.New(instanceType.Elem()).Interface()
-	err := proto.Unmarshal(any.GetValue(), instance.(proto.Message))
-	if err != nil {
-		return nil, err
-	}
-	return instance.(proto.Message), nil
-}
-
-func objToAny(obj proto.Message) (*types.Any) {
-	objectType := proto.MessageName(obj)
-	bytes, err := proto.Marshal(obj)
-	if err != nil {
-		log.Crit("error marshaling", "error", err)
-		return nil
-	}
-	return &types.Any{
-		TypeUrl: objectType,
-		Value:   bytes,
+func msgToProtocolRequest(msg proto.Message) *consensuspb.ProtocolRequest {
+	return &consensuspb.ProtocolRequest{
+		Id: uuid.New().String(),
+		Request: consensus.ObjToAny(msg),
 	}
 }
