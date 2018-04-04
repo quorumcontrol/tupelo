@@ -1,6 +1,11 @@
 version: "3"
 services:
-  builder:
+  node0:
     build: .
-#    volumes:
-#      - .:/go/src/github.com/quorumcontrol/qc3
+    command: ["/usr/bin/qc3", "test-node", "-i", "0"]
+  node1:
+    build: .
+    command: ["/usr/bin/qc3", "test-node", "-i", "1"]
+  node2:
+    build: .
+    command: ["/usr/bin/qc3", "test-node", "-i", "2"]

@@ -1,4 +1,4 @@
-FROM golang:1.10.1
+FROM golang:1.10.1 AS build
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -7,8 +7,6 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 RUN apt-get update && apt-get upgrade -y && apt-get -y install libssl-dev
 
 RUN set -eux; \
-    \
-# this "case" statement is generated via "update.sh"
     dpkgArch="$(dpkg --print-architecture)"; \
 	case "${dpkgArch##*-}" in \
 		amd64) rustArch='x86_64-unknown-linux-gnu'; rustupSha256='c9837990bce0faab4f6f52604311a19bb8d2cde989bea6a7b605c8e526db6f02' ;; \
@@ -38,5 +36,14 @@ RUN cd indy-crypto/libindy-crypto && cargo build --release && cd -
 RUN cp /go/src/github.com/quorumcontrol/qc3/indy-crypto/libindy-crypto/target/release/*.so /usr/lib/
 
 RUN go install -v
+
+
+FROM debian:stretch-slim
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get -y install libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=build /go/bin/qc3 /usr/bin/qc3
+COPY --from=build /usr/lib/libindy_crypto.so /usr/lib/libindy_crypto.so
 
 CMD ["bash"]
