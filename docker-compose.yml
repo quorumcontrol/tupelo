@@ -2,6 +2,7 @@ version: "3"
 services:
   node0:
     build: .
+    image: qc3:latest
     command: ["/usr/bin/qc3", "test-node", "-i", "0"]
   node1:
     build: .

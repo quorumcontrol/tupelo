@@ -1,0 +1,23 @@
+version: "3"
+services:
+  node0:
+    image: qc3:latest
+    command: ["/usr/bin/qc3", "test-node", "-i", "0"]
+    volumes:
+      - node0:/var/lib/qc3
+  node1:
+    image: qc3:latest
+    command: ["/usr/bin/qc3", "test-node", "-i", "1"]
+    volumes:
+      - node1:/var/lib/qc3
+  node2:
+    image: qc3:latest
+    command: ["/usr/bin/qc3", "test-node", "-i", "2"]
+    volumes:
+      - node2:/var/lib/qc3
+
+volumes:
+  node0:
+  node1:
+  node2:
+

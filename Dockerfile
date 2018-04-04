@@ -39,10 +39,15 @@ RUN go install -v
 
 
 FROM debian:stretch-slim
+RUN mkdir -p /var/lib/qc3
+
+WORKDIR /var/lib/qc3
+
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get -y install libssl-dev && \
     rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /go/bin/qc3 /usr/bin/qc3
 COPY --from=build /usr/lib/libindy_crypto.so /usr/lib/libindy_crypto.so
 
