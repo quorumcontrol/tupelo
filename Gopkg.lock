@@ -85,6 +85,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gxed/hashland"
+  packages = ["keccakpg"]
+  revision = "d9f6b97f8db22dd1e090fd0bbbe98f09cc7dd0a8"
+
+[[projects]]
+  branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/printer","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
   revision = "f40e974e75af4e271d97ce0fc917af5898ae7bda"
@@ -100,6 +106,36 @@
   packages = ["."]
   revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
   version = "v1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/ipfs/go-block-format"
+  packages = ["."]
+  revision = "9a467d476a676d8318b19993ab40067c5d75af28"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/ipfs/go-cid"
+  packages = ["."]
+  revision = "078355866b1dda1658b5fdc5496ed7e25fdcf883"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/ipfs/go-ipfs-util"
+  packages = ["."]
+  revision = "9ed527918c2f20abdf0adfab0553cd87db34f656"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/ipfs/go-ipld-cbor"
+  packages = ["."]
+  revision = "c99eb619499c05326738bdf58e91074370a78b3d"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/ipfs/go-ipld-format"
+  packages = ["."]
+  revision = "9b90054a0e154f2c07fe03e820ba221de79992b0"
 
 [[projects]]
   name = "github.com/jackpal/go-nat-pmp"
@@ -127,6 +163,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/minio/blake2b-simd"
+  packages = ["."]
+  revision = "3f5f724cb5b182a5c278d6d3d55b40e7f8c2efb4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/minio/sha256-simd"
+  packages = ["."]
+  revision = "ad98a36ba0da87206e3378c556abbfeaeaa98668"
+
+[[projects]]
+  branch = "master"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
   revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
@@ -136,6 +184,24 @@
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
   revision = "00c29f56e2386353d58c599509e8dc3801b0d716"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mr-tron/base58"
+  packages = ["base58"]
+  revision = "c1bdf7c52f59d6685ca597b9955a443ff95eeee6"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/multiformats/go-multibase"
+  packages = ["."]
+  revision = "dfd5076869faca5aed2886dcba60b44a0d0e9c01"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/multiformats/go-multihash"
+  packages = ["."]
+  revision = "265e72146e710ff649c6982e3699d01d4e9a18bb"
 
 [[projects]]
   name = "github.com/pelletier/go-toml"
@@ -160,6 +226,12 @@
   packages = ["."]
   revision = "feef513b9575b32f84bafa580aad89b011259019"
   version = "v1.3.0"
+
+[[projects]]
+  name = "github.com/spaolacci/murmur3"
+  packages = ["."]
+  revision = "9f5d223c60793748f04a9d5b4b4eacddfc1f755d"
+  version = "v1.1"
 
 [[projects]]
   name = "github.com/spf13/afero"
@@ -211,8 +283,20 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/whyrusleeping/base32"
+  packages = ["."]
+  revision = "c30ac30633ccdabefe87eb12465113f06f1bab75"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/whyrusleeping/cbor"
+  packages = ["go"]
+  revision = "63513f603b11583741970c5045ea567130ddb492"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["nacl/secretbox","pbkdf2","poly1305","salsa20/salsa","scrypt"]
+  packages = ["blake2s","nacl/secretbox","pbkdf2","poly1305","salsa20/salsa","scrypt","sha3"]
   revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
 
 [[projects]]
@@ -260,6 +344,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7bab790232c27b3d30a783ec4858d8f28adaa8d353070d8d90d3991d5662b4b5"
+  inputs-digest = "c589e967c5025c7358c2b58789da1728619127dd71487508abe03002993fff4e"
   solver-name = "gps-cdcl"
   solver-version = 1

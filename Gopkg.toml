@@ -68,3 +68,7 @@
 [[override]]
   name = "github.com/attic-labs/graphql"
   revision = "917f92ca24a759a0e3bfd1b135850f9b0c04682e"
+
+[[constraint]]
+  name = "github.com/multiformats/go-multihash"
+  branch = "master"
