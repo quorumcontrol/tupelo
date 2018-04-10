@@ -1,15 +1,9 @@
 package dag
 
 import (
-	"testing"
-	"github.com/ipfs/go-ipld-cbor"
 	"github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
-	mh "github.com/multiformats/go-multihash"
-
+	"testing"
 	"github.com/stretchr/testify/assert"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/ipfs/go-ipld-format"
 )
 
 type TestStruct struct {
@@ -21,59 +15,42 @@ type TestLinks struct {
 	Linkies []*cid.Cid
 }
 
-func TestLinkUnordered(t *testing.T) {
-	c := cid.NewCidV1(cid.DagCBOR, u.Hash([]byte("something")))
-	c2 := cid.NewCidV1(cid.DagCBOR, u.Hash([]byte("something")))
 
-	node,err := cbornode.WrapObject(&TestLinks{
-		Linkies: []*cid.Cid{c,c2},
-	}, mh.SHA2_256, -1)
-	assert.Nil(t, err)
+func TestCreating(t *testing.T) {
+	sw := &SafeWrap{}
+	child := sw.WrapObject(map[string]interface{} {
+		"name": "child",
+	})
 
+	root := sw.WrapObject(map[string]interface{}{
+		"child": child.Cid(),
+	})
 
-	node2,err := cbornode.WrapObject(&TestLinks{
-		Linkies: []*cid.Cid{c2,c},
-	}, mh.SHA2_256, -1)
-	assert.Nil(t, err)
+	assert.Nil(t, sw.Err)
 
-	assert.Equal(t, node.Cid(), node2.Cid())
-
+	tree := NewUgTree()
+	tree.Initialize(root,child)
+	tree.Root = root.Cid()
 }
 
-func TestCoins(t *testing.T) {
-	c := cid.NewCidV1(cid.DagCBOR, u.Hash([]byte("something")))
+func TestBidirectionalTree_Resolve(t *testing.T) {
+	sw := &SafeWrap{}
+	child := sw.WrapObject(map[string]interface{} {
+		"name": "child",
+	})
 
-	obj := map[string]interface{}{
-		"name": "foo",
-		"bar":  c,
-	}
+	root := sw.WrapObject(map[string]interface{}{
+		"child": child.Cid(),
+	})
 
-	obj2 := map[string]interface{}{
-		"bar":  c,
-		"name": "foo",
-	}
+	assert.Nil(t, sw.Err)
 
-	obj3 := &TestStruct{
-		Name: "foo",
-		Bar: c,
-	}
+	tree := NewUgTree()
+	tree.Initialize(root,child)
+	tree.Root = root.Cid()
 
-	node,err := cbornode.WrapObject(obj, mh.SHA2_256, -1)
+	val,remaining,err := tree.Resolve([]string{"child", "name"})
 	assert.Nil(t, err)
-
-	node2,err := cbornode.WrapObject(obj2, mh.SHA2_256, -1)
-	assert.Nil(t, err)
-
-	node3,err := cbornode.WrapObject(obj3, mh.SHA2_256, -1)
-
-	assert.Equal(t, node.Cid(), node2.Cid(), node3.Cid())
-
-	assert.Len(t, node.Links(), 1)
-
-	lnk, _, err := node.ResolveLink([]string{"bar"})
-	assert.Nil(t, err)
-	t.Log(lnk.Cid.String())
-	t.Log(spew.Sdump(lnk))
-
-	t.Log(spew.Sdump(format.MakeLink(node)))
+	assert.Empty(t, remaining)
+	assert.Equal(t, "child", val)
 }
