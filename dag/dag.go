@@ -1,5 +1,10 @@
 package dag
 
+/*
+	The dag package holds convenience methods for working with a content-addressable DAG.
+	The BidirectionalTree holds nodes
+ */
+
 import (
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/multiformats/go-multihash"
@@ -70,9 +75,9 @@ func (bn *bidirectionalNode) Resolve(tree *BidirectionalTree, path []string) (in
 	}
 }
 
-func (ut *BidirectionalTree) Initialize(nodes ...*cbornode.Node) {
-	ut.mutex.Lock()
-	defer ut.mutex.Unlock()
+func (bt *BidirectionalTree) Initialize(nodes ...*cbornode.Node) {
+	bt.mutex.Lock()
+	defer bt.mutex.Unlock()
 
 	for i,node := range nodes {
 		bidiNode := &bidirectionalNode{
@@ -80,15 +85,15 @@ func (ut *BidirectionalTree) Initialize(nodes ...*cbornode.Node) {
 			id: nodeId(i),
 			parents: make([]nodeId,0),
 		}
-		ut.nodesByStaticId[nodeId(i)] = bidiNode
-		ut.nodesByCid[node.Cid().KeyString()] = bidiNode
+		bt.nodesByStaticId[nodeId(i)] = bidiNode
+		bt.nodesByCid[node.Cid().KeyString()] = bidiNode
 	}
-	ut.counter = len(nodes)
+	bt.counter = len(nodes)
 
-	for _,bidiNode := range ut.nodesByStaticId {
+	for _,bidiNode := range bt.nodesByStaticId {
 		links := bidiNode.node.Links()
 		for _,link := range links {
-			existing,ok := ut.nodesByCid[link.Cid.KeyString()]
+			existing,ok := bt.nodesByCid[link.Cid.KeyString()]
 			if ok {
 				existing.parents = append(existing.parents, bidiNode.id)
 			}
@@ -96,18 +101,18 @@ func (ut *BidirectionalTree) Initialize(nodes ...*cbornode.Node) {
 	}
 }
 
-func (ut *BidirectionalTree) Resolve(path []string) (interface{}, []string, error) {
-	root,ok := ut.nodesByCid[ut.Tip.KeyString()]
+func (bt *BidirectionalTree) Resolve(path []string) (interface{}, []string, error) {
+	root,ok := bt.nodesByCid[bt.Tip.KeyString()]
 	if !ok {
 		return nil, nil, &ErrorCode{Code: ErrMissingRoot}
 	}
-	return root.Resolve(ut, path)
+	return root.Resolve(bt, path)
 }
 
-func (ut *BidirectionalTree) Swap(oldCid *cid.Cid, newNode *cbornode.Node) error {
+func (bt *BidirectionalTree) Swap(oldCid *cid.Cid, newNode *cbornode.Node) error {
 	//fmt.Printf("swapping: %s \n", oldCid.String())
 
-	existing,ok := ut.nodesByCid[oldCid.KeyString()]
+	existing,ok := bt.nodesByCid[oldCid.KeyString()]
 	if !ok {
 		return &ErrorCode{Code:ErrMissingPath, Memo: fmt.Sprintf("cannot find %s", oldCid.String())}
 	}
@@ -116,12 +121,12 @@ func (ut *BidirectionalTree) Swap(oldCid *cid.Cid, newNode *cbornode.Node) error
 
 	existingCid := existing.node.Cid()
 	existing.node = newNode
-	delete(ut.nodesByCid, existingCid.KeyString())
+	delete(bt.nodesByCid, existingCid.KeyString())
 
-	ut.nodesByCid[newNode.Cid().KeyString()] = existing
+	bt.nodesByCid[newNode.Cid().KeyString()] = existing
 
 	for _,parentId := range existing.parents {
-		parent := ut.nodesByStaticId[parentId]
+		parent := bt.nodesByStaticId[parentId]
 		//fmt.Println("parent")
 		parent.dump()
 		newParentJsonish := make(map[string]interface{})
@@ -157,15 +162,15 @@ func (ut *BidirectionalTree) Swap(oldCid *cid.Cid, newNode *cbornode.Node) error
 			return fmt.Errorf("error wrapping object: %v", err)
 		}
 
-		if parent.node.Cid() == ut.Tip {
-			ut.Tip = newParentNode.Cid()
+		if parent.node.Cid() == bt.Tip {
+			bt.Tip = newParentNode.Cid()
 		}
 
-		ut.Swap(parent.node.Cid(), newParentNode)
+		bt.Swap(parent.node.Cid(), newParentNode)
 	}
 
 	//fmt.Println("after tree")
-	ut.dump()
+	bt.dump()
 
 	return nil
 }
