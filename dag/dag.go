@@ -7,14 +7,19 @@ import (
 	"sync"
 	"fmt"
 	"github.com/ipfs/go-ipld-format"
+	"errors"
+	"encoding/json"
+	"bytes"
 )
 
+type nodeId int
+
 type BidirectionalTree struct {
-	Root *cid.Cid
-	counter int
-	nodesByStaticId map[int]*bidirectionalNode
-	nodesByCid map[string]*bidirectionalNode
-	mutex sync.Mutex
+	Tip             *cid.Cid
+	counter         int
+	nodesByStaticId map[nodeId]*bidirectionalNode
+	nodesByCid      map[string]*bidirectionalNode
+	mutex           sync.Mutex
 }
 
 type ErrorCode struct {
@@ -31,7 +36,6 @@ const (
 	ErrMissingPath = 1
 )
 
-type nodeId int
 
 type bidirectionalNode struct {
 	parents []nodeId
@@ -42,7 +46,7 @@ type bidirectionalNode struct {
 func NewUgTree() *BidirectionalTree {
 	return &BidirectionalTree{
 		counter: 0,
-		nodesByStaticId: make(map[int]*bidirectionalNode),
+		nodesByStaticId: make(map[nodeId]*bidirectionalNode),
 		nodesByCid: make(map[string]*bidirectionalNode),
 	}
 }
@@ -76,7 +80,7 @@ func (ut *BidirectionalTree) Initialize(nodes ...*cbornode.Node) {
 			id: nodeId(i),
 			parents: make([]nodeId,0),
 		}
-		ut.nodesByStaticId[i] = bidiNode
+		ut.nodesByStaticId[nodeId(i)] = bidiNode
 		ut.nodesByCid[node.Cid().KeyString()] = bidiNode
 	}
 	ut.counter = len(nodes)
@@ -86,18 +90,99 @@ func (ut *BidirectionalTree) Initialize(nodes ...*cbornode.Node) {
 		for _,link := range links {
 			existing,ok := ut.nodesByCid[link.Cid.KeyString()]
 			if ok {
-				bidiNode.parents = append(bidiNode.parents, existing.id)
+				existing.parents = append(existing.parents, bidiNode.id)
 			}
 		}
 	}
 }
 
-func (ut *BidirectionalTree)  Resolve(path []string) (interface{}, []string, error) {
-	root,ok := ut.nodesByCid[ut.Root.KeyString()]
+func (ut *BidirectionalTree) Resolve(path []string) (interface{}, []string, error) {
+	root,ok := ut.nodesByCid[ut.Tip.KeyString()]
 	if !ok {
 		return nil, nil, &ErrorCode{Code: ErrMissingRoot}
 	}
 	return root.Resolve(ut, path)
+}
+
+func (ut *BidirectionalTree) Swap(oldCid *cid.Cid, newNode *cbornode.Node) error {
+	//fmt.Printf("swapping: %s \n", oldCid.String())
+
+	existing,ok := ut.nodesByCid[oldCid.KeyString()]
+	if !ok {
+		return &ErrorCode{Code:ErrMissingPath, Memo: fmt.Sprintf("cannot find %s", oldCid.String())}
+	}
+	//fmt.Println("existing:")
+	existing.dump()
+
+	existingCid := existing.node.Cid()
+	existing.node = newNode
+	delete(ut.nodesByCid, existingCid.KeyString())
+
+	ut.nodesByCid[newNode.Cid().KeyString()] = existing
+
+	for _,parentId := range existing.parents {
+		parent := ut.nodesByStaticId[parentId]
+		//fmt.Println("parent")
+		parent.dump()
+		newParentJsonish := make(map[string]interface{})
+		err := cbornode.DecodeInto(parent.node.RawData(), &newParentJsonish)
+		if err != nil {
+			return fmt.Errorf("error decoding: %v", err)
+		}
+
+		//fmt.Println("before:")
+		//spew.Dump(newParentJsonish)
+
+		err = updateLinks(newParentJsonish, existingCid, newNode.Cid())
+		if err != nil {
+			return fmt.Errorf("error updating links: %v", err)
+		}
+
+		//fmt.Println("after:")
+		//spew.Dump(newParentJsonish)
+
+		jBytes,_ := json.Marshal(newParentJsonish)
+
+		newParentNode,err := cbornode.FromJson(bytes.NewReader(jBytes), multihash.SHA2_256, -1)
+		if err != nil {
+			return fmt.Errorf("error decoding: %v", err)
+		}
+		sw := &SafeWrap{}
+		//fmt.Println("new parent node")
+		obj := make(map[string]interface{})
+		cbornode.DecodeInto(newParentNode.RawData(), &obj)
+		//spew.Dump(obj)
+
+		if sw.Err != nil {
+			return fmt.Errorf("error wrapping object: %v", err)
+		}
+
+		if parent.node.Cid() == ut.Tip {
+			ut.Tip = newParentNode.Cid()
+		}
+
+		ut.Swap(parent.node.Cid(), newParentNode)
+	}
+
+	//fmt.Println("after tree")
+	ut.dump()
+
+	return nil
+}
+
+func (bn *bidirectionalNode) dump() {
+	//spew.Dump(bn)
+	obj := make(map[string]interface{})
+	cbornode.DecodeInto(bn.node.RawData(), &obj)
+	//spew.Dump(obj)
+}
+
+func (bt *BidirectionalTree) dump() {
+	//spew.Dump(bt)
+	for _,n := range bt.nodesByStaticId {
+		//fmt.Printf("node: %d", n.id)
+		n.dump()
+	}
 }
 
 
@@ -113,4 +198,48 @@ func (sf *SafeWrap) WrapObject(obj interface{}) *cbornode.Node {
 	sf.Err = err
 	return node
 }
+
+
+func updateLinks(obj interface{}, oldCid *cid.Cid, newCid *cid.Cid) error {
+	switch obj := obj.(type) {
+		case map[interface{}]interface{}:
+			for _, v := range obj {
+				if err := updateLinks(v, oldCid, newCid); err != nil {
+					return err
+				}
+			}
+			return nil
+		case map[string]interface{}:
+			for ks, v := range obj {
+				//fmt.Printf("k: %s\n", ks)
+
+				if ks == "/" {
+					vs, ok := v.(string)
+					if ok {
+						if vs == oldCid.String() {
+							//fmt.Printf("updating link from %s to %s\n", oldCid.String(), newCid.String())
+							obj[ks] = newCid.String()
+						}
+					} else {
+						return errors.New("error, link was not a string")
+					}
+				} else {
+					if err := updateLinks(v, oldCid, newCid); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		case []interface{}:
+			for _, v := range obj {
+				if err := updateLinks(v, oldCid, newCid); err != nil {
+					return err
+				}
+			}
+			return nil
+		default:
+			return nil
+		}
+}
+
 

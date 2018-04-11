@@ -42,7 +42,7 @@ func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 		peers = append(peers,peer)
 	}
 
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	//log.Tip().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
 	//key, _ := crypto.GenerateKey()
 	// pub := key.PublicKey

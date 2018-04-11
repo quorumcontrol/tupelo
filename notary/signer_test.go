@@ -202,7 +202,7 @@ func TestNotary_SignBlock(t *testing.T) {
 }
 
 func TestNotary_ProcessBlock(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlTrace), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	//log.Tip().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlTrace), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
 	type testDescription struct {
 		Description        string
