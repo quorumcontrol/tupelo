@@ -18,3 +18,10 @@ And grab the go dependencies:
 ```
 dep ensure
 ```
+
+If you change a protobuf code:
+
+cd into the directory and
+```
+go generate
+```
