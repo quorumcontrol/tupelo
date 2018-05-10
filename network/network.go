@@ -7,13 +7,15 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"crypto/ecdsa"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
+	"os"
 )
 
 const TopicLength = 4
 type TopicType [TopicLength]byte
 
 var NotaryGroupTopic = []byte("qctt")
-var Key = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
+var NotaryGroupKey = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
 
 // from here: https://github.com/status-im/status-go/blob/develop/static/config/staticpeers.json
 var bootNodes = []string{
@@ -40,7 +42,7 @@ type MessageParams struct {
 	Src      *ecdsa.PrivateKey
 	Dst      *ecdsa.PublicKey
 	KeySym   []byte
-	Topic    TopicType
+	Topic    []byte
 	WorkTime uint32
 	PoW      float64
 	Payload  []byte
@@ -72,7 +74,7 @@ func (mp *MessageParams) toWhisper() *whisper.MessageParams {
 		Src: mp.Src,
 		Dst: mp.Dst,
 		KeySym: mp.KeySym,
-		Topic: whisper.TopicType(mp.Topic),
+		Topic: whisper.BytesToTopic(mp.Topic),
 		WorkTime: mp.WorkTime,
 		PoW: mp.PoW,
 		Payload: mp.Payload,
@@ -102,6 +104,7 @@ func fromWhisper(whispMessage *whisper.ReceivedMessage) *ReceivedMessage{
 type Client struct {
 	whisper *whisper.Whisper
 	key *ecdsa.PrivateKey
+	srv *p2p.Server
 }
 
 type Subscription struct {
@@ -130,7 +133,7 @@ func (c *Client) Start() (error) {
 		peers = append(peers,peer)
 	}
 
-	//log.Tip().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
 	whisp := whisper.New(&whisper.Config{
 		MaxMessageSize: whisper.MaxMessageSize,
@@ -153,9 +156,15 @@ func (c *Client) Start() (error) {
 		return fmt.Errorf("error starting network client: %v", err)
 	}
 
+	c.srv = srv
 	c.whisper = whisp
 
 	return nil
+}
+
+func (c *Client) Stop() {
+	c.whisper.Stop()
+	c.srv.Stop()
 }
 
 func (c *Client) Send(params MessageParams) (error) {
@@ -181,7 +190,7 @@ func (c *Client) SubscribeToTopic(topic []byte, symKey []byte) (*Subscription) {
 		whisperSubscription: &whisper.Filter{
 			KeySym: symKey,
 			Topics: [][]byte{topicBytes[:]},
-			AllowP2P: true,
+			AllowP2P: false,
 		},
 	}
 
@@ -197,7 +206,7 @@ func (c *Client) SubscribeToKey(key *ecdsa.PrivateKey) (*Subscription) {
 			Topics: [][]byte{topicBytes[:]},
 			AllowP2P: true,
 			KeyAsym: key,
-		}
+		},
 	}
 
 	c.whisper.Subscribe(sub.whisperSubscription)
