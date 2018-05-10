@@ -4,16 +4,16 @@ import (
 	"fmt"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/ethereum/go-ethereum/p2p"
-	"os"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/common"
 )
 
-var CothorityTopic = []byte("qctt")
-var Key = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
+const TopicLength = 4
+type TopicType [TopicLength]byte
 
-var CothorityFilter = NewFilter(CothorityTopic, Key)
+var NotaryGroupTopic = []byte("qctt")
+var Key = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
 
 // from here: https://github.com/status-im/status-go/blob/develop/static/config/staticpeers.json
 var bootNodes = []string{
@@ -35,7 +35,95 @@ var bootNodes = []string{
 	"enode://a1ef9ba5550d5fac27f7cbd4e8d20a643ad75596f307c91cd6e7f85b548b8a6bf215cca436d6ee436d6135f9fe51398f8dd4c0bd6c6a0c332ccb41880f33ec12@51.15.218.125:30303",
 }
 
-func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
+type MessageParams struct {
+	TTL      uint32
+	Src      *ecdsa.PrivateKey
+	Dst      *ecdsa.PublicKey
+	KeySym   []byte
+	Topic    TopicType
+	WorkTime uint32
+	PoW      float64
+	Payload  []byte
+	//Padding  []byte
+}
+
+type ReceivedMessage struct {
+	Raw []byte
+
+	Payload   []byte
+	Padding   []byte
+	Signature []byte
+
+	PoW   float64          // Proof of work as described in the Whisper spec
+	Sent  uint32           // Time when the message was posted into the network
+	TTL   uint32           // Maximum time to live allowed for the message
+	Src   *ecdsa.PublicKey // Message recipient (identity used to decode the message)
+	Dst   *ecdsa.PublicKey // Message recipient (identity used to decode the message)
+	Topic TopicType
+
+	SymKeyHash      common.Hash // The Keccak256Hash of the key, associated with the Topic
+	EnvelopeHash    common.Hash // Message envelope hash to act as a unique id
+	EnvelopeVersion uint64
+}
+
+func (mp *MessageParams) toWhisper() *whisper.MessageParams {
+	return &whisper.MessageParams{
+		TTL: mp.TTL,
+		Src: mp.Src,
+		Dst: mp.Dst,
+		KeySym: mp.KeySym,
+		Topic: whisper.TopicType(mp.Topic),
+		WorkTime: mp.WorkTime,
+		PoW: mp.PoW,
+		Payload: mp.Payload,
+	}
+}
+
+func fromWhisper(whispMessage *whisper.ReceivedMessage) *ReceivedMessage{
+	return &ReceivedMessage{
+		Raw: whispMessage.Raw,
+		Payload: whispMessage.Payload,
+		Padding: whispMessage.Padding,
+		Signature: whispMessage.Signature,
+
+		PoW: whispMessage.PoW,          // Proof of work as described in the Whisper spec
+		Sent: whispMessage.Sent,           // Time when the message was posted into the network
+		TTL: whispMessage.TTL,           // Maximum time to live allowed for the message
+		Src: whispMessage.Src, // Message recipient (identity used to decode the message)
+		Dst: whispMessage.Dst, // Message recipient (identity used to decode the message)
+		Topic: TopicType(whispMessage.Topic),
+
+		SymKeyHash: whispMessage.SymKeyHash,// The Keccak256Hash of the key, associated with the Topic
+		EnvelopeHash: whispMessage.EnvelopeHash, // Message envelope hash to act as a unique id
+		EnvelopeVersion: whispMessage.EnvelopeVersion,
+	}
+}
+
+type Client struct {
+	whisper *whisper.Whisper
+	key *ecdsa.PrivateKey
+}
+
+type Subscription struct {
+	whisperSubscription *whisper.Filter
+}
+
+func (s *Subscription) RetrieveMessages() []*ReceivedMessage {
+	whisperMsgs := s.whisperSubscription.Retrieve()
+	msgs := make([]*ReceivedMessage, len(whisperMsgs))
+	for i,msg := range whisperMsgs {
+		msgs[i] = fromWhisper(msg)
+	}
+	return msgs
+}
+
+func NewClient(key *ecdsa.PrivateKey) *Client {
+	return &Client{
+		key: key,
+	}
+}
+
+func (c *Client) Start() (error) {
 	var peers []*discover.Node
 	for _,enode := range bootNodes {
 		peer := discover.MustParseNode(enode)
@@ -44,20 +132,17 @@ func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 
 	//log.Tip().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
-	//key, _ := crypto.GenerateKey()
-	// pub := key.PublicKey
-
 	whisp := whisper.New(&whisper.Config{
 		MaxMessageSize: whisper.MaxMessageSize,
 		MinimumAcceptedPOW: 0.001,
 	})
-	whisp.AddKeyPair(key)
+	whisp.AddKeyPair(c.key)
 	whisp.Start(nil)
 
 	srv := &p2p.Server{
 		Config: p2p.Config{
 			MaxPeers:   20,
-			PrivateKey: key,
+			PrivateKey: c.key,
 			//ListenAddr: ":8000",
 			Protocols: whisp.Protocols(),
 			BootstrapNodes: peers,
@@ -65,44 +150,57 @@ func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 	}
 	if err := srv.Start(); err != nil {
 		fmt.Println("could not start server:", err)
-		os.Exit(1)
+		return fmt.Errorf("error starting network client: %v", err)
 	}
 
-	return whisp
+	c.whisper = whisp
+
+	return nil
 }
 
-func Send(whisp *whisper.Whisper, params *whisper.MessageParams) (error) {
-	msg,err := whisper.NewSentMessage(params)
+func (c *Client) Send(params MessageParams) (error) {
+	msg,err := whisper.NewSentMessage(params.toWhisper())
 	if err != nil {
 		return fmt.Errorf("error generating message: %v", err)
 	}
-	env,err := msg.Wrap(params)
+	env,err := msg.Wrap(params.toWhisper())
 	if err != nil {
 		return fmt.Errorf("error wrapping message: %v", err)
 	}
-	err = whisp.Send(env)
+	err = c.whisper.Send(env)
 	if err != nil {
 		return fmt.Errorf("error sending env: %v", err)
 	}
 	return nil
 }
 
-func NewFilter(topic []byte, symKey []byte) (*whisper.Filter) {
+func (c *Client) SubscribeToTopic(topic []byte, symKey []byte) (*Subscription) {
 	topicBytes := whisper.BytesToTopic(topic)
 
-	return &whisper.Filter{
-		KeySym: symKey,
-		Topics: [][]byte{topicBytes[:]},
-		AllowP2P: false,
+	sub := &Subscription{
+		whisperSubscription: &whisper.Filter{
+			KeySym: symKey,
+			Topics: [][]byte{topicBytes[:]},
+			AllowP2P: true,
+		},
 	}
+
+	c.whisper.Subscribe(sub.whisperSubscription)
+	return sub
 }
 
-func NewP2PFilter(key *ecdsa.PrivateKey) (*whisper.Filter) {
-	topicBytes := whisper.BytesToTopic(CothorityTopic)
-	log.Debug("p2p filter topic created", "topic", [][]byte{topicBytes[:]})
-	return &whisper.Filter{
-		Topics: [][]byte{topicBytes[:]},
-		AllowP2P: true,
-		KeyAsym: key,
+func (c *Client) SubscribeToKey(key *ecdsa.PrivateKey) (*Subscription) {
+	topicBytes := whisper.BytesToTopic(NotaryGroupTopic)
+
+	sub := &Subscription{
+		whisperSubscription: &whisper.Filter{
+			Topics: [][]byte{topicBytes[:]},
+			AllowP2P: true,
+			KeyAsym: key,
+		}
 	}
+
+	c.whisper.Subscribe(sub.whisperSubscription)
+	return sub
+
 }
