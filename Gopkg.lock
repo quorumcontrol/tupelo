@@ -74,10 +74,10 @@
   revision = "9ed527918c2f20abdf0adfab0553cd87db34f656"
 
 [[projects]]
-  branch = "master"
+  branch = "refmt"
   name = "github.com/ipfs/go-ipld-cbor"
   packages = ["."]
-  revision = "c99eb619499c05326738bdf58e91074370a78b3d"
+  revision = "8b666bca090899848849a507a008080db0fcfe21"
 
 [[projects]]
   branch = "master"
@@ -130,14 +130,14 @@
 [[projects]]
   branch = "master"
   name = "github.com/polydawn/refmt"
-  packages = ["obj","obj/atlas","shared","tok"]
+  packages = ["cbor","obj","obj/atlas","shared","tok"]
   revision = "b0c505d9a8cea4460b8ac57691d4ce9381e1e264"
 
 [[projects]]
   branch = "master"
   name = "github.com/quorumcontrol/chaintree"
   packages = ["chaintree","dag","typecaster"]
-  revision = "46953c89141452425f4ce17ff8ea887274f7c00e"
+  revision = "a723394a740d462896684a1764bccdea21154177"
 
 [[projects]]
   branch = "master"
@@ -174,12 +174,6 @@
   name = "github.com/whyrusleeping/base32"
   packages = ["."]
   revision = "c30ac30633ccdabefe87eb12465113f06f1bab75"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/whyrusleeping/cbor"
-  packages = ["go"]
-  revision = "63513f603b11583741970c5045ea567130ddb492"
 
 [[projects]]
   branch = "master"

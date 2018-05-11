@@ -15,6 +15,7 @@ import (
 
 func init () {
 	typecaster.AddType(setDataPayload{})
+	cbornode.RegisterCborType(setDataPayload{})
 }
 
 const (
@@ -111,6 +112,13 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse,error) 
 		return nil, fmt.Errorf("error signing: %v", err)
 	}
 
+	id,_,err := tree.Resolve([]string{"id"})
+	if err != nil {
+		return nil, &ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: ErrUnknown}
+	}
+
+	s.Storage.Set(DidBucket, []byte(id.(string)), tip.Bytes())
+
 	return &AddBlockResponse{
 		SignerId: s.Id,
 		Tip: tip,
@@ -139,9 +147,50 @@ func (s *Signer) IsOwner (tree *dag.BidirectionalTree, blockWithHeaders *chaintr
 		return false, &ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: ErrUnknown}
 	}
 
+	var addrs []string
+
 	if stored == nil {
 		// this is a genesis block
-		addr := consensus.DidToAddr(id.(string))
+		addrs = []string{consensus.DidToAddr(id.(string))}
+	} else {
+
+		storedTip,err := cid.Cast(stored)
+		if err != nil {
+			return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("bad CID stored: %v", err)}
+		}
+
+		oldRoot := tree.Get(storedTip)
+		if oldRoot == nil {
+			return false, &ErrorCode{Code: ErrUnknown, Memo: "missing old root"}
+		}
+
+		uncastAuths,remain,err := oldRoot.Resolve(tree, []string{"tree", "_qc", "authentications"})
+		if err != nil {
+			if err.(*dag.ErrorCode).GetCode() == dag.ErrMissingPath {
+				addrs = []string{consensus.DidToAddr(id.(string))}
+			} else {
+				return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
+			}
+		} else {
+			// if there is no _qc or no authentications then it's like a genesis block
+			if len(remain) == 1 || len(remain) == 2 {
+				addrs = []string{consensus.DidToAddr(id.(string))}
+			} else {
+				var authentications []*consensus.PublicKey
+				err = typecaster.ToType(uncastAuths, &authentications)
+				if err != nil {
+					return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
+				}
+
+				addrs = make([]string, len(authentications))
+				for i,key := range authentications {
+					addrs[i] = consensus.PublicKeyToAddr(key)
+				}
+			}
+		}
+	}
+
+	for _,addr := range addrs {
 		isSigned,err := consensus.IsBlockSignedBy(blockWithHeaders, addr)
 
 		if err != nil {
@@ -150,13 +199,10 @@ func (s *Signer) IsOwner (tree *dag.BidirectionalTree, blockWithHeaders *chaintr
 
 		if isSigned {
 			return true, nil
-		} else {
-			return false, nil
 		}
-	} else {
-		return false, &ErrorCode{Memo: "unimplemented"}
 	}
 
+	return false, nil
 }
 
 

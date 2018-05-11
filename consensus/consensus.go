@@ -11,12 +11,16 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ipfs/go-ipld-cbor"
 )
 
 func init() {
 	typecaster.AddType(StandardHeaders{})
 	typecaster.AddType(Signature{})
 	typecaster.AddType(PublicKey{})
+	cbornode.RegisterCborType(StandardHeaders{})
+	cbornode.RegisterCborType(Signature{})
+	cbornode.RegisterCborType(PublicKey{})
 }
 
 const (
@@ -49,6 +53,17 @@ func DidToAddr(did string) string {
 	return segs[len(segs) - 1]
 }
 
+func PublicKeyToAddr(key *PublicKey) string {
+	switch key.Type {
+	case KeyTypeSecp256k1:
+		return crypto.PubkeyToAddress(*crypto.ToECDSAPub(key.PublicKey)).String()
+	case KeyTypeBLSGroupSig:
+		return BlsVerKeyToAddress(key.PublicKey).String()
+	default:
+		return ""
+	}
+}
+
 func BlsVerKeyToAddress(pubBytes []byte) common.Address {
 	return common.BytesToAddress(crypto.Keccak256(pubBytes)[12:])
 }
@@ -56,8 +71,8 @@ func BlsVerKeyToAddress(pubBytes []byte) common.Address {
 func EcdsaToPublicKey(key *ecdsa.PublicKey) (PublicKey) {
 	return PublicKey{
 		Type: KeyTypeSecp256k1,
-		PublicKey: crypto.CompressPubkey(key),
-		Id: crypto.PubkeyToAddress(*key).Hex(),
+		PublicKey: crypto.FromECDSAPub(key),
+		Id: crypto.PubkeyToAddress(*key).String(),
 	}
 }
 
@@ -72,10 +87,12 @@ func BlsKeyToPublicKey(key *bls.VerKey) (PublicKey) {
 func BlockToHash(block chaintree.Block) ([]byte, error) {
 	sw := &dag.SafeWrap{}
 
-	hsh := sw.WrapObject(block).Cid().Hash()
+	wrapped := sw.WrapObject(block)
 	if sw.Err != nil {
-		return nil, fmt.Errorf("error wrapping block")
+		return nil, fmt.Errorf("error wrapping block: %v", sw.Err)
 	}
+
+	hsh := wrapped.Cid().Hash()
 
 	return hsh[2:],nil
 }
