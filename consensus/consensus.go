@@ -1,17 +1,17 @@
 package consensus
 
 import (
-	"fmt"
-	"strings"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/bls"
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/quorumcontrol/chaintree/typecaster"
-	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/typecaster"
+	"github.com/quorumcontrol/qc3/bls"
+	"strings"
 )
 
 func init() {
@@ -23,34 +23,36 @@ func init() {
 	cbornode.RegisterCborType(PublicKey{})
 }
 
+type SignatureMap map[string]Signature
+
 const (
 	KeyTypeBLSGroupSig = "BLS"
-	KeyTypeSecp256k1 = "secp256k1"
+	KeyTypeSecp256k1   = "secp256k1"
 )
 
 type PublicKey struct {
-	Id string `refmt:"id,omitempty" json:"id,omitempty" cbor:"id,omitempty"`
-	Type string `refmt:"type,omitempty" json:"type,omitempty" cbor:"type,omitempty"`
+	Id        string `refmt:"id,omitempty" json:"id,omitempty" cbor:"id,omitempty"`
+	Type      string `refmt:"type,omitempty" json:"type,omitempty" cbor:"type,omitempty"`
 	PublicKey []byte `refmt:"publicKey,omitempty" json:"publicKey,omitempty" cbor:"publicKey,omitempty"`
 }
 
 type Signature struct {
-	Signers []bool `refmt:"signers,omitempty" json:"signers,omitempty" cbor:"signers,omitempty"`
+	Signers   []bool `refmt:"signers,omitempty" json:"signers,omitempty" cbor:"signers,omitempty"`
 	Signature []byte `refmt:"signature,omitempty" json:"signature,omitempty" cbor:"signature,omitempty"`
-	Type string `refmt:"type,omitempty" json:"type,omitempty" cbor:"type,omitempty"`
+	Type      string `refmt:"type,omitempty" json:"type,omitempty" cbor:"type,omitempty"`
 }
 
 type StandardHeaders struct {
-	Signatures map[string]Signature `refmt:"signatures,omitempty" json:"signatures,omitempty" cbor:"signatures,omitempty"`
+	Signatures SignatureMap `refmt:"signatures,omitempty" json:"signatures,omitempty" cbor:"signatures,omitempty"`
 }
 
-func AddrToDid (addr string) string {
+func AddrToDid(addr string) string {
 	return fmt.Sprintf("did:qc:%s", addr)
 }
 
 func DidToAddr(did string) string {
 	segs := strings.Split(did, ":")
-	return segs[len(segs) - 1]
+	return segs[len(segs)-1]
 }
 
 func PublicKeyToAddr(key *PublicKey) string {
@@ -68,33 +70,24 @@ func BlsVerKeyToAddress(pubBytes []byte) common.Address {
 	return common.BytesToAddress(crypto.Keccak256(pubBytes)[12:])
 }
 
-func EcdsaToPublicKey(key *ecdsa.PublicKey) (PublicKey) {
+func EcdsaToPublicKey(key *ecdsa.PublicKey) PublicKey {
 	return PublicKey{
-		Type: KeyTypeSecp256k1,
+		Type:      KeyTypeSecp256k1,
 		PublicKey: crypto.FromECDSAPub(key),
-		Id: crypto.PubkeyToAddress(*key).String(),
+		Id:        crypto.PubkeyToAddress(*key).String(),
 	}
 }
 
-func BlsKeyToPublicKey(key *bls.VerKey) (PublicKey) {
+func BlsKeyToPublicKey(key *bls.VerKey) PublicKey {
 	return PublicKey{
-		Id: BlsVerKeyToAddress(key.Bytes()).Hex(),
+		Id:        BlsVerKeyToAddress(key.Bytes()).Hex(),
 		PublicKey: key.Bytes(),
-		Type: KeyTypeBLSGroupSig,
+		Type:      KeyTypeBLSGroupSig,
 	}
 }
 
 func BlockToHash(block chaintree.Block) ([]byte, error) {
-	sw := &dag.SafeWrap{}
-
-	wrapped := sw.WrapObject(block)
-	if sw.Err != nil {
-		return nil, fmt.Errorf("error wrapping block: %v", sw.Err)
-	}
-
-	hsh := wrapped.Cid().Hash()
-
-	return hsh[2:],nil
+	return ObjToHash(block)
 }
 
 func NewEmptyTree(did string) *dag.BidirectionalTree {
@@ -105,8 +98,8 @@ func NewEmptyTree(did string) *dag.BidirectionalTree {
 
 	root := sw.WrapObject(map[string]interface{}{
 		"chain": chainNode.Cid(),
-		"tree": treeNode.Cid(),
-		"id": did,
+		"tree":  treeNode.Cid(),
+		"id":    did,
 	})
 
 	// sanity check
@@ -117,14 +110,13 @@ func NewEmptyTree(did string) *dag.BidirectionalTree {
 	return dag.NewBidirectionalTree(root.Cid(), root, treeNode, chainNode)
 }
 
-
 func SignBlock(blockWithHeaders *chaintree.BlockWithHeaders, key *ecdsa.PrivateKey) (*chaintree.BlockWithHeaders, error) {
-	hsh,err := BlockToHash(blockWithHeaders.Block)
+	hsh, err := BlockToHash(blockWithHeaders.Block)
 	if err != nil {
 		return nil, fmt.Errorf("error hashing block: %v", err)
 	}
 
-	sigBytes,err := crypto.Sign(hsh, key)
+	sigBytes, err := crypto.Sign(hsh, key)
 	if err != nil {
 		return nil, fmt.Errorf("error signing: %v", err)
 	}
@@ -133,7 +125,7 @@ func SignBlock(blockWithHeaders *chaintree.BlockWithHeaders, key *ecdsa.PrivateK
 
 	sig := Signature{
 		Signature: sigBytes,
-		Type: KeyTypeSecp256k1,
+		Type:      KeyTypeSecp256k1,
 	}
 
 	headers := &StandardHeaders{}
@@ -142,9 +134,8 @@ func SignBlock(blockWithHeaders *chaintree.BlockWithHeaders, key *ecdsa.PrivateK
 		return nil, fmt.Errorf("error casting headers: %v", err)
 	}
 
-
 	if headers.Signatures == nil {
-		headers.Signatures = make(map[string]Signature)
+		headers.Signatures = make(SignatureMap)
 	}
 
 	headers.Signatures[addr] = sig
@@ -161,10 +152,8 @@ func SignBlock(blockWithHeaders *chaintree.BlockWithHeaders, key *ecdsa.PrivateK
 		return nil, fmt.Errorf("error getting jsonish")
 	}
 
-	return blockWithHeaders,nil
+	return blockWithHeaders, nil
 }
-
-
 
 func IsBlockSignedBy(blockWithHeaders *chaintree.BlockWithHeaders, addr string) (bool, error) {
 	headers := &StandardHeaders{}
@@ -175,14 +164,13 @@ func IsBlockSignedBy(blockWithHeaders *chaintree.BlockWithHeaders, addr string) 
 		}
 	}
 
-	sig,ok := headers.Signatures[addr]
+	sig, ok := headers.Signatures[addr]
 	if !ok {
 		log.Error("no signature", "signatures", headers.Signatures)
 		return false, nil
 	}
 
-
-	hsh,err := BlockToHash(blockWithHeaders.Block)
+	hsh, err := BlockToHash(blockWithHeaders.Block)
 	if err != nil {
 		log.Error("error wrapping block")
 		return false, fmt.Errorf("error wrapping block: %v", err)
@@ -191,7 +179,7 @@ func IsBlockSignedBy(blockWithHeaders *chaintree.BlockWithHeaders, addr string) 
 	switch sig.Type {
 	case KeyTypeSecp256k1:
 		log.Debug("sig to pub")
-		ecdsaPubKey,err := crypto.SigToPub(hsh, sig.Signature)
+		ecdsaPubKey, err := crypto.SigToPub(hsh, sig.Signature)
 		if err != nil {
 			return false, fmt.Errorf("error getting public key: %v", err)
 		}
@@ -205,4 +193,44 @@ func IsBlockSignedBy(blockWithHeaders *chaintree.BlockWithHeaders, addr string) 
 
 	log.Error("unknown signature type")
 	return false, fmt.Errorf("unkown signature type")
+}
+
+func BlsSign(payload interface{}, key *bls.SignKey) (*Signature, error) {
+	hsh, err := ObjToHash(payload)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing block: %v", err)
+	}
+
+	sigBytes, err := key.Sign(hsh)
+	if err != nil {
+		return nil, fmt.Errorf("error signing: %v", err)
+	}
+
+	sig := &Signature{
+		Signature: sigBytes,
+		Type:      KeyTypeBLSGroupSig,
+	}
+
+	return sig, nil
+}
+
+func ObjToHash(payload interface{}) ([]byte, error) {
+	sw := &dag.SafeWrap{}
+
+	wrapped := sw.WrapObject(payload)
+	if sw.Err != nil {
+		return nil, fmt.Errorf("error wrapping block: %v", sw.Err)
+	}
+
+	hsh := wrapped.Cid().Hash()
+
+	return hsh[2:], nil
+}
+
+func MustObjToHash(payload interface{}) []byte {
+	hsh, err := ObjToHash(payload)
+	if err != nil {
+		panic(fmt.Sprintf("error hashing %v", payload))
+	}
+	return hsh
 }

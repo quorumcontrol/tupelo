@@ -7,7 +7,6 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/bls"
-	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/storage"
 )
 
@@ -30,21 +29,8 @@ func (e *ErrorCode) Error() string {
 	return fmt.Sprintf("%d - %s", e.Code, e.Memo)
 }
 
-//type byAddress []*consensus.PublicKey
-//
-//func (a byAddress) Len() int      { return len(a) }
-//func (a byAddress) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-//func (a byAddress) Less(i, j int) bool {
-//	return consensus.BlsVerKeyToAddress(a[i].PublicKey).Hex() < consensus.BlsVerKeyToAddress(a[j].PublicKey).Hex()
-//}
-
 var transactors = map[string]chaintree.TransactorFunc{
 	"SET_DATA": setData,
-}
-
-type Group struct {
-	Id               string
-	SortedPublicKeys []*consensus.PublicKey
 }
 
 type Signer struct {
