@@ -98,7 +98,7 @@ func (rh *RequestHandler) Start() {
 					rh.node.Send(MessageParams{
 						Payload: node.RawData(),
 						TTL:     DefaultTTL,
-						PoW:     0.1,
+						PoW:     0.02,
 						Dst:     req.src,
 						Src:     rh.node.key,
 					})

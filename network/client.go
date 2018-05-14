@@ -92,7 +92,7 @@ func (c *Client) DoRequest(req *Request) (chan *Response, error) {
 	err := c.node.Send(MessageParams{
 		Payload: reqNode.RawData(),
 		TTL:     DefaultTTL,
-		PoW:     0.1,
+		PoW:     0.02,
 		KeySym:  c.symkey,
 		Topic:   c.topic,
 		Src:     c.node.key,
