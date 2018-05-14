@@ -44,6 +44,12 @@
   revision = "553a641470496b2327abcac10b36396bd98e45c9"
 
 [[projects]]
+  name = "github.com/google/uuid"
+  packages = ["."]
+  revision = "064e2069ce9c359c118179501254f67d7d37ba24"
+  version = "0.2"
+
+[[projects]]
   branch = "master"
   name = "github.com/gxed/hashland"
   packages = ["keccakpg"]
@@ -220,6 +226,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "24a7a360d23e1801e5d93c0683fd49660cb8df82ea086117516086ecbd2a71f6"
+  inputs-digest = "538fe4dc95acd15f7456176ed16ecb5f73e693911573209277a907d9551d03b2"
   solver-name = "gps-cdcl"
   solver-version = 1

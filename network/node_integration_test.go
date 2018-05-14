@@ -17,7 +17,7 @@ func TestClient_Integration(t *testing.T) {
 	dstKey,err := crypto.GenerateKey()
 	assert.Nil(t,err)
 
-	client := NewClient(key)
+	client := NewNode(key)
 	client.Start()
 	defer client.Stop()
 
