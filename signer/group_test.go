@@ -110,5 +110,4 @@ func TestGroup_VerifySignature(t *testing.T) {
 
 		assert.Equal(t, test.shouldVerify, isVerified, test.description)
 	}
-
 }

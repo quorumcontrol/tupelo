@@ -29,7 +29,7 @@ func (e *ErrorCode) Error() string {
 	return fmt.Sprintf("%d - %s", e.Code, e.Memo)
 }
 
-var transactors = map[string]chaintree.TransactorFunc{
+var Transactors = map[string]chaintree.TransactorFunc{
 	"SET_DATA": setData,
 }
 
@@ -74,7 +74,7 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error)
 		[]chaintree.BlockValidatorFunc{
 			s.IsOwner,
 		},
-		transactors,
+		Transactors,
 	)
 
 	if err != nil {
