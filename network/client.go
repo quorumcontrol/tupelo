@@ -3,6 +3,7 @@ package network
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -45,6 +46,7 @@ func (c *Client) Start() {
 			case <-ticker.C:
 				messages := sub.RetrieveMessages()
 				for _, msg := range messages {
+					log.Debug("client message received", "src", msg.Src)
 					resp := &Response{}
 					err := cbornode.DecodeInto(msg.Payload, resp)
 					if err != nil {
@@ -52,6 +54,7 @@ func (c *Client) Start() {
 						break
 					}
 
+					log.Debug("client sending response to response channel", "id", resp.Id)
 					outChan, ok := c.outstandingRequests[resp.Id]
 					if ok {
 						outChan <- resp
@@ -60,7 +63,7 @@ func (c *Client) Start() {
 						delete(c.outstandingRequests, resp.Id)
 						c.lock.Unlock()
 					} else {
-						log.Error("received response for unknown message", "id", resp.Id)
+						log.Error("client received response for unknown message", "id", resp.Id)
 					}
 				}
 			case <-c.stopChan:
@@ -88,14 +91,15 @@ func (c *Client) DoRequest(req *Request) (chan *Response, error) {
 		return nil, fmt.Errorf("error wrapping request: %v", sw.Err)
 	}
 
-	log.Debug("sending message")
+	log.Debug("sending message", "id", req.Id, "src", crypto.PubkeyToAddress(c.node.key.PublicKey).String())
 	err := c.node.Send(MessageParams{
-		Payload: reqNode.RawData(),
-		TTL:     DefaultTTL,
-		PoW:     0.02,
-		KeySym:  c.symkey,
-		Topic:   c.topic,
-		Src:     c.node.key,
+		Payload:  reqNode.RawData(),
+		TTL:      DefaultTTL,
+		PoW:      0.02,
+		WorkTime: 10,
+		KeySym:   c.symkey,
+		Topic:    c.topic,
+		Src:      c.node.key,
 	})
 
 	if err != nil {

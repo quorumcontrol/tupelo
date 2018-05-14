@@ -127,7 +127,7 @@ func NewNode(key *ecdsa.PrivateKey) *Node {
 	}
 }
 
-func (c *Node) Start() error {
+func (n *Node) Start() error {
 	var peers []*discover.Node
 	for _, enode := range bootNodes {
 		peer := discover.MustParseNode(enode)
@@ -140,13 +140,13 @@ func (c *Node) Start() error {
 		MaxMessageSize:     whisper.MaxMessageSize,
 		MinimumAcceptedPOW: 0.001,
 	})
-	whisp.AddKeyPair(c.key)
+	whisp.AddKeyPair(n.key)
 	whisp.Start(nil)
 
 	srv := &p2p.Server{
 		Config: p2p.Config{
 			MaxPeers:   20,
-			PrivateKey: c.key,
+			PrivateKey: n.key,
 			//ListenAddr: ":8000",
 			Protocols:      whisp.Protocols(),
 			BootstrapNodes: peers,
@@ -157,18 +157,18 @@ func (c *Node) Start() error {
 		return fmt.Errorf("error starting network node: %v", err)
 	}
 
-	c.srv = srv
-	c.whisper = whisp
+	n.srv = srv
+	n.whisper = whisp
 
 	return nil
 }
 
-func (c *Node) Stop() {
-	c.whisper.Stop()
-	c.srv.Stop()
+func (n *Node) Stop() {
+	n.whisper.Stop()
+	n.srv.Stop()
 }
 
-func (c *Node) Send(params MessageParams) error {
+func (n *Node) Send(params MessageParams) error {
 	msg, err := whisper.NewSentMessage(params.toWhisper())
 	if err != nil {
 		return fmt.Errorf("error generating message: %v", err)
@@ -177,14 +177,14 @@ func (c *Node) Send(params MessageParams) error {
 	if err != nil {
 		return fmt.Errorf("error wrapping message: %v", err)
 	}
-	err = c.whisper.Send(env)
+	err = n.whisper.Send(env)
 	if err != nil {
 		return fmt.Errorf("error sending env: %v", err)
 	}
 	return nil
 }
 
-func (c *Node) SubscribeToTopic(topic []byte, symKey []byte) *Subscription {
+func (n *Node) SubscribeToTopic(topic []byte, symKey []byte) *Subscription {
 	topicBytes := whisper.BytesToTopic(topic)
 
 	sub := &Subscription{
@@ -195,25 +195,25 @@ func (c *Node) SubscribeToTopic(topic []byte, symKey []byte) *Subscription {
 		},
 	}
 
-	_, err := c.whisper.Subscribe(sub.whisperSubscription)
+	_, err := n.whisper.Subscribe(sub.whisperSubscription)
 	if err != nil {
 		panic(fmt.Sprintf("error subscribing: %v", err))
 	}
 	return sub
 }
 
-func (c *Node) SubscribeToKey(key *ecdsa.PrivateKey) *Subscription {
-	topicBytes := whisper.BytesToTopic(NotaryGroupTopic)
-
+func (n *Node) SubscribeToKey(key *ecdsa.PrivateKey) *Subscription {
 	sub := &Subscription{
 		whisperSubscription: &whisper.Filter{
-			Topics:   [][]byte{topicBytes[:]},
 			AllowP2P: true,
 			KeyAsym:  key,
 		},
 	}
 
-	c.whisper.Subscribe(sub.whisperSubscription)
+	_, err := n.whisper.Subscribe(sub.whisperSubscription)
+	if err != nil {
+		panic(fmt.Sprintf("error subscribing: %v", err))
+	}
 	return sub
 
 }

@@ -2,6 +2,7 @@ package network
 
 import (
 	"crypto/ecdsa"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -66,7 +67,7 @@ func (rh *RequestHandler) HandleTopic(topic []byte, symkey []byte) {
 	rh.subs = append(rh.subs, rh.node.SubscribeToTopic(topic, symkey))
 }
 
-func (rh *RequestHandler) HandleKey(key *ecdsa.PrivateKey) {
+func (rh *RequestHandler) HandleKey(topic []byte, key *ecdsa.PrivateKey) {
 	rh.lock.Lock()
 	defer rh.lock.Unlock()
 
@@ -82,6 +83,7 @@ func (rh *RequestHandler) Start() {
 				log.Debug("request received", "type", req.Type)
 				handler, ok := rh.mappings[req.Type]
 				if ok {
+					log.Debug("handling message", "id", req.Id)
 					resp, err := handler(*req)
 					resp.Id = req.Id
 					if err != nil {
@@ -95,12 +97,15 @@ func (rh *RequestHandler) Start() {
 						break
 					}
 
+					log.Debug("responding", "id", req.Id, "dst", crypto.PubkeyToAddress(*req.src).String())
+
 					rh.node.Send(MessageParams{
-						Payload: node.RawData(),
-						TTL:     DefaultTTL,
-						PoW:     0.02,
-						Dst:     req.src,
-						Src:     rh.node.key,
+						Payload:  node.RawData(),
+						TTL:      DefaultTTL,
+						PoW:      0.02,
+						WorkTime: 10,
+						Dst:      req.src,
+						Src:      rh.node.key,
 					})
 				} else {
 					log.Info("invalid message type", "type", req.Type)
@@ -143,5 +148,6 @@ func messageToRequest(message *ReceivedMessage) *Request {
 		log.Error("invalid message", "err", err)
 		return nil
 	}
+	req.src = message.Src
 	return req
 }

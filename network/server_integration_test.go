@@ -24,8 +24,6 @@ func TestRequestHandler_Start(t *testing.T) {
 	node.Start()
 	defer node.Stop()
 
-	time.Sleep(1 * time.Second)
-
 	reqHandler := func(req Request) (*Response, error) {
 		resp := &Response{
 			Payload: req.Payload,
@@ -36,7 +34,7 @@ func TestRequestHandler_Start(t *testing.T) {
 	server := NewRequestHandler(node)
 	server.AssignHandler("PING", reqHandler)
 
-	server.HandleKey(dstKey)
+	server.HandleKey(TestTopic, dstKey)
 	server.HandleTopic(TestTopic, TestKey)
 
 	server.Start()
@@ -45,8 +43,9 @@ func TestRequestHandler_Start(t *testing.T) {
 
 	client := NewClient(clientKey, TestTopic, TestKey)
 	client.Start()
+	defer client.Stop()
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	respChan, err := client.DoRequest(&Request{
 		Type:    "PING",
@@ -56,6 +55,8 @@ func TestRequestHandler_Start(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	assert.IsType(t, &Response{}, <-respChan)
+	resp := <-respChan
 
+	assert.IsType(t, &Response{}, resp)
+	assert.Equal(t, "PONG", resp.Payload)
 }
