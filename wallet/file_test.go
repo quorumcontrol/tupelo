@@ -1,8 +1,10 @@
 package wallet
 
 import (
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/stretchr/testify/assert"
 	"os"
@@ -10,7 +12,7 @@ import (
 	"testing"
 )
 
-func newSavedChain(t *testing.T, fw *FileWallet, id string) *chaintree.ChainTree {
+func newSavedChain(t *testing.T, fw *FileWallet, id string) *consensus.SignedChainTree {
 	sw := &dag.SafeWrap{}
 
 	tree := sw.WrapObject(map[string]string{
@@ -32,10 +34,14 @@ func newSavedChain(t *testing.T, fw *FileWallet, id string) *chaintree.ChainTree
 	)
 	assert.Nil(t, err)
 
-	err = fw.SaveChain(chainTree)
+	signedTree := &consensus.SignedChainTree{
+		ChainTree: chainTree,
+	}
+
+	err = fw.SaveChain(signedTree)
 	assert.Nil(t, err)
 
-	return chainTree
+	return signedTree
 }
 
 func TestFileWallet_GetChain(t *testing.T) {
@@ -46,21 +52,21 @@ func TestFileWallet_GetChain(t *testing.T) {
 	fw := NewFileWallet("password", "testtmp/filewallet")
 	defer fw.Close()
 
-	chainTree := newSavedChain(t, fw, "test")
+	signedTree := newSavedChain(t, fw, "test")
 
 	savedTree, err := fw.GetChain("test")
 	assert.Nil(t, err)
 
-	assert.Equal(t, len(chainTree.Dag.Nodes()), len(savedTree.Dag.Nodes()))
+	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
 
-	origCids := make([]string, len(chainTree.Dag.Nodes()))
-	newCids := make([]string, len(savedTree.Dag.Nodes()))
+	origCids := make([]string, len(signedTree.ChainTree.Dag.Nodes()))
+	newCids := make([]string, len(savedTree.ChainTree.Dag.Nodes()))
 
-	for i, node := range chainTree.Dag.Nodes() {
+	for i, node := range signedTree.ChainTree.Dag.Nodes() {
 		origCids[i] = node.Node.Cid().String()
 	}
 
-	for i, node := range savedTree.Dag.Nodes() {
+	for i, node := range savedTree.ChainTree.Dag.Nodes() {
 		newCids[i] = node.Node.Cid().String()
 	}
 	sort.Strings(origCids)
@@ -83,4 +89,21 @@ func TestFileWallet_GetChainIds(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, []string{"test"}, ids)
+}
+
+func TestFileWallet_GetKey(t *testing.T) {
+
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+
+	fw := NewFileWallet("password", "testtmp/filewallet")
+	defer fw.Close()
+
+	key, err := fw.GenerateKey()
+	assert.Nil(t, err)
+
+	retKey, err := fw.GetKey(crypto.PubkeyToAddress(key.PublicKey).String())
+
+	assert.Equal(t, retKey, key)
 }
