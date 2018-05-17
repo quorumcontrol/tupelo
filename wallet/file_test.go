@@ -5,7 +5,6 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/signer"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"sort"
@@ -30,7 +29,7 @@ func newSavedChain(t *testing.T, fw *FileWallet, id string) *consensus.SignedCha
 	chainTree, err := chaintree.NewChainTree(
 		dag.NewBidirectionalTree(root.Cid(), root, tree, chain),
 		nil,
-		signer.Transactors,
+		consensus.DefaultTransactors,
 	)
 	assert.Nil(t, err)
 
