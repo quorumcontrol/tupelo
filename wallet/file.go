@@ -10,7 +10,6 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/storage"
 )
 
@@ -99,7 +98,7 @@ func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
 
 	dag := dag.NewBidirectionalTree(tipCid, nodes...)
 
-	tree, err := chaintree.NewChainTree(dag, nil, signer.Transactors)
+	tree, err := chaintree.NewChainTree(dag, nil, consensus.DefaultTransactors)
 	if err != nil {
 		return nil, fmt.Errorf("error creating tree: %v", err)
 	}

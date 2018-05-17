@@ -6,10 +6,18 @@ import (
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/storage"
 )
+
+func init() {
+	typecaster.AddType(AddBlockResponse{})
+	typecaster.AddType(AddBlockRequest{})
+	cbornode.RegisterCborType(AddBlockRequest{})
+	cbornode.RegisterCborType(AddBlockResponse{})
+}
 
 var DidBucket = []byte("tips")
 

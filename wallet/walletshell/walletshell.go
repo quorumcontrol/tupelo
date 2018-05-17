@@ -6,19 +6,12 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
-	"github.com/quorumcontrol/qc3/client/client"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/notary"
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/wallet"
 	"path/filepath"
 	"strconv"
-	"time"
 )
 
 type networkClient struct {
