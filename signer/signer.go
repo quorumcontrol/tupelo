@@ -7,31 +7,11 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/storage"
 )
 
-const (
-	ErrUnknown = 1
-)
-
 var DidBucket = []byte("tips")
-
-type ErrorCode struct {
-	Code int
-	Memo string
-}
-
-func (e *ErrorCode) GetCode() int {
-	return e.Code
-}
-
-func (e *ErrorCode) Error() string {
-	return fmt.Sprintf("%d - %s", e.Code, e.Memo)
-}
-
-var Transactors = map[string]chaintree.TransactorFunc{
-	"SET_DATA": setData,
-}
 
 type Signer struct {
 	Id      string
@@ -74,7 +54,7 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error)
 		[]chaintree.BlockValidatorFunc{
 			s.IsOwner,
 		},
-		Transactors,
+		consensus.DefaultTransactors,
 	)
 
 	if err != nil {
@@ -96,7 +76,7 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error)
 
 	id, _, err := tree.Resolve([]string{"id"})
 	if err != nil {
-		return nil, &ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: ErrUnknown}
+		return nil, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
 
 	s.Storage.Set(DidBucket, []byte(id.(string)), tip.Bytes())

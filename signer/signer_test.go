@@ -70,7 +70,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 
 	assert.Nil(t, err)
 
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, Transactors)
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)

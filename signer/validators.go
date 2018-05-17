@@ -13,20 +13,20 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 
 	id, _, err := tree.Resolve([]string{"id"})
 	if err != nil {
-		return false, &ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: ErrUnknown}
+		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
 
 	stored, err := s.Storage.Get(DidBucket, []byte(id.(string)))
 
 	if err != nil {
-		return false, &ErrorCode{Memo: fmt.Sprintf("error getting storage: %v", err), Code: ErrUnknown}
+		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error getting storage: %v", err), Code: consensus.ErrUnknown}
 	}
 
 	headers := &consensus.StandardHeaders{}
 
 	err = typecaster.ToType(blockWithHeaders.Headers, headers)
 	if err != nil {
-		return false, &ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: ErrUnknown}
+		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
 
 	var addrs []string
@@ -38,12 +38,12 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 
 		storedTip, err := cid.Cast(stored)
 		if err != nil {
-			return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("bad CID stored: %v", err)}
+			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("bad CID stored: %v", err)}
 		}
 
 		oldRoot := tree.Get(storedTip)
 		if oldRoot == nil {
-			return false, &ErrorCode{Code: ErrUnknown, Memo: "missing old root"}
+			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: "missing old root"}
 		}
 
 		uncastAuths, remain, err := oldRoot.Resolve(tree, []string{"tree", "_qc", "authentications"})
@@ -51,7 +51,7 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 			if err.(*dag.ErrorCode).GetCode() == dag.ErrMissingPath {
 				addrs = []string{consensus.DidToAddr(id.(string))}
 			} else {
-				return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
+				return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
 			}
 		} else {
 			// if there is no _qc or no authentications then it's like a genesis block
@@ -61,7 +61,7 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 				var authentications []*consensus.PublicKey
 				err = typecaster.ToType(uncastAuths, &authentications)
 				if err != nil {
-					return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
+					return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
 				}
 
 				addrs = make([]string, len(authentications))
@@ -76,7 +76,7 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 		isSigned, err := consensus.IsBlockSignedBy(blockWithHeaders, addr)
 
 		if err != nil {
-			return false, &ErrorCode{Memo: fmt.Sprintf("error finding if signed: %v", err), Code: ErrUnknown}
+			return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error finding if signed: %v", err), Code: consensus.ErrUnknown}
 		}
 
 		if isSigned {

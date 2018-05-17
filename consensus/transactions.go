@@ -1,4 +1,4 @@
-package signer
+package consensus
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ type setDataPayload struct {
 	Value interface{}
 }
 
-func setData(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
+func SetDataTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
 	payload := &setDataPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
