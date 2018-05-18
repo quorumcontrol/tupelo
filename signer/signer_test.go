@@ -10,6 +10,10 @@ import (
 	"testing"
 )
 
+func TestEncoding(t *testing.T) {
+
+}
+
 func TestSigner_ProcessRequest(t *testing.T) {
 	key, err := bls.NewSignKey()
 	assert.Nil(t, err)

@@ -2,8 +2,10 @@ package network
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/google/uuid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/dag"
 	"sync"
@@ -20,7 +22,7 @@ func init() {
 type Request struct {
 	Type    string
 	Id      string
-	Payload interface{}
+	Payload []byte
 	dst     *ecdsa.PublicKey
 	src     *ecdsa.PublicKey
 }
@@ -28,7 +30,7 @@ type Request struct {
 type Response struct {
 	Id      string
 	Code    int
-	Payload interface{}
+	Payload []byte
 }
 
 type HandlerFunc func(req Request) (*Response, error)
@@ -74,6 +76,34 @@ func (rh *RequestHandler) HandleKey(topic []byte, key *ecdsa.PrivateKey) {
 	rh.subs = append(rh.subs, rh.node.SubscribeToKey(key))
 }
 
+func BuildResponse(id string, code int, payload interface{}) (*Response, error) {
+	sw := &dag.SafeWrap{}
+	node := sw.WrapObject(payload)
+	if sw.Err != nil {
+		return nil, fmt.Errorf("error wrapping: %v", sw.Err)
+	}
+
+	return &Response{
+		Payload: node.RawData(),
+		Id:      id,
+		Code:    code,
+	}, nil
+}
+
+func BuildRequest(reqType string, payload interface{}) (*Request, error) {
+	sw := &dag.SafeWrap{}
+	node := sw.WrapObject(payload)
+	if sw.Err != nil {
+		return nil, fmt.Errorf("error wrapping: %v", sw.Err)
+	}
+
+	return &Request{
+		Payload: node.RawData(),
+		Id:      uuid.New().String(),
+		Type:    reqType,
+	}, nil
+}
+
 func (rh *RequestHandler) Start() {
 
 	go func() {
@@ -85,11 +115,11 @@ func (rh *RequestHandler) Start() {
 				if ok {
 					log.Debug("handling message", "id", req.Id)
 					resp, err := handler(*req)
-					resp.Id = req.Id
 					if err != nil {
 						log.Error("error handling message", "err", err)
 						break
 					}
+					resp.Id = req.Id
 					sw := &dag.SafeWrap{}
 					node := sw.WrapObject(resp)
 					if sw.Err != nil {

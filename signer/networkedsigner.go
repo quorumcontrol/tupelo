@@ -3,9 +3,12 @@ package signer
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/typecaster"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/network"
 )
+
+const AddBlockType = "ADD_BLOCK"
 
 type NetworkedSigner struct {
 	Node   *network.Node
@@ -22,28 +25,26 @@ func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
 		Signer: signer,
 	}
 
-	handler.AssignHandler("ADD_BLOCK", ns.AddBlockHandler)
+	handler.AssignHandler(AddBlockType, ns.AddBlockHandler)
 
 	return ns
 }
 
 func (ns *NetworkedSigner) AddBlockHandler(req network.Request) (*network.Response, error) {
 	addBlockrequest := &AddBlockRequest{}
-	err := typecaster.ToType(req.Payload, addBlockrequest)
+	err := cbornode.DecodeInto(req.Payload, addBlockrequest)
 	if err != nil {
 		return nil, fmt.Errorf("error getting payload: %v", err)
 	}
+
+	log.Debug("add block handler", "tip", addBlockrequest.Tip, "request", addBlockrequest)
 
 	resp, err := ns.Signer.ProcessRequest(addBlockrequest)
 	if err != nil {
 		return nil, fmt.Errorf("error signing: %v", err)
 	}
 
-	return &network.Response{
-		Id:      req.Id,
-		Payload: resp,
-		Code:    200,
-	}, nil
+	return network.BuildResponse(req.Id, 200, resp)
 }
 
 func (ns *NetworkedSigner) Start() {

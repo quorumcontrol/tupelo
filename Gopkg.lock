@@ -66,12 +66,6 @@
   version = "v1.7.0"
 
 [[projects]]
-  name = "github.com/gogo/protobuf"
-  packages = ["proto","sortkeys","types"]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
-
-[[projects]]
   branch = "master"
   name = "github.com/golang/snappy"
   packages = ["."]
@@ -225,7 +219,7 @@
   branch = "master"
   name = "github.com/quorumcontrol/chaintree"
   packages = ["chaintree","dag","typecaster"]
-  revision = "06f741c4c91551c569ce4b8e56988ccfb76afe2a"
+  revision = "4928d1c88eb2c295d46b3574466a40bbd55dd14b"
 
 [[projects]]
   branch = "master"
@@ -350,6 +344,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a2e2b5847a1654a4308ae0b8b02760d17954f977270b3504e60929a4de47e757"
+  inputs-digest = "4973d040a87ed8159a3aaa5d27475c2be3d1caa2be13ba92c2f2327ea2f3e27c"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -2,6 +2,7 @@ package signer
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -41,6 +42,10 @@ type AddBlockResponse struct {
 	Signature []byte
 }
 
+func (s *Signer) SetupStorage() {
+	s.Storage.CreateBucketIfNotExists(DidBucket)
+}
+
 func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error) {
 
 	cborNodes := make([]*cbornode.Node, len(req.Nodes))
@@ -54,6 +59,8 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error)
 	if sw.Err != nil {
 		return nil, fmt.Errorf("error decoding: %v", sw.Err)
 	}
+
+	log.Debug("received: ", "tip", req.Tip, "len(nodes)", len(cborNodes))
 
 	tree := dag.NewBidirectionalTree(req.Tip, cborNodes...)
 
