@@ -52,7 +52,7 @@ var ecdsaHexKeys = []string{
 var BlsSignKeys []*bls.SignKey
 var EcdsaKeys []*ecdsa.PrivateKey
 var TestNetPublicKeys []consensus.PublicKey
-var TestNetGroup *signer.Group
+var TestNetGroup *consensus.Group
 
 func init() {
 	BlsSignKeys = make([]*bls.SignKey, len(blsHexKeys))
@@ -75,7 +75,7 @@ func init() {
 		TestNetPublicKeys[i] = consensus.BlsKeyToPublicKey(key.MustVerKey())
 	}
 
-	TestNetGroup = signer.GroupFromPublicKeys(TestNetPublicKeys)
+	TestNetGroup = consensus.GroupFromPublicKeys(TestNetPublicKeys)
 }
 
 var nodeIndex int
