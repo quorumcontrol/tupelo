@@ -18,9 +18,13 @@ func init() {
 	typecaster.AddType(AddBlockRequest{})
 	cbornode.RegisterCborType(AddBlockRequest{})
 	cbornode.RegisterCborType(AddBlockResponse{})
+	cbornode.RegisterCborType(FeedbackRequest{})
+	cbornode.RegisterCborType(TipRequest{})
+	cbornode.RegisterCborType(TipResponse{})
 }
 
 var DidBucket = []byte("tips")
+var SigBucket = []byte("sigs")
 
 type Signer struct {
 	Id      string
@@ -38,15 +42,33 @@ type AddBlockRequest struct {
 
 type AddBlockResponse struct {
 	SignerId  string
+	ChainId   string
 	Tip       *cid.Cid
-	Signature []byte
+	Signature consensus.Signature
+}
+
+type FeedbackRequest struct {
+	ChainId   string
+	Tip       *cid.Cid
+	Signature consensus.Signature
+}
+
+type TipRequest struct {
+	ChainId string
+}
+
+type TipResponse struct {
+	ChainId   string
+	Tip       *cid.Cid
+	Signature consensus.Signature
 }
 
 func (s *Signer) SetupStorage() {
 	s.Storage.CreateBucketIfNotExists(DidBucket)
+	s.Storage.CreateBucketIfNotExists(SigBucket)
 }
 
-func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error) {
+func (s *Signer) ProcessAddBlock(req *AddBlockRequest) (*AddBlockResponse, error) {
 
 	cborNodes := make([]*cbornode.Node, len(req.Nodes))
 
@@ -83,7 +105,9 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error)
 
 	tip := chainTree.Dag.Tip
 
-	sig, err := s.SignKey.Sign(tip.Bytes())
+	log.Debug("signing", "tip", tip.String())
+
+	sig, err := consensus.BlsSign(tip.Bytes(), s.SignKey)
 
 	if err != nil {
 		return nil, fmt.Errorf("error signing: %v", err)
@@ -99,6 +123,54 @@ func (s *Signer) ProcessRequest(req *AddBlockRequest) (*AddBlockResponse, error)
 	return &AddBlockResponse{
 		SignerId:  s.Id,
 		Tip:       tip,
-		Signature: sig,
+		Signature: *sig,
+		ChainId:   id.(string),
+	}, nil
+}
+
+func (s *Signer) ProcessFeedback(req *FeedbackRequest) error {
+	log.Debug("received feedback", "tip", req.Tip.String(), "req", req)
+
+	verified, err := s.Group.VerifySignature(consensus.MustObjToHash(req.Tip.Bytes()), &req.Signature)
+
+	if err != nil {
+		return fmt.Errorf("error verifying signature: %v", err)
+	}
+
+	if verified {
+		sw := &dag.SafeWrap{}
+		node := sw.WrapObject(req)
+		if sw.Err != nil {
+			return fmt.Errorf("error wrapping: %v", sw.Err)
+		}
+
+		log.Debug("setting signature", "tip", req.Tip)
+		s.Storage.Set(SigBucket, []byte(req.ChainId), node.RawData())
+	} else {
+		log.Debug("verified", "verified", verified)
+		return fmt.Errorf("error, unverified")
+	}
+
+	return nil
+}
+
+func (s *Signer) ProcessTipRequest(req *TipRequest) (*TipResponse, error) {
+	log.Debug("received tip request", "req", req)
+
+	feedbackBytes, err := s.Storage.Get(SigBucket, []byte(req.ChainId))
+	if len(feedbackBytes) == 0 || err != nil {
+		return nil, fmt.Errorf("error getting chain id: %v", err)
+	}
+
+	feedbackRequest := &FeedbackRequest{}
+	err = cbornode.DecodeInto(feedbackBytes, feedbackRequest)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding: %v", err)
+	}
+
+	return &TipResponse{
+		ChainId:   feedbackRequest.ChainId,
+		Tip:       feedbackRequest.Tip,
+		Signature: feedbackRequest.Signature,
 	}, nil
 }

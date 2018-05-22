@@ -38,7 +38,7 @@ func (ns *NetworkedSigner) AddBlockHandler(req network.Request) (*network.Respon
 
 	log.Debug("add block handler", "tip", addBlockrequest.Tip, "request", addBlockrequest)
 
-	resp, err := ns.Signer.ProcessRequest(addBlockrequest)
+	resp, err := ns.Signer.ProcessAddBlock(addBlockrequest)
 	if err != nil {
 		return nil, fmt.Errorf("error signing: %v", err)
 	}
