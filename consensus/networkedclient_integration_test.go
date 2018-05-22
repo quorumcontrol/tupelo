@@ -78,4 +78,14 @@ func TestNetworkedClient_AddBlock(t *testing.T) {
 	valid, err := group.VerifySignature(consensus.MustObjToHash(resp.Tip.Bytes()), &resp.Signature)
 	assert.Nil(t, err)
 	assert.True(t, valid)
+
+	// then getting the tip works (because feedback went through)
+
+	id, err := tree.Id()
+	assert.Nil(t, err)
+
+	tipResp, err := client.RequestTip(id)
+	assert.Nil(t, err)
+
+	assert.Equal(t, tipResp.Tip, resp.Tip)
 }

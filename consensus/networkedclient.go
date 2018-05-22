@@ -110,11 +110,65 @@ func (nc *NetworkedClient) AddBlock(tree *SignedChainTree, block *chaintree.Bloc
 
 	treeId, _ := tree.Id()
 
+	feedback := &FeedbackRequest{
+		ChainId:   treeId,
+		Tip:       tip,
+		Signature: *sig,
+	}
+
+	req, err = network.BuildRequest(MessageType_Feedback, feedback)
+	if err != nil {
+		return nil, fmt.Errorf("error building feedback request: %v", err)
+	}
+
+	respChan, err = nc.Client.DoRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("error doing feedback request: %v", err)
+	}
+
+	<-respChan
+
 	return &AddBlockResponse{
 		Tip:       tip,
 		Signature: *sig,
 		ChainId:   treeId,
 	}, nil
+}
+
+func (nc *NetworkedClient) RequestTip(chainId string) (*TipResponse, error) {
+	tipRequest := &TipRequest{
+		ChainId: chainId,
+	}
+
+	req, err := network.BuildRequest(MessageType_TipRequest, tipRequest)
+	if err != nil {
+		return nil, fmt.Errorf("error building request: %v", err)
+	}
+
+	respChan, err := nc.Client.DoRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("error doing request: %v", err)
+	}
+
+	var isValid bool
+	resp := &TipResponse{}
+
+	for !isValid {
+		networkResp := <-respChan
+		log.Debug("network resp", "resp", networkResp)
+		resp = &TipResponse{}
+		err = cbornode.DecodeInto(networkResp.Payload, resp)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding response: %v", err)
+		}
+		log.Debug("tip response", "tipResposne", resp)
+		isValid, err = nc.Group.VerifySignature(MustObjToHash(resp.Tip.Bytes()), &resp.Signature)
+		if err != nil {
+			return nil, fmt.Errorf("error validating: %v", err)
+		}
+	}
+
+	return resp, nil
 }
 
 //func (nc *NetworkedClient) SetSigningKey(key *ecdsa.PrivateKey) {
