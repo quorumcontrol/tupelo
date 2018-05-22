@@ -68,7 +68,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req := &AddBlockRequest{
+	req := &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -100,7 +100,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req = &AddBlockRequest{
+	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -145,7 +145,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		nodes[i] = node.Node.RawData()
 	}
 
-	req = &AddBlockRequest{
+	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -185,7 +185,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		nodes[i] = node.Node.RawData()
 	}
 
-	req = &AddBlockRequest{
+	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -199,7 +199,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
 	assert.Nil(t, err)
 
-	req = &AddBlockRequest{
+	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -254,7 +254,7 @@ func TestSigner_ProcessFeedback(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req := &AddBlockRequest{
+	req := &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -276,7 +276,7 @@ func TestSigner_ProcessFeedback(t *testing.T) {
 	groupSig, err := signer.Group.CombineSignatures(consensus.SignatureMap{resp.SignerId: resp.Signature})
 	assert.Nil(t, err)
 
-	feedbackMessage := &FeedbackRequest{
+	feedbackMessage := &consensus.FeedbackRequest{
 		Tip:       resp.Tip,
 		Signature: *groupSig,
 		ChainId:   resp.ChainId,
@@ -321,7 +321,7 @@ func TestSigner_ProcessTipRequest(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req := &AddBlockRequest{
+	req := &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		Tip:      emptyTree.Tip,
 		NewBlock: blockWithHeaders,
@@ -341,7 +341,7 @@ func TestSigner_ProcessTipRequest(t *testing.T) {
 	groupSig, err := signer.Group.CombineSignatures(consensus.SignatureMap{resp.SignerId: resp.Signature})
 	assert.Nil(t, err)
 
-	feedbackMessage := &FeedbackRequest{
+	feedbackMessage := &consensus.FeedbackRequest{
 		Tip:       resp.Tip,
 		Signature: *groupSig,
 		ChainId:   resp.ChainId,
@@ -352,7 +352,7 @@ func TestSigner_ProcessTipRequest(t *testing.T) {
 
 	// above was setup, now testing tip
 
-	tipMessage := &TipRequest{
+	tipMessage := &consensus.TipRequest{
 		ChainId: resp.ChainId,
 	}
 

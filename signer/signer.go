@@ -3,7 +3,6 @@ package signer
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -14,13 +13,8 @@ import (
 )
 
 func init() {
-	typecaster.AddType(AddBlockResponse{})
-	typecaster.AddType(AddBlockRequest{})
-	cbornode.RegisterCborType(AddBlockRequest{})
-	cbornode.RegisterCborType(AddBlockResponse{})
-	cbornode.RegisterCborType(FeedbackRequest{})
-	cbornode.RegisterCborType(TipRequest{})
-	cbornode.RegisterCborType(TipResponse{})
+	typecaster.AddType(consensus.AddBlockResponse{})
+	typecaster.AddType(consensus.AddBlockRequest{})
 }
 
 var DidBucket = []byte("tips")
@@ -34,41 +28,12 @@ type Signer struct {
 	SignKey *bls.SignKey
 }
 
-type AddBlockRequest struct {
-	Nodes    [][]byte
-	Tip      *cid.Cid
-	NewBlock *chaintree.BlockWithHeaders
-}
-
-type AddBlockResponse struct {
-	SignerId  string
-	ChainId   string
-	Tip       *cid.Cid
-	Signature consensus.Signature
-}
-
-type FeedbackRequest struct {
-	ChainId   string
-	Tip       *cid.Cid
-	Signature consensus.Signature
-}
-
-type TipRequest struct {
-	ChainId string
-}
-
-type TipResponse struct {
-	ChainId   string
-	Tip       *cid.Cid
-	Signature consensus.Signature
-}
-
 func (s *Signer) SetupStorage() {
 	s.Storage.CreateBucketIfNotExists(DidBucket)
 	s.Storage.CreateBucketIfNotExists(SigBucket)
 }
 
-func (s *Signer) ProcessAddBlock(req *AddBlockRequest) (*AddBlockResponse, error) {
+func (s *Signer) ProcessAddBlock(req *consensus.AddBlockRequest) (*consensus.AddBlockResponse, error) {
 
 	cborNodes := make([]*cbornode.Node, len(req.Nodes))
 
@@ -120,7 +85,7 @@ func (s *Signer) ProcessAddBlock(req *AddBlockRequest) (*AddBlockResponse, error
 
 	s.Storage.Set(DidBucket, []byte(id.(string)), tip.Bytes())
 
-	return &AddBlockResponse{
+	return &consensus.AddBlockResponse{
 		SignerId:  s.Id,
 		Tip:       tip,
 		Signature: *sig,
@@ -128,7 +93,7 @@ func (s *Signer) ProcessAddBlock(req *AddBlockRequest) (*AddBlockResponse, error
 	}, nil
 }
 
-func (s *Signer) ProcessFeedback(req *FeedbackRequest) error {
+func (s *Signer) ProcessFeedback(req *consensus.FeedbackRequest) error {
 	log.Debug("received feedback", "tip", req.Tip.String(), "req", req)
 
 	verified, err := s.Group.VerifySignature(consensus.MustObjToHash(req.Tip.Bytes()), &req.Signature)
@@ -154,7 +119,7 @@ func (s *Signer) ProcessFeedback(req *FeedbackRequest) error {
 	return nil
 }
 
-func (s *Signer) ProcessTipRequest(req *TipRequest) (*TipResponse, error) {
+func (s *Signer) ProcessTipRequest(req *consensus.TipRequest) (*consensus.TipResponse, error) {
 	log.Debug("received tip request", "req", req)
 
 	feedbackBytes, err := s.Storage.Get(SigBucket, []byte(req.ChainId))
@@ -162,13 +127,13 @@ func (s *Signer) ProcessTipRequest(req *TipRequest) (*TipResponse, error) {
 		return nil, fmt.Errorf("error getting chain id: %v", err)
 	}
 
-	feedbackRequest := &FeedbackRequest{}
+	feedbackRequest := &consensus.FeedbackRequest{}
 	err = cbornode.DecodeInto(feedbackBytes, feedbackRequest)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
 
-	return &TipResponse{
+	return &consensus.TipResponse{
 		ChainId:   feedbackRequest.ChainId,
 		Tip:       feedbackRequest.Tip,
 		Signature: feedbackRequest.Signature,

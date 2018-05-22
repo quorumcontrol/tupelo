@@ -81,7 +81,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 		nodes[i] = node.Node.RawData()
 	}
 
-	addBlockRequest := &AddBlockRequest{
+	addBlockRequest := &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		NewBlock: blockWithHeaders,
 		Tip:      tree.Tip(),
