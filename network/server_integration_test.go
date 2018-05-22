@@ -50,7 +50,7 @@ func TestRequestHandler_Start(t *testing.T) {
 	respChan, err := client.DoRequest(&Request{
 		Type:    "PING",
 		Id:      uuid.New().String(),
-		Payload: "PONG",
+		Payload: []byte("PONG"),
 	})
 
 	assert.Nil(t, err)
@@ -58,5 +58,5 @@ func TestRequestHandler_Start(t *testing.T) {
 	resp := <-respChan
 
 	assert.IsType(t, &Response{}, resp)
-	assert.Equal(t, "PONG", resp.Payload)
+	assert.Equal(t, []byte("PONG"), resp.Payload)
 }
