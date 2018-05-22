@@ -19,7 +19,7 @@ var keyBucket = []byte("keys")
 var nodeBucket = []byte("nodes")
 
 // just make sure that implementation conforms to the interface
-var _ Wallet = (*FileWallet)(nil)
+var _ consensus.Wallet = (*FileWallet)(nil)
 
 type FileWallet struct {
 	boltStorage storage.EncryptedStorage

@@ -24,7 +24,7 @@ var DidBucket = []byte("tips")
 
 type Signer struct {
 	Id      string
-	Group   *Group
+	Group   *consensus.Group
 	Storage storage.Storage
 	VerKey  *bls.VerKey
 	SignKey *bls.SignKey

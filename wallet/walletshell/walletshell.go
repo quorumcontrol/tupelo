@@ -1,45 +1,18 @@
 package walletshell
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"github.com/abiosoft/ishell"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/wallet"
 	"path/filepath"
 	"strconv"
 )
 
-type networkClient struct {
-	sessionKey *ecdsa.PrivateKey
-	client     *network.Client
-	group      *signer.Group
-	wallet     wallet.Wallet
-	signingKey *ecdsa.PrivateKey
-}
-
-func newNetworkClient(group *signer.Group) (*networkClient, error) {
-	sessionKey, err := crypto.GenerateKey()
-	if err != nil {
-		return nil, fmt.Errorf("error generating session key: %v", err)
-	}
-	return &networkClient{
-		sessionKey: sessionKey,
-		client:     network.NewClient(sessionKey, []byte(group.Id), crypto.Keccak256([]byte(group.Id))),
-		group:      group,
-	}, nil
-}
-
-func (nc *networkClient) Stop() {
-	nc.client.Stop()
-	nc.client = network.NewClient(nc.sessionKey, []byte(nc.group.Id), crypto.Keccak256([]byte(nc.group.Id)))
-}
-
-func Run(name string, group *signer.Group) {
+func Run(name string, group *consensus.Group) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
@@ -48,7 +21,7 @@ func Run(name string, group *signer.Group) {
 
 	pathToWallet := filepath.Join(".storage", name+"-wallet")
 
-	currentClient, err := newNetworkClient(group)
+	currentClient, err := consensus.NewNetworkedClient(group)
 	if err != nil {
 		panic(fmt.Sprintf("error creating network client: %v", err))
 	}
@@ -59,13 +32,13 @@ func Run(name string, group *signer.Group) {
 		Func: func(c *ishell.Context) {
 			c.Print("Passphrase: ")
 			passphrase := c.ReadPassword()
-			currentClient.wallet = wallet.NewFileWallet(passphrase, pathToWallet)
+			currentClient.Wallet = wallet.NewFileWallet(passphrase, pathToWallet)
 			c.Println("unlocked wallet at: ", pathToWallet)
 			c.Println("starting client")
 			if currentClient != nil {
-				currentClient.client.Stop()
+				currentClient.Client.Stop()
 			}
-			currentClient.client.Start()
+			currentClient.Client.Start()
 		},
 	})
 
@@ -74,7 +47,7 @@ func Run(name string, group *signer.Group) {
 		Help: "starts the client",
 		Func: func(c *ishell.Context) {
 			currentClient.Stop()
-			currentClient.client.Start()
+			currentClient.Client.Start()
 		},
 	})
 
@@ -90,7 +63,7 @@ func Run(name string, group *signer.Group) {
 		Name: "create-key",
 		Help: "creates a new key and saves it to the wallet",
 		Func: func(c *ishell.Context) {
-			key, err := currentClient.wallet.GenerateKey()
+			key, err := currentClient.Wallet.GenerateKey()
 			if err != nil {
 				c.Println("error generating key", err)
 				return
@@ -103,7 +76,7 @@ func Run(name string, group *signer.Group) {
 		Name: "list-keys",
 		Help: "list the keys in the wallet",
 		Func: func(c *ishell.Context) {
-			keys, err := currentClient.wallet.ListKeys()
+			keys, err := currentClient.Wallet.ListKeys()
 			if err != nil {
 				c.Println("error generating key", err)
 				return
@@ -114,24 +87,24 @@ func Run(name string, group *signer.Group) {
 		},
 	})
 
-	shell.AddCmd(&ishell.Cmd{
-		Name: "set-signing-key",
-		Help: "set the current signing key",
-		Func: func(c *ishell.Context) {
-			key, err := currentClient.wallet.GetKey(c.Args[0])
-			if err != nil {
-				c.Println("error getting key", err)
-				return
-			}
-			currentClient.signingKey = key
-		},
-	})
+	//shell.AddCmd(&ishell.Cmd{
+	//	Name: "set-signing-key",
+	//	Help: "set the current signing key",
+	//	Func: func(c *ishell.Context) {
+	//		key, err := currentClient.Wallet.GetKey(c.Args[0])
+	//		if err != nil {
+	//			c.Println("error getting key", err)
+	//			return
+	//		}
+	//		currentClient.SetSigningKey(key)
+	//	},
+	//})
 
 	shell.AddCmd(&ishell.Cmd{
 		Name: "print-chain",
 		Help: "set the current identity to a key address",
 		Func: func(c *ishell.Context) {
-			chain, err := currentClient.wallet.GetChain(c.Args[0])
+			chain, err := currentClient.Wallet.GetChain(c.Args[0])
 			if err != nil {
 				c.Println("error getting key", err)
 				return
@@ -144,7 +117,7 @@ func Run(name string, group *signer.Group) {
 		Name: "create-chain",
 		Help: "create a new chain based on a key",
 		Func: func(c *ishell.Context) {
-			key, err := currentClient.wallet.GetKey(c.Args[0])
+			key, err := currentClient.Wallet.GetKey(c.Args[0])
 			if err != nil {
 				c.Println("error getting key", err)
 				return
@@ -154,7 +127,7 @@ func Run(name string, group *signer.Group) {
 				c.Printf("error generating chain: %v", err)
 				return
 			}
-			currentClient.wallet.SaveChain(chain)
+			currentClient.Wallet.SaveChain(chain)
 			c.Printf("chain: %v", chain)
 		},
 	})
@@ -163,7 +136,7 @@ func Run(name string, group *signer.Group) {
 		Name: "list-chains",
 		Help: "list the current chains",
 		Func: func(c *ishell.Context) {
-			ids, _ := currentClient.wallet.GetChainIds()
+			ids, _ := currentClient.Wallet.GetChainIds()
 			for i, id := range ids {
 				c.Println(strconv.Itoa(i) + ": " + id)
 			}

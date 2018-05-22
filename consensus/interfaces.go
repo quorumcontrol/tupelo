@@ -1,13 +1,10 @@
-package wallet
+package consensus
 
-import (
-	"crypto/ecdsa"
-	"github.com/quorumcontrol/qc3/consensus"
-)
+import "crypto/ecdsa"
 
 type Wallet interface {
-	GetChain(id string) (*consensus.SignedChainTree, error)
-	SaveChain(chain *consensus.SignedChainTree) error
+	GetChain(id string) (*SignedChainTree, error)
+	SaveChain(chain *SignedChainTree) error
 	//Balances(id string) (map[string]uint64, error)
 	GetChainIds() ([]string, error)
 	Close()

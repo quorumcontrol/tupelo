@@ -5,10 +5,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 )
-
-const AddBlockType = "ADD_BLOCK"
 
 type NetworkedSigner struct {
 	Node   *network.Node
@@ -25,7 +24,7 @@ func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
 		Signer: signer,
 	}
 
-	handler.AssignHandler(AddBlockType, ns.AddBlockHandler)
+	handler.AssignHandler(consensus.MessageType_AddBlock, ns.AddBlockHandler)
 
 	return ns
 }

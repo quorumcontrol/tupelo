@@ -1,8 +1,7 @@
-package signer
+package consensus
 
 import (
 	"github.com/quorumcontrol/qc3/bls"
-	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -10,16 +9,16 @@ import (
 type testSet struct {
 	SignKeys []*bls.SignKey
 	VerKeys  []*bls.VerKey
-	PubKeys  []consensus.PublicKey
+	PubKeys  []PublicKey
 }
 
 func newTestSet(t *testing.T) *testSet {
 	signKeys := blsKeys(5)
 	verKeys := make([]*bls.VerKey, len(signKeys))
-	pubKeys := make([]consensus.PublicKey, len(signKeys))
+	pubKeys := make([]PublicKey, len(signKeys))
 	for i, signKey := range signKeys {
 		verKeys[i] = signKey.MustVerKey()
-		pubKeys[i] = consensus.BlsKeyToPublicKey(verKeys[i])
+		pubKeys[i] = BlsKeyToPublicKey(verKeys[i])
 	}
 
 	return &testSet{
@@ -49,10 +48,10 @@ func TestGroup_CombineSignatures(t *testing.T) {
 
 	data := "somedata"
 
-	sigs := make(consensus.SignatureMap)
+	sigs := make(SignatureMap)
 
 	for i, signKey := range ts.SignKeys {
-		sig, err := consensus.BlsSign(data, signKey)
+		sig, err := BlsSign(data, signKey)
 		assert.Nil(t, err)
 		sigs[ts.PubKeys[i].Id] = *sig
 	}
@@ -60,7 +59,7 @@ func TestGroup_CombineSignatures(t *testing.T) {
 	sig, err := g.CombineSignatures(sigs)
 	assert.Nil(t, err)
 
-	isVerified, err := g.VerifySignature(consensus.MustObjToHash(data), sig)
+	isVerified, err := g.VerifySignature(MustObjToHash(data), sig)
 	assert.Nil(t, err)
 
 	assert.True(t, isVerified)
@@ -73,16 +72,16 @@ func TestGroup_VerifySignature(t *testing.T) {
 
 	for _, test := range []struct {
 		description  string
-		generator    func(t *testing.T) (sigs consensus.SignatureMap)
+		generator    func(t *testing.T) (sigs SignatureMap)
 		shouldVerify bool
 	}{
 		{
 			description: "a valid signature",
-			generator: func(t *testing.T) (sigs consensus.SignatureMap) {
-				sigs = make(consensus.SignatureMap)
+			generator: func(t *testing.T) (sigs SignatureMap) {
+				sigs = make(SignatureMap)
 
 				for i, signKey := range ts.SignKeys {
-					sig, err := consensus.BlsSign(data, signKey)
+					sig, err := BlsSign(data, signKey)
 					assert.Nil(t, err)
 					sigs[ts.PubKeys[i].Id] = *sig
 				}
@@ -92,10 +91,10 @@ func TestGroup_VerifySignature(t *testing.T) {
 		},
 		{
 			description: "with only one signer",
-			generator: func(t *testing.T) (sigs consensus.SignatureMap) {
-				sigs = make(consensus.SignatureMap)
+			generator: func(t *testing.T) (sigs SignatureMap) {
+				sigs = make(SignatureMap)
 				i := 0
-				sig, err := consensus.BlsSign(data, ts.SignKeys[i])
+				sig, err := BlsSign(data, ts.SignKeys[i])
 				assert.Nil(t, err)
 				sigs[ts.PubKeys[i].Id] = *sig
 				return sigs
@@ -106,7 +105,7 @@ func TestGroup_VerifySignature(t *testing.T) {
 		sigs := test.generator(t)
 		sig, err := g.CombineSignatures(sigs)
 		assert.Nil(t, err)
-		isVerified, err := g.VerifySignature(consensus.MustObjToHash(data), sig)
+		isVerified, err := g.VerifySignature(MustObjToHash(data), sig)
 
 		assert.Equal(t, test.shouldVerify, isVerified, test.description)
 	}

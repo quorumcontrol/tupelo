@@ -25,7 +25,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	ecdsaKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	group := GroupFromPublicKeys([]consensus.PublicKey{pubKey})
+	group := consensus.GroupFromPublicKeys([]consensus.PublicKey{pubKey})
 
 	store := storage.NewMemStorage()
 
@@ -89,7 +89,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 
 	log.Debug("sending: ", "tip", addBlockRequest.Tip, "len(nodes)", len(nodes))
 
-	req, err := network.BuildRequest(AddBlockType, addBlockRequest)
+	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 
 	respChan, err := client.DoRequest(req)
 	assert.Nil(t, err)

@@ -19,7 +19,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	assert.Nil(t, err)
 
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
-	group := &Group{
+	group := &consensus.Group{
 		SortedPublicKeys: []consensus.PublicKey{pubKey},
 	}
 
