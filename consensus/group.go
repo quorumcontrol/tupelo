@@ -47,7 +47,7 @@ func (group *Group) Address() common.Address {
 
 func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {
 	requiredNum := uint64(math.Ceil(2.0 * (float64(len(group.SortedPublicKeys)) / 3.0)))
-	log.Debug("verify signature", "requiredNum", requiredNum)
+	log.Trace("verify signature", "requiredNum", requiredNum)
 
 	var expectedKeyBytes [][]byte
 	for i, didSign := range sig.Signers {
@@ -56,13 +56,13 @@ func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {
 		}
 	}
 
-	log.Debug("verify signature", "len(expectedKeyBytes)", len(expectedKeyBytes))
+	log.Trace("verify signature", "len(expectedKeyBytes)", len(expectedKeyBytes))
 
 	if uint64(len(expectedKeyBytes)) < requiredNum {
 		return false, nil
 	}
 
-	log.Debug("verify signature - verifying")
+	log.Trace("verify signature - verifying")
 
 	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
