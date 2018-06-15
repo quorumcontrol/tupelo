@@ -3,29 +3,29 @@
 package mailserver_test
 
 import (
-	"testing"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/quorumcontrol/qc3/notary"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/bls"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/node"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/quorumcontrol/qc3/mailserver"
 	"os"
-	"github.com/quorumcontrol/qc3/storage"
-	"github.com/quorumcontrol/qc3/client/wallet"
-	"github.com/quorumcontrol/qc3/client/client"
+	"testing"
 	"time"
-	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
-	"github.com/stretchr/testify/assert"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
-	"github.com/gogo/protobuf/types"
-	"github.com/gogo/protobuf/proto"
-)
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/client/client"
+	"github.com/quorumcontrol/qc3/client/wallet"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"github.com/quorumcontrol/qc3/mailserver"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
+	"github.com/quorumcontrol/qc3/node"
+	"github.com/quorumcontrol/qc3/notary"
+	"github.com/quorumcontrol/qc3/storage"
+	"github.com/stretchr/testify/assert"
+)
 
 var blsHexKeys = []string{
 	"0x0d8594abe3a33cc0210201ad33911defd69595990c1e54269c02a1f4b1487819",
@@ -46,32 +46,32 @@ func init() {
 	BlsSignKeys = make([]*bls.SignKey, len(blsHexKeys))
 	EcdsaKeys = make([]*ecdsa.PrivateKey, len(ecdsaHexKeys))
 
-	for i,hex := range blsHexKeys {
+	for i, hex := range blsHexKeys {
 		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(hex))
 	}
 
-	for i,hex := range ecdsaHexKeys {
-		key,_ := crypto.ToECDSA(hexutil.MustDecode(hex))
+	for i, hex := range ecdsaHexKeys {
+		key, _ := crypto.ToECDSA(hexutil.MustDecode(hex))
 		EcdsaKeys[i] = key
 	}
 }
 
 type TestCluster struct {
-	Nodes []*node.WhisperNode
-	Group *notary.Group
+	Nodes       []*node.WhisperNode
+	Group       *notary.Group
 	MailServers []*mailserver.MailServer
 }
 
 func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	keys := make([]*consensuspb.PublicKey, len(BlsSignKeys))
-	for i,key := range BlsSignKeys {
+	for i, key := range BlsSignKeys {
 		keys[i] = consensus.BlsKeyToPublicKey(key.MustVerKey())
 	}
 	group := notary.GroupFromPublicKeys(keys)
 
 	nodes := make([]*node.WhisperNode, len(BlsSignKeys))
 	mailservers := make([]*mailserver.MailServer, len(BlsSignKeys))
-	for i,key := range BlsSignKeys {
+	for i, key := range BlsSignKeys {
 		store := storage.NewMemStorage()
 		chainStore := notary.NewChainStore("testTips", store)
 		signer := notary.NewSigner(chainStore, group, key)
@@ -83,20 +83,20 @@ func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	}
 
 	return &TestCluster{
-		Nodes: nodes,
-		Group: group,
+		Nodes:       nodes,
+		Group:       group,
 		MailServers: mailservers,
 	}
 }
 
 func (tc *TestCluster) Start() {
-	for _,node := range tc.Nodes {
+	for _, node := range tc.Nodes {
 		node.Start()
 	}
 }
 
 func (tc *TestCluster) Stop() {
-	for _,node := range tc.Nodes {
+	for _, node := range tc.Nodes {
 		node.Stop()
 	}
 }
@@ -104,7 +104,7 @@ func (tc *TestCluster) Stop() {
 func TestMailserverIntegration(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
-	destKey,err := crypto.GenerateKey()
+	destKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
 	cluster := NewDefaultTestCluster(t)
@@ -127,9 +127,9 @@ func TestMailserverIntegration(t *testing.T) {
 	time.Sleep(time.Duration(5) * time.Second)
 
 	count := 0
-	cluster.MailServers[0].Mailbox.ForEach(crypto.FromECDSAPub(&destKey.PublicKey), func (env *whisper.Envelope) error {
+	cluster.MailServers[0].Mailbox.ForEach(crypto.FromECDSAPub(&destKey.PublicKey), func(env *whisper.Envelope) error {
 		count++
-		received,err := env.OpenAsymmetric(destKey)
+		received, err := env.OpenAsymmetric(destKey)
 		assert.Nil(t, err)
 		assert.True(t, received.Validate())
 
@@ -137,8 +137,8 @@ func TestMailserverIntegration(t *testing.T) {
 		err = proto.Unmarshal(received.Payload, receivedAny)
 		assert.Nil(t, err)
 
-		receivedChat,err := consensus.AnyToObj(receivedAny)
-		assert.Nil(t,err)
+		receivedChat, err := consensus.AnyToObj(receivedAny)
+		assert.Nil(t, err)
 
 		assert.Equal(t, sentChat, receivedChat)
 
@@ -149,7 +149,7 @@ func TestMailserverIntegration(t *testing.T) {
 
 	// now that we know the message is stored, let's ask for it back
 
-	msgChan,err := c.GetMessages(destKey)
+	msgChan, err := c.GetMessages(destKey)
 	assert.Nil(t, err)
 	time.Sleep(time.Duration(2) * time.Second)
 	assert.Equal(t, 1, len(msgChan))

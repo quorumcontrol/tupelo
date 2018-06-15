@@ -1,9 +1,10 @@
 package storage_test
 
 import (
-	"testing"
-	"path/filepath"
 	"os"
+	"path/filepath"
+	"testing"
+
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
 )
@@ -27,7 +28,7 @@ func TestEncryptedBoltStorage_SetGet(t *testing.T) {
 
 	err := ebs.Set([]byte("test"), []byte("key"), []byte("value"))
 	assert.Nil(t, err)
-	val,err := ebs.Get([]byte("test"), []byte("key"))
+	val, err := ebs.Get([]byte("test"), []byte("key"))
 	assert.Nil(t, err)
 	assert.Equal(t, val, []byte("value"))
 }
@@ -43,7 +44,7 @@ func TestEncryptedBoltStorage_GetKeys(t *testing.T) {
 
 	err := ebs.Set([]byte("test"), []byte("key"), []byte("value"))
 	assert.Nil(t, err)
-	keys,err := ebs.GetKeys([]byte("test"))
+	keys, err := ebs.GetKeys([]byte("test"))
 	assert.Nil(t, err)
 	assert.Equal(t, keys, [][]byte{[]byte("key")})
 }

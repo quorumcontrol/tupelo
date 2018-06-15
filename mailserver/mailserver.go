@@ -1,17 +1,18 @@
 package mailserver
 
 import (
-	"github.com/quorumcontrol/qc3/node"
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/gogo/protobuf/proto"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/network"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
-	"github.com/ethereum/go-ethereum/rlp"
-	"fmt"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
+	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/node"
 )
 
 var AlphaMailServerKey = crypto.Keccak256([]byte("mailserver"))
@@ -22,7 +23,7 @@ var AlphaMailServerKey = crypto.Keccak256([]byte("mailserver"))
 
 type MailServer struct {
 	Mailbox *Mailbox
-	node *node.WhisperNode
+	node    *node.WhisperNode
 }
 
 func NewMailServer(m *Mailbox) *MailServer {
@@ -54,7 +55,7 @@ func (ms *MailServer) replayHandler(whisp *whisper.Whisper, msg proto.Message, m
 
 	log.Debug("replay received", "destination", replayMessage.Destination)
 
-	ms.Mailbox.ForEach(replayMessage.Destination, func (env *whisper.Envelope) error {
+	ms.Mailbox.ForEach(replayMessage.Destination, func(env *whisper.Envelope) error {
 		envBytes, err := rlp.EncodeToBytes(env)
 		if err != nil {
 			return fmt.Errorf("error encoding: %v", err)
@@ -67,7 +68,7 @@ func (ms *MailServer) replayHandler(whisp *whisper.Whisper, msg proto.Message, m
 			}),
 		}
 
-		payload,err := proto.Marshal(response)
+		payload, err := proto.Marshal(response)
 		if err != nil {
 			return fmt.Errorf("error encoding: %v", err)
 		}
@@ -75,13 +76,13 @@ func (ms *MailServer) replayHandler(whisp *whisper.Whisper, msg proto.Message, m
 		log.Debug("sending back message with protocol id", "protocolId", response.Id)
 
 		network.Send(whisp, &whisper.MessageParams{
-			TTL: 60, // 1 minute TODO: what are the right TTL settings?
-			Dst: metadata.Src,
-			Src: ms.node.Key,
-			Topic: whisper.BytesToTopic(network.CothorityTopic),
-			PoW: .02,  // TODO: what are the right settings for PoW?
+			TTL:      60, // 1 minute TODO: what are the right TTL settings?
+			Dst:      metadata.Src,
+			Src:      ms.node.Key,
+			Topic:    whisper.BytesToTopic(network.CothorityTopic),
+			PoW:      .02, // TODO: what are the right settings for PoW?
 			WorkTime: 10,
-			Payload: payload,
+			Payload:  payload,
 		})
 		return nil
 	})

@@ -1,18 +1,19 @@
 package notary
 
 import (
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/ethereum/go-ethereum/crypto"
-	"fmt"
 	"context"
-	"github.com/quorumcontrol/qc3/consensus"
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 )
 
-type ValidatorFunc func(ctx context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error)
+type ValidatorFunc func(ctx context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool, error)
 
-func sigFor(creator string, sigs []*consensuspb.Signature) (*consensuspb.Signature) {
-	for _,sig := range sigs {
+func sigFor(creator string, sigs []*consensuspb.Signature) *consensuspb.Signature {
+	for _, sig := range sigs {
 		if sig.Creator == creator {
 			return sig
 		}
@@ -20,36 +21,36 @@ func sigFor(creator string, sigs []*consensuspb.Signature) (*consensuspb.Signatu
 	return nil
 }
 
-func IsSigned(_ context.Context, _ *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+func IsSigned(_ context.Context, _ *consensuspb.ChainTip, block *consensuspb.Block) (bool, error) {
 	if len(block.Signatures) == 0 {
 		log.Trace("block is not signed")
 		return false, nil
 	}
-	return true,nil
+	return true, nil
 }
 
-func IsValidSequenceNumber(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+func IsValidSequenceNumber(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool, error) {
 	log.Debug("validating sequence number", "chain", chainTip.Id, "expectedSequence", chainTip.Sequence, "sequence", block.SignableBlock.Sequence)
 	if chainTip.LastHash == nil && block.SignableBlock.Sequence == 0 {
 		return true, nil
 	}
 
 	if block.SignableBlock.Sequence == (chainTip.Sequence + 1) {
-		return true,nil
+		return true, nil
 	}
 
 	log.Debug("block sequence was incorrect", "chain", chainTip.Id, "expectedSequence", chainTip.Sequence, "sequence", block.SignableBlock.Sequence)
-	return false,nil
+	return false, nil
 }
 
-func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool, error) {
 	log.Trace("chain exists", "chain", chainTip)
 	if block.SignableBlock == nil {
 		log.Trace("no signable block")
 		return false, nil
 	}
 
-	hsh,err := consensus.BlockToHash(block)
+	hsh, err := consensus.BlockToHash(block)
 	if err != nil {
 		return false, fmt.Errorf("error hashing block: %v", err)
 	}
@@ -64,7 +65,7 @@ func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.Chain
 			return false, nil
 		}
 
-		ecdsaPubKey,err := crypto.SigToPub(hsh.Bytes(), ownerSig.Signature)
+		ecdsaPubKey, err := crypto.SigToPub(hsh.Bytes(), ownerSig.Signature)
 		if err != nil {
 			return false, fmt.Errorf("error getting public key: %v", err)
 		}
@@ -73,9 +74,9 @@ func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.Chain
 		}
 
 		pubKey := &consensuspb.PublicKey{
-			Type: consensuspb.Secp256k1,
+			Type:      consensuspb.Secp256k1,
 			PublicKey: crypto.CompressPubkey(ecdsaPubKey),
-			Id: addr,
+			Id:        addr,
 		}
 
 		return consensus.VerifySignature(block, pubKey, ownerSig)
@@ -84,16 +85,16 @@ func IsNotGenesisOrIsValidGenesis(_ context.Context, chainTip *consensuspb.Chain
 	return true, nil
 }
 
-func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool,error) {
+func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consensuspb.ChainTip, block *consensuspb.Block) (bool, error) {
 	if chainTip.LastHash == nil {
 		log.Trace("is a genesis block")
-		return true,nil
+		return true, nil
 	}
 
 	log.Debug("chain tip", "tip", chainTip)
 
 	authorizations := consensus.AuthorizationsByType(chainTip.Authorizations)
-	updateAuth,ok := authorizations[consensuspb.UPDATE]
+	updateAuth, ok := authorizations[consensuspb.UPDATE]
 	var owners []*consensuspb.Chain
 	minimum := uint64(1)
 
@@ -104,15 +105,15 @@ func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consens
 	} else {
 		log.Trace("using chain authentication ")
 		owners = []*consensuspb.Chain{{
-			Id: chainTip.Id,
+			Id:             chainTip.Id,
 			Authentication: chainTip.Authentication,
 		}}
 	}
 
 	signedByCount := uint64(0)
-	for _,owner := range owners {
+	for _, owner := range owners {
 		log.Debug("detecting if signed by", "owner", owner, "block", block)
-		signed,err := IsSignedBy(ctx, block, owner)
+		signed, err := IsSignedBy(ctx, block, owner)
 		if err != nil {
 			return false, fmt.Errorf("error seeing if signed: %v", err)
 		}
@@ -128,16 +129,16 @@ func IsGenesisOrIsSignedByNecessaryOwners(ctx context.Context, chainTip *consens
 	return false, nil
 }
 
-func IsSignedBy(_ context.Context, block *consensuspb.Block, ownersChain *consensuspb.Chain) (bool,error) {
+func IsSignedBy(_ context.Context, block *consensuspb.Block, ownersChain *consensuspb.Chain) (bool, error) {
 	ownersKeys := ownersChain.Authentication.PublicKeys
 
 	sigs := consensus.SignaturesByCreator(block)
 	log.Trace("sigs: %v", sigs)
-	for _,key := range ownersKeys {
-		sig,ok := sigs[key.Id]
+	for _, key := range ownersKeys {
+		sig, ok := sigs[key.Id]
 		if ok {
 			log.Trace("found signature for: %v", key.Id)
-			verified,err := consensus.VerifySignature(block, key, sig)
+			verified, err := consensus.VerifySignature(block, key, sig)
 			if err != nil {
 				return false, fmt.Errorf("error verifying: %v", err)
 			}

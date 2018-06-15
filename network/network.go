@@ -1,13 +1,14 @@
 package network
 
 import (
-	"fmt"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
-	"github.com/ethereum/go-ethereum/p2p"
-	"os"
-	"github.com/ethereum/go-ethereum/p2p/discover"
 	"crypto/ecdsa"
+	"fmt"
+	"os"
+
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/p2p/discover"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 )
 
 var CothorityTopic = []byte("qctt")
@@ -35,11 +36,11 @@ var bootNodes = []string{
 	"enode://a1ef9ba5550d5fac27f7cbd4e8d20a643ad75596f307c91cd6e7f85b548b8a6bf215cca436d6ee436d6135f9fe51398f8dd4c0bd6c6a0c332ccb41880f33ec12@51.15.218.125:30303",
 }
 
-func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
+func Start(key *ecdsa.PrivateKey) *whisper.Whisper {
 	var peers []*discover.Node
-	for _,enode := range bootNodes {
+	for _, enode := range bootNodes {
 		peer := discover.MustParseNode(enode)
-		peers = append(peers,peer)
+		peers = append(peers, peer)
 	}
 
 	//log.Tip().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
@@ -48,7 +49,7 @@ func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 	// pub := key.PublicKey
 
 	whisp := whisper.New(&whisper.Config{
-		MaxMessageSize: whisper.MaxMessageSize,
+		MaxMessageSize:     whisper.MaxMessageSize,
 		MinimumAcceptedPOW: 0.001,
 	})
 	whisp.AddKeyPair(key)
@@ -59,7 +60,7 @@ func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 			MaxPeers:   20,
 			PrivateKey: key,
 			//ListenAddr: ":8000",
-			Protocols: whisp.Protocols(),
+			Protocols:      whisp.Protocols(),
 			BootstrapNodes: peers,
 		},
 	}
@@ -71,12 +72,12 @@ func Start(key *ecdsa.PrivateKey) (*whisper.Whisper){
 	return whisp
 }
 
-func Send(whisp *whisper.Whisper, params *whisper.MessageParams) (error) {
-	msg,err := whisper.NewSentMessage(params)
+func Send(whisp *whisper.Whisper, params *whisper.MessageParams) error {
+	msg, err := whisper.NewSentMessage(params)
 	if err != nil {
 		return fmt.Errorf("error generating message: %v", err)
 	}
-	env,err := msg.Wrap(params)
+	env, err := msg.Wrap(params)
 	if err != nil {
 		return fmt.Errorf("error wrapping message: %v", err)
 	}
@@ -87,22 +88,22 @@ func Send(whisp *whisper.Whisper, params *whisper.MessageParams) (error) {
 	return nil
 }
 
-func NewFilter(topic []byte, symKey []byte) (*whisper.Filter) {
+func NewFilter(topic []byte, symKey []byte) *whisper.Filter {
 	topicBytes := whisper.BytesToTopic(topic)
 
 	return &whisper.Filter{
-		KeySym: symKey,
-		Topics: [][]byte{topicBytes[:]},
+		KeySym:   symKey,
+		Topics:   [][]byte{topicBytes[:]},
 		AllowP2P: false,
 	}
 }
 
-func NewP2PFilter(key *ecdsa.PrivateKey) (*whisper.Filter) {
+func NewP2PFilter(key *ecdsa.PrivateKey) *whisper.Filter {
 	topicBytes := whisper.BytesToTopic(CothorityTopic)
 	log.Debug("p2p filter topic created", "topic", [][]byte{topicBytes[:]})
 	return &whisper.Filter{
-		Topics: [][]byte{topicBytes[:]},
+		Topics:   [][]byte{topicBytes[:]},
 		AllowP2P: true,
-		KeyAsym: key,
+		KeyAsym:  key,
 	}
 }

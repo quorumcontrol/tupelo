@@ -15,8 +15,8 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"github.com/quorumcontrol/qc3/client/walletshell"
+	"github.com/spf13/cobra"
 )
 
 var testShellName string
@@ -25,7 +25,7 @@ var testShellName string
 var shellCmd = &cobra.Command{
 	Use:   "test-shell",
 	Short: "launches a shell wallet that can only talk to the testnet",
-	Long: `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
+	Long:  `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
 		walletshell.Run(testShellName, TestNetGroup)
 	},

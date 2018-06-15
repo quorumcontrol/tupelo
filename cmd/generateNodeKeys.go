@@ -17,23 +17,23 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-	"github.com/quorumcontrol/qc3/bls"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/spf13/cobra"
 )
 
 // generateNodeKeysCmd represents the generateNodeKeys command
 var generateNodeKeysCmd = &cobra.Command{
 	Use:   "generate-node-keys",
 	Short: "Generate a new set of node keys",
-	Long: ``,
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		blsKey,err := bls.NewSignKey()
+		blsKey, err := bls.NewSignKey()
 		if err != nil {
 			panic("error generating bls")
 		}
-		ecdsa,err := crypto.GenerateKey()
+		ecdsa, err := crypto.GenerateKey()
 		if err != nil {
 			panic("error generating ecdsa")
 		}

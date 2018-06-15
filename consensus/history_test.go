@@ -1,8 +1,9 @@
 package consensus_test
 
 import (
-	"github.com/quorumcontrol/qc3/consensus"
 	"testing"
+
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/stretchr/testify/assert"
 )
@@ -12,17 +13,17 @@ func TestMemoryHistoryStore(t *testing.T) {
 
 	blocks := make([]*consensuspb.Block, 3)
 
-	for i:=0;i<len(blocks);i++ {
+	for i := 0; i < len(blocks); i++ {
 		blocks[i] = createBlock(t, nil)
 	}
 
 	history.StoreBlocks(blocks)
 
-	for _,block := range blocks {
-		hsh,err := consensus.BlockToHash(block)
-		assert.Nil(t,err)
+	for _, block := range blocks {
+		hsh, err := consensus.BlockToHash(block)
+		assert.Nil(t, err)
 		retBlock := history.GetBlock(hsh.Bytes())
-		assert.Equal(t, block,retBlock)
+		assert.Equal(t, block, retBlock)
 	}
 }
 
@@ -39,9 +40,9 @@ func TestMemoryHistoryStore_NextBlock(t *testing.T) {
 
 	history.StoreBlocks(blocks)
 
-	for i := 0; i<len(blocks)-1; i++ {
-		hsh,err := consensus.BlockToHash(blocks[i])
-		assert.Nil(t,err)
+	for i := 0; i < len(blocks)-1; i++ {
+		hsh, err := consensus.BlockToHash(blocks[i])
+		assert.Nil(t, err)
 		blk := history.NextBlock(hsh.Bytes())
 		assert.Equal(t, blk, blocks[i+1], "failed on block %d", i)
 	}
@@ -60,9 +61,9 @@ func TestMemoryHistoryStore_PrevBlock(t *testing.T) {
 
 	history.StoreBlocks(blocks)
 
-	for i := len(blocks)-1; i > 0; i-- {
-		hsh,err := consensus.BlockToHash(blocks[i])
-		assert.Nil(t,err)
+	for i := len(blocks) - 1; i > 0; i-- {
+		hsh, err := consensus.BlockToHash(blocks[i])
+		assert.Nil(t, err)
 		blk := history.PrevBlock(hsh.Bytes())
 		assert.Equal(t, blk, blocks[i-1], "failed on block %d", i)
 	}
@@ -81,25 +82,25 @@ func TestMemoryHistoryStore_IteratorFrom(t *testing.T) {
 
 	history.StoreBlocks(blocks)
 
-	for _,test := range []struct{
+	for _, test := range []struct {
 		description string
-		block *consensuspb.Block
+		block       *consensuspb.Block
 		transaction *consensuspb.Transaction
 		shouldBeNil bool
-	} {
+	}{
 		{
 			description: "a valid iterator",
-			block: blocks[1],
+			block:       blocks[1],
 			transaction: blocks[1].SignableBlock.Transactions[0],
 			shouldBeNil: false,
-		},{
+		}, {
 			description: "an iterator with an unknown transaction should be nil",
-			block: blocks[1],
+			block:       blocks[1],
 			transaction: &consensuspb.Transaction{},
 			shouldBeNil: true,
-		},{
+		}, {
 			description: "an iterator with a nil transaction should be nil",
-			block: blocks[1],
+			block:       blocks[1],
 			transaction: nil,
 			shouldBeNil: true,
 		},
@@ -141,7 +142,7 @@ func TestMemoryTransactionIterator_Next(t *testing.T) {
 		i++
 	}
 
-	for i,trans := range retTransactions {
+	for i, trans := range retTransactions {
 		assert.Equal(t, trans.Id, expectedTransactions[i].Id, "failed equal at: %d", i)
 	}
 }
@@ -176,7 +177,7 @@ func TestMemoryTransactionIterator_Prev(t *testing.T) {
 		i++
 	}
 
-	for i,trans := range retTransactions {
+	for i, trans := range retTransactions {
 		assert.Equal(t, trans.Id, expectedTransactions[i].Id, "failed equal at: %d", i)
 	}
 }

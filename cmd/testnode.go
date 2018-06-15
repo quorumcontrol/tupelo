@@ -15,24 +15,25 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/quorumcontrol/qc3/bls"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/notary"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/node"
-	"github.com/quorumcontrol/qc3/storage"
+	"fmt"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
-	"github.com/ethereum/go-ethereum/log"
-	"os"
-	"fmt"
 	"syscall"
-	"os/signal"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/mailserver"
+	"github.com/quorumcontrol/qc3/node"
+	"github.com/quorumcontrol/qc3/notary"
+	"github.com/quorumcontrol/qc3/storage"
+	"github.com/spf13/cobra"
 )
 
 // These are private keys and they are PURPOSEFULLY checked in
@@ -60,12 +61,12 @@ func init() {
 	BlsSignKeys = make([]*bls.SignKey, len(blsHexKeys))
 	EcdsaKeys = make([]*ecdsa.PrivateKey, len(ecdsaHexKeys))
 
-	for i,hex := range blsHexKeys {
+	for i, hex := range blsHexKeys {
 		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(hex))
 	}
 
-	for i,hex := range ecdsaHexKeys {
-		key,err := crypto.ToECDSA(hexutil.MustDecode(hex))
+	for i, hex := range ecdsaHexKeys {
+		key, err := crypto.ToECDSA(hexutil.MustDecode(hex))
 		if err != nil {
 			panic("error converting to key")
 		}
@@ -73,7 +74,7 @@ func init() {
 	}
 
 	TestNetPublicKeys = make([]*consensuspb.PublicKey, len(BlsSignKeys))
-	for i,key := range BlsSignKeys {
+	for i, key := range BlsSignKeys {
 		TestNetPublicKeys[i] = consensus.BlsKeyToPublicKey(key.MustVerKey())
 	}
 
@@ -86,7 +87,7 @@ var nodeIndex int
 var testnodeCmd = &cobra.Command{
 	Use:   "test-node [index of key]",
 	Short: "Run a testnet node with hardcoded (insecure) keys",
-	Long: ``,
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
 
@@ -94,7 +95,7 @@ var testnodeCmd = &cobra.Command{
 
 		os.MkdirAll(".storage", 0700)
 
-		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-" + strconv.Itoa(nodeIndex)))
+		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
 		store := notary.NewChainStore("testTips", boltStorage)
 		signer := notary.NewSigner(store, TestNetGroup, BlsSignKeys[nodeIndex])
 		node := node.NewWhisperNode(signer, EcdsaKeys[nodeIndex])

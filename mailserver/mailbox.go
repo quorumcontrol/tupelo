@@ -1,15 +1,16 @@
 package mailserver
 
 import (
-	"fmt"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/quorumcontrol/qc3/storage"
-	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
-	"github.com/ethereum/go-ethereum/crypto"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"bytes"
+	"fmt"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 // TODO: This is a broken system that needs rearchitecting for multiple owners
@@ -56,8 +57,8 @@ func (ms *Mailbox) Ack(destination, envHash []byte) error {
 }
 
 func (ms *Mailbox) ForEach(destination []byte, iteratorFunc func(env *whisper.Envelope) error) error {
-	return ms.storage.ForEach(DestinationToBucket(destination), func(_,v []byte) error {
-		env,err := EnvFromBytes(v)
+	return ms.storage.ForEach(DestinationToBucket(destination), func(_, v []byte) error {
+		env, err := EnvFromBytes(v)
 		if err != nil {
 			return fmt.Errorf("error EnvFromBytes: %v", err)
 		}
@@ -65,14 +66,13 @@ func (ms *Mailbox) ForEach(destination []byte, iteratorFunc func(env *whisper.En
 	})
 }
 
-func EnvFromBytes(envBytes []byte) (*whisper.Envelope,error) {
+func EnvFromBytes(envBytes []byte) (*whisper.Envelope, error) {
 	reader := bytes.NewReader(envBytes)
-	stream := rlp.NewStream(reader, 10 * 1024 * 1024) // 10MB limit
+	stream := rlp.NewStream(reader, 10*1024*1024) // 10MB limit
 	env := &whisper.Envelope{}
 	err := env.DecodeRLP(stream)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
 	}
-	return env,nil
+	return env, nil
 }
-
