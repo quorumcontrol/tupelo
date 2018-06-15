@@ -1,14 +1,15 @@
 package wallet
 
 import (
+	"os"
+	"sort"
+	"testing"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"sort"
-	"testing"
 )
 
 func newSavedChain(t *testing.T, fw *FileWallet, id string) *consensus.SignedChainTree {

@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"crypto/ecdsa"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"

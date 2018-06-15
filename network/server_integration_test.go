@@ -3,11 +3,12 @@
 package network
 
 import (
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 var TestTopic = []byte("test")

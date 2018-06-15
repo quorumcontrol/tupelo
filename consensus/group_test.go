@@ -1,9 +1,10 @@
 package consensus
 
 import (
+	"testing"
+
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type testSet struct {

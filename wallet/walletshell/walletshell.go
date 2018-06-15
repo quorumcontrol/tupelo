@@ -2,13 +2,14 @@ package walletshell
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
+
 	"github.com/abiosoft/ishell"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/wallet"
-	"path/filepath"
-	"strconv"
 )
 
 func Run(name string, group *consensus.Group) {

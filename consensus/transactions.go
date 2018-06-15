@@ -2,11 +2,12 @@ package consensus
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/typecaster"
-	"strings"
 )
 
 func init() {

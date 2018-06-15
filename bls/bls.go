@@ -8,9 +8,10 @@ package bls
 import "C"
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"log"
 	"unsafe"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 const GeneratorHex = "0x00505d3670be80403e051ea1fe991e21a65aa7a34fb217faaaeece6d07f4ace018a4598fa281ccd9604a24024146861defe23200344c20ee95780eda2c5bd3630a7bd596e91c1e8359e503c088a9eeb87a895821e2ea7d96c39fc1acc5d9453d1957e94588afaf7fc0a232d77d4f73097b4c66ec4bce715e58023031ac289b4a"

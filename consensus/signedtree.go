@@ -3,6 +3,7 @@ package consensus
 import (
 	"crypto/ecdsa"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"

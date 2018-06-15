@@ -17,6 +17,12 @@ package cmd
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"syscall"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -26,11 +32,6 @@ import (
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/spf13/cobra"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"strconv"
-	"syscall"
 )
 
 // These are private keys and they are PURPOSEFULLY checked in

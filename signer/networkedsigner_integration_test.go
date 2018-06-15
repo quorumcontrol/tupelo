@@ -3,6 +3,9 @@
 package signer
 
 import (
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -11,8 +14,6 @@ import (
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestIntegrationNetworkedSigner(t *testing.T) {

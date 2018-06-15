@@ -3,11 +3,12 @@
 package network
 
 import (
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestNode_Integration(t *testing.T) {
