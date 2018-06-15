@@ -15,17 +15,17 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
+	"fmt"
+	"log"
+	"math/rand"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
 	"github.com/quorumcontrol/qc3/network"
-	"time"
-	"fmt"
-	"math/rand"
-	"log"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/spf13/cobra"
 )
-
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
@@ -58,7 +58,6 @@ func init() {
 	rootCmd.AddCommand(testNetworkCmd)
 	rand.Seed(time.Now().UnixNano())
 
-
 	// Here you will define your flags and configuration settings.
 
 	// Cobra supports Persistent Flags which will work for this command
@@ -70,12 +69,11 @@ func init() {
 	// testNetworkCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-
 func doTestNetwork() {
 	var id = randSeq(32)
 
-	key,_ := crypto.ToECDSA(privateKey)
-	key2,_ := crypto.GenerateKey()
+	key, _ := crypto.ToECDSA(privateKey)
+	key2, _ := crypto.GenerateKey()
 
 	fmt.Printf("id: %s", id)
 	whisp := network.Start(key2)
@@ -88,12 +86,12 @@ func doTestNetwork() {
 
 	time.Sleep(15 * time.Second)
 	err := network.Send(whisp, &whisper.MessageParams{
-		TTL: 60, // 1 minute
-		KeySym: filter.KeySym,
-		Topic: whisper.BytesToTopic(network.CothorityTopic),
-		PoW: 0.02,
+		TTL:      60, // 1 minute
+		KeySym:   filter.KeySym,
+		Topic:    whisper.BytesToTopic(network.CothorityTopic),
+		PoW:      0.02,
 		WorkTime: 10,
-		Payload: []byte(fmt.Sprintf("hello test network! %s", id)),
+		Payload:  []byte(fmt.Sprintf("hello test network! %s", id)),
 	})
 	if err != nil {
 		log.Panicf("error sending: %v", err)
@@ -104,11 +102,11 @@ func doTestNetwork() {
 	err = network.Send(whisp, &whisper.MessageParams{
 		TTL: 60, // 1 minute
 		//KeySym: filter.KeySym,
-		Dst: crypto.ToECDSAPub(crypto.FromECDSAPub(&key.PublicKey)),
-		Topic: whisper.BytesToTopic(network.CothorityTopic),
-		PoW: 0.02,
+		Dst:      crypto.ToECDSAPub(crypto.FromECDSAPub(&key.PublicKey)),
+		Topic:    whisper.BytesToTopic(network.CothorityTopic),
+		PoW:      0.02,
 		WorkTime: 10,
-		Payload: []byte(fmt.Sprintf("hello p2p test network network! %s", id)),
+		Payload:  []byte(fmt.Sprintf("hello p2p test network network! %s", id)),
 	})
 	if err != nil {
 		log.Panicf("error sending: %v", err)
@@ -118,11 +116,11 @@ func doTestNetwork() {
 
 	for {
 		msgs := filter.Retrieve()
-		for _,msg := range msgs {
+		for _, msg := range msgs {
 			log.Printf("topic payload: %v\n", string(msg.Payload))
 		}
 		msgs = p2pFilter.Retrieve()
-		for _,msg := range msgs {
+		for _, msg := range msgs {
 			log.Printf("p2pFilter payload: %v\n", string(msg.Payload))
 		}
 		time.Sleep(1 * time.Second)

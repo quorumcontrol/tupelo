@@ -3,24 +3,25 @@
 package client_test
 
 import (
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/quorumcontrol/qc3/notary"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/client/wallet"
-	"testing"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/quorumcontrol/qc3/bls"
-	"github.com/quorumcontrol/qc3/node"
-	"github.com/quorumcontrol/qc3/client/client"
-	"github.com/ethereum/go-ethereum/crypto"
-	"os"
 	"crypto/ecdsa"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/stretchr/testify/assert"
-	"github.com/quorumcontrol/qc3/storage"
-	"github.com/gogo/protobuf/types"
-	"github.com/quorumcontrol/qc3/mailserver"
+	"os"
+	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/gogo/protobuf/types"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/client/client"
+	"github.com/quorumcontrol/qc3/client/wallet"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"github.com/quorumcontrol/qc3/mailserver"
+	"github.com/quorumcontrol/qc3/node"
+	"github.com/quorumcontrol/qc3/notary"
+	"github.com/quorumcontrol/qc3/storage"
+	"github.com/stretchr/testify/assert"
 )
 
 var blsHexKeys = []string{
@@ -46,32 +47,32 @@ func init() {
 	BlsSignKeys = make([]*bls.SignKey, len(blsHexKeys))
 	EcdsaKeys = make([]*ecdsa.PrivateKey, len(ecdsaHexKeys))
 
-	for i,hex := range blsHexKeys {
+	for i, hex := range blsHexKeys {
 		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(hex))
 	}
 
-	for i,hex := range ecdsaHexKeys {
-		key,_ := crypto.ToECDSA(hexutil.MustDecode(hex))
+	for i, hex := range ecdsaHexKeys {
+		key, _ := crypto.ToECDSA(hexutil.MustDecode(hex))
 		EcdsaKeys[i] = key
 	}
 }
 
 type TestCluster struct {
-	Nodes []*node.WhisperNode
-	Group *notary.Group
+	Nodes       []*node.WhisperNode
+	Group       *notary.Group
 	MailServers []*mailserver.MailServer
 }
 
 func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	keys := make([]*consensuspb.PublicKey, len(BlsSignKeys))
-	for i,key := range BlsSignKeys {
+	for i, key := range BlsSignKeys {
 		keys[i] = consensus.BlsKeyToPublicKey(key.MustVerKey())
 	}
 	group := notary.GroupFromPublicKeys(keys)
 
 	nodes := make([]*node.WhisperNode, len(BlsSignKeys))
 	mailservers := make([]*mailserver.MailServer, len(BlsSignKeys))
-	for i,key := range BlsSignKeys {
+	for i, key := range BlsSignKeys {
 		store := storage.NewMemStorage()
 		chainStore := notary.NewChainStore("testTips", store)
 		signer := notary.NewSigner(chainStore, group, key)
@@ -83,20 +84,20 @@ func NewDefaultTestCluster(t *testing.T) *TestCluster {
 	}
 
 	return &TestCluster{
-		Nodes: nodes,
-		Group: group,
+		Nodes:       nodes,
+		Group:       group,
 		MailServers: mailservers,
 	}
 }
 
 func (tc *TestCluster) Start() {
-	for _,node := range tc.Nodes {
+	for _, node := range tc.Nodes {
 		node.Start()
 	}
 }
 
 func (tc *TestCluster) Stop() {
-	for _,node := range tc.Nodes {
+	for _, node := range tc.Nodes {
 		node.Stop()
 	}
 }
@@ -114,15 +115,15 @@ func TestFullIntegration(t *testing.T) {
 	c.Start()
 	defer c.Stop()
 
-	newChainKey,_ := crypto.GenerateKey()
+	newChainKey, _ := crypto.GenerateKey()
 	log.Debug("creating chain")
-	newChain,err := c.CreateChain(newChainKey)
+	newChain, err := c.CreateChain(newChainKey)
 	assert.Nil(t, err)
 
-	walletChain,err := c.Wallet.GetChain(newChain.Id)
+	walletChain, err := c.Wallet.GetChain(newChain.Id)
 	assert.Nil(t, err)
 
-	isSigned,err := cluster.Group.IsBlockSigned(walletChain.Blocks[len(walletChain.Blocks) - 1])
+	isSigned, err := cluster.Group.IsBlockSigned(walletChain.Blocks[len(walletChain.Blocks)-1])
 	assert.Nil(t, err)
 
 	assert.True(t, isSigned)
@@ -130,13 +131,13 @@ func TestFullIntegration(t *testing.T) {
 	// now test that we can get the proper chain tip back
 	log.Debug("getting chain tip")
 
-	tipChan,err := c.GetTip(newChain.Id)
+	tipChan, err := c.GetTip(newChain.Id)
 	assert.Nil(t, err)
 	assert.NotNil(t, tipChan)
 
 	tip := <-tipChan
-	hsh,err := consensus.BlockToHash(newChain.Blocks[0])
-	assert.Nil(t,err)
+	hsh, err := consensus.BlockToHash(newChain.Blocks[0])
+	assert.Nil(t, err)
 	assert.NotNil(t, tip)
 
 	assert.Equal(t, tip.LastHash, hsh.Bytes())
@@ -154,41 +155,39 @@ func TestFullIntegration(t *testing.T) {
 
 	log.Debug("creating receive chain")
 
-	receiveChainKey,_ := crypto.GenerateKey()
-	receiveChain,err := c.CreateChain(receiveChainKey)
+	receiveChainKey, _ := crypto.GenerateKey()
+	receiveChain, err := c.CreateChain(receiveChainKey)
 	assert.Nil(t, err)
 
 	log.Debug("sending coin")
 	err = c.SendCoin(newChain.Id, receiveChain.Id, "cat_coin", 1)
 	assert.Nil(t, err)
 
-	balances,err := c.Wallet.Balances(newChain.Id)
+	balances, err := c.Wallet.Balances(newChain.Id)
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(99), balances[newChain.Id + ":cat_coin"])
+	assert.Equal(t, uint64(99), balances[newChain.Id+":cat_coin"])
 
 	// now let's get that coin
 	log.Debug("receiving coin")
 	time.Sleep(1 * time.Second)
 	c.SetCurrentIdentity(receiveChainKey)
 
-	messageChan,err := c.GetMessages(receiveChainKey)
+	messageChan, err := c.GetMessages(receiveChainKey)
 	assert.Nil(t, err)
 
 	anyMsg := <-messageChan
 	assert.NotNil(t, anyMsg)
 
-	sendCoinMessage,err := consensus.AnyToObj(anyMsg.(*types.Any))
-	assert.Nil(t,err)
-
+	sendCoinMessage, err := consensus.AnyToObj(anyMsg.(*types.Any))
+	assert.Nil(t, err)
 
 	log.Debug("processing send coin message to receive the coin")
-	done,err := c.ProcessSendCoinMessage(sendCoinMessage.(*consensuspb.SendCoinMessage))
-	assert.Nil(t,err)
+	done, err := c.ProcessSendCoinMessage(sendCoinMessage.(*consensuspb.SendCoinMessage))
+	assert.Nil(t, err)
 	assert.True(t, <-done)
 
-	balances,err = c.Wallet.Balances(receiveChain.Id)
+	balances, err = c.Wallet.Balances(receiveChain.Id)
 	assert.Nil(t, err)
-	assert.Equal(t, uint64(1), balances[newChain.Id + ":cat_coin"])
+	assert.Equal(t, uint64(1), balances[newChain.Id+":cat_coin"])
 
 }
-

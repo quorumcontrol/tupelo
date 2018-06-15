@@ -1,15 +1,16 @@
 package notary
 
 import (
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"bytes"
 	"context"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/gogo/protobuf/proto"
 	"fmt"
 	"reflect"
-	"github.com/quorumcontrol/qc3/consensus"
 	"strings"
-	"bytes"
+
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/gogo/protobuf/proto"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 )
 
 var DefaultTransactorRegistry TransactorRegistry
@@ -24,22 +25,22 @@ const (
 
 type TransactorState struct {
 	MutatableTip *consensuspb.ChainTip
-	Signer *Signer
-	History consensus.History
+	Signer       *Signer
+	History      consensus.History
 	// A block can be mutated (by adding individual transaction signatures)
-	MutatableBlock *consensuspb.Block
-	Transaction *consensuspb.Transaction
+	MutatableBlock   *consensuspb.Block
+	Transaction      *consensuspb.Transaction
 	TypedTransaction interface{}
 }
 
 func init() {
 	DefaultTransactorRegistry = NewTransactorRegistry()
 	DefaultTransactorRegistry[consensuspb.UPDATE_OWNERSHIP] = &TransactorRegistryEntry{
-		Transactor: UpdateOwnershipTransactor,
+		Transactor:  UpdateOwnershipTransactor,
 		Unmarshaler: updateOwnershipTransaction,
 	}
 	DefaultTransactorRegistry[consensuspb.SEND_COIN] = &TransactorRegistryEntry{
-		Transactor: SendCoinTransactor,
+		Transactor:  SendCoinTransactor,
 		Unmarshaler: sendCoinTransaction,
 	}
 	DefaultTransactorRegistry[consensuspb.MINT_COIN] = &TransactorRegistryEntry{
@@ -60,7 +61,7 @@ type Transactor func(ctx context.Context, state *TransactorState) (mutatedState 
 
 type TransactorRegistryEntry struct {
 	Unmarshaler string
-	Transactor Transactor
+	Transactor  Transactor
 }
 
 type TransactorRegistry map[consensuspb.Transaction_TransactionType]*TransactorRegistryEntry
@@ -71,10 +72,10 @@ func NewTransactorRegistry() TransactorRegistry {
 
 func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
 	log.Info("distributing transaction", "id", state.Transaction.Id, "type", state.Transaction.Type)
-	transactorRegistryEntry,ok := tr[state.Transaction.Type]
+	transactorRegistryEntry, ok := tr[state.Transaction.Type]
 	if ok {
 		log.Trace("executing transactor", "id", state.Transaction.Id)
-		typed,err := typedTransactionFrom(state.Transaction, transactorRegistryEntry.Unmarshaler)
+		typed, err := typedTransactionFrom(state.Transaction, transactorRegistryEntry.Unmarshaler)
 		if err != nil {
 			return state, true, fmt.Errorf("error getting typed transaction: %v", err)
 		}
@@ -86,7 +87,7 @@ func (tr TransactorRegistry) Distribute(ctx context.Context, state *TransactorSt
 	return state, false, nil
 }
 
-func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+func UpdateOwnershipTransactor(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
 	transaction := (state.TypedTransaction).(*consensuspb.UpdateOwnershipTransaction)
 	state.MutatableTip.Authorizations = transaction.Authorizations
 	state.MutatableTip.Authentication = transaction.Authentication
@@ -98,39 +99,38 @@ func UpdateOwnershipTransactor (ctx context.Context, state *TransactorState) (mu
 // SendCoinTransactin takes the history, looks back in history to find the last balance block (or all the way back to genesis)
 // it then plays forward to make sure there aren't any send/receive since that balance/genesis and makes sure that the current
 // send is OK... it then will sign this send transaction (if there is enough balance)
-func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
+func SendCoinTransactor(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
 	transactionInQuestion := (state.TypedTransaction).(*consensuspb.SendCoinTransaction)
 
 	// go back in time to the last validated balance transaction or the genesis block, then play up to this transaction
 	history := state.History
 	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
 
-	iterator,err := iteratorAtLastBalanceOrGenerator(transactionInQuestion.Name, state.MutatableBlock, state.Transaction, history)
+	iterator, err := iteratorAtLastBalanceOrGenerator(transactionInQuestion.Name, state.MutatableBlock, state.Transaction, history)
 	if err != nil {
 		return state, true, fmt.Errorf("error getting iterator: %v", err)
 	}
 
-	balance,_,valid,err := balanceAndSpentTransactionsSince(iterator, transactionInQuestion.Name, state)
+	balance, _, valid, err := balanceAndSpentTransactionsSince(iterator, transactionInQuestion.Name, state)
 	if err != nil {
-		return state,true, fmt.Errorf("error iterating over transactions: %v", err)
+		return state, true, fmt.Errorf("error iterating over transactions: %v", err)
 	}
 	if !valid {
 		return state, true, nil
 	}
 
-
 	log.Debug("calculated balance", "balance", balance, "sending", transactionInQuestion.Amount)
 	// now we have a balance, we can see if it's greater than the current spend
 	if balance >= transactionInQuestion.Amount {
 		// if the balance is bigger, we can sign this transaction
-		blck,err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
+		blck, err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
 		if err != nil {
 			return state, true, fmt.Errorf("error signing transaction: %v", err)
 		}
 		state.MutatableBlock = blck
 		return state, false, nil
 	}
-	log.Info("attempted overspend","id", state.Transaction.Id, "balance", balance, "sending", transactionInQuestion.Amount)
+	log.Info("attempted overspend", "id", state.Transaction.Id, "balance", balance, "sending", transactionInQuestion.Amount)
 	// if balance isn't bigger, we should interrupt the signing of this block
 	return state, true, nil
 }
@@ -139,7 +139,7 @@ func SendCoinTransactor (ctx context.Context, state *TransactorState) (mutatedSt
 func MintCoinTransactor(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
 	transactionInQuestion := (state.TypedTransaction).(*consensuspb.MintCoinTransaction)
 	if strings.HasPrefix(transactionInQuestion.Name, state.MutatableTip.Id) {
-		blck,err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
+		blck, err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
 		if err != nil {
 			return state, true, fmt.Errorf("error signing transaction: %v", err)
 		}
@@ -152,7 +152,7 @@ func MintCoinTransactor(ctx context.Context, state *TransactorState) (mutatedSta
 
 func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutatedState *TransactorState, shouldInterrupt bool, err error) {
 	transactionInQuestion := (state.TypedTransaction).(*consensuspb.ReceiveCoinTransaction)
-	_typedSend,err := typedTransactionFrom(transactionInQuestion.SendTransaction, sendCoinTransaction)
+	_typedSend, err := typedTransactionFrom(transactionInQuestion.SendTransaction, sendCoinTransaction)
 	if err != nil {
 		return state, true, fmt.Errorf("error unmarshaling send coin transaction: %v", err)
 	}
@@ -163,8 +163,8 @@ func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutated
 		return state, true, nil
 	}
 
-	if !bytes.Equal(transactionInQuestion.Signature.Memo, []byte("tx:" +transactionInQuestion.SendTransaction.Id)) {
-		log.Error("memo didn't match", "transactionId", state.Transaction.Id, "memo", string(transactionInQuestion.Signature.Memo), "expectedMemo", []byte("tx:" + transactionInQuestion.SendTransaction.Id))
+	if !bytes.Equal(transactionInQuestion.Signature.Memo, []byte("tx:"+transactionInQuestion.SendTransaction.Id)) {
+		log.Error("memo didn't match", "transactionId", state.Transaction.Id, "memo", string(transactionInQuestion.Signature.Memo), "expectedMemo", []byte("tx:"+transactionInQuestion.SendTransaction.Id))
 		return state, true, nil
 	}
 
@@ -173,14 +173,14 @@ func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutated
 		return state, true, nil
 	}
 
-	hsh,err := consensus.TransactionToHash(transactionInQuestion.SendTransaction)
+	hsh, err := consensus.TransactionToHash(transactionInQuestion.SendTransaction)
 	if err != nil {
-		return state, true, fmt.Errorf("error hashing block: %v",err)
+		return state, true, fmt.Errorf("error hashing block: %v", err)
 	}
 
-	isVerified,err := state.Signer.Group.VerifySignature(hsh.Bytes(),transactionInQuestion.Signature)
+	isVerified, err := state.Signer.Group.VerifySignature(hsh.Bytes(), transactionInQuestion.Signature)
 	if err != nil {
-		return state, true, fmt.Errorf("error hashing block: %v",err)
+		return state, true, fmt.Errorf("error hashing block: %v", err)
 	}
 
 	if !isVerified {
@@ -191,14 +191,14 @@ func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutated
 	history := state.History
 	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
 
-	iterator,err := iteratorAtLastBalanceOrGenerator(sendInQuestion.Name, state.MutatableBlock, state.Transaction, history)
+	iterator, err := iteratorAtLastBalanceOrGenerator(sendInQuestion.Name, state.MutatableBlock, state.Transaction, history)
 	if err != nil {
 		return state, true, fmt.Errorf("error getting iterator: %v", err)
 	}
 
-	_,spentTransactions,valid, err := balanceAndSpentTransactionsSince(iterator, sendInQuestion.Name, state)
+	_, spentTransactions, valid, err := balanceAndSpentTransactionsSince(iterator, sendInQuestion.Name, state)
 	if err != nil {
-		return state,true, fmt.Errorf("error iterating over transactions: %v", err)
+		return state, true, fmt.Errorf("error iterating over transactions: %v", err)
 	}
 	if !valid {
 		return state, true, nil
@@ -209,14 +209,14 @@ func ReceiveCoinTransactor(ctx context.Context, state *TransactorState) (mutated
 	if !hasId(spentTransactions, sendInQuestion.Id) {
 		log.Debug("send id is not spent", "transactionId", state.Transaction.Id)
 		// if the balance is bigger, we can sign this transaction
-		blck,err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
+		blck, err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
 		if err != nil {
 			return state, true, fmt.Errorf("error signing transaction: %v", err)
 		}
 		state.MutatableBlock = blck
 		return state, false, nil
 	}
-	log.Info("attempted double spend","id", state.Transaction.Id, "sendTransactionId", sendInQuestion.Id, "receiving", sendInQuestion.Amount)
+	log.Info("attempted double spend", "id", state.Transaction.Id, "sendTransactionId", sendInQuestion.Id, "receiving", sendInQuestion.Amount)
 	// if balance isn't bigger, we should interrupt the signing of this block
 	return state, true, nil
 }
@@ -227,15 +227,15 @@ func BalanceTransactor(ctx context.Context, state *TransactorState) (mutatedStat
 	history := state.History
 	history.StoreBlocks([]*consensuspb.Block{state.MutatableBlock})
 
-	iterator,err := iteratorAtLastBalanceOrGenerator(transactionInQuestion.Name, state.MutatableBlock, state.Transaction, history)
+	iterator, err := iteratorAtLastBalanceOrGenerator(transactionInQuestion.Name, state.MutatableBlock, state.Transaction, history)
 	if err != nil {
 		return state, true, fmt.Errorf("error getting iterator: %v", err)
 	}
 
-	balance,spentTransactions,valid, err := balanceAndSpentTransactionsSince(iterator, transactionInQuestion.Name, state)
+	balance, spentTransactions, valid, err := balanceAndSpentTransactionsSince(iterator, transactionInQuestion.Name, state)
 	if err != nil {
 		log.Error("error iterating over transactions", "error", err)
-		return state,true, fmt.Errorf("error iterating over transactions: %v", err)
+		return state, true, fmt.Errorf("error iterating over transactions: %v", err)
 	}
 	if !valid {
 		log.Error("invalid transaction")
@@ -253,14 +253,13 @@ func BalanceTransactor(ctx context.Context, state *TransactorState) (mutatedStat
 	}
 
 	log.Debug("signing transaction")
-	blck,err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
+	blck, err := state.Signer.SignTransaction(ctx, state.MutatableBlock, state.Transaction)
 	if err != nil {
 		return state, true, fmt.Errorf("error signing transaction: %v", err)
 	}
 	state.MutatableBlock = blck
 	return state, false, nil
 }
-
 
 func iteratorAtLastBalanceOrGenerator(coinName string, currentBlock *consensuspb.Block, transaction *consensuspb.Transaction, history consensus.History) (consensus.TransactionIterator, error) {
 	var lastSeenTransaction *consensuspb.Transaction
@@ -276,7 +275,7 @@ func iteratorAtLastBalanceOrGenerator(coinName string, currentBlock *consensuspb
 		lastSeenTransaction = iterator.Transaction()
 
 		if lastSeenTransaction.Type == consensuspb.BALANCE {
-			typed,err := typedTransactionFrom(lastSeenTransaction, balanceTransaction)
+			typed, err := typedTransactionFrom(lastSeenTransaction, balanceTransaction)
 			if err != nil {
 				return nil, fmt.Errorf("error getting typed transaction: %v", err)
 			}
@@ -296,7 +295,7 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 	// if there is a balance transaction, see if it's been signed
 	if iterator.Transaction().Type == consensuspb.BALANCE {
 		// is the transaction signed?
-		isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), iterator.Transaction())
+		isSigned, err := isTransactionAppoved(state.Signer, iterator.Block(), iterator.Transaction())
 		if err != nil {
 			log.Error("iterated transaction had error getting approved", "transactionId", iterator.Transaction().Id)
 			return 0, nil, false, fmt.Errorf("error getting is signed: %v", err)
@@ -306,10 +305,10 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 			return 0, nil, false, nil
 		}
 
-		typed,err := typedTransactionFrom(iterator.Transaction(), balanceTransaction)
+		typed, err := typedTransactionFrom(iterator.Transaction(), balanceTransaction)
 		if err != nil {
 			log.Error("iterated transaction had error getting typed transactio", "transactionId", iterator.Transaction().Id)
-			return 0,nil, false, fmt.Errorf("error getting typed transaction: %v", err)
+			return 0, nil, false, fmt.Errorf("error getting typed transaction: %v", err)
 		}
 		typedLastBalance := (typed).(*consensuspb.BalanceTransaction)
 
@@ -320,7 +319,7 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 		// if there is not a last balance transaction, then the last block in history *must* be a genesis block
 		if iterator.Block().SignableBlock.Sequence != 0 {
 			log.Error("did not receive genesis or balance")
-			return 0,nil, false, nil
+			return 0, nil, false, nil
 		}
 	}
 	// get most recent balance transaction and/or go all the way back to genesis
@@ -329,17 +328,17 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 		transaction := iterator.Transaction()
 		log.Debug("iterating transaction", "transactionId", transaction.Id, "type", transaction.Type)
 		if transaction.Type == consensuspb.RECEIVE_COIN {
-			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
+			isSigned, err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
 			if !isSigned {
 				return 0, nil, false, fmt.Errorf("receive coin was unsigned: %v", err)
 			}
-			_typedReceived,err := typedTransactionFrom(transaction, receiveCoinTransaction)
+			_typedReceived, err := typedTransactionFrom(transaction, receiveCoinTransaction)
 			if err != nil {
-				return 0, nil,false, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
+				return 0, nil, false, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
 			}
 			typedReceived := _typedReceived.(*consensuspb.ReceiveCoinTransaction)
 
-			_typedSend,err := typedTransactionFrom(typedReceived.SendTransaction, sendCoinTransaction)
+			_typedSend, err := typedTransactionFrom(typedReceived.SendTransaction, sendCoinTransaction)
 			if err != nil {
 				return 0, nil, false, fmt.Errorf("error unmarshaling send coin transaction: %v", err)
 			}
@@ -351,13 +350,13 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 			}
 		}
 		if transaction.Type == consensuspb.MINT_COIN {
-			isSigned,err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
+			isSigned, err := isTransactionAppoved(state.Signer, iterator.Block(), transaction)
 			if !isSigned {
 				log.Error("iterated transaction had unsigned transaction", "transactionId", iterator.Transaction().Id, "type", iterator.Transaction().Type)
 				return 0, nil, false, nil
 			}
 			log.Debug("mint transaction is approved")
-			_typed,err := typedTransactionFrom(transaction, mintCoinTransaction)
+			_typed, err := typedTransactionFrom(transaction, mintCoinTransaction)
 			if err != nil {
 				return 0, nil, false, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
 			}
@@ -372,9 +371,9 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 			// we don't even check to see if a send coin is signed, because it's a negative balance so
 			// the user isn't incentivized to cheat here
 
-			_typed,err := typedTransactionFrom(transaction, sendCoinTransaction)
+			_typed, err := typedTransactionFrom(transaction, sendCoinTransaction)
 			if err != nil {
-				return 0,nil, false, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
+				return 0, nil, false, fmt.Errorf("error unmarshaling receive coin transaction: %v", err)
 			}
 			typed := _typed.(*consensuspb.SendCoinTransaction)
 
@@ -386,11 +385,11 @@ func balanceAndSpentTransactionsSince(iterator consensus.TransactionIterator, co
 		log.Debug("next iterator", "transactionId", iterator.Transaction().Id, "type", iterator.Transaction().Type)
 	}
 
-	return balance,spentTransactions, true,nil
+	return balance, spentTransactions, true, nil
 }
 
 func hasId(ids []string, id string) bool {
-	for _,str := range ids {
+	for _, str := range ids {
 		if str == id {
 			return true
 		}
@@ -401,23 +400,23 @@ func hasId(ids []string, id string) bool {
 // if the block is signed by the group then we can assume the transaction is ok
 // otherwise if an individual transaction is signed by the group *or* this individual signer,
 // we can also assert it's already been through the process of checking on this node.
-func isTransactionAppoved(signer *Signer, block *consensuspb.Block, transaction *consensuspb.Transaction) (bool,error) {
-	isSigned,err := signer.Group.IsBlockSigned(block)
+func isTransactionAppoved(signer *Signer, block *consensuspb.Block, transaction *consensuspb.Transaction) (bool, error) {
+	isSigned, err := signer.Group.IsBlockSigned(block)
 	if err != nil {
 		return false, fmt.Errorf("error getting isSigned: %v", err)
 	}
 	if isSigned {
 		return true, nil
 	} else {
-		isSigned,err := signer.IsTransactionSigned(block, transaction)
+		isSigned, err := signer.IsTransactionSigned(block, transaction)
 		if err != nil {
 			return false, fmt.Errorf("error getting isSigned: %v", err)
 		}
-		return isSigned,nil
+		return isSigned, nil
 	}
 }
 
-func typedTransactionFrom(transaction *consensuspb.Transaction, messageType string) (interface{},error) {
+func typedTransactionFrom(transaction *consensuspb.Transaction, messageType string) (interface{}, error) {
 	instanceType := proto.MessageType(messageType)
 	// instanceType will be a pointer type, so call Elem() to get the original Type and then interface
 	// so that we can change it to the kind of object we want
@@ -451,4 +450,3 @@ func areSlicesEqual(a, b []string) bool {
 
 	return true
 }
-

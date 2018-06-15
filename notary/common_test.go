@@ -1,34 +1,35 @@
 package notary_test
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
-	"testing"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/consensus"
 	"crypto/ecdsa"
-	"github.com/quorumcontrol/qc3/notary"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
-	"github.com/stretchr/testify/assert"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
+	"github.com/quorumcontrol/qc3/notary"
 	"github.com/quorumcontrol/qc3/storage"
+	"github.com/stretchr/testify/assert"
 )
 
-var aliceKey,_ = crypto.GenerateKey()
+var aliceKey, _ = crypto.GenerateKey()
 var aliceAddr = crypto.PubkeyToAddress(aliceKey.PublicKey)
 
-var bobKey,_ = crypto.GenerateKey()
+var bobKey, _ = crypto.GenerateKey()
 var bobAddr = crypto.PubkeyToAddress(bobKey.PublicKey)
 
-var carolKey,_ = crypto.GenerateKey()
+var carolKey, _ = crypto.GenerateKey()
 var carolAddr = crypto.PubkeyToAddress(carolKey.PublicKey)
 
-func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block) {
+func createBlock(t *testing.T, prevBlock *consensuspb.Block) *consensuspb.Block {
 	retBlock := &consensuspb.Block{
 		SignableBlock: &consensuspb.SignableBlock{
 			Sequence: 0,
-			ChainId: consensus.AddrToDid(aliceAddr.Hex()),
+			ChainId:  consensus.AddrToDid(aliceAddr.Hex()),
 			Transactions: []*consensuspb.Transaction{
 				{
-					Type: consensuspb.ADD_DATA,
+					Type:    consensuspb.ADD_DATA,
 					Payload: []byte("new data"),
 				},
 			},
@@ -36,7 +37,7 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 	}
 
 	if prevBlock != nil {
-		prevHash,err := consensus.BlockToHash(prevBlock)
+		prevHash, err := consensus.BlockToHash(prevBlock)
 		if err != nil {
 			t.Fatalf("error getting hash of previous block: %v", err)
 		}
@@ -47,17 +48,17 @@ func createBlock(t *testing.T, prevBlock *consensuspb.Block) (*consensuspb.Block
 	return retBlock
 }
 
-func createBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction, prevBlock *consensuspb.Block) (*consensuspb.Block) {
+func createBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction, prevBlock *consensuspb.Block) *consensuspb.Block {
 	retBlock := &consensuspb.Block{
 		SignableBlock: &consensuspb.SignableBlock{
-			Sequence: 0,
-			ChainId: consensus.AddrToDid(aliceAddr.Hex()),
+			Sequence:     0,
+			ChainId:      consensus.AddrToDid(aliceAddr.Hex()),
 			Transactions: trans,
 		},
 	}
 
 	if prevBlock != nil {
-		prevHash,err := consensus.BlockToHash(prevBlock)
+		prevHash, err := consensus.BlockToHash(prevBlock)
 		if err != nil {
 			t.Fatalf("error getting hash of previous block: %v", err)
 		}
@@ -68,17 +69,17 @@ func createBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction,
 	return retBlock
 }
 
-func createBobBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction, prevBlock *consensuspb.Block) (*consensuspb.Block) {
+func createBobBlockWithTransactions(t *testing.T, trans []*consensuspb.Transaction, prevBlock *consensuspb.Block) *consensuspb.Block {
 	retBlock := &consensuspb.Block{
 		SignableBlock: &consensuspb.SignableBlock{
-			Sequence: 0,
-			ChainId: consensus.AddrToDid(bobAddr.Hex()),
+			Sequence:     0,
+			ChainId:      consensus.AddrToDid(bobAddr.Hex()),
 			Transactions: trans,
 		},
 	}
 
 	if prevBlock != nil {
-		prevHash,err := consensus.BlockToHash(prevBlock)
+		prevHash, err := consensus.BlockToHash(prevBlock)
 		if err != nil {
 			t.Fatalf("error getting hash of previous block: %v", err)
 		}
@@ -94,7 +95,7 @@ func chainFromEcdsaKey(t *testing.T, key *ecdsa.PublicKey) *consensuspb.Chain {
 }
 
 func defaultNotary(t *testing.T) *notary.Signer {
-	key,err := bls.NewSignKey()
+	key, err := bls.NewSignKey()
 	assert.Nil(t, err)
 
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())

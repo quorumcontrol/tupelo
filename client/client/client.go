@@ -1,47 +1,48 @@
 package client
 
 import (
-	"github.com/quorumcontrol/qc3/notary"
 	"crypto/ecdsa"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
-	"github.com/quorumcontrol/qc3/network"
-	"github.com/ethereum/go-ethereum/crypto"
-	"time"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/gogo/protobuf/proto"
 	"fmt"
+	"sync"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/google/uuid"
 	"github.com/quorumcontrol/qc3/client/wallet"
-	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
-	"github.com/ethereum/go-ethereum/rlp"
-	"sync"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"github.com/quorumcontrol/qc3/mailserver"
-	"github.com/gogo/protobuf/types"
+	"github.com/quorumcontrol/qc3/mailserver/mailserverpb"
+	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/notary"
 )
 
 type Client struct {
-	Group *notary.Group
-	Wallet wallet.Wallet
+	Group           *notary.Group
+	Wallet          wallet.Wallet
 	currentIdentity *ecdsa.PrivateKey
-	filter *whisper.Filter
-	sessionKey *ecdsa.PrivateKey
-	stopChan chan bool
-	whisper *whisper.Whisper
-	protocols map[string]chan *consensuspb.ProtocolResponse
+	filter          *whisper.Filter
+	sessionKey      *ecdsa.PrivateKey
+	stopChan        chan bool
+	whisper         *whisper.Whisper
+	protocols       map[string]chan *consensuspb.ProtocolResponse
 }
 
 func NewClient(group *notary.Group, walletImpl wallet.Wallet) *Client {
-	sessionKey,_ := crypto.GenerateKey()
+	sessionKey, _ := crypto.GenerateKey()
 	return &Client{
-		Group: group,
-		Wallet: walletImpl,
-		stopChan: make(chan bool),
-		filter: network.NewP2PFilter(sessionKey),
+		Group:      group,
+		Wallet:     walletImpl,
+		stopChan:   make(chan bool),
+		filter:     network.NewP2PFilter(sessionKey),
 		sessionKey: sessionKey,
-		protocols: make(map[string]chan *consensuspb.ProtocolResponse),
+		protocols:  make(map[string]chan *consensuspb.ProtocolResponse),
 	}
 }
 
@@ -61,7 +62,7 @@ func (c *Client) Start() {
 			select {
 			case <-ticker.C:
 				msgs := c.filter.Retrieve()
-				for _,msg := range msgs {
+				for _, msg := range msgs {
 					c.handleMessage(msg)
 				}
 			case <-c.stopChan:
@@ -74,7 +75,7 @@ func (c *Client) Start() {
 }
 
 func (c *Client) Stop() {
-	c.stopChan<-true
+	c.stopChan <- true
 }
 
 func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
@@ -86,30 +87,29 @@ func (c *Client) handleMessage(msg *whisper.ReceivedMessage) {
 		return
 	}
 
-	channel,ok := c.protocols[resp.Id]
+	channel, ok := c.protocols[resp.Id]
 	if !ok {
 		log.Error("received response for unknown protocol", "id", resp.Id)
 		return
 	}
 
-	channel<-resp
+	channel <- resp
 }
 
-
 func (c *Client) Broadcast(symKey []byte, msg proto.Message) error {
-	payload,err := proto.Marshal(msg)
+	payload, err := proto.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("error marshaling any: %v", err)
 	}
 
 	return network.Send(c.whisper, &whisper.MessageParams{
-		TTL: 60, // 1 minute TODO: what are the right TTL settings?
-		KeySym: symKey,
-		Topic: whisper.BytesToTopic(network.CothorityTopic),
-		PoW: .02,  // TODO: what are the right settings for PoW?
+		TTL:      60, // 1 minute TODO: what are the right TTL settings?
+		KeySym:   symKey,
+		Topic:    whisper.BytesToTopic(network.CothorityTopic),
+		PoW:      .02, // TODO: what are the right settings for PoW?
 		WorkTime: 10,
-		Payload: payload,
-		Src: c.sessionKey,
+		Payload:  payload,
+		Src:      c.sessionKey,
 	})
 }
 
@@ -132,7 +132,7 @@ func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error
 		return nil, fmt.Errorf("error sending: %v", err)
 	}
 
-	retChan := make(chan proto.Message, len(c.Group.SortedPublicKeys) + 1)
+	retChan := make(chan proto.Message, len(c.Group.SortedPublicKeys)+1)
 
 	deDuper := &sync.Map{}
 
@@ -140,62 +140,62 @@ func (c *Client) GetMessages(agent *ecdsa.PrivateKey) (chan proto.Message, error
 		timeout := time.NewTimer(10000 * time.Millisecond)
 		for {
 			select {
-				case <-timeout.C:
-					log.Debug("timeout received on get messages")
-					return
-				case resp := <- respChan:
-					log.Debug("get messages received", "resp", resp)
+			case <-timeout.C:
+				log.Debug("timeout received on get messages")
+				return
+			case resp := <-respChan:
+				log.Debug("get messages received", "resp", resp)
 
-					_,existed := deDuper.LoadOrStore(crypto.Keccak256Hash(resp.Response.Value).String(), true)
+				_, existed := deDuper.LoadOrStore(crypto.Keccak256Hash(resp.Response.Value).String(), true)
 
-					if existed {
-						log.Debug("message duplicate received")
-					} else {
-						log.Debug("new message, processing and acking")
-						replayMsg,err := consensus.AnyToObj(resp.Response)
-						if err != nil {
-							log.Error("error converting response", "error", err)
-							continue
-						}
-						replayResponse := replayMsg.(*mailserverpb.ReplayResponse)
-						env,err := mailserver.EnvFromBytes(replayResponse.Envelope)
-						if err != nil {
-							log.Error("error getting envelope", "error", err)
-							continue
-						}
-
-						msg,err := env.OpenAsymmetric(agent)
-						if err != nil {
-							log.Error("error opening envelope", "error", err)
-							continue
-						}
-						isValidated := msg.Validate()
-						log.Debug("message validation", "validated", isValidated)
-
-						any := &types.Any{}
-						err = proto.Unmarshal(msg.Payload, any)
-						if err != nil {
-							log.Error("error unmarshaling payload", "error", err)
-							continue
-						}
-
-						log.Debug("acking message")
-						ack := &mailserverpb.AckEnvelope{
-							Destination:  crypto.FromECDSAPub(&agent.PublicKey),
-							EnvelopeHash: env.Hash().Bytes(),
-						}
-
-						req := msgToProtocolRequest(ack)
-
-						err = c.Broadcast(mailserver.AlphaMailServerKey, req)
-
-						if err != nil {
-							log.Error("error sending", "error",err)
-							continue
-						}
-
-						retChan<-any
+				if existed {
+					log.Debug("message duplicate received")
+				} else {
+					log.Debug("new message, processing and acking")
+					replayMsg, err := consensus.AnyToObj(resp.Response)
+					if err != nil {
+						log.Error("error converting response", "error", err)
+						continue
 					}
+					replayResponse := replayMsg.(*mailserverpb.ReplayResponse)
+					env, err := mailserver.EnvFromBytes(replayResponse.Envelope)
+					if err != nil {
+						log.Error("error getting envelope", "error", err)
+						continue
+					}
+
+					msg, err := env.OpenAsymmetric(agent)
+					if err != nil {
+						log.Error("error opening envelope", "error", err)
+						continue
+					}
+					isValidated := msg.Validate()
+					log.Debug("message validation", "validated", isValidated)
+
+					any := &types.Any{}
+					err = proto.Unmarshal(msg.Payload, any)
+					if err != nil {
+						log.Error("error unmarshaling payload", "error", err)
+						continue
+					}
+
+					log.Debug("acking message")
+					ack := &mailserverpb.AckEnvelope{
+						Destination:  crypto.FromECDSAPub(&agent.PublicKey),
+						EnvelopeHash: env.Hash().Bytes(),
+					}
+
+					req := msgToProtocolRequest(ack)
+
+					err = c.Broadcast(mailserver.AlphaMailServerKey, req)
+
+					if err != nil {
+						log.Error("error sending", "error", err)
+						continue
+					}
+
+					retChan <- any
+				}
 			}
 		}
 	}()
@@ -212,7 +212,7 @@ func (c *Client) ProcessSendCoinMessage(sendCoinMessage *consensuspb.SendCoinMes
 	sendCoinTransaction := &consensuspb.SendCoinTransaction{}
 	proto.Unmarshal(transaction.Payload, sendCoinTransaction)
 
-	existing,err := c.Wallet.GetChain(sendCoinTransaction.Destination)
+	existing, err := c.Wallet.GetChain(sendCoinTransaction.Destination)
 	if err != nil {
 		log.Error("error getting chain", "error", err)
 		return nil, fmt.Errorf("error getting existing chain: %v", err)
@@ -220,15 +220,15 @@ func (c *Client) ProcessSendCoinMessage(sendCoinMessage *consensuspb.SendCoinMes
 
 	receiveCoinTransaction := consensus.EncapsulateTransaction(consensuspb.RECEIVE_COIN, &consensuspb.ReceiveCoinTransaction{
 		SendTransaction: transaction,
-		Signature: sendCoinMessage.Signature,
+		Signature:       sendCoinMessage.Signature,
 	})
 
-	block,err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{receiveCoinTransaction}, existing.Blocks[len(existing.Blocks)-1])
+	block, err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{receiveCoinTransaction}, existing.Blocks[len(existing.Blocks)-1])
 	if err != nil {
 		return nil, fmt.Errorf("error creating new blocK: %v", err)
 	}
 
-	signed,err := consensus.OwnerSignBlock(block, c.currentIdentity)
+	signed, err := consensus.OwnerSignBlock(block, c.currentIdentity)
 	if err != nil {
 		return nil, fmt.Errorf("error creating current identity: %v", err)
 	}
@@ -246,7 +246,6 @@ func (c *Client) ProcessSendCoinMessage(sendCoinMessage *consensuspb.SendCoinMes
 
 }
 
-
 // BUG: I think this has a bug when requesting multiple blocks to be signed
 // where we're only counting responses and the signers could be sending one
 // block at a time
@@ -257,8 +256,8 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 	responseKey := crypto.FromECDSAPub(&c.sessionKey.PublicKey)
 
 	signRequest := &consensuspb.SignatureRequest{
-		Blocks: blocks,
-		Histories: histories,
+		Blocks:      blocks,
+		Histories:   histories,
 		ResponseKey: responseKey,
 	}
 
@@ -284,21 +283,21 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 	go func() {
 		for {
 			select {
-			case protocolResponse := <- respChan:
-				_signatureResponse,err := consensus.AnyToObj(protocolResponse.Response)
+			case protocolResponse := <-respChan:
+				_signatureResponse, err := consensus.AnyToObj(protocolResponse.Response)
 				if err != nil {
 					log.Error("error converting protocol response", "error", err)
 				}
 				resp := _signatureResponse.(*consensuspb.SignatureResponse)
-				existing,err := c.Wallet.GetChain(resp.Block.SignableBlock.ChainId)
+				existing, err := c.Wallet.GetChain(resp.Block.SignableBlock.ChainId)
 				if err != nil {
 					log.Error("error getting chain", "error", err)
 					return
 				}
 				if existing != nil {
 					log.Info("appending signatures to block", "signatures", resp.Block.Signatures, "transactionSignatures", resp.Block.TransactionSignatures)
-					existing.Blocks[len(existing.Blocks) - 1].Signatures = append(existing.Blocks[len(existing.Blocks) - 1].Signatures, resp.Block.Signatures...)
-					existing.Blocks[len(existing.Blocks) - 1].TransactionSignatures = append(existing.Blocks[len(existing.Blocks) - 1].TransactionSignatures, resp.Block.TransactionSignatures...)
+					existing.Blocks[len(existing.Blocks)-1].Signatures = append(existing.Blocks[len(existing.Blocks)-1].Signatures, resp.Block.Signatures...)
+					existing.Blocks[len(existing.Blocks)-1].TransactionSignatures = append(existing.Blocks[len(existing.Blocks)-1].TransactionSignatures, resp.Block.TransactionSignatures...)
 					c.Wallet.SetChain(existing.Id, existing)
 				} else {
 					log.Error("received block for unknown chain", "chainId", resp.Block.SignableBlock.ChainId)
@@ -310,12 +309,12 @@ func (c *Client) RequestSignature(blocks []*consensuspb.Block, histories []*cons
 
 				if len(responses) == len(c.Group.SortedPublicKeys) {
 					log.Debug("All Responses In", "id", resp.SignerId)
-					_,err = c.Group.ReplaceSignatures(existing.Blocks[len(existing.Blocks) - 1])
+					_, err = c.Group.ReplaceSignatures(existing.Blocks[len(existing.Blocks)-1])
 					if err != nil {
 						log.Error("error replacing signatures", "error", err)
 					}
 					c.Wallet.SetChain(existing.Id, existing)
-					returnChan<-true
+					returnChan <- true
 					return
 				}
 
@@ -332,7 +331,7 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 	chain := consensus.ChainFromEcdsaKey(&key.PublicKey)
 	chain.Blocks = append(chain.Blocks, &consensuspb.Block{
 		SignableBlock: &consensuspb.SignableBlock{
-			ChainId: chain.Id,
+			ChainId:  chain.Id,
 			Sequence: 0,
 			Transactions: []*consensuspb.Transaction{
 				consensus.EncapsulateTransaction(consensuspb.UPDATE_OWNERSHIP, &consensuspb.UpdateOwnershipTransaction{
@@ -362,7 +361,7 @@ func (c *Client) CreateChain(key *ecdsa.PrivateKey) (*consensuspb.Chain, error) 
 }
 
 func (c *Client) MintCoin(chainId, coinName string, amount int) (chan bool, error) {
-	existing,err := c.Wallet.GetChain(chainId)
+	existing, err := c.Wallet.GetChain(chainId)
 	if err != nil {
 		log.Error("error getting chain", "error", err)
 		return nil, fmt.Errorf("error getting existing chain: %v", err)
@@ -370,15 +369,15 @@ func (c *Client) MintCoin(chainId, coinName string, amount int) (chan bool, erro
 
 	coinTransaction := consensus.EncapsulateTransaction(consensuspb.MINT_COIN, &consensuspb.MintCoinTransaction{
 		Amount: uint64(amount),
-		Name: existing.Id + ":" + coinName,
+		Name:   existing.Id + ":" + coinName,
 	})
 
-	block,err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{coinTransaction}, existing.Blocks[len(existing.Blocks)-1])
+	block, err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{coinTransaction}, existing.Blocks[len(existing.Blocks)-1])
 	if err != nil {
 		return nil, fmt.Errorf("error creating new blocK: %v", err)
 	}
 
-	signed,err := consensus.OwnerSignBlock(block, c.currentIdentity)
+	signed, err := consensus.OwnerSignBlock(block, c.currentIdentity)
 	if err != nil {
 		return nil, fmt.Errorf("error creating current identity: %v", err)
 	}
@@ -394,8 +393,8 @@ func (c *Client) MintCoin(chainId, coinName string, amount int) (chan bool, erro
 	return respChan, nil
 }
 
-func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (error) {
-	destinationTipChan,err := c.GetTip(destination)
+func (c *Client) SendCoin(chainId, destination, coinName string, amount int) error {
+	destinationTipChan, err := c.GetTip(destination)
 	if err != nil {
 		return fmt.Errorf("error getting destination: %v", err)
 	}
@@ -406,24 +405,24 @@ func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (er
 		return fmt.Errorf("destination must have an agent to prevent money loss")
 	}
 
-	existing,err := c.Wallet.GetChain(chainId)
+	existing, err := c.Wallet.GetChain(chainId)
 	if err != nil {
 		log.Error("error getting chain", "error", err)
 		return fmt.Errorf("error getting existing chain: %v", err)
 	}
 
 	sendTransaction := consensus.EncapsulateTransaction(consensuspb.SEND_COIN, &consensuspb.SendCoinTransaction{
-		Amount: uint64(amount),
-		Name: existing.Id + ":" + coinName,
+		Amount:      uint64(amount),
+		Name:        existing.Id + ":" + coinName,
 		Destination: destination,
 	})
 
-	block,err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{sendTransaction}, existing.Blocks[len(existing.Blocks)-1])
+	block, err := consensus.BlockWithTransactions(existing.Id, []*consensuspb.Transaction{sendTransaction}, existing.Blocks[len(existing.Blocks)-1])
 	if err != nil {
 		return fmt.Errorf("error creating new blocK: %v", err)
 	}
 
-	signed,err := consensus.OwnerSignBlock(block, c.currentIdentity)
+	signed, err := consensus.OwnerSignBlock(block, c.currentIdentity)
 	if err != nil {
 		return fmt.Errorf("error creating current identity: %v", err)
 	}
@@ -439,7 +438,7 @@ func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (er
 
 	// now we send the send coin to our destination
 
-	existing,err = c.Wallet.GetChain(chainId)
+	existing, err = c.Wallet.GetChain(chainId)
 	if err != nil {
 		log.Error("error getting chain", "error", err)
 		return fmt.Errorf("error getting existing chain: %v", err)
@@ -449,12 +448,12 @@ func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (er
 
 	// get the transaction signature
 	sigs := consensus.TransactionSignaturesByMemo(existing.Blocks[len(existing.Blocks)-1])
-	sig := sigs[hexutil.Encode([]byte("tx:" + sendTransaction.Id))]
+	sig := sigs[hexutil.Encode([]byte("tx:"+sendTransaction.Id))]
 
 	msg := &consensuspb.SendCoinMessage{
 		Transaction: sendTransaction,
-		Signature: sig[0],
-		Memo: []byte("you got some alpha coins"),
+		Signature:   sig[0],
+		Memo:        []byte("you got some alpha coins"),
 	}
 
 	log.Debug("sending the payment to the agent of the destination", "agent", destinationTip.Agent)
@@ -464,7 +463,6 @@ func (c *Client) SendCoin(chainId, destination, coinName string, amount int) (er
 		log.Error("error sending message", "error", err)
 		return fmt.Errorf("error sending message: %v", err)
 	}
-
 
 	return nil
 }
@@ -494,14 +492,13 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 	go func() {
 		for {
 			select {
-			case protocolResponse := <- respChan:
-				_chainTip,err := consensus.AnyToObj(protocolResponse.Response)
+			case protocolResponse := <-respChan:
+				_chainTip, err := consensus.AnyToObj(protocolResponse.Response)
 				if err != nil {
 					log.Error("error converting protocol response", "error", err)
 				}
 				chainTip := _chainTip.(*consensuspb.ChainTip)
 				log.Debug("received chain tip response", "chainTip", chainTip)
-
 
 				respMutex.Lock()
 				responses = append(responses, chainTip)
@@ -520,7 +517,7 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 
 				if len(responses) == len(c.Group.SortedPublicKeys) {
 					log.Debug("All Responses In", "id", chainTip.Id)
-					chainTipChan<- chainTip
+					chainTipChan <- chainTip
 					close(chainTipChan)
 					return
 				} else {
@@ -536,34 +533,34 @@ func (c *Client) GetTip(chainId string) (chan *consensuspb.ChainTip, error) {
 	return chainTipChan, nil
 }
 
-func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, msg proto.Message) (error) {
+func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, msg proto.Message) error {
 	any := consensus.ObjToAny(msg)
 
-	payload,err := proto.Marshal(any)
+	payload, err := proto.Marshal(any)
 	if err != nil {
 		return fmt.Errorf("error marshaling any: %v", err)
 	}
 
 	params := &whisper.MessageParams{
-		TTL: 60,
-		Dst: destKey,
-		Topic: whisper.BytesToTopic(network.CothorityTopic),
-		PoW: .02,  // TODO: what are the right settings for PoW?
+		TTL:      60,
+		Dst:      destKey,
+		Topic:    whisper.BytesToTopic(network.CothorityTopic),
+		PoW:      .02, // TODO: what are the right settings for PoW?
 		WorkTime: 10,
-		Payload: payload,
+		Payload:  payload,
 	}
-	innerMsg,err := whisper.NewSentMessage(params)
-	env,err := innerMsg.Wrap(params)
+	innerMsg, err := whisper.NewSentMessage(params)
+	env, err := innerMsg.Wrap(params)
 	if err != nil {
 		return fmt.Errorf("error wrapping: %v", err)
 	}
-	envBytes,err := rlp.EncodeToBytes(env)
+	envBytes, err := rlp.EncodeToBytes(env)
 	if err != nil {
 		return fmt.Errorf("error encoding: %v", err)
 	}
 
 	nestedEnvelope := &mailserverpb.NestedEnvelope{
-		Envelope: envBytes,
+		Envelope:    envBytes,
 		Destination: crypto.FromECDSAPub(destKey),
 	}
 
@@ -574,7 +571,7 @@ func (c *Client) SendMessage(symKeyForAgent []byte, destKey *ecdsa.PublicKey, ms
 
 func msgToProtocolRequest(msg proto.Message) *consensuspb.ProtocolRequest {
 	return &consensuspb.ProtocolRequest{
-		Id: uuid.New().String(),
+		Id:      uuid.New().String(),
 		Request: consensus.ObjToAny(msg),
 	}
 }

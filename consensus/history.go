@@ -1,20 +1,21 @@
 package consensus
 
 import (
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/qc3/consensus/consensuspb"
 )
 
 type History interface {
 	StoreBlocks([]*consensuspb.Block) error
-	GetBlock(hsh []byte) (*consensuspb.Block)
-	NextBlock(hsh []byte) (*consensuspb.Block)
-	Length() (uint64)
-	Blocks() ([]*consensuspb.Block)
-	PrevBlock(hsh []byte) (*consensuspb.Block)
-	IteratorFrom(block *consensuspb.Block, transaction *consensuspb.Transaction) (TransactionIterator)
+	GetBlock(hsh []byte) *consensuspb.Block
+	NextBlock(hsh []byte) *consensuspb.Block
+	Length() uint64
+	Blocks() []*consensuspb.Block
+	PrevBlock(hsh []byte) *consensuspb.Block
+	IteratorFrom(block *consensuspb.Block, transaction *consensuspb.Transaction) TransactionIterator
 }
 
 type TransactionIterator interface {
@@ -25,14 +26,14 @@ type TransactionIterator interface {
 }
 
 type memoryTransactionIterator struct {
-	blockHash []byte
+	blockHash        []byte
 	transactionIndex int
-	history History
-	transaction *consensuspb.Transaction
+	history          History
+	transaction      *consensuspb.Transaction
 }
 
 type memoryHistoryStore struct {
-	blocks map[string]*consensuspb.Block
+	blocks         map[string]*consensuspb.Block
 	forwardMapping map[string]string
 }
 
@@ -41,15 +42,15 @@ var _ History = (*memoryHistoryStore)(nil)
 
 func NewMemoryHistoryStore() *memoryHistoryStore {
 	return &memoryHistoryStore{
-		blocks: make(map[string]*consensuspb.Block),
+		blocks:         make(map[string]*consensuspb.Block),
 		forwardMapping: make(map[string]string),
 	}
 }
 
-func (h *memoryHistoryStore) Blocks() ([]*consensuspb.Block) {
+func (h *memoryHistoryStore) Blocks() []*consensuspb.Block {
 	blocks := make([]*consensuspb.Block, len(h.blocks))
 	i := 0
-	for _,block := range h.blocks {
+	for _, block := range h.blocks {
 		blocks[i] = block
 		i++
 	}
@@ -57,7 +58,7 @@ func (h *memoryHistoryStore) Blocks() ([]*consensuspb.Block) {
 }
 
 func (h *memoryHistoryStore) GetBlock(hsh []byte) *consensuspb.Block {
-	block,ok := h.blocks[hexutil.Encode(hsh)]
+	block, ok := h.blocks[hexutil.Encode(hsh)]
 	if ok {
 		return block
 	} else {
@@ -66,7 +67,7 @@ func (h *memoryHistoryStore) GetBlock(hsh []byte) *consensuspb.Block {
 }
 
 func (h *memoryHistoryStore) NextBlock(hsh []byte) *consensuspb.Block {
-	forward,ok := h.forwardMapping[hexutil.Encode(hsh)]
+	forward, ok := h.forwardMapping[hexutil.Encode(hsh)]
 	if ok {
 		return h.blocks[forward]
 	} else {
@@ -83,13 +84,13 @@ func (h *memoryHistoryStore) PrevBlock(hsh []byte) *consensuspb.Block {
 	return nil
 }
 
-func (h *memoryHistoryStore) Length() (uint64) {
+func (h *memoryHistoryStore) Length() uint64 {
 	return uint64(len(h.blocks))
 }
 
 func (h *memoryHistoryStore) StoreBlocks(blocks []*consensuspb.Block) error {
-	for _,block := range blocks {
-		hsh,err := BlockToHash(block)
+	for _, block := range blocks {
+		hsh, err := BlockToHash(block)
 		if err != nil {
 			return fmt.Errorf("error hashing block: %v", err)
 		}
@@ -101,13 +102,13 @@ func (h *memoryHistoryStore) StoreBlocks(blocks []*consensuspb.Block) error {
 	return nil
 }
 
-func (h *memoryHistoryStore) IteratorFrom(block *consensuspb.Block, transaction *consensuspb.Transaction) (TransactionIterator) {
+func (h *memoryHistoryStore) IteratorFrom(block *consensuspb.Block, transaction *consensuspb.Transaction) TransactionIterator {
 	index := indexOfTransaction(block.SignableBlock.Transactions, transaction)
 	if index > -1 {
 		return &memoryTransactionIterator{
-			history: h,
-			transaction: transaction,
-			blockHash: MustBlockToHash(block).Bytes(),
+			history:          h,
+			transaction:      transaction,
+			blockHash:        MustBlockToHash(block).Bytes(),
 			transactionIndex: index,
 		}
 	}
@@ -115,7 +116,7 @@ func (h *memoryHistoryStore) IteratorFrom(block *consensuspb.Block, transaction 
 }
 
 func indexOfTransaction(transactions []*consensuspb.Transaction, transaction *consensuspb.Transaction) int {
-	for i,t := range transactions {
+	for i, t := range transactions {
 		if t == transaction {
 			return i
 		}
@@ -139,10 +140,10 @@ func (ti *memoryTransactionIterator) Next() TransactionIterator {
 		transaction = block.SignableBlock.Transactions[newIndex]
 
 		return &memoryTransactionIterator{
-			transaction: transaction,
+			transaction:      transaction,
 			transactionIndex: newIndex,
-			blockHash: MustBlockToHash(block).Bytes(),
-			history: ti.history,
+			blockHash:        MustBlockToHash(block).Bytes(),
+			history:          ti.history,
 		}
 	}
 
@@ -168,10 +169,10 @@ func (ti *memoryTransactionIterator) Prev() TransactionIterator {
 		transaction = block.SignableBlock.Transactions[newIndex]
 
 		return &memoryTransactionIterator{
-			transaction: transaction,
+			transaction:      transaction,
 			transactionIndex: newIndex,
-			blockHash: MustBlockToHash(block).Bytes(),
-			history: ti.history,
+			blockHash:        MustBlockToHash(block).Bytes(),
+			history:          ti.history,
 		}
 	}
 

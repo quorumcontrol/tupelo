@@ -1,11 +1,12 @@
 package wallet_test
 
 import (
-	"testing"
 	"os"
+	"testing"
+
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/client/wallet"
 	"github.com/stretchr/testify/assert"
-	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func TestFileWallet_GetKey(t *testing.T) {
@@ -17,10 +18,10 @@ func TestFileWallet_GetKey(t *testing.T) {
 	fw := wallet.NewFileWallet("password", "testtmp/filewallet")
 	defer fw.Close()
 
-	key,err := fw.GenerateKey()
+	key, err := fw.GenerateKey()
 	assert.Nil(t, err)
 
-	retKey,err := fw.GetKey(crypto.PubkeyToAddress(key.PublicKey).String())
+	retKey, err := fw.GetKey(crypto.PubkeyToAddress(key.PublicKey).String())
 
 	assert.Equal(t, retKey, key)
 
