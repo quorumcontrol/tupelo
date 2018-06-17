@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
-	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
+	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 )
 
 const TopicLength = 4
@@ -97,9 +97,8 @@ func fromWhisper(whispMessage *whisper.ReceivedMessage) *ReceivedMessage {
 		Dst:   whispMessage.Dst,  // Message recipient (identity used to decode the message)
 		Topic: TopicType(whispMessage.Topic),
 
-		SymKeyHash:      whispMessage.SymKeyHash,   // The Keccak256Hash of the key, associated with the Topic
-		EnvelopeHash:    whispMessage.EnvelopeHash, // Message envelope hash to act as a unique id
-		EnvelopeVersion: whispMessage.EnvelopeVersion,
+		SymKeyHash:   whispMessage.SymKeyHash,   // The Keccak256Hash of the key, associated with the Topic
+		EnvelopeHash: whispMessage.EnvelopeHash, // Message envelope hash to act as a unique id
 	}
 }
 
