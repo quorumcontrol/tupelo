@@ -3,6 +3,9 @@
 package consensus_test
 
 import (
+	"testing"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/bls"
@@ -11,8 +14,6 @@ import (
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestNetworkedClient_AddBlock(t *testing.T) {

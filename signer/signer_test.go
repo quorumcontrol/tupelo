@@ -1,13 +1,14 @@
 package signer
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func createSigner(t *testing.T) *Signer {

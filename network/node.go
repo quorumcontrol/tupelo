@@ -3,12 +3,13 @@ package network
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv5"
-	"os"
 )
 
 const TopicLength = 4

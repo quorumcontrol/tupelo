@@ -2,11 +2,12 @@ package consensus
 
 import (
 	"fmt"
+	"math"
+	"sort"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
-	"math"
-	"sort"
 )
 
 type byAddress []PublicKey

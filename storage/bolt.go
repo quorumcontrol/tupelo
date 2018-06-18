@@ -1,9 +1,10 @@
 package storage
 
 import (
+	"time"
+
 	"github.com/coreos/bbolt"
 	"github.com/ethereum/go-ethereum/log"
-	"time"
 )
 
 type BoltStorage struct {
@@ -26,7 +27,6 @@ func NewBoltStorage(path string) *BoltStorage {
 func (bs *BoltStorage) Close() {
 	bs.db.Close()
 }
-
 
 func (bs *BoltStorage) CreateBucketIfNotExists(bucketName []byte) error {
 	return bs.db.Update(func(tx *bolt.Tx) error {
@@ -58,29 +58,29 @@ func (bs *BoltStorage) Get(bucketName []byte, key []byte) ([]byte, error) {
 		res := b.Get([]byte(key))
 		valueBytes = make([]byte, len(res))
 
-		copy(valueBytes,res)
+		copy(valueBytes, res)
 		return nil
 	})
-	return valueBytes,nil
+	return valueBytes, nil
 }
 
-func (bs *BoltStorage) GetKeys(bucketName []byte) ([][]byte,error) {
+func (bs *BoltStorage) GetKeys(bucketName []byte) ([][]byte, error) {
 	var keys [][]byte
 	bs.db.View(func(tx *bolt.Tx) error {
 		// Assume bucket exists and has keys
 		b := tx.Bucket(bucketName)
 
-		b.ForEach(func(k,_ []byte) error {
+		b.ForEach(func(k, _ []byte) error {
 			keys = append(keys, k)
 			return nil
 		})
 
 		return nil
 	})
-	return keys,nil
+	return keys, nil
 }
 
-func (bs *BoltStorage) ForEach(bucketName []byte, iterator func(k,v []byte) error) error {
+func (bs *BoltStorage) ForEach(bucketName []byte, iterator func(k, v []byte) error) error {
 	err := bs.db.View(func(tx *bolt.Tx) error {
 		// Assume bucket exists and has keys
 		b := tx.Bucket(bucketName)

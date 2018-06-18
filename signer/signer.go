@@ -2,6 +2,7 @@ package signer
 
 import (
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"

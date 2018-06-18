@@ -3,12 +3,13 @@ package network
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/dag"
-	"sync"
-	"time"
 )
 
 type Client struct {
