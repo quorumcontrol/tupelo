@@ -28,4 +28,6 @@ go generate
 
 ### Testing
 
-Integration tests are not run by default, add the "integration" tag to run these: `go test -t integration ./...`
+Integration tests are not run by default, add the "integration" tag to run these: 
+
+`go test -tags=integration ./...`
