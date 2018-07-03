@@ -44,8 +44,8 @@
 [[projects]]
   name = "github.com/fatih/color"
   packages = ["."]
-  revision = "507f6050b8568533fb3f5504de8e5205fa62a114"
-  version = "v1.6.0"
+  revision = "5b77d2a35fb0ede96d138fc9a99f5c9b6aef11b4"
+  version = "v1.7.0"
 
 [[projects]]
   branch = "master"
@@ -64,12 +64,6 @@
   packages = ["."]
   revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
   version = "v1.7.0"
-
-[[projects]]
-  name = "github.com/gogo/protobuf"
-  packages = ["gogoproto","proto","protoc-gen-gogo/descriptor","sortkeys","types"]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -93,7 +87,7 @@
   branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/printer","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
-  revision = "f40e974e75af4e271d97ce0fc917af5898ae7bda"
+  revision = "ef8a98b0bbce4a65b5aa4c368430a80ddc533168"
 
 [[projects]]
   branch = "master"
@@ -126,10 +120,10 @@
   revision = "9ed527918c2f20abdf0adfab0553cd87db34f656"
 
 [[projects]]
-  branch = "master"
+  branch = "refmt"
   name = "github.com/ipfs/go-ipld-cbor"
   packages = ["."]
-  revision = "c99eb619499c05326738bdf58e91074370a78b3d"
+  revision = "8b666bca090899848849a507a008080db0fcfe21"
 
 [[projects]]
   branch = "master"
@@ -183,7 +177,7 @@
   branch = "master"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
-  revision = "00c29f56e2386353d58c599509e8dc3801b0d716"
+  revision = "bb74f1db0675b241733089d5a1faa5dd8b0ef57b"
 
 [[projects]]
   branch = "master"
@@ -217,6 +211,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/polydawn/refmt"
+  packages = ["cbor","obj","obj/atlas","shared","tok"]
+  revision = "b0c505d9a8cea4460b8ac57691d4ce9381e1e264"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/quorumcontrol/chaintree"
+  packages = ["chaintree","dag","typecaster"]
+  revision = "4928d1c88eb2c295d46b3574466a40bbd55dd14b"
+
+[[projects]]
+  branch = "master"
   name = "github.com/rcrowley/go-metrics"
   packages = [".","exp"]
   revision = "8732c616f52954686704c8645fe1a9d59e9df7c1"
@@ -236,8 +242,8 @@
 [[projects]]
   name = "github.com/spf13/afero"
   packages = [".","mem"]
-  revision = "bb8f1927f2a9d3ab41c9340aa034f6b803f4359c"
-  version = "v1.0.2"
+  revision = "63644898a8da0bc22138abf860edaf5277b6102e"
+  version = "v1.1.0"
 
 [[projects]]
   name = "github.com/spf13/cast"
@@ -248,8 +254,8 @@
 [[projects]]
   name = "github.com/spf13/cobra"
   packages = ["."]
-  revision = "7b2c5ac9fc04fc5efafb60700713d4fa609b777b"
-  version = "v0.0.1"
+  revision = "a1f051bc3eba734da4772d60e2d677f47cf93ef4"
+  version = "v0.0.2"
 
 [[projects]]
   branch = "master"
@@ -260,8 +266,8 @@
 [[projects]]
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "e57e3eeb33f795204c1ca35f56c44f83227c6e66"
-  version = "v1.0.0"
+  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
+  version = "v1.0.1"
 
 [[projects]]
   name = "github.com/spf13/viper"
@@ -286,12 +292,6 @@
   name = "github.com/whyrusleeping/base32"
   packages = ["."]
   revision = "c30ac30633ccdabefe87eb12465113f06f1bab75"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/whyrusleeping/cbor"
-  packages = ["go"]
-  revision = "63513f603b11583741970c5045ea567130ddb492"
 
 [[projects]]
   branch = "master"
@@ -338,12 +338,12 @@
 [[projects]]
   name = "gopkg.in/yaml.v2"
   packages = ["."]
-  revision = "7f97868eec74b32b0982dd158a51a446d1da7eb5"
-  version = "v2.1.1"
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "392fa9452d8fafd0afdbbfb3da069be9d1734986f3f8371e2ee2b738d645db5a"
+  inputs-digest = "4973d040a87ed8159a3aaa5d27475c2be3d1caa2be13ba92c2f2327ea2f3e27c"
   solver-name = "gps-cdcl"
   solver-version = 1

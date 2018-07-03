@@ -22,9 +22,8 @@ func (ms *MemStorage) Close() {
 	//noop
 }
 
-
 func (ms *MemStorage) CreateBucketIfNotExists(bucketName []byte) error {
-	_,ok := ms.Buckets[string(bucketName)]
+	_, ok := ms.Buckets[string(bucketName)]
 	if !ok {
 		ms.Buckets[string(bucketName)] = &MemBucket{
 			Keys: make(map[string][]byte),
@@ -39,7 +38,7 @@ func (ms *MemStorage) Set(bucketName []byte, key []byte, value []byte) error {
 }
 
 func (ms *MemStorage) Delete(bucketName []byte, key []byte) error {
-	_,ok := ms.Buckets[string(bucketName)]
+	_, ok := ms.Buckets[string(bucketName)]
 	if ok {
 		delete(ms.Buckets[string(bucketName)].Keys, string(key))
 	}
@@ -47,31 +46,31 @@ func (ms *MemStorage) Delete(bucketName []byte, key []byte) error {
 }
 
 func (ms *MemStorage) Get(bucketName []byte, key []byte) ([]byte, error) {
-	val,ok := ms.Buckets[string(bucketName)].Keys[string(key)]
+	val, ok := ms.Buckets[string(bucketName)].Keys[string(key)]
 	if ok {
 		return val, nil
 	}
 	return nil, nil
 }
 
-func (ms *MemStorage) GetKeys(bucketName []byte) ([][]byte,error) {
+func (ms *MemStorage) GetKeys(bucketName []byte) ([][]byte, error) {
 	keys := make([][]byte, len(ms.Buckets[string(bucketName)].Keys))
 	i := 0
 	for k := range ms.Buckets[string(bucketName)].Keys {
 		keys[i] = []byte(k)
 		i++
 	}
-	return keys,nil
+	return keys, nil
 }
 
-func (ms *MemStorage) ForEach(bucketName []byte, iterator func(k,v []byte) error) error {
+func (ms *MemStorage) ForEach(bucketName []byte, iterator func(k, v []byte) error) error {
 	var err error
 	bucket, ok := ms.Buckets[string(bucketName)]
 	if !ok {
 		log.Crit("unknown bucket", "bucket", string(bucketName))
 	}
 	for k, v := range bucket.Keys {
-		err = iterator([]byte(k),v)
+		err = iterator([]byte(k), v)
 		if err != nil {
 			break
 		}

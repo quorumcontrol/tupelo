@@ -1,26 +1,26 @@
 package storage
 
 import (
-	"github.com/coreos/bbolt"
-	"github.com/ethereum/go-ethereum/log"
+	"crypto/rand"
 	"fmt"
 	"io"
-	"crypto/rand"
+	"time"
+
+	"github.com/coreos/bbolt"
+	"github.com/ethereum/go-ethereum/log"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/scrypt"
-	"time"
 )
 
 var internalBucketName = []byte("_internal")
 var saltKey = []byte("salt")
 
 type EncryptedBoltStorage struct {
-	db *bolt.DB
+	db        *bolt.DB
 	secretKey *[32]byte
 }
 
 var _ EncryptedStorage = (*EncryptedBoltStorage)(nil)
-
 
 func NewEncryptedBoltStorage(path string) *EncryptedBoltStorage {
 	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 5 * time.Second})
@@ -115,26 +115,26 @@ func (ebs *EncryptedBoltStorage) Get(bucketName []byte, key []byte) ([]byte, err
 	if !ok {
 		return nil, fmt.Errorf("error decrypting")
 	}
-	return decrypted,nil
+	return decrypted, nil
 }
 
-func (ebs *EncryptedBoltStorage) GetKeys(bucketName []byte) ([][]byte,error) {
+func (ebs *EncryptedBoltStorage) GetKeys(bucketName []byte) ([][]byte, error) {
 	var keys [][]byte
 	ebs.db.View(func(tx *bolt.Tx) error {
 		// Assume bucket exists and has keys
 		b := tx.Bucket(bucketName)
 
-		b.ForEach(func(k,_ []byte) error {
+		b.ForEach(func(k, _ []byte) error {
 			keys = append(keys, k)
 			return nil
 		})
 
 		return nil
 	})
-	return keys,nil
+	return keys, nil
 }
 
-func (ebs *EncryptedBoltStorage) ForEach(bucketName []byte, iterator func(k,v []byte) error) error {
+func (ebs *EncryptedBoltStorage) ForEach(bucketName []byte, iterator func(k, v []byte) error) error {
 	err := ebs.db.View(func(tx *bolt.Tx) error {
 		// Assume bucket exists and has keys
 		b := tx.Bucket(bucketName)
@@ -161,7 +161,7 @@ func (ebs *EncryptedBoltStorage) getUnencrypted(bucketName []byte, key []byte) [
 		res := b.Get([]byte(key))
 		valueBytes = make([]byte, len(res))
 
-		copy(valueBytes,res)
+		copy(valueBytes, res)
 		return nil
 	})
 	return valueBytes

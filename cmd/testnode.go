@@ -15,24 +15,23 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/quorumcontrol/qc3/bls"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/notary"
-	"github.com/quorumcontrol/qc3/consensus/consensuspb"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/node"
-	"github.com/quorumcontrol/qc3/storage"
+	"fmt"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
-	"github.com/ethereum/go-ethereum/log"
-	"os"
-	"fmt"
 	"syscall"
-	"os/signal"
-	"github.com/quorumcontrol/qc3/mailserver"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/signer"
+	"github.com/quorumcontrol/qc3/storage"
+	"github.com/spf13/cobra"
 )
 
 // These are private keys and they are PURPOSEFULLY checked in
@@ -53,31 +52,31 @@ var ecdsaHexKeys = []string{
 
 var BlsSignKeys []*bls.SignKey
 var EcdsaKeys []*ecdsa.PrivateKey
-var TestNetPublicKeys []*consensuspb.PublicKey
-var TestNetGroup *notary.Group
+var TestNetPublicKeys []consensus.PublicKey
+var TestNetGroup *consensus.Group
 
 func init() {
 	BlsSignKeys = make([]*bls.SignKey, len(blsHexKeys))
 	EcdsaKeys = make([]*ecdsa.PrivateKey, len(ecdsaHexKeys))
 
-	for i,hex := range blsHexKeys {
+	for i, hex := range blsHexKeys {
 		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(hex))
 	}
 
-	for i,hex := range ecdsaHexKeys {
-		key,err := crypto.ToECDSA(hexutil.MustDecode(hex))
+	for i, hex := range ecdsaHexKeys {
+		key, err := crypto.ToECDSA(hexutil.MustDecode(hex))
 		if err != nil {
 			panic("error converting to key")
 		}
 		EcdsaKeys[i] = key
 	}
 
-	TestNetPublicKeys = make([]*consensuspb.PublicKey, len(BlsSignKeys))
-	for i,key := range BlsSignKeys {
+	TestNetPublicKeys = make([]consensus.PublicKey, len(BlsSignKeys))
+	for i, key := range BlsSignKeys {
 		TestNetPublicKeys[i] = consensus.BlsKeyToPublicKey(key.MustVerKey())
 	}
 
-	TestNetGroup = notary.GroupFromPublicKeys(TestNetPublicKeys)
+	TestNetGroup = consensus.GroupFromPublicKeys(TestNetPublicKeys)
 }
 
 var nodeIndex int
@@ -86,7 +85,7 @@ var nodeIndex int
 var testnodeCmd = &cobra.Command{
 	Use:   "test-node [index of key]",
 	Short: "Run a testnet node with hardcoded (insecure) keys",
-	Long: ``,
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
 
@@ -94,16 +93,20 @@ var testnodeCmd = &cobra.Command{
 
 		os.MkdirAll(".storage", 0700)
 
-		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-" + strconv.Itoa(nodeIndex)))
-		store := notary.NewChainStore("testTips", boltStorage)
-		signer := notary.NewSigner(store, TestNetGroup, BlsSignKeys[nodeIndex])
-		node := node.NewWhisperNode(signer, EcdsaKeys[nodeIndex])
+		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
 
-		mailbox := mailserver.NewMailbox(boltStorage)
-		mailServer := mailserver.NewMailServer(mailbox)
-		mailServer.AttachToNode(node)
+		sign := &signer.Signer{
+			Storage: boltStorage,
+			Group:   TestNetGroup,
+			Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
+			SignKey: BlsSignKeys[nodeIndex],
+			VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
+		}
 
-		node.Start()
+		node := network.NewNode(EcdsaKeys[nodeIndex])
+
+		networkedSigner := signer.NewNetworkedSigner(node, sign)
+		networkedSigner.Start()
 
 		sigs := make(chan os.Signal, 1)
 		done := make(chan bool, 1)
@@ -112,7 +115,7 @@ var testnodeCmd = &cobra.Command{
 			sig := <-sigs
 			fmt.Println()
 			fmt.Println(sig)
-			node.Stop()
+			networkedSigner.Stop()
 			done <- true
 		}()
 		fmt.Println("awaiting signal")

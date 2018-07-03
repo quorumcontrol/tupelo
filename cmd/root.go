@@ -15,12 +15,12 @@
 package cmd
 
 import (
-"fmt"
-"os"
+	"fmt"
+	"os"
 
-homedir "github.com/mitchellh/go-homedir"
-"github.com/spf13/cobra"
-"github.com/spf13/viper"
+	homedir "github.com/mitchellh/go-homedir"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var cfgFile string
