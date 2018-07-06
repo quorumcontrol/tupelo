@@ -14,22 +14,22 @@ import (
 )
 
 func TestNode_Integration(t *testing.T) {
-	key, err := crypto.GenerateKey()
+	listenerKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	dstKey, err := crypto.GenerateKey()
+	clientKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	listener := NewNode(key)
+	listener := NewNode(listenerKey)
 	listener.Start()
 	defer listener.Stop()
 
-	client := NewNode(key)
+	client := NewNode(clientKey)
 	client.Start()
 	defer client.Stop()
 
 	topicSub := listener.SubscribeToTopic(TestTopic, TestKey)
-	keySub := listener.SubscribeToKey(dstKey)
+	keySub := listener.SubscribeToKey(clientKey)
 
 	req := Request{
 		Type:    "PING",
@@ -46,11 +46,11 @@ func TestNode_Integration(t *testing.T) {
 	params := MessageParams{
 		Topic:    TestTopic,
 		KeySym:   TestKey,
-		PoW:      0,
+		PoW:      0.1,
 		WorkTime: 2,
 		Payload:  node.RawData(),
 		TTL:      DefaultTTL,
-		Src:      key,
+		Src:      clientKey,
 	}
 
 	time.Sleep(5 * time.Second)
@@ -63,7 +63,7 @@ func TestNode_Integration(t *testing.T) {
 
 	err = client.Send(MessageParams{
 		Topic:    TestTopic,
-		Dst:      &dstKey.PublicKey,
+		Dst:      &clientKey.PublicKey,
 		PoW:      0.1,
 		WorkTime: 10,
 		Payload:  []byte("hiKey"),
