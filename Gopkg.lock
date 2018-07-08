@@ -37,7 +37,27 @@
 
 [[projects]]
   name = "github.com/ethereum/go-ethereum"
-  packages = ["common","common/hexutil","common/math","common/mclock","crypto","crypto/ecies","crypto/secp256k1","crypto/sha3","event","log","metrics","p2p","p2p/discover","p2p/discv5","p2p/nat","p2p/netutil","rlp","rpc","whisper/whisperv5"]
+  packages = [
+    "common",
+    "common/hexutil",
+    "common/math",
+    "common/mclock",
+    "crypto",
+    "crypto/ecies",
+    "crypto/secp256k1",
+    "crypto/sha3",
+    "event",
+    "log",
+    "metrics",
+    "p2p",
+    "p2p/discover",
+    "p2p/discv5",
+    "p2p/nat",
+    "p2p/netutil",
+    "rlp",
+    "rpc",
+    "whisper/whisperv6"
+  ]
   revision = "1e67410e88d2685bc54611a7c9f75c327b553ccc"
   version = "v1.8.1"
 
@@ -86,13 +106,32 @@
 [[projects]]
   branch = "master"
   name = "github.com/hashicorp/hcl"
-  packages = [".","hcl/ast","hcl/parser","hcl/printer","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
+  packages = [
+    ".",
+    "hcl/ast",
+    "hcl/parser",
+    "hcl/printer",
+    "hcl/scanner",
+    "hcl/strconv",
+    "hcl/token",
+    "json/parser",
+    "json/scanner",
+    "json/token"
+  ]
   revision = "ef8a98b0bbce4a65b5aa4c368430a80ddc533168"
 
 [[projects]]
   branch = "master"
   name = "github.com/huin/goupnp"
-  packages = [".","dcps/internetgateway1","dcps/internetgateway2","httpu","scpd","soap","ssdp"]
+  packages = [
+    ".",
+    "dcps/internetgateway1",
+    "dcps/internetgateway2",
+    "httpu",
+    "scpd",
+    "soap",
+    "ssdp"
+  ]
   revision = "dceda08e705b2acee36aab47d765ed801f64cfc7"
 
 [[projects]]
@@ -212,19 +251,32 @@
 [[projects]]
   branch = "master"
   name = "github.com/polydawn/refmt"
-  packages = ["cbor","obj","obj/atlas","shared","tok"]
+  packages = [
+    "cbor",
+    "obj",
+    "obj/atlas",
+    "shared",
+    "tok"
+  ]
   revision = "b0c505d9a8cea4460b8ac57691d4ce9381e1e264"
 
 [[projects]]
   branch = "master"
   name = "github.com/quorumcontrol/chaintree"
-  packages = ["chaintree","dag","typecaster"]
+  packages = [
+    "chaintree",
+    "dag",
+    "typecaster"
+  ]
   revision = "4928d1c88eb2c295d46b3574466a40bbd55dd14b"
 
 [[projects]]
   branch = "master"
   name = "github.com/rcrowley/go-metrics"
-  packages = [".","exp"]
+  packages = [
+    ".",
+    "exp"
+  ]
   revision = "8732c616f52954686704c8645fe1a9d59e9df7c1"
 
 [[projects]]
@@ -241,7 +293,10 @@
 
 [[projects]]
   name = "github.com/spf13/afero"
-  packages = [".","mem"]
+  packages = [
+    ".",
+    "mem"
+  ]
   revision = "63644898a8da0bc22138abf860edaf5277b6102e"
   version = "v1.1.0"
 
@@ -284,7 +339,20 @@
 [[projects]]
   branch = "master"
   name = "github.com/syndtr/goleveldb"
-  packages = ["leveldb","leveldb/cache","leveldb/comparer","leveldb/errors","leveldb/filter","leveldb/iterator","leveldb/journal","leveldb/memdb","leveldb/opt","leveldb/storage","leveldb/table","leveldb/util"]
+  packages = [
+    "leveldb",
+    "leveldb/cache",
+    "leveldb/comparer",
+    "leveldb/errors",
+    "leveldb/filter",
+    "leveldb/iterator",
+    "leveldb/journal",
+    "leveldb/memdb",
+    "leveldb/opt",
+    "leveldb/storage",
+    "leveldb/table",
+    "leveldb/util"
+  ]
   revision = "211f780988068502fe874c44dae530528ebd840f"
 
 [[projects]]
@@ -296,13 +364,26 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["blake2s","nacl/secretbox","pbkdf2","poly1305","salsa20/salsa","scrypt","sha3"]
+  packages = [
+    "blake2s",
+    "nacl/secretbox",
+    "pbkdf2",
+    "poly1305",
+    "salsa20/salsa",
+    "scrypt",
+    "sha3"
+  ]
   revision = "1875d0a70c90e57f11972aefd42276df65e895b9"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["html","html/atom","html/charset","websocket"]
+  packages = [
+    "html",
+    "html/atom",
+    "html/charset",
+    "websocket"
+  ]
   revision = "2fb46b16b8dda405028c50f7c7f0f9dd1fa6bfb1"
 
 [[projects]]
@@ -320,7 +401,28 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/text"
-  packages = ["encoding","encoding/charmap","encoding/htmlindex","encoding/internal","encoding/internal/identifier","encoding/japanese","encoding/korean","encoding/simplifiedchinese","encoding/traditionalchinese","encoding/unicode","internal/gen","internal/tag","internal/triegen","internal/ucd","internal/utf8internal","language","runes","transform","unicode/cldr","unicode/norm"]
+  packages = [
+    "encoding",
+    "encoding/charmap",
+    "encoding/htmlindex",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "encoding/korean",
+    "encoding/simplifiedchinese",
+    "encoding/traditionalchinese",
+    "encoding/unicode",
+    "internal/gen",
+    "internal/tag",
+    "internal/triegen",
+    "internal/ucd",
+    "internal/utf8internal",
+    "language",
+    "runes",
+    "transform",
+    "unicode/cldr",
+    "unicode/norm"
+  ]
   revision = "e19ae1496984b1c655b8044a65c0300a3c878dd3"
 
 [[projects]]
@@ -344,6 +446,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4973d040a87ed8159a3aaa5d27475c2be3d1caa2be13ba92c2f2327ea2f3e27c"
+  inputs-digest = "0c40f8e6c47b51e53ed9f707beb0efe2d66ccedc3790509ffd80e0e75b21ba94"
   solver-name = "gps-cdcl"
   solver-version = 1
