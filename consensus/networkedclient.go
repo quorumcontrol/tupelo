@@ -35,10 +35,10 @@ func NewNetworkedClient(group *Group) (*NetworkedClient, error) {
 
 	return &NetworkedClient{
 		sessionKey: sessionKey,
-		Client:     network.NewMessageHandler(node, []byte(group.Id)),
+		Client:     network.NewMessageHandler(node, []byte(group.Id())),
 		Group:      group,
-		topic:      []byte(group.Id),
-		symkey:     crypto.Keccak256([]byte(group.Id)),
+		topic:      []byte(group.Id()),
+		symkey:     crypto.Keccak256([]byte(group.Id())),
 	}, nil
 }
 

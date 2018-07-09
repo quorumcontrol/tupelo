@@ -17,7 +17,7 @@ type NetworkedSigner struct {
 }
 
 func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
-	handler := network.NewMessageHandler(node, []byte(signer.Group.Id))
+	handler := network.NewMessageHandler(node, []byte(signer.Group.Id()))
 
 	ns := &NetworkedSigner{
 		Node:   node,
@@ -86,7 +86,7 @@ func (ns *NetworkedSigner) TipHandler(req network.Request) (*network.Response, e
 func (ns *NetworkedSigner) Start() {
 	ns.Node.Start()
 	ns.Server.Start()
-	ns.Server.HandleTopic([]byte(ns.Signer.Group.Id), crypto.Keccak256([]byte(ns.Signer.Group.Id)))
+	ns.Server.HandleTopic([]byte(ns.Signer.Group.Id()), crypto.Keccak256([]byte(ns.Signer.Group.Id())))
 }
 
 func (ns *NetworkedSigner) Stop() {

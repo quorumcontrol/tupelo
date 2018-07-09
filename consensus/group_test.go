@@ -3,30 +3,48 @@ package consensus
 import (
 	"testing"
 
+	"crypto/ecdsa"
+
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/stretchr/testify/assert"
 )
 
 type testSet struct {
-	SignKeys []*bls.SignKey
-	VerKeys  []*bls.VerKey
-	PubKeys  []PublicKey
+	SignKeys  []*bls.SignKey
+	VerKeys   []*bls.VerKey
+	EcdsaKeys []*ecdsa.PrivateKey
+	PubKeys   []PublicKey
 }
 
 func newTestSet(t *testing.T) *testSet {
 	signKeys := blsKeys(5)
 	verKeys := make([]*bls.VerKey, len(signKeys))
 	pubKeys := make([]PublicKey, len(signKeys))
+	ecdsaKeys := make([]*ecdsa.PrivateKey, len(signKeys))
 	for i, signKey := range signKeys {
+		ecdsaKey, _ := crypto.GenerateKey()
 		verKeys[i] = signKey.MustVerKey()
 		pubKeys[i] = BlsKeyToPublicKey(verKeys[i])
+		ecdsaKeys[i] = ecdsaKey
 	}
 
 	return &testSet{
-		SignKeys: signKeys,
-		VerKeys:  verKeys,
-		PubKeys:  pubKeys,
+		SignKeys:  signKeys,
+		VerKeys:   verKeys,
+		PubKeys:   pubKeys,
+		EcdsaKeys: ecdsaKeys,
 	}
+}
+
+func groupFromTestSet(t *testing.T, set *testSet) *Group {
+	members := make([]*RemoteNode, len(set.SignKeys))
+	for i := range set.SignKeys {
+		rn := NewRemoteNode(BlsKeyToPublicKey(set.VerKeys[i]), EcdsaToPublicKey(&set.EcdsaKeys[i].PublicKey))
+		members[i] = rn
+	}
+
+	return NewGroup(members)
 }
 
 func blsKeys(size int) []*bls.SignKey {
@@ -39,13 +57,13 @@ func blsKeys(size int) []*bls.SignKey {
 
 func TestGroupFromPublicKeys(t *testing.T) {
 	ts := newTestSet(t)
-	g := GroupFromPublicKeys(ts.PubKeys)
+	g := groupFromTestSet(t, ts)
 	assert.IsType(t, &Group{}, g)
 }
 
 func TestGroup_CombineSignatures(t *testing.T) {
 	ts := newTestSet(t)
-	g := GroupFromPublicKeys(ts.PubKeys)
+	g := groupFromTestSet(t, ts)
 
 	data := "somedata"
 
@@ -68,7 +86,7 @@ func TestGroup_CombineSignatures(t *testing.T) {
 
 func TestGroup_VerifySignature(t *testing.T) {
 	ts := newTestSet(t)
-	g := GroupFromPublicKeys(ts.PubKeys)
+	g := groupFromTestSet(t, ts)
 	data := "somedata"
 
 	for _, test := range []struct {
@@ -110,4 +128,30 @@ func TestGroup_VerifySignature(t *testing.T) {
 
 		assert.Equal(t, test.shouldVerify, isVerified, test.description)
 	}
+}
+
+func TestGroup_RandomMember(t *testing.T) {
+	ts := newTestSet(t)
+	g := groupFromTestSet(t, ts)
+
+	assert.IsType(t, &RemoteNode{}, g.RandomMember())
+}
+
+func TestGroup_AsVerKeyeMap(t *testing.T) {
+	ts := newTestSet(t)
+	g := groupFromTestSet(t, ts)
+
+	mapped := g.AsVerKeyMap()
+
+	for _, member := range g.SortedMembers {
+		mappedKey, ok := mapped[member.Id]
+		assert.True(t, ok)
+		assert.Equal(t, member.VerKey, mappedKey)
+	}
+}
+
+func TestGroup_SuperMajorityCount(t *testing.T) {
+	ts := newTestSet(t)
+	g := groupFromTestSet(t, ts)
+	assert.Equal(t, int64(3), g.SuperMajorityCount())
 }

@@ -26,7 +26,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	ecdsaKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	group := consensus.GroupFromPublicKeys([]consensus.PublicKey{pubKey})
+	group := consensus.NewGroup([]*consensus.RemoteNode{consensus.NewRemoteNode(pubKey, consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey))})
 
 	store := storage.NewMemStorage()
 
@@ -48,7 +48,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.Id))
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.Id()))
 
 	client.Start()
 	defer client.Stop()
@@ -93,7 +93,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 
-	respChan, err := client.Broadcast([]byte(group.Id), crypto.Keccak256([]byte(group.Id)), req)
+	respChan, err := client.Broadcast([]byte(group.Id()), crypto.Keccak256([]byte(group.Id())), req)
 	assert.Nil(t, err)
 
 	resp := <-respChan
