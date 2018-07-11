@@ -12,12 +12,12 @@ import (
 
 type NetworkedSigner struct {
 	Node   *network.Node
-	Server *network.RequestHandler
+	Server *network.MessageHandler
 	Signer *Signer
 }
 
-func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
-	handler := network.NewRequestHandler(node)
+func NewNetworkedSigner(node *network.Node, signer *Signer, topic []byte) *NetworkedSigner {
+	handler := network.NewMessageHandler(node, topic)
 
 	ns := &NetworkedSigner{
 		Node:   node,
