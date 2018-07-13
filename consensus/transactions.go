@@ -12,7 +12,9 @@ import (
 
 func init() {
 	typecaster.AddType(setDataPayload{})
+	typecaster.AddType(setOwnershipPayload{})
 	cbornode.RegisterCborType(setDataPayload{})
+	cbornode.RegisterCborType(setOwnershipPayload{})
 }
 
 type setDataPayload struct {
@@ -28,6 +30,27 @@ func SetDataTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Tran
 	}
 
 	err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
+	if err != nil {
+		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	return true, nil
+}
+
+type setOwnershipPayload struct {
+	Authentication []*PublicKey
+}
+
+func SetOwnershipTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
+	payload := &setOwnershipPayload{}
+	err := typecaster.ToType(transaction.Payload, payload)
+	if err != nil {
+		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
+	}
+
+	authenticationPath := []string{"_qc", "authentications"}
+
+	err = tree.Set(authenticationPath, payload.Authentication)
 	if err != nil {
 		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}

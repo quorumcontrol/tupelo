@@ -114,8 +114,6 @@ func TestSigner_ProcessRequest(t *testing.T) {
 
 	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
-	// changing auths should change the owner
-
 	newOwnerKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -126,10 +124,9 @@ func TestSigner_ProcessRequest(t *testing.T) {
 			PreviousTip: testTree.Dag.Tip.String(),
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "SET_DATA",
+					Type: "SET_OWNERSHIP",
 					Payload: map[string]interface{}{
-						"path": "_qc/authentications",
-						"value": []*consensus.PublicKey{
+						"authentication": []*consensus.PublicKey{
 							&newOwner,
 						},
 					},
