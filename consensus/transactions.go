@@ -33,8 +33,8 @@ func SetDataTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Tran
 		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	if strings.HasPrefix(payload.Path, TreePathForAuthentications) {
-		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("the path %v is reserved", TreePathForAuthentications)}
+	if payload.Path == "_qc" || strings.HasPrefix(payload.Path, "_qc/") {
+		return false, &ErrorCode{Code: 999, Memo: "the path prefix _qc is reserved"}
 	}
 
 	err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
