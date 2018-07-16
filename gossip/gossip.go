@@ -24,10 +24,11 @@ func init() {
 
 const MessageType_Gossip = "GOSSIP"
 
-var AcceptedBucket = []byte("accepted")
+var CurrentStateBucket = []byte("accepted")
 var TransactionBucket = []byte("transactions")
 var TransactionToObjectBucket = []byte("transToObject")
 var ToGossipBucket = []byte("toGossip")
+var AcceptedBucket = []byte("acceptedTransactions")
 
 var TrueByte = []byte{byte(int8(1))}
 
@@ -103,6 +104,7 @@ func NewGossiper(opts *GossiperOpts) *Gossiper {
 }
 
 func (g *Gossiper) Initialize() {
+	g.Storage.CreateBucketIfNotExists(CurrentStateBucket)
 	g.Storage.CreateBucketIfNotExists(AcceptedBucket)
 	g.Storage.CreateBucketIfNotExists(TransactionBucket)
 	g.Storage.CreateBucketIfNotExists(TransactionToObjectBucket)
@@ -190,19 +192,18 @@ func (g *Gossiper) DoOneGossipRound(id TransactionId) error {
 
 	for i := 0; i < numberToGossip; i++ {
 		doneChans[i] = make(chan error, 1)
-		go func(ch chan error) {
+		mem := g.Group.RandomMember()
 
-			// make sure to choose distinct nodes in the random process
-			mem := g.Group.RandomMember()
-			_, ok := selected[mem.Id]
-			for ok {
-				mem = g.Group.RandomMember()
-				_, ok = selected[mem.Id]
-			}
-			selected[mem.Id] = true
-
+		// make sure to choose distinct nodes in the random process
+		_, ok := selected[mem.Id]
+		for ok {
+			mem = g.Group.RandomMember()
+			_, ok = selected[mem.Id]
+		}
+		selected[mem.Id] = true
+		go func(ch chan error, mem *consensus.RemoteNode) {
 			ch <- g.DoOneGossip(mem.DstKey, id)
-		}(doneChans[i])
+		}(doneChans[i], mem)
 	}
 	for i := 0; i < numberToGossip; i++ {
 		err := <-doneChans[i]
@@ -334,6 +335,18 @@ func (g *Gossiper) HandleGossipRequest(req network.Request) (*network.Response, 
 	return network.BuildResponse(req.Id, 200, respMessage)
 }
 
+func (g *Gossiper) IsTransactionAccepted(id TransactionId) (bool, error) {
+	timeBytes, err := g.Storage.Get(AcceptedBucket, id)
+	if err != nil {
+		return false, fmt.Errorf("error getting accepted: %v", err)
+	}
+	if len(timeBytes) == 0 {
+		return false, nil
+	} else {
+		return true, nil
+	}
+}
+
 func (g *Gossiper) saveVerifiedSignatures(gossipMessage *GossipMessage) error {
 	verifiedSigs, err := g.verifiedSigsFromMessage(gossipMessage)
 	if err != nil {
@@ -394,7 +407,7 @@ func (g *Gossiper) verifiedSigsFromMessage(gossipMessage *GossipMessage) (Gossip
 }
 
 func (g *Gossiper) getCurrentState(objectId []byte) ([]byte, error) {
-	return g.Storage.Get(AcceptedBucket, objectId)
+	return g.Storage.Get(CurrentStateBucket, objectId)
 }
 
 func (g *Gossiper) getSignature(transactionId TransactionId, signer string) (*GossipSignature, error) {
@@ -483,7 +496,11 @@ func (g *Gossiper) handleCheckAccepted(id TransactionId) error {
 				return fmt.Errorf("error getting object %v", err)
 			}
 
-			err = g.Storage.Set(AcceptedBucket, obj, []byte(state))
+			err = g.Storage.Set(CurrentStateBucket, obj, []byte(state))
+			if err != nil {
+				return fmt.Errorf("error setting current state bucket: %v", err)
+			}
+			err = g.Storage.Set(AcceptedBucket, id, nowBytes())
 			if err != nil {
 				return fmt.Errorf("error setting accepted bucket: %v", err)
 			}
@@ -496,6 +513,11 @@ func (g *Gossiper) handleCheckAccepted(id TransactionId) error {
 	}
 
 	return nil
+}
+
+func nowBytes() []byte {
+	t, _ := time.Now().UTC().MarshalBinary()
+	return t
 }
 
 func min(a, b int) int {

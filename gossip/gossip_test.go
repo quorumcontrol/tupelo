@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"crypto/ecdsa"
-	"os"
 	"testing"
 
 	"time"
@@ -203,7 +202,7 @@ func TestGossiper_DoOneGossip(t *testing.T) {
 }
 
 func TestGossiper_DoOneGossipRound(t *testing.T) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlError), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlError), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	gossipers := generateTestGossipGroup(t, 3, 0)
 
@@ -239,7 +238,7 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 }
 
 func TestGossiper_Start(t *testing.T) {
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	gossipers := generateTestGossipGroup(t, 5, 0)
 	for i := 0; i < len(gossipers); i++ {
@@ -266,7 +265,30 @@ func TestGossiper_Start(t *testing.T) {
 
 	assert.Len(t, gossipResp.Signatures, 1)
 
-	time.Sleep(2 * time.Second)
+	now := time.Now()
+	for {
+		count := 0
+		for i := 0; i < len(gossipers); i++ {
+			isDone, err := gossipers[i].IsTransactionAccepted(message.Id())
+			if err != nil {
+				t.Fatalf("error getting accepted: %v", err)
+			}
+			if isDone {
+				count++
+			}
+		}
+
+		if count == len(gossipers) {
+			break
+		}
+
+		if time.Now().Sub(now) > (10 * time.Second) {
+			t.Fatalf("timeout")
+			break
+		}
+
+		<-time.After(100 * time.Millisecond)
+	}
 
 	// The original gossiper should have added the other gossiper
 	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
