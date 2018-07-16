@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"crypto/ecdsa"
+	"os"
 	"testing"
 
 	"time"
@@ -41,10 +42,12 @@ func NewInMemoryHandlerSystem(latency int) *InMemoryHandlerSystem {
 }
 
 func (imhs *InMemoryHandlerSystem) NewHandler(dst *ecdsa.PublicKey) *InMemoryHandler {
-	return &InMemoryHandler{
+	imh := &InMemoryHandler{
 		Id:     crypto.PubkeyToAddress(*dst).String(),
 		System: imhs,
 	}
+	imhs.Handlers[imh.Id] = imh
+	return imh
 }
 
 type InMemoryHandler struct {
@@ -57,7 +60,11 @@ func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request
 	respChan := make(chan *network.Response)
 
 	go func() {
-		handler := imh.System.Handlers[crypto.PubkeyToAddress(*dst).String()]
+		handler, ok := imh.System.Handlers[crypto.PubkeyToAddress(*dst).String()]
+		if !ok {
+			log.Error("could not find handler")
+			panic("could not find handler")
+		}
 		resp, err := handler.Mapping[req.Type](*req)
 		if err != nil {
 			log.Error("error handling request: %v", err)
@@ -78,8 +85,8 @@ func (imh *InMemoryHandler) AssignHandler(requestType string, handlerFunc networ
 	return nil
 }
 
-func newTestSet(t *testing.T) *testSet {
-	signKeys := blsKeys(5)
+func newTestSet(t *testing.T, size int) *testSet {
+	signKeys := blsKeys(size)
 	verKeys := make([]*bls.VerKey, len(signKeys))
 	pubKeys := make([]consensus.PublicKey, len(signKeys))
 	ecdsaKeys := make([]*ecdsa.PrivateKey, len(signKeys))
@@ -116,30 +123,53 @@ func blsKeys(size int) []*bls.SignKey {
 	return keys
 }
 
-func generateTestGossipGroup(t *testing.T) []*Gossiper {
-	ts := newTestSet(t)
+func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
+	ts := newTestSet(t, size)
 	group := groupFromTestSet(t, ts)
 
-	stor := storage.NewMemStorage()
+	system := NewInMemoryHandlerSystem(latency)
 
-	system := NewInMemoryHandlerSystem(0)
+	gossipers := make([]*Gossiper, size)
 
-	gossiper := &Gossiper{
-		Id:             group.SortedMembers[0].Id,
-		SignKey:        ts.SignKeys[0],
-		Storage:        stor,
-		StateHandler:   simpleHandler,
-		Group:          group,
-		MessageHandler: system.NewHandler(crypto.ToECDSAPub(group.SortedMembers[0].DstKey.PublicKey)),
+	for i := 0; i < size; i++ {
+		stor := storage.NewMemStorage()
+
+		gossiper := NewGossiper(&GossiperOpts{
+			SignKey:        ts.SignKeys[i],
+			Storage:        stor,
+			StateHandler:   simpleHandler,
+			Group:          group,
+			MessageHandler: system.NewHandler(crypto.ToECDSAPub(group.SortedMembers[i].DstKey.PublicKey)),
+		})
+		gossipers[i] = gossiper
 	}
 
-	gossiper.Initialize()
-
-	return []*Gossiper{gossiper}
+	return gossipers
 }
 
 func TestGossiper_HandleGossipRequest(t *testing.T) {
-	gossipers := generateTestGossipGroup(t)
+	gossipers := generateTestGossipGroup(t, 1, 0)
+
+	message := &GossipMessage{
+		ObjectId:    []byte("obj"),
+		Transaction: []byte("trans"),
+	}
+
+	req, err := network.BuildRequest(MessageType_Gossip, message)
+	assert.Nil(t, err)
+
+	resp, err := gossipers[0].HandleGossipRequest(*req)
+	assert.Nil(t, err)
+
+	gossipResp := &GossipMessage{}
+	err = cbornode.DecodeInto(resp.Payload, gossipResp)
+	assert.Nil(t, err)
+
+	assert.Len(t, gossipResp.Signatures, 1)
+}
+
+func TestGossiper_DoOneGossip(t *testing.T) {
+	gossipers := generateTestGossipGroup(t, 2, 0)
 
 	message := &GossipMessage{
 		ObjectId:    []byte("obj"),
@@ -158,4 +188,93 @@ func TestGossiper_HandleGossipRequest(t *testing.T) {
 
 	assert.Len(t, gossipResp.Signatures, 1)
 
+	err = gossipers[0].DoOneGossip(gossipers[1].Group.SortedMembers[1].DstKey, message.Id())
+	assert.Nil(t, err)
+
+	// The original gossiper should have added the other gossiper
+	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
+	assert.Nil(t, err)
+	assert.Len(t, sigs, 2)
+
+	// The new gossiper should have both its own and the gossiped signature
+	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
+	assert.Nil(t, err)
+	assert.Len(t, sigs, 2)
+}
+
+func TestGossiper_DoOneGossipRound(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlError), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
+	gossipers := generateTestGossipGroup(t, 3, 0)
+
+	message := &GossipMessage{
+		ObjectId:    []byte("obj"),
+		Transaction: []byte("trans"),
+	}
+
+	req, err := network.BuildRequest(MessageType_Gossip, message)
+	assert.Nil(t, err)
+
+	resp, err := gossipers[0].HandleGossipRequest(*req)
+	assert.Nil(t, err)
+
+	gossipResp := &GossipMessage{}
+	err = cbornode.DecodeInto(resp.Payload, gossipResp)
+	assert.Nil(t, err)
+
+	assert.Len(t, gossipResp.Signatures, 1)
+
+	err = gossipers[0].DoOneGossipRound(message.Id())
+	assert.Nil(t, err)
+
+	// The original gossiper should have added the other gossiper
+	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
+	assert.Nil(t, err)
+	assert.Len(t, sigs, 3)
+
+	// The new gossiper should have both its own and the gossiped signature
+	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
+	assert.Nil(t, err)
+	assert.Len(t, sigs, 2)
+}
+
+func TestGossiper_Start(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
+	gossipers := generateTestGossipGroup(t, 5, 0)
+	for i := 0; i < len(gossipers); i++ {
+		gossipers[i].Start()
+		defer gossipers[i].Stop()
+	}
+
+	message := &GossipMessage{
+		ObjectId:    []byte("obj"),
+		Transaction: []byte("trans"),
+	}
+
+	req, err := network.BuildRequest(MessageType_Gossip, message)
+	assert.Nil(t, err)
+
+	log.Debug("submitting initial to", "g", gossipers[0].Id)
+
+	resp, err := gossipers[0].HandleGossipRequest(*req)
+	assert.Nil(t, err)
+
+	gossipResp := &GossipMessage{}
+	err = cbornode.DecodeInto(resp.Payload, gossipResp)
+	assert.Nil(t, err)
+
+	assert.Len(t, gossipResp.Signatures, 1)
+
+	time.Sleep(2 * time.Second)
+
+	// The original gossiper should have added the other gossiper
+	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
+	assert.Nil(t, err)
+	assert.Len(t, sigs, 5)
+
+	// The new gossiper should have both its own and the gossiped signature
+	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
+	assert.Nil(t, err)
+	assert.Len(t, sigs, 5)
 }
