@@ -10,6 +10,10 @@ import (
 	"github.com/quorumcontrol/chaintree/typecaster"
 )
 
+const (
+  TreePathForAuthentications = "_qc/authentications"
+)
+
 func init() {
 	typecaster.AddType(setDataPayload{})
 	typecaster.AddType(setOwnershipPayload{})
@@ -27,6 +31,10 @@ func SetDataTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Tran
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
 		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
+	}
+
+	if strings.HasPrefix(payload.Path, TreePathForAuthentications) {
+		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("the path %v is reserved", TreePathForAuthentications)}
 	}
 
 	err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
@@ -48,9 +56,7 @@ func SetOwnershipTransaction(tree *dag.BidirectionalTree, transaction *chaintree
 		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	authenticationPath := []string{"_qc", "authentications"}
-
-	err = tree.Set(authenticationPath, payload.Authentication)
+	err = tree.Set(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
 	if err != nil {
 		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}

@@ -215,6 +215,39 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	val, _, err := testTree.Dag.Resolve([]string{"tree", "another", "path"})
 	assert.Nil(t, err)
 	assert.Equal(t, "test", val)
+
+	// Should not be able to assign an authentication directly through SET_DATA
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: testTree.Dag.Tip.String(),
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]interface{}{
+						"path":  "_qc/authentications/publicKey",
+						"value": "test",
+					},
+				},
+			},
+		},
+	}
+
+	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
+	assert.Nil(t, err)
+
+	nodes = make([][]byte, len(testTree.Dag.Nodes()))
+	for i, node := range testTree.Dag.Nodes() {
+		nodes[i] = node.Node.RawData()
+	}
+
+	req = &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+
+	resp, err = signer.ProcessAddBlock(req)
+	assert.NotNil(t, err)
 }
 
 func TestSigner_ProcessFeedback(t *testing.T) {
