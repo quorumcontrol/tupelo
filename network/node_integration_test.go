@@ -49,7 +49,7 @@ func TestNode_Integration(t *testing.T) {
 		PoW:      0.1,
 		WorkTime: 2,
 		Payload:  node.RawData(),
-		TTL:      DefaultTTL,
+		TTL:      5,
 		Src:      clientKey,
 	}
 
@@ -67,6 +67,7 @@ func TestNode_Integration(t *testing.T) {
 		PoW:      0.1,
 		WorkTime: 10,
 		Payload:  []byte("hiKey"),
+		TTL:      5,
 	})
 
 	assert.Nil(t, err)

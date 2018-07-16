@@ -231,6 +231,7 @@ func (rh *MessageHandler) handleResponse(resp *Response) {
 }
 
 func (rh *MessageHandler) Start() {
+	rh.node.Start()
 	rh.HandleKey(rh.mainTopic, rh.node.key)
 
 	go func() {
@@ -281,6 +282,7 @@ func (rh *MessageHandler) Start() {
 }
 
 func (rh *MessageHandler) Stop() {
+	rh.node.Stop()
 	rh.closeChan <- true
 	rh.closeChan <- true
 }
