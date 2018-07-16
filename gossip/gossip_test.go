@@ -240,7 +240,7 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 func TestGossiper_Start(t *testing.T) {
 	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	gossipers := generateTestGossipGroup(t, 5, 0)
+	gossipers := generateTestGossipGroup(t, 10, 0)
 	for i := 0; i < len(gossipers); i++ {
 		gossipers[i].Start()
 		defer gossipers[i].Stop()
@@ -293,10 +293,10 @@ func TestGossiper_Start(t *testing.T) {
 	// The original gossiper should have added the other gossiper
 	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
 	assert.Nil(t, err)
-	assert.Len(t, sigs, 5)
+	assert.Len(t, sigs, len(gossipers))
 
 	// The new gossiper should have both its own and the gossiped signature
 	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
 	assert.Nil(t, err)
-	assert.Len(t, sigs, 5)
+	assert.Len(t, sigs, len(gossipers))
 }
