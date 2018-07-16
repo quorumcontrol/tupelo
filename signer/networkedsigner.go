@@ -16,8 +16,8 @@ type NetworkedSigner struct {
 	Signer *Signer
 }
 
-func NewNetworkedSigner(node *network.Node, signer *Signer, topic []byte) *NetworkedSigner {
-	handler := network.NewMessageHandler(node, topic)
+func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
+	handler := network.NewMessageHandler(node, []byte(signer.Group.Id))
 
 	ns := &NetworkedSigner{
 		Node:   node,

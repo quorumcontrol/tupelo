@@ -77,11 +77,14 @@ func TestNode_Integration(t *testing.T) {
 	msgs := topicSub.RetrieveMessages()
 	log.Debug("msgs:", "msgs", msgs)
 	assert.Len(t, msgs, 1)
-	//assert.Equal(t, msgs[0].Payload, node.RawData())
+	if len(msgs) >= 1 {
+		assert.Equal(t, msgs[0].Payload, node.RawData())
+	}
 
 	msgs = keySub.RetrieveMessages()
 	log.Debug("msgs:", "msgs", msgs)
 	assert.Len(t, msgs, 1)
-
-	//assert.Equal(t, msgs[0].Payload, []byte("hiKey"))
+	if len(msgs) >= 1 {
+		assert.Equal(t, msgs[0].Payload, []byte("hiKey"))
+	}
 }
