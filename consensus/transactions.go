@@ -11,7 +11,7 @@ import (
 )
 
 const (
-  TreePathForAuthentications = "_qc/authentications"
+	TreePathForAuthentications = "_qc/authentications"
 )
 
 func init() {

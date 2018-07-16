@@ -10,7 +10,7 @@ import (
 )
 
 var DefaultTransactors = map[string]chaintree.TransactorFunc{
-	"SET_DATA": SetDataTransaction,
+	"SET_DATA":      SetDataTransaction,
 	"SET_OWNERSHIP": SetOwnershipTransaction,
 }
 
