@@ -34,7 +34,7 @@ type Request struct {
 	Id      string
 	Payload []byte
 	dst     *ecdsa.PublicKey
-	src     *ecdsa.PublicKey
+	Src     *ecdsa.PublicKey
 }
 
 type Response struct {
@@ -134,7 +134,7 @@ func (rh *MessageHandler) DoRequest(dst *ecdsa.PublicKey, req *Request) (chan *R
 		return nil, fmt.Errorf("error converting request: %v", err)
 	}
 
-	log.Debug("sending destination message", "id", req.Id, "dst", crypto.PubkeyToAddress(*dst).String(), "src", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Debug("sending destination message", "id", req.Id, "dst", crypto.PubkeyToAddress(*dst).String(), "Src", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err = rh.send(dst, wireBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error sending: %v", err)
@@ -157,7 +157,7 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *R
 		return nil, fmt.Errorf("error wrapping request: %v", sw.Err)
 	}
 
-	log.Debug("sending message", "id", req.Id, "src", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Debug("sending message", "id", req.Id, "Src", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err := rh.node.Send(MessageParams{
 		Payload:  reqNode.RawData(),
 		TTL:      DefaultTTL,
@@ -213,9 +213,9 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 			log.Error("error converting response", "err", err)
 			return
 		}
-		log.Debug("responding", "id", req.Id, "dst", crypto.PubkeyToAddress(*req.src).String())
+		log.Debug("responding", "id", req.Id, "dst", crypto.PubkeyToAddress(*req.Src).String())
 
-		err = rh.send(req.src, wireBytes)
+		err = rh.send(req.Src, wireBytes)
 		if err != nil {
 			log.Error("error sending request", "err", err)
 		}
@@ -225,7 +225,7 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 }
 
 func (rh *MessageHandler) handleResponse(resp *Response) {
-	log.Debug("response received", "src", crypto.PubkeyToAddress(*resp.src).String())
+	log.Debug("response received", "Src", crypto.PubkeyToAddress(*resp.src).String())
 
 	log.Debug("client sending response to response channel", "id", resp.Id)
 	rh.requestLock.RLock()
@@ -257,7 +257,7 @@ func (rh *MessageHandler) Start() {
 					continue
 				}
 				if msg.Request != nil {
-					msg.Request.src = msg.src
+					msg.Request.Src = msg.src
 					rh.handleRequest(msg.Request)
 					continue
 				}
