@@ -49,7 +49,7 @@ func TestNode_Integration(t *testing.T) {
 		PoW:      0.1,
 		WorkTime: 2,
 		Payload:  node.RawData(),
-		TTL:      DefaultTTL,
+		TTL:      5,
 		Src:      clientKey,
 	}
 
@@ -67,6 +67,7 @@ func TestNode_Integration(t *testing.T) {
 		PoW:      0.1,
 		WorkTime: 10,
 		Payload:  []byte("hiKey"),
+		TTL:      5,
 	})
 
 	assert.Nil(t, err)
@@ -76,11 +77,14 @@ func TestNode_Integration(t *testing.T) {
 	msgs := topicSub.RetrieveMessages()
 	log.Debug("msgs:", "msgs", msgs)
 	assert.Len(t, msgs, 1)
-	//assert.Equal(t, msgs[0].Payload, node.RawData())
+	if len(msgs) >= 1 {
+		assert.Equal(t, msgs[0].Payload, node.RawData())
+	}
 
 	msgs = keySub.RetrieveMessages()
 	log.Debug("msgs:", "msgs", msgs)
 	assert.Len(t, msgs, 1)
-
-	//assert.Equal(t, msgs[0].Payload, []byte("hiKey"))
+	if len(msgs) >= 1 {
+		assert.Equal(t, msgs[0].Payload, []byte("hiKey"))
+	}
 }

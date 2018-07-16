@@ -18,10 +18,11 @@ const MessageType_TipRequest = "TIP_REQUEST"
 
 type NetworkedClient struct {
 	sessionKey *ecdsa.PrivateKey
-	Client     *network.Client
+	Client     *network.MessageHandler
 	Group      *Group
 	Wallet     Wallet
-	//signingKey *ecdsa.PrivateKey
+	topic      []byte
+	symkey     []byte
 }
 
 func NewNetworkedClient(group *Group) (*NetworkedClient, error) {
@@ -29,16 +30,20 @@ func NewNetworkedClient(group *Group) (*NetworkedClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error generating session key: %v", err)
 	}
+
+	node := network.NewNode(sessionKey)
+
 	return &NetworkedClient{
 		sessionKey: sessionKey,
-		Client:     network.NewClient(sessionKey, []byte(group.Id), crypto.Keccak256([]byte(group.Id))),
+		Client:     network.NewMessageHandler(node, []byte(group.Id)),
 		Group:      group,
+		topic:      []byte(group.Id),
+		symkey:     crypto.Keccak256([]byte(group.Id)),
 	}, nil
 }
 
 func (nc *NetworkedClient) Stop() {
 	nc.Client.Stop()
-	nc.Client = network.NewClient(nc.sessionKey, []byte(nc.Group.Id), crypto.Keccak256([]byte(nc.Group.Id)))
 }
 
 func (nc *NetworkedClient) Start() {
@@ -67,7 +72,7 @@ func (nc *NetworkedClient) AddBlock(tree *SignedChainTree, block *chaintree.Bloc
 		return nil, fmt.Errorf("error building request: %v", err)
 	}
 
-	respChan, err := nc.Client.DoRequest(req)
+	respChan, err := nc.Client.Broadcast(nc.topic, nc.symkey, req)
 	if err != nil {
 		return nil, fmt.Errorf("error doing request: %v", err)
 	}
@@ -122,7 +127,7 @@ func (nc *NetworkedClient) AddBlock(tree *SignedChainTree, block *chaintree.Bloc
 		return nil, fmt.Errorf("error building feedback request: %v", err)
 	}
 
-	respChan, err = nc.Client.DoRequest(req)
+	respChan, err = nc.Client.Broadcast(nc.topic, nc.symkey, req)
 	if err != nil {
 		return nil, fmt.Errorf("error doing feedback request: %v", err)
 	}
@@ -146,7 +151,7 @@ func (nc *NetworkedClient) RequestTip(chainId string) (*TipResponse, error) {
 		return nil, fmt.Errorf("error building request: %v", err)
 	}
 
-	respChan, err := nc.Client.DoRequest(req)
+	respChan, err := nc.Client.Broadcast(nc.topic, nc.symkey, req)
 	if err != nil {
 		return nil, fmt.Errorf("error doing request: %v", err)
 	}
@@ -171,7 +176,3 @@ func (nc *NetworkedClient) RequestTip(chainId string) (*TipResponse, error) {
 
 	return resp, nil
 }
-
-//func (nc *NetworkedClient) SetSigningKey(key *ecdsa.PrivateKey) {
-//	nc.signingKey = key
-//}

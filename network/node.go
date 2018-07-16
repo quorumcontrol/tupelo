@@ -92,6 +92,7 @@ type Node struct {
 	whisper *whisper.Whisper
 	key     *ecdsa.PrivateKey
 	srv     *p2p.Server
+	started bool
 }
 
 type Subscription struct {
@@ -114,6 +115,11 @@ func NewNode(key *ecdsa.PrivateKey) *Node {
 }
 
 func (n *Node) Start() error {
+	if n.started == true {
+		return nil
+	}
+	n.started = true
+
 	var peers []*discover.Node
 	for _, enode := range bootNodes {
 		peer := discover.MustParseNode(enode)
@@ -150,6 +156,10 @@ func (n *Node) Start() error {
 }
 
 func (n *Node) Stop() {
+	if !n.started {
+		return
+	}
+	n.started = false
 	n.whisper.Stop()
 	n.srv.Stop()
 }

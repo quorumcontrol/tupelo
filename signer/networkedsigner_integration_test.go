@@ -48,9 +48,10 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewClient(sessionKey, []byte(group.Id), crypto.Keccak256([]byte(group.Id)))
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.Id))
 
 	client.Start()
+	defer client.Stop()
 	time.Sleep(2 * time.Second)
 
 	treeKey, err := crypto.GenerateKey()
@@ -92,7 +93,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 
-	respChan, err := client.DoRequest(req)
+	respChan, err := client.Broadcast([]byte(group.Id), crypto.Keccak256([]byte(group.Id)), req)
 	assert.Nil(t, err)
 
 	resp := <-respChan
