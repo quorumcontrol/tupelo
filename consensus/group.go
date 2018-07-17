@@ -2,64 +2,87 @@ package consensus
 
 import (
 	"fmt"
-	"math"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/common"
+	"crypto/rand"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
 )
 
-type byAddress []PublicKey
+type byAddress []*RemoteNode
 
 func (a byAddress) Len() int      { return len(a) }
 func (a byAddress) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byAddress) Less(i, j int) bool {
-	return BlsVerKeyToAddress(a[i].PublicKey).Hex() < BlsVerKeyToAddress(a[j].PublicKey).Hex()
+	return a[i].Id < a[j].Id
+}
+
+type RemoteNode struct {
+	VerKey PublicKey
+	DstKey PublicKey
+	Id     string
+}
+
+func NewRemoteNode(verKey, dstKey PublicKey) *RemoteNode {
+	remoteNode := &RemoteNode{
+		VerKey: verKey,
+		DstKey: dstKey,
+	}
+
+	remoteNode.Id = PublicKeyToAddr(&verKey)
+	return remoteNode
 }
 
 type Group struct {
-	Id               string
-	SortedPublicKeys []PublicKey
+	SortedMembers []*RemoteNode
+	id            string
 }
 
-func GroupFromPublicKeys(keys []PublicKey) *Group {
-	group := NewGroup("", keys)
-	group.Id = AddrToDid(group.Address().Hex())
-	return group
-}
-
-func NewGroup(id string, keys []PublicKey) *Group {
-	sort.Sort(byAddress(keys))
+func NewGroup(members []*RemoteNode) *Group {
+	sort.Sort(byAddress(members))
 	return &Group{
-		Id:               id,
-		SortedPublicKeys: keys,
+		SortedMembers: members,
 	}
 }
 
-func (group *Group) Address() common.Address {
-	pubKeys := make([][]byte, len(group.SortedPublicKeys))
-	for i, pubKey := range group.SortedPublicKeys {
-		pubKeys[i] = pubKey.PublicKey
+func (group *Group) Id() string {
+	if group.id != "" {
+		return group.id
+	}
+	pubKeys := make([][]byte, len(group.SortedMembers))
+	for i, remoteNode := range group.SortedMembers {
+		pubKeys[i] = remoteNode.VerKey.PublicKey
 	}
 
-	return BlsVerKeyToAddress(concatBytes(pubKeys))
+	group.id = BlsVerKeyToAddress(concatBytes(pubKeys)).String()
+
+	return group.id
+}
+
+func (group *Group) AsVerKeyMap() map[string]PublicKey {
+	sigMap := make(map[string]PublicKey)
+	for _, member := range group.SortedMembers {
+		sigMap[member.Id] = member.VerKey
+	}
+	return sigMap
 }
 
 func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {
-	requiredNum := uint64(math.Ceil(2.0 * (float64(len(group.SortedPublicKeys)) / 3.0)))
+	requiredNum := group.SuperMajorityCount()
 	log.Trace("verify signature", "requiredNum", requiredNum)
 
 	var expectedKeyBytes [][]byte
 	for i, didSign := range sig.Signers {
 		if didSign {
-			expectedKeyBytes = append(expectedKeyBytes, group.SortedPublicKeys[i].PublicKey)
+			expectedKeyBytes = append(expectedKeyBytes, group.SortedMembers[i].VerKey.PublicKey)
 		}
 	}
 
 	log.Trace("verify signature", "len(expectedKeyBytes)", len(expectedKeyBytes))
 
-	if uint64(len(expectedKeyBytes)) < requiredNum {
+	if int64(len(expectedKeyBytes)) < requiredNum {
 		return false, nil
 	}
 
@@ -71,15 +94,15 @@ func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {
 func (group *Group) CombineSignatures(sigs SignatureMap) (*Signature, error) {
 	sigBytes := make([][]byte, 0)
 
-	signers := make([]bool, len(group.SortedPublicKeys))
-	for i, pubKey := range group.SortedPublicKeys {
-		sig, ok := sigs[pubKey.Id]
+	signers := make([]bool, len(group.SortedMembers))
+	for i, member := range group.SortedMembers {
+		sig, ok := sigs[member.Id]
 		if ok {
-			log.Debug("signer signed", "signerId", BlsVerKeyToAddress(pubKey.PublicKey).Hex())
+			log.Debug("combine signatures, signer signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
 			sigBytes = append(sigBytes, sig.Signature)
 			signers[i] = true
 		} else {
-			log.Debug("signer not signed", "signerId", BlsVerKeyToAddress(pubKey.PublicKey).Hex())
+			log.Debug("signer not signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
 			signers[i] = false
 		}
 	}
@@ -93,6 +116,27 @@ func (group *Group) CombineSignatures(sigs SignatureMap) (*Signature, error) {
 		Signers:   signers,
 		Signature: combinedBytes,
 	}, nil
+}
+
+func (g *Group) RandomMember() *RemoteNode {
+	return g.SortedMembers[randInt(len(g.SortedMembers))]
+}
+
+func (g *Group) SuperMajorityCount() int64 {
+	required := int64((2.0 * float64(len(g.SortedMembers))) / 3.0)
+	if required == 0 {
+		return 1
+	} else {
+		return required
+	}
+}
+
+func randInt(max int) int {
+	bigInt, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		log.Error("error reading rand", "err", err)
+	}
+	return int(bigInt.Int64())
 }
 
 func concatBytes(slices [][]byte) []byte {

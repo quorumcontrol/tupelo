@@ -22,8 +22,11 @@ func TestNetworkedClient_AddBlock(t *testing.T) {
 
 	ecdsaKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
+	dstPubKey := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey)
 
-	group := consensus.GroupFromPublicKeys([]consensus.PublicKey{pubKey})
+	rn := consensus.NewRemoteNode(pubKey, dstPubKey)
+
+	group := consensus.NewGroup([]*consensus.RemoteNode{rn})
 
 	store := storage.NewMemStorage()
 
@@ -97,8 +100,11 @@ func BenchmarkNetworkedClient_AddBlock(b *testing.B) {
 
 	ecdsaKey, err := crypto.GenerateKey()
 	assert.Nil(b, err)
+	dstPubKey := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey)
 
-	group := consensus.GroupFromPublicKeys([]consensus.PublicKey{pubKey})
+	rn := consensus.NewRemoteNode(pubKey, dstPubKey)
+
+	group := consensus.NewGroup([]*consensus.RemoteNode{rn})
 
 	store := storage.NewMemStorage()
 

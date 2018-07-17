@@ -16,9 +16,12 @@ func createSigner(t *testing.T) *Signer {
 	assert.Nil(t, err)
 
 	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
-	group := &consensus.Group{
-		SortedPublicKeys: []consensus.PublicKey{pubKey},
-	}
+
+	dstKey, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+	dstPubKey := consensus.EcdsaToPublicKey(&dstKey.PublicKey)
+
+	group := consensus.NewGroup([]*consensus.RemoteNode{consensus.NewRemoteNode(pubKey, dstPubKey)})
 
 	store := storage.NewMemStorage()
 
