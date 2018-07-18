@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"sync"
@@ -44,7 +45,7 @@ type Response struct {
 	src     *ecdsa.PublicKey
 }
 
-type HandlerFunc func(req Request, respChan ResponseChan) error
+type HandlerFunc func(ctx context.Context, req Request, respChan ResponseChan) error
 
 type MessageHandler struct {
 	mainTopic           []byte
@@ -196,7 +197,7 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 
 		var resp *Response
 
-		err := handler(*req, respChan)
+		err := handler(context.Background(), *req, respChan)
 		if err == nil {
 			resp = <-respChan
 		} else {
@@ -258,12 +259,12 @@ func (rh *MessageHandler) Start() {
 				}
 				if msg.Request != nil {
 					msg.Request.Src = msg.src
-					rh.handleRequest(msg.Request)
+					go rh.handleRequest(msg.Request)
 					continue
 				}
 				if msg.Response != nil {
 					msg.Response.src = msg.src
-					rh.handleResponse(msg.Response)
+					go rh.handleResponse(msg.Response)
 					continue
 				}
 				log.Error("message handler reached a loop it should not have")

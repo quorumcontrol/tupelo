@@ -1,10 +1,14 @@
 package gossip
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"os"
 	"testing"
 
 	"time"
+
+	"bytes"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -14,17 +18,19 @@ import (
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testSet struct {
-	SignKeys  []*bls.SignKey
-	VerKeys   []*bls.VerKey
-	EcdsaKeys []*ecdsa.PrivateKey
-	PubKeys   []consensus.PublicKey
+	SignKeys          []*bls.SignKey
+	VerKeys           []*bls.VerKey
+	EcdsaKeys         []*ecdsa.PrivateKey
+	PubKeys           []consensus.PublicKey
+	SignKeysByAddress map[string]*bls.SignKey
 }
 
 // This is the simplest possible state handler that just always returns the transaction as the nextState
-func simpleHandler(_ []byte, transaction []byte) (nextState []byte, err error) {
+func simpleHandler(_ context.Context, _ []byte, transaction []byte) (nextState []byte, err error) {
 	return transaction, nil
 }
 
@@ -56,21 +62,26 @@ type InMemoryHandler struct {
 }
 
 func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error) {
-	respChan := make(chan *network.Response)
+	respChan := make(chan *network.Response, 1)
+	start := time.Now()
 
-	go func() {
+	log.Trace("DoRequest to", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "start", start)
+	go func(dst *ecdsa.PublicKey, req *network.Request) {
+		log.Trace("DoRequest go func started", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
 		handler, ok := imh.System.Handlers[crypto.PubkeyToAddress(*dst).String()]
 		if !ok {
 			log.Error("could not find handler")
 			panic("could not find handler")
 		}
-		resp, err := handler.Mapping[req.Type](*req)
+		resp, err := handler.Mapping[req.Type](context.Background(), *req)
 		if err != nil {
 			log.Error("error handling request: %v", err)
 		}
-		time.Sleep(time.Duration(imh.System.ArtificialLatency) * time.Millisecond)
+		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
+		<-time.After(time.Duration(imh.System.ArtificialLatency) * time.Millisecond)
+		log.Trace("DoRequest responding", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
 		respChan <- resp
-	}()
+	}(dst, req)
 
 	return respChan, nil
 }
@@ -89,18 +100,22 @@ func newTestSet(t *testing.T, size int) *testSet {
 	verKeys := make([]*bls.VerKey, len(signKeys))
 	pubKeys := make([]consensus.PublicKey, len(signKeys))
 	ecdsaKeys := make([]*ecdsa.PrivateKey, len(signKeys))
+	signKeysByAddress := make(map[string]*bls.SignKey)
 	for i, signKey := range signKeys {
 		ecdsaKey, _ := crypto.GenerateKey()
 		verKeys[i] = signKey.MustVerKey()
 		pubKeys[i] = consensus.BlsKeyToPublicKey(verKeys[i])
 		ecdsaKeys[i] = ecdsaKey
+		signKeysByAddress[consensus.BlsVerKeyToAddress(verKeys[i].Bytes()).String()] = signKey
+
 	}
 
 	return &testSet{
-		SignKeys:  signKeys,
-		VerKeys:   verKeys,
-		PubKeys:   pubKeys,
-		EcdsaKeys: ecdsaKeys,
+		SignKeys:          signKeys,
+		VerKeys:           verKeys,
+		PubKeys:           pubKeys,
+		EcdsaKeys:         ecdsaKeys,
+		SignKeysByAddress: signKeysByAddress,
 	}
 }
 
@@ -133,12 +148,16 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 	for i := 0; i < size; i++ {
 		stor := storage.NewMemStorage()
 
+		member := group.SortedMembers[i]
+
 		gossiper := NewGossiper(&GossiperOpts{
-			SignKey:        ts.SignKeys[i],
-			Storage:        stor,
-			StateHandler:   simpleHandler,
-			Group:          group,
-			MessageHandler: system.NewHandler(crypto.ToECDSAPub(group.SortedMembers[i].DstKey.PublicKey)),
+			SignKey:            ts.SignKeysByAddress[member.Id],
+			Storage:            stor,
+			StateHandler:       simpleHandler,
+			Group:              group,
+			MessageHandler:     system.NewHandler(crypto.ToECDSAPub(member.DstKey.PublicKey)),
+			TimeBetweenGossips: 200,
+			NumberOfGossips:    3,
 		})
 		gossipers[i] = gossiper
 	}
@@ -157,7 +176,7 @@ func TestGossiper_HandleGossipRequest(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(*req)
+	resp, err := gossipers[0].HandleGossipRequest(context.TODO(), *req)
 	assert.Nil(t, err)
 
 	gossipResp := &GossipMessage{}
@@ -178,7 +197,7 @@ func TestGossiper_DoOneGossip(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(*req)
+	resp, err := gossipers[0].HandleGossipRequest(context.TODO(), *req)
 	assert.Nil(t, err)
 
 	gossipResp := &GossipMessage{}
@@ -191,12 +210,12 @@ func TestGossiper_DoOneGossip(t *testing.T) {
 	assert.Nil(t, err)
 
 	// The original gossiper should have added the other gossiper
-	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
+	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
 	assert.Len(t, sigs, 2)
 
 	// The new gossiper should have both its own and the gossiped signature
-	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
+	sigs, err = gossipers[1].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
 	assert.Len(t, sigs, 2)
 }
@@ -214,7 +233,7 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(*req)
+	resp, err := gossipers[0].HandleGossipRequest(context.Background(), *req)
 	assert.Nil(t, err)
 
 	gossipResp := &GossipMessage{}
@@ -227,20 +246,20 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 	assert.Nil(t, err)
 
 	// The original gossiper should have added the other gossiper
-	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
+	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
 	assert.Len(t, sigs, 3)
 
 	// The new gossiper should have both its own and the gossiped signature
-	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
+	sigs, err = gossipers[1].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
 	assert.Len(t, sigs, 2)
 }
 
 func TestGossiper_Start(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	gossipers := generateTestGossipGroup(t, 10, 0)
+	gossipers := generateTestGossipGroup(t, 100, 0)
 	for i := 0; i < len(gossipers); i++ {
 		gossipers[i].Start()
 		defer gossipers[i].Stop()
@@ -256,7 +275,14 @@ func TestGossiper_Start(t *testing.T) {
 
 	log.Debug("submitting initial to", "g", gossipers[0].Id)
 
-	resp, err := gossipers[0].HandleGossipRequest(*req)
+	//f, err := os.Create("gossip.prof")
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//pprof.StartCPUProfile(f)
+	//defer pprof.StopCPUProfile()
+
+	resp, err := gossipers[0].HandleGossipRequest(context.TODO(), *req)
 	assert.Nil(t, err)
 
 	gossipResp := &GossipMessage{}
@@ -267,36 +293,32 @@ func TestGossiper_Start(t *testing.T) {
 
 	now := time.Now()
 	for {
-		count := 0
-		for i := 0; i < len(gossipers); i++ {
-			isDone, err := gossipers[i].IsTransactionAccepted(message.Id())
-			if err != nil {
-				t.Fatalf("error getting accepted: %v", err)
-			}
-			if isDone {
-				count++
-			}
-		}
-
-		if count == len(gossipers) {
+		state, err := gossipers[0].getCurrentState(message.ObjectId)
+		require.Nil(t, err)
+		if bytes.Equal(state, message.Transaction) {
 			break
 		}
-
-		if time.Now().Sub(now) > (10 * time.Second) {
-			t.Fatalf("timeout")
-			break
-		}
-
 		<-time.After(100 * time.Millisecond)
+		if time.Now().Sub(now) > (20 * time.Second) {
+			sigs, _ := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
+			t.Fatalf("timeout. State: %v, SigCount: %v", string(state), len(sigs))
+			break
+		}
+	}
+
+	count := 0
+	for i := 0; i < len(gossipers); i++ {
+		isDone, err := gossipers[i].IsTransactionAccepted(message.Id())
+		if err != nil {
+			t.Fatalf("error getting accepted: %v", err)
+		}
+		if isDone {
+			count++
+		}
 	}
 
 	// The original gossiper should have added the other gossiper
-	sigs, err := gossipers[0].savedSignaturesFor(message.Id())
+	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
-	assert.Len(t, sigs, len(gossipers))
-
-	// The new gossiper should have both its own and the gossiped signature
-	sigs, err = gossipers[1].savedSignaturesFor(message.Id())
-	assert.Nil(t, err)
-	assert.Len(t, sigs, len(gossipers))
+	assert.True(t, int64(len(sigs)) > gossipers[0].Group.SuperMajorityCount())
 }
