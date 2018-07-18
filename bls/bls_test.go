@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewSignKey(t *testing.T) {
@@ -168,4 +169,43 @@ func TestVerifyMultiSig(t *testing.T) {
 	isValid, err = VerifyMultiSig(multiSig, hsh, verKeys)
 	assert.Nil(t, err)
 	assert.True(t, isValid)
+}
+
+func BenchmarkVerKey_Verify(b *testing.B) {
+	msg := []byte("hi")
+	hsh := crypto.Keccak256(msg)
+
+	key, err := NewSignKey()
+	require.Nil(b, err)
+
+	verKey := key.MustVerKey()
+
+	sig, err := key.Sign(hsh)
+	require.Nil(b, err)
+
+	var isValid bool
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		v, _ := verKey.Verify(sig, hsh)
+		isValid = v
+	}
+
+	assert.True(b, isValid)
+}
+
+func BenchmarkSignKey_Sign(b *testing.B) {
+	msg := []byte("hi")
+	hsh := crypto.Keccak256(msg)
+
+	key, err := NewSignKey()
+	assert.Nil(b, err)
+
+	var sig []byte
+
+	for i := 0; i < b.N; i++ {
+		sig, _ = key.Sign(hsh)
+	}
+
+	assert.Len(b, sig, 128)
 }
