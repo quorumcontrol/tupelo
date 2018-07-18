@@ -30,9 +30,8 @@ func (ms *MemStorage) Close() {
 }
 
 func (ms *MemStorage) CreateBucketIfNotExists(bucketName []byte) error {
-	ms.lock.Lock()
-	defer ms.lock.Unlock()
 	_, ok := ms.Buckets[string(bucketName)]
+
 	if !ok {
 		ms.Buckets[string(bucketName)] = &MemBucket{
 			Keys: make(map[string][]byte),
@@ -43,11 +42,9 @@ func (ms *MemStorage) CreateBucketIfNotExists(bucketName []byte) error {
 }
 
 func (ms *MemStorage) Set(bucketName []byte, key []byte, value []byte) error {
-	ms.lock.RLock()
-	defer ms.lock.RUnlock()
-
-	ms.Buckets[string(bucketName)].lock.Lock()
-	defer ms.Buckets[string(bucketName)].lock.Unlock()
+	bucket := ms.Buckets[string(bucketName)]
+	bucket.lock.Lock()
+	defer bucket.lock.Unlock()
 
 	ms.Buckets[string(bucketName)].Keys[string(key)] = value
 
@@ -55,12 +52,6 @@ func (ms *MemStorage) Set(bucketName []byte, key []byte, value []byte) error {
 }
 
 func (ms *MemStorage) Delete(bucketName []byte, key []byte) error {
-	ms.lock.RLock()
-	defer ms.lock.RUnlock()
-
-	ms.Buckets[string(bucketName)].lock.Lock()
-	defer ms.Buckets[string(bucketName)].lock.Unlock()
-
 	_, ok := ms.Buckets[string(bucketName)]
 	if ok {
 		delete(ms.Buckets[string(bucketName)].Keys, string(key))
@@ -69,11 +60,6 @@ func (ms *MemStorage) Delete(bucketName []byte, key []byte) error {
 }
 
 func (ms *MemStorage) Get(bucketName []byte, key []byte) ([]byte, error) {
-	ms.lock.RLock()
-	defer ms.lock.RUnlock()
-
-	ms.Buckets[string(bucketName)].lock.RLock()
-	defer ms.Buckets[string(bucketName)].lock.RUnlock()
 
 	val, ok := ms.Buckets[string(bucketName)].Keys[string(key)]
 	if ok {
@@ -83,15 +69,18 @@ func (ms *MemStorage) Get(bucketName []byte, key []byte) ([]byte, error) {
 }
 
 func (ms *MemStorage) GetKeys(bucketName []byte) ([][]byte, error) {
-	ms.lock.RLock()
-	defer ms.lock.RUnlock()
+	bucket := ms.Buckets[string(bucketName)]
 
-	ms.Buckets[string(bucketName)].lock.RLock()
-	defer ms.Buckets[string(bucketName)].lock.RUnlock()
+	bucket.lock.RLock()
+	holder := make(map[string][]byte)
+	for k, v := range bucket.Keys {
+		holder[k] = v
+	}
+	bucket.lock.RUnlock()
 
-	keys := make([][]byte, len(ms.Buckets[string(bucketName)].Keys))
+	keys := make([][]byte, len(holder))
 	i := 0
-	for k := range ms.Buckets[string(bucketName)].Keys {
+	for k := range holder {
 		keys[i] = []byte(k)
 		i++
 	}
@@ -100,8 +89,6 @@ func (ms *MemStorage) GetKeys(bucketName []byte) ([][]byte, error) {
 
 func (ms *MemStorage) ForEach(bucketName []byte, iterator func(k, v []byte) error) error {
 	var err error
-	ms.lock.RLock()
-	defer ms.lock.RUnlock()
 
 	bucket, ok := ms.Buckets[string(bucketName)]
 	if !ok {
@@ -109,9 +96,13 @@ func (ms *MemStorage) ForEach(bucketName []byte, iterator func(k, v []byte) erro
 	}
 
 	bucket.lock.RLock()
-	defer bucket.lock.RUnlock()
-
+	holder := make(map[string][]byte)
 	for k, v := range bucket.Keys {
+		holder[k] = v
+	}
+	bucket.lock.RUnlock()
+
+	for k, v := range holder {
 		err = iterator([]byte(k), v)
 		if err != nil {
 			break
