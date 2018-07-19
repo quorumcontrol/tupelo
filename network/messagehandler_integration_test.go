@@ -3,6 +3,7 @@
 package network
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func TestClient_DoRequest(t *testing.T) {
 	clientNode.Start()
 	defer serverNode.Stop()
 
-	reqHandler := func(req Request, respChan ResponseChan) error {
+	reqHandler := func(_ context.Context, req Request, respChan ResponseChan) error {
 		respChan <- &Response{
 			Payload: req.Payload,
 		}
@@ -76,7 +77,7 @@ func TestClient_Broadcast(t *testing.T) {
 	clientNode.Start()
 	defer serverNode.Stop()
 
-	reqHandler := func(req Request, respChan ResponseChan) error {
+	reqHandler := func(_ context.Context, req Request, respChan ResponseChan) error {
 		respChan <- &Response{
 			Payload: req.Payload,
 		}
