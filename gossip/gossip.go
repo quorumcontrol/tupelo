@@ -198,7 +198,7 @@ func (g *Gossiper) queueGossip() {
 }
 
 func (g *Gossiper) DoOneGossipRound(id TransactionId) error {
-	numberToGossip := min(len(g.Group.SortedMembers), g.NumberOfGossips)
+	numberToGossip := min(len(g.Group.SortedMembers)-1, g.NumberOfGossips)
 	doneChans := make([]chan error, numberToGossip)
 
 	log.Debug("gossiping", "g", g.Id, "number", numberToGossip)
