@@ -18,7 +18,7 @@ import (
 func TestGossiper_Start(t *testing.T) {
 	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	gossipers := generateTestGossipGroup(t, 100, 0)
+	gossipers := generateTestGossipGroup(t, 20, 0)
 	for i := 0; i < len(gossipers); i++ {
 		gossipers[i].Start()
 		defer gossipers[i].Stop()
