@@ -55,6 +55,7 @@ func (s *Signer) ProcessAddBlock(req *consensus.AddBlockRequest) (*consensus.Add
 	chainTree, err := chaintree.NewChainTree(
 		tree,
 		[]chaintree.BlockValidatorFunc{
+			s.IsNextBlock,
 			s.IsOwner,
 		},
 		consensus.DefaultTransactors,
