@@ -178,7 +178,7 @@ func (g *Gossiper) doAllGossips() error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("error forEach on ToGossipBucket", "g", g.Id)
+		return fmt.Errorf("error forEach on ToGossipBucket: %v", err)
 	}
 
 	for i := 0; i < len(doneChans); i++ {
