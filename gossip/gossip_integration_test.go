@@ -80,4 +80,6 @@ func TestGossiper_Start(t *testing.T) {
 	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
 	assert.True(t, int64(len(sigs)) > gossipers[0].Group.SuperMajorityCount())
+
+	assert.True(t, bytes.Equal(message.Transaction, lastAccepted))
 }

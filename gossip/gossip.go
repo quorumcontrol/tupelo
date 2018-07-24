@@ -68,6 +68,7 @@ func (gm *GossipMessage) Id() TransactionId {
 }
 
 type StateHandler func(ctx context.Context, currentState []byte, transaction []byte) (nextState []byte, err error)
+type AcceptedHandler func(ctx context.Context, group *consensus.Group, newState []byte, transaction []byte) (err error)
 
 type Gossiper struct {
 	MessageHandler     Handler
@@ -76,6 +77,7 @@ type Gossiper struct {
 	Group              *consensus.Group
 	Storage            storage.Storage
 	StateHandler       StateHandler
+	AcceptedHandler    AcceptedHandler
 	NumberOfGossips    int
 	TimeBetweenGossips int
 	checkAcceptedChan  chan TransactionId
@@ -92,6 +94,7 @@ type GossiperOpts struct {
 	Group              *consensus.Group
 	Storage            storage.Storage
 	StateHandler       StateHandler
+	AcceptedHandler    AcceptedHandler
 	NumberOfGossips    int
 	TimeBetweenGossips int
 }
@@ -104,6 +107,7 @@ func NewGossiper(opts *GossiperOpts) *Gossiper {
 		Group:              opts.Group,
 		Storage:            opts.Storage,
 		StateHandler:       opts.StateHandler,
+		AcceptedHandler:    opts.AcceptedHandler,
 		NumberOfGossips:    opts.NumberOfGossips,
 		TimeBetweenGossips: opts.TimeBetweenGossips,
 		checkAcceptedChan:  make(chan TransactionId, 200),
@@ -576,6 +580,19 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 			err = g.Storage.Set(AcceptedBucket, id, nowBytes())
 			if err != nil {
 				return fmt.Errorf("error setting accepted bucket: %v", err)
+			}
+
+			if g.AcceptedHandler != nil {
+				trans, err := g.getTransaction(id)
+				if err != nil {
+					return fmt.Errorf("error getting transaction from storage: %v", err)
+				}
+
+				err = g.AcceptedHandler(ctx, g.Group, []byte(state), trans)
+				if err != nil {
+					log.Error("error calling accepted", "err", err)
+					return fmt.Errorf("error calling accepted: %v", err)
+				}
 			}
 
 			//TODO: we need to stop before we have all the signatures

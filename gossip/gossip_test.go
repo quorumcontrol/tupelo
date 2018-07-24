@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var lastAccepted []byte
+
 type testSet struct {
 	SignKeys          []*bls.SignKey
 	VerKeys           []*bls.VerKey
@@ -28,6 +30,12 @@ type testSet struct {
 // This is the simplest possible state handler that just always returns the transaction as the nextState
 func simpleHandler(_ context.Context, _ []byte, transaction []byte) (nextState []byte, err error) {
 	return transaction, nil
+}
+
+func simpleAcceptance(ctx context.Context, group *consensus.Group, newState, transaction []byte) (err error) {
+	log.Debug("simpleAcceptance called")
+	lastAccepted = transaction
+	return nil
 }
 
 type InMemoryHandlerSystem struct {
@@ -150,6 +158,7 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 			SignKey:            ts.SignKeysByAddress[member.Id],
 			Storage:            stor,
 			StateHandler:       simpleHandler,
+			AcceptedHandler:    simpleAcceptance,
 			Group:              group,
 			MessageHandler:     system.NewHandler(crypto.ToECDSAPub(member.DstKey.PublicKey)),
 			TimeBetweenGossips: 200,
