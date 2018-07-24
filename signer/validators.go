@@ -87,3 +87,27 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 
 	return false, nil
 }
+
+func (s *Signer) IsNextBlock(tree *dag.BidirectionalTree, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
+	id, _, err := tree.Resolve([]string{"id"})
+	if err != nil {
+		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
+	}
+
+	stored, err := s.Storage.Get(DidBucket, []byte(id.(string)))
+
+	if err != nil {
+		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error getting storage: %v", err), Code: consensus.ErrUnknown}
+	}
+
+	if stored == nil {
+		return blockWithHeaders.Block.PreviousTip == "", nil
+	} else {
+		storedTip, err := cid.Cast(stored)
+		if err != nil {
+			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("bad CID stored: %v", err)}
+		}
+
+		return blockWithHeaders.Block.PreviousTip == storedTip.String(), nil
+	}
+}

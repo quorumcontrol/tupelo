@@ -86,15 +86,27 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
-
 	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
 	// replaying should error
-
 	resp, err = signer.ProcessAddBlock(req)
 	assert.NotNil(t, err)
 
 	// playing a new transaction should work when there are no auths
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: testTree.Dag.Tip.String(),
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": "hi",
+					},
+				},
+			},
+		},
+	}
 
 	nodes = make([][]byte, len(testTree.Dag.Nodes()))
 	for i, node := range testTree.Dag.Nodes() {
@@ -106,7 +118,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -196,7 +208,6 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
-
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
 	assert.Nil(t, err)
 
@@ -250,6 +261,123 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	}
 
 	resp, err = signer.ProcessAddBlock(req)
+	assert.NotNil(t, err)
+}
+
+func TestSigner_NextBlockValidation(t *testing.T) {
+	signer := createSigner(t)
+
+	treeKey, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+	emptyTree := consensus.NewEmptyTree(treeDID)
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+
+	savedcid := *emptyTree.Tip
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "transaction1",
+						"value": "foo",
+					},
+				},
+			},
+		},
+	}
+
+	nodes1 := make([][]byte, len(emptyTree.Nodes()))
+	for i, node := range emptyTree.Nodes() {
+		nodes1[i] = node.Node.RawData()
+	}
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	assert.Nil(t, err)
+
+	req := &consensus.AddBlockRequest{
+		Nodes:    nodes1,
+		Tip:      emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+
+	resp, err := signer.ProcessAddBlock(req)
+	assert.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
+
+	unsignedBlock2 := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: resp.Tip.String(),
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "transaction2",
+						"value": "bar",
+					},
+				},
+			},
+		},
+	}
+
+	nodes2 := make([][]byte, len(emptyTree.Nodes()))
+	for i, node := range emptyTree.Nodes() {
+		nodes2[i] = node.Node.RawData()
+	}
+
+	blockWithHeaders2, err := consensus.SignBlock(unsignedBlock2, treeKey)
+	assert.Nil(t, err)
+
+	req2 := &consensus.AddBlockRequest{
+		Nodes:    nodes2,
+		Tip:      resp.Tip,
+		NewBlock: blockWithHeaders2,
+	}
+
+	resp2, err := signer.ProcessAddBlock(req2)
+	assert.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders2)
+	assert.Equal(t, resp2.Tip, testTree.Dag.Tip)
+
+	nodes3 := make([][]byte, len(emptyTree.Nodes()))
+	for i, node := range emptyTree.Nodes() {
+		nodes3[i] = node.Node.RawData()
+	}
+
+	unsignedBlock3 := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "transaction1",
+						"value": "foo",
+					},
+				},
+			},
+		},
+	}
+
+	blockWithHeaders3, err := consensus.SignBlock(unsignedBlock3, treeKey)
+	assert.Nil(t, err)
+
+	nodesCombined := append(append(nodes1, nodes2...), nodes3...)
+
+	req3 := &consensus.AddBlockRequest{
+		Nodes:    nodesCombined,
+		Tip:      &savedcid,
+		NewBlock: blockWithHeaders3,
+	}
+
+	_, err = signer.ProcessAddBlock(req3)
 	assert.NotNil(t, err)
 }
 
