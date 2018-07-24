@@ -7,7 +7,6 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,17 +22,12 @@ func createSigner(t *testing.T) *Signer {
 
 	group := consensus.NewGroup([]*consensus.RemoteNode{consensus.NewRemoteNode(pubKey, dstPubKey)})
 
-	store := storage.NewMemStorage()
-
 	signer := &Signer{
-		Storage: store,
 		Group:   group,
 		Id:      consensus.BlsVerKeyToAddress(key.MustVerKey().Bytes()).String(),
 		SignKey: key,
 		VerKey:  key.MustVerKey(),
 	}
-
-	signer.SetupStorage()
 
 	return signer
 }
@@ -78,7 +72,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := signer.ProcessAddBlock(req)
+	resp, err := signer.ProcessAddBlock(nil, req)
 
 	assert.Nil(t, err)
 
@@ -88,8 +82,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	testTree.ProcessBlock(blockWithHeaders)
 	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
-	// replaying should error
-	resp, err = signer.ProcessAddBlock(req)
+	resp, err = signer.ProcessAddBlock(resp.Tip, req)
 	assert.NotNil(t, err)
 
 	// playing a new transaction should work when there are no auths
@@ -122,7 +115,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(req)
+	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
@@ -164,7 +157,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(req)
+	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
 	assert.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(blockWithHeaders)
@@ -204,7 +197,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(req)
+	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
@@ -217,7 +210,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(req)
+	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
 	assert.Nil(t, err)
 
 	valid, err = testTree.ProcessBlock(blockWithHeaders)
@@ -260,7 +253,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(req)
+	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
 	assert.NotNil(t, err)
 }
 
@@ -305,7 +298,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := signer.ProcessAddBlock(req)
+	resp, err := signer.ProcessAddBlock(emptyTree.Tip, req)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
@@ -340,7 +333,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders2,
 	}
 
-	resp2, err := signer.ProcessAddBlock(req2)
+	resp2, err := signer.ProcessAddBlock(emptyTree.Tip, req2)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders2)
@@ -377,149 +370,6 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders3,
 	}
 
-	_, err = signer.ProcessAddBlock(req3)
+	_, err = signer.ProcessAddBlock(emptyTree.Tip, req3)
 	assert.NotNil(t, err)
-}
-
-func TestSigner_ProcessFeedback(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
-	signer := createSigner(t)
-
-	treeKey, err := crypto.GenerateKey()
-	assert.Nil(t, err)
-
-	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
-
-	unsignedBlock := &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: "",
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "down/in/the/thing",
-						"value": "hi",
-					},
-				},
-			},
-		},
-	}
-
-	emptyTree := consensus.NewEmptyTree(treeDID)
-
-	nodes := make([][]byte, len(emptyTree.Nodes()))
-	for i, node := range emptyTree.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
-
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
-	assert.Nil(t, err)
-
-	req := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
-		NewBlock: blockWithHeaders,
-	}
-
-	resp, err := signer.ProcessAddBlock(req)
-
-	assert.Nil(t, err)
-
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
-	assert.Nil(t, err)
-
-	testTree.ProcessBlock(blockWithHeaders)
-
-	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
-
-	// above was setup, now testing feedback
-
-	groupSig, err := signer.Group.CombineSignatures(consensus.SignatureMap{resp.SignerId: resp.Signature})
-	assert.Nil(t, err)
-
-	feedbackMessage := &consensus.FeedbackRequest{
-		Tip:       resp.Tip,
-		Signature: *groupSig,
-		ChainId:   resp.ChainId,
-	}
-
-	err = signer.ProcessFeedback(feedbackMessage)
-	assert.Nil(t, err)
-}
-
-func TestSigner_ProcessTipRequest(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
-	signer := createSigner(t)
-
-	treeKey, err := crypto.GenerateKey()
-	assert.Nil(t, err)
-
-	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
-
-	unsignedBlock := &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: "",
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "down/in/the/thing",
-						"value": "hi",
-					},
-				},
-			},
-		},
-	}
-
-	emptyTree := consensus.NewEmptyTree(treeDID)
-
-	nodes := make([][]byte, len(emptyTree.Nodes()))
-	for i, node := range emptyTree.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
-
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
-	assert.Nil(t, err)
-
-	req := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
-		NewBlock: blockWithHeaders,
-	}
-
-	resp, err := signer.ProcessAddBlock(req)
-
-	assert.Nil(t, err)
-
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
-	assert.Nil(t, err)
-
-	testTree.ProcessBlock(blockWithHeaders)
-
-	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
-
-	groupSig, err := signer.Group.CombineSignatures(consensus.SignatureMap{resp.SignerId: resp.Signature})
-	assert.Nil(t, err)
-
-	feedbackMessage := &consensus.FeedbackRequest{
-		Tip:       resp.Tip,
-		Signature: *groupSig,
-		ChainId:   resp.ChainId,
-	}
-
-	err = signer.ProcessFeedback(feedbackMessage)
-	assert.Nil(t, err)
-
-	// above was setup, now testing tip
-
-	tipMessage := &consensus.TipRequest{
-		ChainId: resp.ChainId,
-	}
-
-	tipResp, err := signer.ProcessTipRequest(tipMessage)
-	assert.Nil(t, err)
-
-	assert.Equal(t, resp.Tip, tipResp.Tip)
 }

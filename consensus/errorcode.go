@@ -3,7 +3,8 @@ package consensus
 import "fmt"
 
 const (
-	ErrUnknown = 1
+	ErrUnknown    = iota
+	ErrInvalidTip = iota
 )
 
 type ErrorCode struct {

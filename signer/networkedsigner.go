@@ -5,31 +5,46 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/storage"
 )
 
 type NetworkedSigner struct {
-	Node   *network.Node
-	Server *network.MessageHandler
-	Signer *Signer
+	Node    *network.Node
+	Server  *network.MessageHandler
+	Signer  *Signer
+	Storage storage.Storage
 }
 
-func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
+var DidBucket = []byte("tips")
+var SigBucket = []byte("sigs")
+
+func NewNetworkedSigner(node *network.Node, signer *Signer, store storage.Storage) *NetworkedSigner {
 	handler := network.NewMessageHandler(node, []byte(signer.Group.Id()))
 
 	ns := &NetworkedSigner{
-		Node:   node,
-		Server: handler,
-		Signer: signer,
+		Node:    node,
+		Server:  handler,
+		Signer:  signer,
+		Storage: store,
 	}
 
 	handler.AssignHandler(consensus.MessageType_AddBlock, ns.AddBlockHandler)
 	handler.AssignHandler(consensus.MessageType_Feedback, ns.FeedbackHandler)
 	handler.AssignHandler(consensus.MessageType_TipRequest, ns.TipHandler)
 
+	ns.SetupStorage()
+
 	return ns
+}
+
+func (ns *NetworkedSigner) SetupStorage() {
+	ns.Storage.CreateBucketIfNotExists(DidBucket)
+	ns.Storage.CreateBucketIfNotExists(SigBucket)
 }
 
 func (ns *NetworkedSigner) AddBlockHandler(req network.Request, respChan network.ResponseChan) error {
@@ -41,7 +56,21 @@ func (ns *NetworkedSigner) AddBlockHandler(req network.Request, respChan network
 
 	log.Debug("add block handler", "tip", addBlockrequest.Tip, "request", addBlockrequest)
 
-	addBlockResp, err := ns.Signer.ProcessAddBlock(addBlockrequest)
+	storedBytes, err := ns.Storage.Get(DidBucket, []byte(addBlockrequest.ChainId))
+	if err != nil {
+		return &consensus.ErrorCode{Memo: fmt.Sprintf("error getting storage: %v", err), Code: consensus.ErrUnknown}
+	}
+
+	var storedTip *cid.Cid
+
+	if len(storedBytes) > 0 {
+		storedTip, err = cid.Cast(storedBytes)
+		if err != nil {
+			return &consensus.ErrorCode{Memo: fmt.Sprintf("error casting: %v", err), Code: consensus.ErrUnknown}
+		}
+	}
+
+	addBlockResp, err := ns.Signer.ProcessAddBlock(storedTip, addBlockrequest)
 	if err != nil {
 		return fmt.Errorf("error signing: %v", err)
 	}
@@ -50,6 +79,7 @@ func (ns *NetworkedSigner) AddBlockHandler(req network.Request, respChan network
 	if err != nil {
 		return fmt.Errorf("error building response: %v", err)
 	}
+	ns.Storage.Set(DidBucket, []byte(addBlockrequest.ChainId), addBlockResp.Tip.Bytes())
 
 	respChan <- resp
 
@@ -65,17 +95,32 @@ func (ns *NetworkedSigner) FeedbackHandler(req network.Request, respChan network
 
 	log.Debug("feedback handler", "tip", feedbackRequest.Tip, "request", feedbackRequest)
 
-	err = ns.Signer.ProcessFeedback(feedbackRequest)
+	verified, err := ns.Signer.Group.VerifySignature(consensus.MustObjToHash(feedbackRequest.Tip.Bytes()), &feedbackRequest.Signature)
+
 	if err != nil {
-		return fmt.Errorf("error processing: %v", err)
+		return fmt.Errorf("error verifying signature: %v", err)
 	}
 
-	resp, err := network.BuildResponse(req.Id, 200, true)
+	feedbackResp, err := network.BuildResponse(req.Id, 200, true)
 	if err != nil {
 		return fmt.Errorf("error building response: %v", err)
 	}
 
-	respChan <- resp
+	if verified {
+		sw := &dag.SafeWrap{}
+		node := sw.WrapObject(feedbackRequest)
+		if sw.Err != nil {
+			return fmt.Errorf("error wrapping: %v", sw.Err)
+		}
+
+		log.Debug("setting signature", "tip", feedbackRequest.Tip)
+		ns.Storage.Set(SigBucket, []byte(feedbackRequest.ChainId), node.RawData())
+	} else {
+		log.Debug("verified", "verified", verified)
+		return fmt.Errorf("error, unverified")
+	}
+
+	respChan <- feedbackResp
 
 	return nil
 }
@@ -87,11 +132,23 @@ func (ns *NetworkedSigner) TipHandler(req network.Request, respChan network.Resp
 		return fmt.Errorf("error getting payload: %v", err)
 	}
 
-	log.Debug("feedback handler", "chainid", tipRequest.ChainId, "request", tipRequest)
+	log.Debug("received tip request", "req", req)
 
-	tipResponse, err := ns.Signer.ProcessTipRequest(tipRequest)
+	feedbackBytes, err := ns.Storage.Get(SigBucket, []byte(tipRequest.ChainId))
+	if len(feedbackBytes) == 0 || err != nil {
+		return fmt.Errorf("error getting chain id: %v", err)
+	}
+
+	feedbackRequest := &consensus.FeedbackRequest{}
+	err = cbornode.DecodeInto(feedbackBytes, feedbackRequest)
 	if err != nil {
-		return fmt.Errorf("error processing: %v", err)
+		return fmt.Errorf("error decoding: %v", err)
+	}
+
+	tipResponse := &consensus.TipResponse{
+		ChainId:   feedbackRequest.ChainId,
+		Tip:       feedbackRequest.Tip,
+		Signature: feedbackRequest.Signature,
 	}
 
 	resp, err := network.BuildResponse(req.Id, 200, tipResponse)

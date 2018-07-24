@@ -8,12 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestIntegrationNetworkedSigner(t *testing.T) {
@@ -31,18 +33,16 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	store := storage.NewMemStorage()
 
 	sign := &Signer{
-		Storage: store,
 		Group:   group,
 		Id:      consensus.BlsVerKeyToAddress(blsKey.MustVerKey().Bytes()).String(),
 		SignKey: blsKey,
 		VerKey:  blsKey.MustVerKey(),
 	}
 
-	sign.SetupStorage()
-
 	node := network.NewNode(ecdsaKey)
 
-	networkedSigner := NewNetworkedSigner(node, sign)
+	networkedSigner := NewNetworkedSigner(node, sign, store)
+
 	networkedSigner.Start()
 
 	sessionKey, err := crypto.GenerateKey()
@@ -96,8 +96,57 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	respChan, err := client.Broadcast([]byte(group.Id()), crypto.Keccak256([]byte(group.Id())), req)
 	assert.Nil(t, err)
 
-	resp := <-respChan
+	isValid, err := tree.ChainTree.ProcessBlock(blockWithHeaders)
+	require.Nil(t, err)
+	require.True(t, isValid)
 
-	assert.NotNil(t, resp)
+	resp := <-respChan
+	require.NotNil(t, resp)
+
+	addResponse := &consensus.AddBlockResponse{}
+	err = cbornode.DecodeInto(resp.Payload, addResponse)
+	require.Nil(t, err)
+
+	assert.True(t, addResponse.Tip.Equals(tree.ChainTree.Dag.Tip))
+
+	// now let's process a feedback message
+
+	groupSig, err := group.CombineSignatures(consensus.SignatureMap{addResponse.SignerId: addResponse.Signature})
+	require.Nil(t, err)
+
+	feedbackMessage := &consensus.FeedbackRequest{
+		Tip:       addResponse.Tip,
+		Signature: *groupSig,
+		ChainId:   addResponse.ChainId,
+	}
+
+	feedbackReq, err := network.BuildRequest(consensus.MessageType_Feedback, feedbackMessage)
+	require.Nil(t, err)
+
+	feedbackRespChan, err := client.Broadcast([]byte(group.Id()), crypto.Keccak256([]byte(group.Id())), feedbackReq)
+	require.Nil(t, err)
+
+	feedbackResp := <-feedbackRespChan
+	require.NotNil(t, feedbackResp)
+
+	// and then get the tip
+
+	tipMessage := &consensus.TipRequest{
+		ChainId: addResponse.ChainId,
+	}
+
+	tipReq, err := network.BuildRequest(consensus.MessageType_TipRequest, tipMessage)
+
+	tipRespChan, err := client.Broadcast([]byte(group.Id()), crypto.Keccak256([]byte(group.Id())), tipReq)
+	require.Nil(t, err)
+
+	tipRespMsg := <-tipRespChan
+	require.NotNil(t, tipRespMsg)
+
+	tipResponse := &consensus.TipResponse{}
+	err = cbornode.DecodeInto(tipRespMsg.Payload, tipResponse)
+	require.Nil(t, err)
+
+	assert.True(t, tipResponse.Tip.Equals(addResponse.Tip))
 
 }
