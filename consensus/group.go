@@ -52,6 +52,15 @@ func NewGroup(members []*RemoteNode) *Group {
 }
 
 func (group *Group) AddMember(node *RemoteNode) error {
+	group.lock.Lock()
+	defer group.lock.Unlock()
+
+	mapped := group.AsVerKeyMap()
+	_, ok := mapped[node.Id]
+	if ok {
+		return nil
+	}
+
 	members := append(group.SortedMembers, node)
 	sort.Sort(byAddress(members))
 	group.SortedMembers = members

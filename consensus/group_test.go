@@ -166,10 +166,7 @@ func TestGroup_AddMember(t *testing.T) {
 
 	newBls := bls.MustNewSignKey()
 
-	newMem := &RemoteNode{
-		DstKey: EcdsaToPublicKey(&newDst.PublicKey),
-		VerKey: BlsKeyToPublicKey(newBls.MustVerKey()),
-	}
+	newMem := NewRemoteNode(BlsKeyToPublicKey(newBls.MustVerKey()), EcdsaToPublicKey(&newDst.PublicKey))
 
 	err = g.AddMember(newMem)
 	assert.Nil(t, err)
@@ -183,4 +180,18 @@ func TestGroup_AddMember(t *testing.T) {
 	}
 
 	assert.True(t, isIncluded)
+
+	// test that adding again doesn't increase the length
+
+	err = g.AddMember(newMem)
+	assert.Nil(t, err)
+	assert.Len(t, g.SortedMembers, 6)
+
+	// also adding a different object but same info, doesn't increase it
+
+	newMemSameAsOldMem := NewRemoteNode(BlsKeyToPublicKey(newBls.MustVerKey()), EcdsaToPublicKey(&newDst.PublicKey))
+
+	err = g.AddMember(newMemSameAsOldMem)
+	assert.Nil(t, err)
+	assert.Len(t, g.SortedMembers, 6)
 }
