@@ -90,14 +90,18 @@ func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request
 			log.Error("could not find handler")
 			panic("could not find handler")
 		}
-		resp, err := handler.Mapping[req.Type](context.Background(), *req)
+		internalRespChan := make(network.ResponseChan, 1)
+		defer close(respChan)
+
+		err := handler.Mapping[req.Type](context.Background(), *req, internalRespChan)
 		if err != nil {
 			log.Error("error handling request: %v", err)
 		}
+
 		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
 		<-time.After(time.Duration(imh.System.ArtificialLatency) * time.Millisecond)
 		log.Trace("DoRequest responding", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
-		respChan <- resp
+		respChan <- <-internalRespChan
 	}(dst, req)
 
 	return respChan, nil
@@ -198,8 +202,12 @@ func TestGossiper_HandleGossipRequest(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(context.TODO(), *req)
+	respChan := make(network.ResponseChan, 1)
+
+	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
 	assert.Nil(t, err)
+
+	resp := <-respChan
 
 	gossipResp := &GossipMessage{}
 	err = cbornode.DecodeInto(resp.Payload, gossipResp)
@@ -219,8 +227,12 @@ func TestGossiper_DoOneGossip(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(context.TODO(), *req)
+	respChan := make(network.ResponseChan, 1)
+
+	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
 	assert.Nil(t, err)
+
+	resp := <-respChan
 
 	gossipResp := &GossipMessage{}
 	err = cbornode.DecodeInto(resp.Payload, gossipResp)
@@ -255,8 +267,12 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(context.Background(), *req)
+	respChan := make(network.ResponseChan, 1)
+
+	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
 	assert.Nil(t, err)
+
+	resp := <-respChan
 
 	gossipResp := &GossipMessage{}
 	err = cbornode.DecodeInto(resp.Payload, gossipResp)
@@ -289,8 +305,12 @@ func TestGossiper_RejectTransaction(t *testing.T) {
 	req, err := network.BuildRequest(MessageType_Gossip, message)
 	assert.Nil(t, err)
 
-	resp, err := gossipers[0].HandleGossipRequest(context.Background(), *req)
+	respChan := make(network.ResponseChan, 1)
+
+	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
 	assert.Nil(t, err)
+
+	resp := <-respChan
 
 	gossipResp := &GossipMessage{}
 	err = cbornode.DecodeInto(resp.Payload, gossipResp)

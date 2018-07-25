@@ -39,6 +39,8 @@ func NewNetworkedSigner(node *network.Node, signer *Signer, store storage.Storag
 	handler.AssignHandler(consensus.MessageType_Feedback, ns.FeedbackHandler)
 	handler.AssignHandler(consensus.MessageType_TipRequest, ns.TipHandler)
 
+	ns.SetupStorage()
+
 	return ns
 }
 

@@ -115,11 +115,11 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, group *consensus.
 	return nil
 }
 
-func (gs *GossipedSigner) AddBlockHandler(ctx context.Context, addBlockNetworkReq network.Request) (*network.Response, error) {
+func (gs *GossipedSigner) AddBlockHandler(ctx context.Context, addBlockNetworkReq network.Request, respChan network.ResponseChan) error {
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err := cbornode.DecodeInto(addBlockNetworkReq.Payload, addBlockrequest)
 	if err != nil {
-		return nil, fmt.Errorf("error getting payload: %v", err)
+		return fmt.Errorf("error getting payload: %v", err)
 	}
 
 	log.Debug("add block handler", "tip", addBlockrequest.Tip, "request", addBlockrequest)
@@ -131,15 +131,23 @@ func (gs *GossipedSigner) AddBlockHandler(ctx context.Context, addBlockNetworkRe
 
 	gossipReq, err := network.BuildRequest(gossip.MessageType_Gossip, gossipMessage)
 	if err != nil {
-		return nil, fmt.Errorf("error building gossip message")
+		return fmt.Errorf("error building gossip message")
 	}
 
-	resp, err := gs.gossiper.HandleGossipRequest(ctx, *gossipReq)
+	internalRespChan := make(network.ResponseChan, 1)
+
+	err = gs.gossiper.HandleGossipRequest(ctx, *gossipReq, internalRespChan)
 	if err != nil {
-		return nil, fmt.Errorf("error handling request")
+		return fmt.Errorf("error handling request")
 	}
 
-	return network.BuildResponse(addBlockNetworkReq.Id, 200, resp)
+	resp, err := network.BuildResponse(addBlockNetworkReq.Id, 200, <-internalRespChan)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+	respChan <- resp
+
+	return nil
 }
 
 func stakeTransactionFromBlock(block *chaintree.BlockWithHeaders) *chaintree.Transaction {

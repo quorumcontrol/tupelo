@@ -42,8 +42,12 @@ func TestGossiper_Start(t *testing.T) {
 	//pprof.StartCPUProfile(f)
 	//defer pprof.StopCPUProfile()
 
-	resp, err := gossipers[0].HandleGossipRequest(context.TODO(), *req)
+	respChan := make(network.ResponseChan, 1)
+
+	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
 	assert.Nil(t, err)
+
+	resp := <-respChan
 
 	gossipResp := &GossipMessage{}
 	err = cbornode.DecodeInto(resp.Payload, gossipResp)
@@ -80,7 +84,7 @@ func TestGossiper_Start(t *testing.T) {
 	// The original gossiper should have added the other gossiper
 	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
-	assert.True(t, int64(len(sigs)) > gossipers[0].Group.SuperMajorityCount())
+	assert.True(t, int64(len(sigs)) >= gossipers[0].Group.SuperMajorityCount(), "signature count %v", len(sigs))
 
 	assert.True(t, bytes.Equal(message.Transaction, lastAccepted))
 
@@ -97,8 +101,12 @@ func TestGossiper_Start(t *testing.T) {
 
 	log.Debug("submitting initial to", "g", gossipers[0].Id)
 
-	resp, err = gossipers[0].HandleGossipRequest(context.TODO(), *req)
+	respChan = make(network.ResponseChan, 1)
+
+	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
 	assert.Nil(t, err)
+
+	resp = <-respChan
 
 	gossipResp = &GossipMessage{}
 	err = cbornode.DecodeInto(resp.Payload, gossipResp)

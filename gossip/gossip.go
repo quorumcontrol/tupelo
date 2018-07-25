@@ -323,14 +323,14 @@ func (g *Gossiper) DoOneGossip(dst consensus.PublicKey, id TransactionId) error 
 	return nil
 }
 
-func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request) (*network.Response, error) {
+func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
 	ctx = context.WithValue(ctx, ctxRequestKey, req.Id)
 	ctx = context.WithValue(ctx, ctxStartKey, time.Now())
 
 	gossipMessage := &GossipMessage{}
 	err := cbornode.DecodeInto(req.Payload, gossipMessage)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding message: %v", err)
+		return fmt.Errorf("error decoding message: %v", err)
 	}
 	log.Debug("handling gossip", "g", g.Id, "sigCount", len(gossipMessage.Signatures), "uuid", req.Id, "elapsed", elapsedTime(ctx))
 
@@ -339,7 +339,7 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 
 	ownSig, err := g.getSignature(ctx, transactionId, g.Id)
 	if err != nil {
-		return nil, fmt.Errorf("error getting own sig: %v", err)
+		return fmt.Errorf("error getting own sig: %v", err)
 	}
 
 	// if we haven't already seen this, then sign the new state after the transition
@@ -349,11 +349,11 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 
 		currentState, err := g.GetCurrentState(gossipMessage.ObjectId)
 		if err != nil {
-			return nil, fmt.Errorf("error getting current state")
+			return fmt.Errorf("error getting current state")
 		}
 		nextState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState)
 		if err != nil {
-			return nil, fmt.Errorf("error calling state handler: %v", err)
+			return fmt.Errorf("error calling state handler: %v", err)
 		}
 
 		if !isAccepted {
@@ -362,7 +362,7 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 
 		sig, err := consensus.BlsSign(nextState, g.SignKey)
 		if err != nil {
-			return nil, fmt.Errorf("error signing next state: %v", err)
+			return fmt.Errorf("error signing next state: %v", err)
 		}
 		ownSig = &GossipSignature{
 			State:     nextState,
@@ -371,12 +371,12 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 
 		err = g.saveTransactionFromMessage(ctx, gossipMessage)
 		if err != nil {
-			return nil, fmt.Errorf("error saving transaction: %v", err)
+			return fmt.Errorf("error saving transaction: %v", err)
 		}
 
 		err = g.saveSig(ctx, transactionId, g.Id, ownSig)
 		if err != nil {
-			return nil, fmt.Errorf("error saving own sig: %v", err)
+			return fmt.Errorf("error saving own sig: %v", err)
 		}
 		defer func() { g.startGossipChan <- transactionId }()
 	}
@@ -385,14 +385,14 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 	// now we have our own signature, get the sigs we already know about
 	knownSigs, err := g.savedSignaturesFor(ctx, transactionId)
 	if err != nil {
-		return nil, fmt.Errorf("error saving sigs: %v", err)
+		return fmt.Errorf("error saving sigs: %v", err)
 	}
 
 	// and then save the verified gossiped sigs
 	log.Trace("saving sigs", "g", g.Id, "uuid", req.Id, "elapsed", elapsedTime(ctx))
 	err = g.saveVerifiedSignatures(ctx, gossipMessage)
 	if err != nil {
-		return nil, fmt.Errorf("error saving verified signatures: %v", err)
+		return fmt.Errorf("error saving verified signatures: %v", err)
 	}
 
 	respMessage := &GossipMessage{
@@ -405,7 +405,14 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 
 	defer func() { g.checkAcceptedChan <- transactionId }()
 
-	return network.BuildResponse(req.Id, 200, respMessage)
+	resp, err := network.BuildResponse(req.Id, 200, respMessage)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+
+	respChan <- resp
+
+	return nil
 }
 
 func (g *Gossiper) IsTransactionConsensed(id TransactionId) (bool, error) {
