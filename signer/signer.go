@@ -26,14 +26,16 @@ type Signer struct {
 }
 
 func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockRequest) (*consensus.AddBlockResponse, error) {
-
+	log.Debug("process add block", "storedTip", currentTip)
 	if currentTip == nil {
 		if req.NewBlock.PreviousTip != "" {
+			log.Error("unmatching tips", "currentTip", "nil", "sent", req.Tip.String())
 			return nil, &consensus.ErrorCode{Memo: "invalid tip", Code: consensus.ErrInvalidTip}
 		}
 		currentTip = req.Tip
 	} else {
 		if !currentTip.Equals(req.Tip) {
+			log.Error("unmatching tips", "currentTip", currentTip.String(), "sent", req.Tip.String())
 			return nil, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
 	}
@@ -85,6 +87,7 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 	if err != nil {
 		return nil, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
+	log.Debug("signer stating new tip", "tip", tip.String())
 
 	return &consensus.AddBlockResponse{
 		SignerId:  s.Id,
