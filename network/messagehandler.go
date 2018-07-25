@@ -21,6 +21,8 @@ func init() {
 	cbornode.RegisterCborType(Message{})
 }
 
+type ResponseChan chan *Response
+
 type Message struct {
 	Request  *Request
 	Response *Response
@@ -42,7 +44,7 @@ type Response struct {
 	src     *ecdsa.PublicKey
 }
 
-type HandlerFunc func(req Request) (*Response, error)
+type HandlerFunc func(req Request, respChan ResponseChan) error
 
 type MessageHandler struct {
 	mainTopic           []byte
@@ -189,11 +191,16 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 	handler, ok := rh.mappings[req.Type]
 	if ok {
 		log.Debug("handling message", "id", req.Id)
-		resp, err := handler(*req)
+		respChan := make(ResponseChan, 1)
+		defer close(respChan)
+
+		err := handler(*req, respChan)
 		if err != nil {
 			log.Error("error handling message", "err", err)
 			return
 		}
+		resp := <-respChan
+
 		resp.Id = req.Id
 		wireBytes, err := responseToWireFormat(resp)
 		if err != nil {
