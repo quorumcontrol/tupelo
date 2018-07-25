@@ -7,6 +7,8 @@ import (
 
 	"time"
 
+	"bytes"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
@@ -18,6 +20,7 @@ import (
 )
 
 var lastAccepted []byte
+var lastRejected []byte
 
 type testSet struct {
 	SignKeys          []*bls.SignKey
@@ -28,13 +31,23 @@ type testSet struct {
 }
 
 // This is the simplest possible state handler that just always returns the transaction as the nextState
-func simpleHandler(_ context.Context, _ []byte, transaction []byte) (nextState []byte, err error) {
-	return transaction, nil
+func simpleHandler(_ context.Context, _ *consensus.Group, _, transaction, _ []byte) (nextState []byte, accepted bool, err error) {
+	if bytes.HasPrefix(transaction, []byte("reject")) {
+		log.Debug("rejecting transaction")
+		return []byte("bad state no use"), false, nil
+	}
+	return transaction, true, nil
 }
 
-func simpleAcceptance(ctx context.Context, group *consensus.Group, newState, transaction []byte) (err error) {
+func simpleAcceptance(_ context.Context, _ *consensus.Group, _, transaction, _ []byte) (err error) {
 	log.Debug("simpleAcceptance called")
 	lastAccepted = transaction
+	return nil
+}
+
+func simpleRejecter(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error) {
+	log.Debug("simpleRejecter called")
+	lastRejected = transaction
 	return nil
 }
 
@@ -162,6 +175,7 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 			Storage:            stor,
 			StateHandler:       simpleHandler,
 			AcceptedHandler:    simpleAcceptance,
+			RejectedHandler:    simpleRejecter,
 			Group:              group,
 			MessageHandler:     system.NewHandler(crypto.ToECDSAPub(member.DstKey.PublicKey)),
 			TimeBetweenGossips: 200,
@@ -235,7 +249,7 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 
 	message := &GossipMessage{
 		ObjectId:    []byte("obj"),
-		Transaction: []byte("trans"),
+		Transaction: []byte("roundTest"),
 	}
 
 	req, err := network.BuildRequest(MessageType_Gossip, message)
@@ -262,4 +276,28 @@ func TestGossiper_DoOneGossipRound(t *testing.T) {
 	sigs, err = gossipers[1].savedSignaturesFor(context.Background(), message.Id())
 	assert.Nil(t, err)
 	assert.Len(t, sigs, 2)
+}
+
+func TestGossiper_RejectTransaction(t *testing.T) {
+	gossipers := generateTestGossipGroup(t, 3, 0)
+
+	message := &GossipMessage{
+		ObjectId:    []byte("obj"),
+		Transaction: []byte("reject-test"),
+	}
+
+	req, err := network.BuildRequest(MessageType_Gossip, message)
+	assert.Nil(t, err)
+
+	resp, err := gossipers[0].HandleGossipRequest(context.Background(), *req)
+	assert.Nil(t, err)
+
+	gossipResp := &GossipMessage{}
+	err = cbornode.DecodeInto(resp.Payload, gossipResp)
+	assert.Nil(t, err)
+
+	assert.Len(t, gossipResp.Signatures, 1)
+
+	assert.Equal(t, RejectedByte, gossipResp.Signatures[gossipers[0].Id].State)
+
 }

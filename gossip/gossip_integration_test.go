@@ -5,6 +5,7 @@ package gossip
 import (
 	"bytes"
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 )
 
 func TestGossiper_Start(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	gossipers := generateTestGossipGroup(t, 20, 0)
 	for i := 0; i < len(gossipers); i++ {
@@ -67,7 +68,7 @@ func TestGossiper_Start(t *testing.T) {
 
 	count := 0
 	for i := 0; i < len(gossipers); i++ {
-		isDone, err := gossipers[i].IsTransactionAccepted(message.Id())
+		isDone, err := gossipers[i].IsTransactionConsensed(message.Id())
 		if err != nil {
 			t.Fatalf("error getting accepted: %v", err)
 		}
@@ -82,4 +83,52 @@ func TestGossiper_Start(t *testing.T) {
 	assert.True(t, int64(len(sigs)) > gossipers[0].Group.SuperMajorityCount())
 
 	assert.True(t, bytes.Equal(message.Transaction, lastAccepted))
+
+	// now we try a rejected transaction
+	log.Debug("---- REJECT stuff below ---- ")
+
+	rejectMsg := &GossipMessage{
+		ObjectId:    []byte("obj"),
+		Transaction: []byte("reject-1"),
+	}
+
+	req, err = network.BuildRequest(MessageType_Gossip, rejectMsg)
+	assert.Nil(t, err)
+
+	log.Debug("submitting initial to", "g", gossipers[0].Id)
+
+	resp, err = gossipers[0].HandleGossipRequest(context.TODO(), *req)
+	assert.Nil(t, err)
+
+	gossipResp = &GossipMessage{}
+	err = cbornode.DecodeInto(resp.Payload, gossipResp)
+	assert.Nil(t, err)
+
+	assert.Len(t, gossipResp.Signatures, 1)
+
+	now = time.Now()
+	for {
+		count := 0
+		for i := 0; i < len(gossipers); i++ {
+			isDone, err := gossipers[i].IsTransactionConsensed(rejectMsg.Id())
+			if err != nil {
+				t.Fatalf("error getting accepted: %v", err)
+			}
+			if isDone {
+				count++
+			}
+		}
+		if count >= len(gossipers) {
+			break
+		}
+		<-time.After(100 * time.Millisecond)
+		if time.Now().Sub(now) > (20 * time.Second) {
+			sigs, _ := gossipers[0].savedSignaturesFor(context.Background(), rejectMsg.Id())
+			t.Fatalf("timeout. SigCount: %v", len(sigs))
+			break
+		}
+	}
+
+	assert.Equal(t, rejectMsg.Transaction, lastRejected)
+
 }

@@ -36,7 +36,7 @@ var CurrentStateBucket = []byte("accepted")
 var TransactionBucket = []byte("transactions")
 var TransactionToObjectBucket = []byte("transToObject")
 var ToGossipBucket = []byte("toGossip")
-var AcceptedBucket = []byte("acceptedTransactions")
+var FinishedBucket = []byte("finishedTransaction")
 
 var TrueByte = []byte{byte(int8(1))}
 
@@ -73,8 +73,9 @@ func (gm *GossipMessage) Id() TransactionId {
 	return crypto.Keccak256(gm.Transaction)
 }
 
-type StateHandler func(ctx context.Context, currentState []byte, transaction []byte) (nextState []byte, err error)
-type AcceptedHandler func(ctx context.Context, group *consensus.Group, newState []byte, transaction []byte) (err error)
+type StateHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error)
+type AcceptedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, newState []byte) (err error)
+type RejectedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error)
 
 type Gossiper struct {
 	MessageHandler     Handler
@@ -84,6 +85,7 @@ type Gossiper struct {
 	Storage            storage.Storage
 	StateHandler       StateHandler
 	AcceptedHandler    AcceptedHandler
+	RejectedHandler    RejectedHandler
 	NumberOfGossips    int
 	TimeBetweenGossips int
 	checkAcceptedChan  chan TransactionId
@@ -102,6 +104,7 @@ type GossiperOpts struct {
 	Storage            storage.Storage
 	StateHandler       StateHandler
 	AcceptedHandler    AcceptedHandler
+	RejectedHandler    RejectedHandler
 	NumberOfGossips    int
 	TimeBetweenGossips int
 }
@@ -115,6 +118,7 @@ func NewGossiper(opts *GossiperOpts) *Gossiper {
 		Storage:            opts.Storage,
 		StateHandler:       opts.StateHandler,
 		AcceptedHandler:    opts.AcceptedHandler,
+		RejectedHandler:    opts.RejectedHandler,
 		NumberOfGossips:    opts.NumberOfGossips,
 		TimeBetweenGossips: opts.TimeBetweenGossips,
 		checkAcceptedChan:  make(chan TransactionId, 200),
@@ -129,7 +133,7 @@ func NewGossiper(opts *GossiperOpts) *Gossiper {
 
 func (g *Gossiper) Initialize() {
 	g.Storage.CreateBucketIfNotExists(CurrentStateBucket)
-	g.Storage.CreateBucketIfNotExists(AcceptedBucket)
+	g.Storage.CreateBucketIfNotExists(FinishedBucket)
 	g.Storage.CreateBucketIfNotExists(TransactionBucket)
 	g.Storage.CreateBucketIfNotExists(TransactionToObjectBucket)
 	g.Storage.CreateBucketIfNotExists(ToGossipBucket)
@@ -347,9 +351,13 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 		if err != nil {
 			return nil, fmt.Errorf("error getting current state")
 		}
-		nextState, err := g.StateHandler(ctx, currentState, gossipMessage.Transaction)
+		nextState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState)
 		if err != nil {
 			return nil, fmt.Errorf("error calling state handler: %v", err)
+		}
+
+		if !isAccepted {
+			nextState = RejectedByte
 		}
 
 		sig, err := consensus.BlsSign(nextState, g.SignKey)
@@ -400,8 +408,8 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 	return network.BuildResponse(req.Id, 200, respMessage)
 }
 
-func (g *Gossiper) IsTransactionAccepted(id TransactionId) (bool, error) {
-	timeBytes, err := g.Storage.Get(AcceptedBucket, id)
+func (g *Gossiper) IsTransactionConsensed(id TransactionId) (bool, error) {
+	timeBytes, err := g.Storage.Get(FinishedBucket, id)
 	if err != nil {
 		return false, fmt.Errorf("error getting accepted: %v", err)
 	}
@@ -558,7 +566,7 @@ func (g *Gossiper) handleStopGossip(id TransactionId) {
 }
 
 func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) error {
-	acceptedBytes, err := g.Storage.Get(AcceptedBucket, id)
+	acceptedBytes, err := g.Storage.Get(FinishedBucket, id)
 	if err != nil {
 		return fmt.Errorf("error checking bucket: %v", err)
 	}
@@ -594,14 +602,23 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 				return fmt.Errorf("error getting object %v", err)
 			}
 
-			if !bytes.Equal(RejectedByte, []byte(state)) {
+			if bytes.Equal(RejectedByte, []byte(state)) {
+				if g.RejectedHandler != nil {
+					trans, err := g.getTransaction(id)
+					if err != nil {
+						return fmt.Errorf("error getting transaction from storage: %v", err)
+					}
+
+					curr, err := g.GetCurrentState(obj)
+					if err != nil {
+						return fmt.Errorf("error getting current state: %v", err)
+					}
+					err = g.RejectedHandler(ctx, g.Group, obj, trans, curr)
+				}
+			} else {
 				err = g.Storage.Set(CurrentStateBucket, obj, []byte(state))
 				if err != nil {
 					return fmt.Errorf("error setting current state bucket: %v", err)
-				}
-				err = g.Storage.Set(AcceptedBucket, id, nowBytes())
-				if err != nil {
-					return fmt.Errorf("error setting accepted bucket: %v", err)
 				}
 
 				if g.AcceptedHandler != nil {
@@ -610,12 +627,17 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 						return fmt.Errorf("error getting transaction from storage: %v", err)
 					}
 
-					err = g.AcceptedHandler(ctx, g.Group, []byte(state), trans)
+					err = g.AcceptedHandler(ctx, g.Group, obj, trans, []byte(state))
 					if err != nil {
 						log.Error("error calling accepted", "err", err)
 						return fmt.Errorf("error calling accepted: %v", err)
 					}
 				}
+			}
+
+			err = g.Storage.Set(FinishedBucket, id, nowBytes())
+			if err != nil {
+				return fmt.Errorf("error setting accepted bucket: %v", err)
 			}
 
 			//TODO: we need to stop before we have all the signatures
