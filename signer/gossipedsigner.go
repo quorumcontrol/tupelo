@@ -67,11 +67,11 @@ func (gs *GossipedSigner) Stop() {
 	gs.gossiper.Stop()
 }
 
-func (gs *GossipedSigner) stateHandler(ctx context.Context, currentState []byte, transaction []byte) (nextState []byte, err error) {
+func (gs *GossipedSigner) stateHandler(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error) {
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err = cbornode.DecodeInto(transaction, addBlockrequest)
 	if err != nil {
-		return nil, fmt.Errorf("error getting payload: %v", err)
+		return nil, false, fmt.Errorf("error getting payload: %v", err)
 	}
 
 	var storedTip *cid.Cid
@@ -80,20 +80,20 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, currentState []byte,
 		storedTip, err = cid.Cast(currentState)
 		if err != nil {
 			log.Error("error casting state into CID", "err", err)
-			return nil, &consensus.ErrorCode{Memo: fmt.Sprintf("error casting: %v", err), Code: consensus.ErrUnknown}
+			return nil, false, &consensus.ErrorCode{Memo: fmt.Sprintf("error casting: %v", err), Code: consensus.ErrUnknown}
 		}
 	}
 
 	resp, err := gs.signer.ProcessAddBlock(storedTip, addBlockrequest)
 	if err != nil {
 		log.Error("error processing block", "err", err)
-		return gossip.RejectedByte, nil
+		return nil, false, nil
 	}
 
-	return resp.Tip.Bytes(), nil
+	return resp.Tip.Bytes(), true, nil
 }
 
-func (gs *GossipedSigner) acceptedHandler(ctx context.Context, group *consensus.Group, newState []byte, transaction []byte) (err error) {
+func (gs *GossipedSigner) acceptedHandler(ctx context.Context, group *consensus.Group, _, transaction, newState []byte) (err error) {
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err = cbornode.DecodeInto(transaction, addBlockrequest)
 	if err != nil {
