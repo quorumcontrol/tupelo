@@ -52,7 +52,7 @@ func TestGossiper_Start(t *testing.T) {
 
 	now := time.Now()
 	for {
-		state, err := gossipers[0].getCurrentState(message.ObjectId)
+		state, err := gossipers[0].GetCurrentState(message.ObjectId)
 		require.Nil(t, err)
 		if bytes.Equal(state, message.Transaction) {
 			break

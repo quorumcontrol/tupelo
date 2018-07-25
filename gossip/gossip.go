@@ -216,6 +216,10 @@ func (g *Gossiper) queueGossip() {
 
 func (g *Gossiper) DoOneGossipRound(id TransactionId) error {
 	numberToGossip := min(len(g.Group.SortedMembers)-1, g.NumberOfGossips)
+	if numberToGossip == 0 {
+		defer func() { g.stopGossipChan <- id }()
+		return nil
+	}
 	doneChans := make([]chan error, numberToGossip)
 
 	log.Debug("gossiping", "g", g.Id, "number", numberToGossip)
@@ -247,7 +251,7 @@ func (g *Gossiper) DoOneGossipRound(id TransactionId) error {
 		}
 	}
 
-	go func() { g.checkAcceptedChan <- id }()
+	defer func() { g.checkAcceptedChan <- id }()
 	return nil
 }
 
@@ -335,7 +339,7 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request)
 	if ownSig == nil {
 		log.Trace("ownSig nil", "g", g.Id, "uuid", req.Id, "elapsed", elapsedTime(ctx))
 
-		currentState, err := g.getCurrentState(gossipMessage.ObjectId)
+		currentState, err := g.GetCurrentState(gossipMessage.ObjectId)
 		if err != nil {
 			return nil, fmt.Errorf("error getting current state")
 		}
@@ -485,7 +489,7 @@ func (g *Gossiper) verifiedNewSigsFromMessage(ctx context.Context, gossipMessage
 	return sigMap, nil
 }
 
-func (g *Gossiper) getCurrentState(objectId []byte) ([]byte, error) {
+func (g *Gossiper) GetCurrentState(objectId []byte) ([]byte, error) {
 	return g.Storage.Get(CurrentStateBucket, objectId)
 }
 
@@ -563,12 +567,12 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 		return fmt.Errorf("error getting sigs: %v", err)
 	}
 
-	log.Debug("checking for accepted", "g", g.Id, "sigCount", len(sigs))
-
 	required := g.Group.SuperMajorityCount()
 	if int64(len(sigs)) < required {
 		return nil
 	}
+
+	log.Debug("checking for accepted", "g", g.Id, "sigCount", len(sigs), "required", required)
 
 	states := make(map[string][]*GossipSignature)
 
@@ -577,7 +581,7 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 	}
 
 	for state, sigs := range states {
-		if int64(len(sigs)) > required {
+		if int64(len(sigs)) >= required {
 			log.Debug("super majority", "g", g.Id, "state", string(state))
 			// we have a super majority!
 
@@ -595,6 +599,11 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 				return fmt.Errorf("error setting accepted bucket: %v", err)
 			}
 
+			//TODO: we need to stop before we have all the signatures
+			if len(sigs) == len(g.Group.SortedMembers) {
+				g.stopGossipChan <- id
+			}
+
 			if g.AcceptedHandler != nil {
 				trans, err := g.getTransaction(id)
 				if err != nil {
@@ -606,11 +615,6 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 					log.Error("error calling accepted", "err", err)
 					return fmt.Errorf("error calling accepted: %v", err)
 				}
-			}
-
-			//TODO: we need to stop before we have all the signatures
-			if len(sigs) == len(g.Group.SortedMembers) {
-				g.stopGossipChan <- id
 			}
 		}
 	}
