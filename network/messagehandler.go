@@ -57,6 +57,7 @@ type MessageHandler struct {
 	requestLock         *sync.RWMutex
 	closeChan           chan bool
 	messageChan         chan *Message
+	started             bool
 }
 
 func NewMessageHandler(node *Node, topic []byte) *MessageHandler {
@@ -245,6 +246,11 @@ func (rh *MessageHandler) handleResponse(resp *Response) {
 }
 
 func (rh *MessageHandler) Start() {
+	if rh.started {
+		return
+	}
+	rh.started = true
+
 	rh.node.Start()
 	rh.HandleKey(rh.mainTopic, rh.node.key)
 
@@ -296,9 +302,13 @@ func (rh *MessageHandler) Start() {
 }
 
 func (rh *MessageHandler) Stop() {
+	if !rh.started {
+		return
+	}
 	rh.node.Stop()
 	rh.closeChan <- true
 	rh.closeChan <- true
+	rh.started = false
 }
 
 func messageToWireFormat(message *ReceivedMessage) *Message {

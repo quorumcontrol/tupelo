@@ -99,6 +99,9 @@ func (imh *InMemoryHandler) AssignHandler(requestType string, handlerFunc networ
 	return nil
 }
 
+func (imh *InMemoryHandler) Start() {}
+func (imh *InMemoryHandler) Stop()  {}
+
 func newTestSet(t *testing.T, size int) *testSet {
 	signKeys := blsKeys(size)
 	verKeys := make([]*bls.VerKey, len(signKeys))

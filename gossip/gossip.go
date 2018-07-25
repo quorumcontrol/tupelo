@@ -46,6 +46,8 @@ const (
 type Handler interface {
 	DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error)
 	AssignHandler(requestType string, handlerFunc network.HandlerFunc) error
+	Start()
+	Stop()
 }
 
 type TransactionId []byte
@@ -85,6 +87,7 @@ type Gossiper struct {
 	stopGossipChan     chan TransactionId
 	stopChan           chan bool
 	gossipChan         chan bool
+	started            bool
 }
 
 type GossiperOpts struct {
@@ -139,6 +142,11 @@ func (g *Gossiper) Initialize() {
 }
 
 func (g *Gossiper) Start() {
+	if g.started {
+		return
+	}
+	g.started = true
+	g.MessageHandler.Start()
 	go func() {
 		for {
 			select {
@@ -167,7 +175,12 @@ func (g *Gossiper) Start() {
 }
 
 func (g *Gossiper) Stop() {
+	if !g.started {
+		return
+	}
 	g.stopChan <- true
+	g.MessageHandler.Stop()
+	g.started = false
 }
 
 func (g *Gossiper) doAllGossips() error {
