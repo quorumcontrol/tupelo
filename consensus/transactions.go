@@ -12,22 +12,25 @@ import (
 
 const (
 	TreePathForAuthentications = "_qc/authentications"
+	TreePathForStake           = "_qc/stake"
 )
 
 func init() {
-	typecaster.AddType(setDataPayload{})
+	typecaster.AddType(SetDataPayload{})
 	typecaster.AddType(setOwnershipPayload{})
-	cbornode.RegisterCborType(setDataPayload{})
+	typecaster.AddType(StakePayload{})
+	cbornode.RegisterCborType(SetDataPayload{})
 	cbornode.RegisterCborType(setOwnershipPayload{})
+	cbornode.RegisterCborType(StakePayload{})
 }
 
-type setDataPayload struct {
+type SetDataPayload struct {
 	Path  string
 	Value interface{}
 }
 
 func SetDataTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
-	payload := &setDataPayload{}
+	payload := &SetDataPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
 		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
@@ -57,6 +60,30 @@ func SetOwnershipTransaction(tree *dag.BidirectionalTree, transaction *chaintree
 	}
 
 	err = tree.Set(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
+	if err != nil {
+		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	return true, nil
+}
+
+type StakePayload struct {
+	GroupId string
+	Amount  uint64
+	DstKey  PublicKey
+	VerKey  PublicKey
+}
+
+// THIS IS A pre-ALPHA TRANSACTION AND NO RULES ARE ENFORCED! Anyone can stake and join a group with no consequences.
+// additionally, it only allows staking a single group at the moment
+func StakeTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
+	payload := &StakePayload{}
+	err := typecaster.ToType(transaction.Payload, payload)
+	if err != nil {
+		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
+	}
+
+	err = tree.Set(strings.Split(TreePathForStake, "/"), payload)
 	if err != nil {
 		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
