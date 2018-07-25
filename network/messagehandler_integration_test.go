@@ -29,11 +29,11 @@ func TestClient_DoRequest(t *testing.T) {
 	clientNode.Start()
 	defer serverNode.Stop()
 
-	reqHandler := func(req Request) (*Response, error) {
-		resp := &Response{
+	reqHandler := func(req Request, respChan ResponseChan) error {
+		respChan <- &Response{
 			Payload: req.Payload,
 		}
-		return resp, nil
+		return nil
 	}
 
 	server := NewMessageHandler(serverNode, TestTopic)
@@ -76,11 +76,11 @@ func TestClient_Broadcast(t *testing.T) {
 	clientNode.Start()
 	defer serverNode.Stop()
 
-	reqHandler := func(req Request) (*Response, error) {
-		resp := &Response{
+	reqHandler := func(req Request, respChan ResponseChan) error {
+		respChan <- &Response{
 			Payload: req.Payload,
 		}
-		return resp, nil
+		return nil
 	}
 
 	server := NewMessageHandler(serverNode, TestTopic)

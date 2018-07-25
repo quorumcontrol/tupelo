@@ -32,55 +32,76 @@ func NewNetworkedSigner(node *network.Node, signer *Signer) *NetworkedSigner {
 	return ns
 }
 
-func (ns *NetworkedSigner) AddBlockHandler(req network.Request) (*network.Response, error) {
+func (ns *NetworkedSigner) AddBlockHandler(req network.Request, respChan network.ResponseChan) error {
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err := cbornode.DecodeInto(req.Payload, addBlockrequest)
 	if err != nil {
-		return nil, fmt.Errorf("error getting payload: %v", err)
+		return fmt.Errorf("error getting payload: %v", err)
 	}
 
 	log.Debug("add block handler", "tip", addBlockrequest.Tip, "request", addBlockrequest)
 
-	resp, err := ns.Signer.ProcessAddBlock(addBlockrequest)
+	addBlockResp, err := ns.Signer.ProcessAddBlock(addBlockrequest)
 	if err != nil {
-		return nil, fmt.Errorf("error signing: %v", err)
+		return fmt.Errorf("error signing: %v", err)
 	}
 
-	return network.BuildResponse(req.Id, 200, resp)
+	resp, err := network.BuildResponse(req.Id, 200, addBlockResp)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+
+	respChan <- resp
+
+	return nil
 }
 
-func (ns *NetworkedSigner) FeedbackHandler(req network.Request) (*network.Response, error) {
+func (ns *NetworkedSigner) FeedbackHandler(req network.Request, respChan network.ResponseChan) error {
 	feedbackRequest := &consensus.FeedbackRequest{}
 	err := cbornode.DecodeInto(req.Payload, feedbackRequest)
 	if err != nil {
-		return nil, fmt.Errorf("error getting payload: %v", err)
+		return fmt.Errorf("error getting payload: %v", err)
 	}
 
 	log.Debug("feedback handler", "tip", feedbackRequest.Tip, "request", feedbackRequest)
 
 	err = ns.Signer.ProcessFeedback(feedbackRequest)
 	if err != nil {
-		return nil, fmt.Errorf("error processing: %v", err)
+		return fmt.Errorf("error processing: %v", err)
 	}
 
-	return network.BuildResponse(req.Id, 200, true)
+	resp, err := network.BuildResponse(req.Id, 200, true)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+
+	respChan <- resp
+
+	return nil
 }
 
-func (ns *NetworkedSigner) TipHandler(req network.Request) (*network.Response, error) {
+func (ns *NetworkedSigner) TipHandler(req network.Request, respChan network.ResponseChan) error {
 	tipRequest := &consensus.TipRequest{}
 	err := cbornode.DecodeInto(req.Payload, tipRequest)
 	if err != nil {
-		return nil, fmt.Errorf("error getting payload: %v", err)
+		return fmt.Errorf("error getting payload: %v", err)
 	}
 
 	log.Debug("feedback handler", "chainid", tipRequest.ChainId, "request", tipRequest)
 
 	tipResponse, err := ns.Signer.ProcessTipRequest(tipRequest)
 	if err != nil {
-		return nil, fmt.Errorf("error processing: %v", err)
+		return fmt.Errorf("error processing: %v", err)
 	}
 
-	return network.BuildResponse(req.Id, 200, tipResponse)
+	resp, err := network.BuildResponse(req.Id, 200, tipResponse)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+
+	respChan <- resp
+
+	return nil
 }
 
 func (ns *NetworkedSigner) Start() {
