@@ -60,8 +60,11 @@ func (ms *MemStorage) Delete(bucketName []byte, key []byte) error {
 }
 
 func (ms *MemStorage) Get(bucketName []byte, key []byte) ([]byte, error) {
+	bucket := ms.Buckets[string(bucketName)]
+	bucket.lock.RLock()
+	defer bucket.lock.RUnlock()
 
-	val, ok := ms.Buckets[string(bucketName)].Keys[string(key)]
+	val, ok := bucket.Keys[string(key)]
 	if ok {
 		return val, nil
 	}
