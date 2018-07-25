@@ -87,7 +87,7 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, currentState []byte,
 	resp, err := gs.signer.ProcessAddBlock(storedTip, addBlockrequest)
 	if err != nil {
 		log.Error("error processing block", "err", err)
-		return []byte("R"), nil
+		return gossip.RejectedByte, nil
 	}
 
 	return resp.Tip.Bytes(), nil

@@ -12,6 +12,8 @@ import (
 
 	"context"
 
+	"bytes"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
@@ -37,6 +39,8 @@ var ToGossipBucket = []byte("toGossip")
 var AcceptedBucket = []byte("acceptedTransactions")
 
 var TrueByte = []byte{byte(int8(1))}
+
+var RejectedByte = []byte("R")
 
 const (
 	ctxRequestKey = iota
@@ -590,13 +594,28 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 				return fmt.Errorf("error getting object %v", err)
 			}
 
-			err = g.Storage.Set(CurrentStateBucket, obj, []byte(state))
-			if err != nil {
-				return fmt.Errorf("error setting current state bucket: %v", err)
-			}
-			err = g.Storage.Set(AcceptedBucket, id, nowBytes())
-			if err != nil {
-				return fmt.Errorf("error setting accepted bucket: %v", err)
+			if !bytes.Equal(RejectedByte, []byte(state)) {
+				err = g.Storage.Set(CurrentStateBucket, obj, []byte(state))
+				if err != nil {
+					return fmt.Errorf("error setting current state bucket: %v", err)
+				}
+				err = g.Storage.Set(AcceptedBucket, id, nowBytes())
+				if err != nil {
+					return fmt.Errorf("error setting accepted bucket: %v", err)
+				}
+
+				if g.AcceptedHandler != nil {
+					trans, err := g.getTransaction(id)
+					if err != nil {
+						return fmt.Errorf("error getting transaction from storage: %v", err)
+					}
+
+					err = g.AcceptedHandler(ctx, g.Group, []byte(state), trans)
+					if err != nil {
+						log.Error("error calling accepted", "err", err)
+						return fmt.Errorf("error calling accepted: %v", err)
+					}
+				}
 			}
 
 			//TODO: we need to stop before we have all the signatures
@@ -604,18 +623,6 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 				g.stopGossipChan <- id
 			}
 
-			if g.AcceptedHandler != nil {
-				trans, err := g.getTransaction(id)
-				if err != nil {
-					return fmt.Errorf("error getting transaction from storage: %v", err)
-				}
-
-				err = g.AcceptedHandler(ctx, g.Group, []byte(state), trans)
-				if err != nil {
-					log.Error("error calling accepted", "err", err)
-					return fmt.Errorf("error calling accepted: %v", err)
-				}
-			}
 		}
 	}
 
