@@ -185,4 +185,6 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	stakeRespBytes := <-respChan
 	assert.NotNil(t, stakeRespBytes)
 
+	<-time.After(1 * time.Second)
+	assert.Len(t, group.SortedMembers, 2)
 }
