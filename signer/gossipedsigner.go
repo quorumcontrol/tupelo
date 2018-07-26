@@ -47,6 +47,7 @@ func NewGossipedSigner(node *network.Node, signer *Signer, store storage.Storage
 
 	gossipSigner.gossiper = gossiper
 	handler.AssignHandler(consensus.MessageType_AddBlock, gossipSigner.AddBlockHandler)
+	handler.AssignHandler(consensus.MessageType_TipRequest, gossipSigner.TipHandler)
 
 	return gossipSigner
 }
@@ -145,6 +146,43 @@ func (gs *GossipedSigner) AddBlockHandler(ctx context.Context, addBlockNetworkRe
 	if err != nil {
 		return fmt.Errorf("error building response: %v", err)
 	}
+	respChan <- resp
+
+	return nil
+}
+
+func (gs *GossipedSigner) TipHandler(_ context.Context, req network.Request, respChan network.ResponseChan) error {
+	tipRequest := &consensus.TipRequest{}
+	err := cbornode.DecodeInto(req.Payload, tipRequest)
+	if err != nil {
+		return fmt.Errorf("error getting payload: %v", err)
+	}
+
+	currState, err := gs.gossiper.GetCurrentState([]byte(tipRequest.ChainId))
+	if err != nil {
+		return fmt.Errorf("error getting state: %v", err)
+	}
+
+	var tip *cid.Cid
+
+	if len(currState.State) > 0 {
+		tip, err = cid.Cast(currState.State)
+		if err != nil {
+			return fmt.Errorf("error casting tip: %v", err)
+		}
+	}
+
+	tipResponse := &consensus.TipResponse{
+		ChainId:   tipRequest.ChainId,
+		Tip:       tip,
+		Signature: currState.Signature,
+	}
+
+	resp, err := network.BuildResponse(req.Id, 200, tipResponse)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+
 	respChan <- resp
 
 	return nil
