@@ -351,7 +351,7 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request,
 		if err != nil {
 			return fmt.Errorf("error getting current state")
 		}
-		nextState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState)
+		nextState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState.State)
 		if err != nil {
 			return fmt.Errorf("error calling state handler: %v", err)
 		}
@@ -508,8 +508,54 @@ func (g *Gossiper) verifiedNewSigsFromMessage(ctx context.Context, gossipMessage
 	return sigMap, nil
 }
 
-func (g *Gossiper) GetCurrentState(objectId []byte) ([]byte, error) {
-	return g.Storage.Get(CurrentStateBucket, objectId)
+func (g *Gossiper) GetCurrentState(objectId []byte) (sig GossipSignature, err error) {
+	stateBytes, err := g.Storage.Get(CurrentStateBucket, objectId)
+	if err != nil {
+		return sig, fmt.Errorf("error getting state bytes: %v", err)
+	}
+
+	if len(stateBytes) > 0 {
+		err = cbornode.DecodeInto(stateBytes, &sig)
+		if err != nil {
+			return sig, fmt.Errorf("error decoding: %v", err)
+		}
+		return sig, nil
+	} else {
+		return sig, nil
+	}
+}
+
+func (g *Gossiper) setCurrentState(objectId []byte, sigs GossipSignatureMap) error {
+	consensusSigs := make(consensus.SignatureMap)
+	var state []byte
+	sw := &dag.SafeWrap{}
+
+	for signer, gossipSig := range sigs {
+		consensusSigs[signer] = gossipSig.Signature
+		state = gossipSig.State
+	}
+
+	combinedSig, err := g.Group.CombineSignatures(consensusSigs)
+	if err != nil {
+		return fmt.Errorf("error combining sigs: %v", err)
+	}
+
+	stateSig := &GossipSignature{
+		State:     state,
+		Signature: *combinedSig,
+	}
+
+	node := sw.WrapObject(stateSig)
+	if sw.Err != nil {
+		return fmt.Errorf("error wrapping obj: %v", err)
+	}
+
+	err = g.Storage.Set(CurrentStateBucket, objectId, node.RawData())
+	if err != nil {
+		return fmt.Errorf("error setting storage: %v", err)
+	}
+
+	return nil
 }
 
 func (g *Gossiper) getSignature(ctx context.Context, transactionId TransactionId, signer string) (*GossipSignature, error) {
@@ -593,10 +639,15 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 
 	log.Debug("checking for accepted", "g", g.Id, "sigCount", len(sigs), "required", required)
 
-	states := make(map[string][]*GossipSignature)
+	states := make(map[string]GossipSignatureMap)
 
-	for _, sig := range sigs {
-		states[string(sig.State)] = append(states[string(sig.State)], &sig)
+	for signer, sig := range sigs {
+		sigMap, ok := states[string(sig.State)]
+		if !ok {
+			sigMap = make(GossipSignatureMap)
+		}
+		sigMap[signer] = sig
+		states[string(sig.State)] = sigMap
 	}
 
 	for state, sigs := range states {
@@ -620,10 +671,10 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 					if err != nil {
 						return fmt.Errorf("error getting current state: %v", err)
 					}
-					err = g.RejectedHandler(ctx, g.Group, obj, trans, curr)
+					err = g.RejectedHandler(ctx, g.Group, obj, trans, curr.State)
 				}
 			} else {
-				err = g.Storage.Set(CurrentStateBucket, obj, []byte(state))
+				err = g.setCurrentState(obj, sigs)
 				if err != nil {
 					return fmt.Errorf("error setting current state bucket: %v", err)
 				}

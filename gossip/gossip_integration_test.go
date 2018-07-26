@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,13 +60,16 @@ func TestGossiper_Start(t *testing.T) {
 	for {
 		state, err := gossipers[0].GetCurrentState(message.ObjectId)
 		require.Nil(t, err)
-		if bytes.Equal(state, message.Transaction) {
+		if bytes.Equal(state.State, message.Transaction) {
+			verified, err := gossipers[0].Group.VerifySignature(consensus.MustObjToHash(state.State), &state.Signature)
+			assert.Nil(t, err)
+			assert.True(t, verified)
 			break
 		}
 		<-time.After(100 * time.Millisecond)
 		if time.Now().Sub(now) > (20 * time.Second) {
 			sigs, _ := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
-			t.Fatalf("timeout. State: %v, SigCount: %v", string(state), len(sigs))
+			t.Fatalf("timeout. State: %v, SigCount: %v", string(state.State), len(sigs))
 			break
 		}
 	}
