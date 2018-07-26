@@ -3,7 +3,6 @@ package signer
 import (
 	"fmt"
 
-	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/typecaster"
@@ -17,11 +16,7 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
 
-	stored, err := s.Storage.Get(DidBucket, []byte(id.(string)))
-
-	if err != nil {
-		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error getting storage: %v", err), Code: consensus.ErrUnknown}
-	}
+	storedTip := tree.Tip
 
 	headers := &consensus.StandardHeaders{}
 
@@ -32,43 +27,32 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 
 	var addrs []string
 
-	if stored == nil {
-		// this is a genesis block
-		addrs = []string{consensus.DidToAddr(id.(string))}
-	} else {
+	oldRoot := tree.Get(storedTip)
+	if oldRoot == nil {
+		return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: "missing old root"}
+	}
 
-		storedTip, err := cid.Cast(stored)
-		if err != nil {
-			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("bad CID stored: %v", err)}
-		}
-
-		oldRoot := tree.Get(storedTip)
-		if oldRoot == nil {
-			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: "missing old root"}
-		}
-
-		uncastAuths, remain, err := oldRoot.Resolve(tree, []string{"tree", "_qc", "authentications"})
-		if err != nil {
-			if err.(*dag.ErrorCode).GetCode() == dag.ErrMissingPath {
-				addrs = []string{consensus.DidToAddr(id.(string))}
-			} else {
-				return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
-			}
+	uncastAuths, remain, err := oldRoot.Resolve(tree, []string{"tree", "_qc", "authentications"})
+	if err != nil {
+		if err.(*dag.ErrorCode).GetCode() == dag.ErrMissingPath {
+			addrs = []string{consensus.DidToAddr(id.(string))}
 		} else {
-			// if there is no _qc or no authentications then it's like a genesis block
-			if len(remain) == 1 || len(remain) == 2 {
-				addrs = []string{consensus.DidToAddr(id.(string))}
-			} else {
-				var authentications []*consensus.PublicKey
-				err = typecaster.ToType(uncastAuths, &authentications)
-				if err != nil {
-					return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
-				}
+			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
+		}
+	} else {
+		// if there is no _qc or no authentications then it's like a genesis block
+		if len(remain) == 1 || len(remain) == 2 {
+			addrs = []string{consensus.DidToAddr(id.(string))}
+		} else {
+			var authentications []*consensus.PublicKey
+			err = typecaster.ToType(uncastAuths, &authentications)
+			if err != nil {
+				return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
+			}
 
-				addrs = make([]string, len(authentications))
-				for i, key := range authentications {
-					addrs[i] = consensus.PublicKeyToAddr(key)
-				}
+			addrs = make([]string, len(authentications))
+			for i, key := range authentications {
+				addrs[i] = consensus.PublicKeyToAddr(key)
 			}
 		}
 	}
@@ -86,28 +70,4 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 	}
 
 	return false, nil
-}
-
-func (s *Signer) IsNextBlock(tree *dag.BidirectionalTree, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
-	id, _, err := tree.Resolve([]string{"id"})
-	if err != nil {
-		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
-	}
-
-	stored, err := s.Storage.Get(DidBucket, []byte(id.(string)))
-
-	if err != nil {
-		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error getting storage: %v", err), Code: consensus.ErrUnknown}
-	}
-
-	if stored == nil {
-		return blockWithHeaders.Block.PreviousTip == "", nil
-	} else {
-		storedTip, err := cid.Cast(stored)
-		if err != nil {
-			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("bad CID stored: %v", err)}
-		}
-
-		return blockWithHeaders.Block.PreviousTip == storedTip.String(), nil
-	}
 }

@@ -29,6 +29,7 @@ type Wallet interface {
 }
 
 type AddBlockRequest struct {
+	ChainId  string
 	Nodes    [][]byte
 	Tip      *cid.Cid
 	NewBlock *chaintree.BlockWithHeaders

@@ -95,7 +95,6 @@ var testnodeCmd = &cobra.Command{
 		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
 
 		sign := &signer.Signer{
-			Storage: boltStorage,
 			Group:   TestNetGroup,
 			Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
 			SignKey: BlsSignKeys[nodeIndex],
@@ -104,7 +103,7 @@ var testnodeCmd = &cobra.Command{
 
 		node := network.NewNode(EcdsaKeys[nodeIndex])
 
-		networkedSigner := signer.NewNetworkedSigner(node, sign)
+		networkedSigner := signer.NewNetworkedSigner(node, sign, boltStorage)
 		networkedSigner.Start()
 
 		sigs := make(chan os.Signal, 1)

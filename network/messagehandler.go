@@ -194,12 +194,18 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 		respChan := make(ResponseChan, 1)
 		defer close(respChan)
 
+		var resp *Response
+
 		err := handler(*req, respChan)
-		if err != nil {
+		if err == nil {
+			resp = <-respChan
+		} else {
 			log.Error("error handling message", "err", err)
-			return
+			resp = &Response{
+				Code:    500,
+				Payload: []byte(err.Error()),
+			}
 		}
-		resp := <-respChan
 
 		resp.Id = req.Id
 		wireBytes, err := responseToWireFormat(resp)

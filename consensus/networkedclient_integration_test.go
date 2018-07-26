@@ -31,18 +31,15 @@ func TestNetworkedClient_AddBlock(t *testing.T) {
 	store := storage.NewMemStorage()
 
 	sign := &signer.Signer{
-		Storage: store,
 		Group:   group,
 		Id:      consensus.BlsVerKeyToAddress(blsKey.MustVerKey().Bytes()).String(),
 		SignKey: blsKey,
 		VerKey:  blsKey.MustVerKey(),
 	}
 
-	sign.SetupStorage()
-
 	node := network.NewNode(ecdsaKey)
 
-	networkedSigner := signer.NewNetworkedSigner(node, sign)
+	networkedSigner := signer.NewNetworkedSigner(node, sign, store)
 	networkedSigner.Start()
 
 	client, err := consensus.NewNetworkedClient(group)
@@ -109,18 +106,15 @@ func BenchmarkNetworkedClient_AddBlock(b *testing.B) {
 	store := storage.NewMemStorage()
 
 	sign := &signer.Signer{
-		Storage: store,
 		Group:   group,
 		Id:      consensus.BlsVerKeyToAddress(blsKey.MustVerKey().Bytes()).String(),
 		SignKey: blsKey,
 		VerKey:  blsKey.MustVerKey(),
 	}
 
-	sign.SetupStorage()
-
 	node := network.NewNode(ecdsaKey)
 
-	networkedSigner := signer.NewNetworkedSigner(node, sign)
+	networkedSigner := signer.NewNetworkedSigner(node, sign, store)
 	networkedSigner.Start()
 
 	client, err := consensus.NewNetworkedClient(group)
