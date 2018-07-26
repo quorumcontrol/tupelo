@@ -14,6 +14,8 @@ import (
 
 	"bytes"
 
+	"sync"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
@@ -37,9 +39,9 @@ var TransactionBucket = []byte("transactions")
 var TransactionToObjectBucket = []byte("transToObject")
 var ToGossipBucket = []byte("toGossip")
 var FinishedBucket = []byte("finishedTransaction")
+var LockBucket = []byte("locks")
 
 var TrueByte = []byte{byte(int8(1))}
-
 var RejectedByte = []byte("R")
 
 const (
@@ -55,6 +57,7 @@ type Handler interface {
 }
 
 type TransactionId []byte
+type ObjectId []byte
 
 type GossipSignature struct {
 	State     []byte
@@ -94,6 +97,7 @@ type Gossiper struct {
 	stopChan           chan bool
 	gossipChan         chan bool
 	started            bool
+	lockLock           *sync.RWMutex
 }
 
 type GossiperOpts struct {
@@ -126,6 +130,7 @@ func NewGossiper(opts *GossiperOpts) *Gossiper {
 		stopGossipChan:     make(chan TransactionId, 1),
 		stopChan:           make(chan bool, 1),
 		gossipChan:         make(chan bool, 1),
+		lockLock:           &sync.RWMutex{},
 	}
 	g.Initialize()
 	return g
@@ -137,6 +142,7 @@ func (g *Gossiper) Initialize() {
 	g.Storage.CreateBucketIfNotExists(TransactionBucket)
 	g.Storage.CreateBucketIfNotExists(TransactionToObjectBucket)
 	g.Storage.CreateBucketIfNotExists(ToGossipBucket)
+	g.Storage.CreateBucketIfNotExists(LockBucket)
 	g.MessageHandler.AssignHandler(MessageType_Gossip, g.HandleGossipRequest)
 	if g.Id == "" {
 		g.Id = consensus.BlsVerKeyToAddress(g.SignKey.MustVerKey().Bytes()).String()
@@ -346,38 +352,40 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request,
 	// something like a "REJECT" state would be ok to sign too
 	if ownSig == nil {
 		log.Trace("ownSig nil", "g", g.Id, "uuid", req.Id, "elapsed", elapsedTime(ctx))
+		var nextState []byte
 
 		currentState, err := g.GetCurrentState(gossipMessage.ObjectId)
 		if err != nil {
 			return fmt.Errorf("error getting current state")
 		}
-		nextState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState.State)
+		handlerState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState.State)
 		if err != nil {
 			return fmt.Errorf("error calling state handler: %v", err)
 		}
 
-		if !isAccepted {
+		if isAccepted {
+			// only lock if the transaction is even possible
+			//TODO: we need to check if the message is reasonable so that we can't DOS a chaintree
+			isLocked, err := g.lockObject(gossipMessage.ObjectId)
+			if err != nil {
+				return fmt.Errorf("error locking: %v", err)
+			}
+			if isLocked {
+				nextState = handlerState
+			} else {
+				log.Error("could not get lock on object", "g", g.Id)
+				nextState = RejectedByte
+			}
+		} else {
 			nextState = RejectedByte
 		}
 
-		sig, err := consensus.BlsSign(nextState, g.SignKey)
+		err = g.saveOwnState(ctx, nextState, gossipMessage)
 		if err != nil {
-			return fmt.Errorf("error signing next state: %v", err)
-		}
-		ownSig = &GossipSignature{
-			State:     nextState,
-			Signature: *sig,
+			log.Error("error saving: %v", err)
+			return fmt.Errorf("error saving state: %v", err)
 		}
 
-		err = g.saveTransactionFromMessage(ctx, gossipMessage)
-		if err != nil {
-			return fmt.Errorf("error saving transaction: %v", err)
-		}
-
-		err = g.saveSig(ctx, transactionId, g.Id, ownSig)
-		if err != nil {
-			return fmt.Errorf("error saving own sig: %v", err)
-		}
 		defer func() { g.startGossipChan <- transactionId }()
 	}
 	log.Trace("loading known sigs", "g", g.Id, "uuid", req.Id, "elapsed", elapsedTime(ctx))
@@ -415,6 +423,29 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request,
 	return nil
 }
 
+func (g *Gossiper) saveOwnState(ctx context.Context, nextState []byte, gossipMessage *GossipMessage) error {
+
+	sig, err := consensus.BlsSign(nextState, g.SignKey)
+	if err != nil {
+		return fmt.Errorf("error signing next state: %v", err)
+	}
+	ownSig := &GossipSignature{
+		State:     nextState,
+		Signature: *sig,
+	}
+
+	err = g.saveTransactionFromMessage(ctx, gossipMessage)
+	if err != nil {
+		return fmt.Errorf("error saving transaction: %v", err)
+	}
+
+	err = g.saveSig(ctx, gossipMessage.Id(), g.Id, ownSig)
+	if err != nil {
+		return fmt.Errorf("error saving own sig: %v", err)
+	}
+	return nil
+}
+
 func (g *Gossiper) IsTransactionConsensed(id TransactionId) (bool, error) {
 	timeBytes, err := g.Storage.Get(FinishedBucket, id)
 	if err != nil {
@@ -425,6 +456,49 @@ func (g *Gossiper) IsTransactionConsensed(id TransactionId) (bool, error) {
 	} else {
 		return true, nil
 	}
+}
+
+func (g *Gossiper) isObjectLocked(objectId ObjectId) (bool, error) {
+	bytes, err := g.Storage.Get(LockBucket, objectId)
+	if err != nil {
+		return false, fmt.Errorf("error getting object: %v", err)
+	}
+	if len(bytes) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (g *Gossiper) lockObject(objectId ObjectId) (bool, error) {
+
+	g.lockLock.RLock()
+	isLocked, err := g.isObjectLocked(objectId)
+	if err != nil {
+		g.lockLock.RUnlock()
+		return false, fmt.Errorf("error getting locked: %v", err)
+	}
+
+	if isLocked {
+		defer g.lockLock.RUnlock()
+		return false, nil
+	} else {
+		g.lockLock.RUnlock()
+		g.lockLock.Lock()
+		defer g.lockLock.Unlock()
+
+		err = g.Storage.Set(LockBucket, objectId, TrueByte)
+		if err != nil {
+			return false, fmt.Errorf("error setting lock: %v", err)
+		}
+		return true, nil
+	}
+}
+
+func (g *Gossiper) unlockObject(objectId ObjectId) error {
+	g.lockLock.Lock()
+	defer g.lockLock.Unlock()
+
+	return g.Storage.Delete(LockBucket, objectId)
 }
 
 func (g *Gossiper) saveVerifiedSignatures(ctx context.Context, gossipMessage *GossipMessage) error {
@@ -637,6 +711,11 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 		return nil
 	}
 
+	obj, err := g.getObjectForTransaction(id)
+	if err != nil {
+		return fmt.Errorf("error getting object %v", err)
+	}
+
 	log.Debug("checking for accepted", "g", g.Id, "sigCount", len(sigs), "required", required)
 
 	states := make(map[string]GossipSignatureMap)
@@ -654,11 +733,6 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 		if int64(len(sigs)) >= required {
 			log.Debug("super majority", "g", g.Id, "state", string(state))
 			// we have a super majority!
-
-			obj, err := g.getObjectForTransaction(id)
-			if err != nil {
-				return fmt.Errorf("error getting object %v", err)
-			}
 
 			if bytes.Equal(RejectedByte, []byte(state)) {
 				if g.RejectedHandler != nil {
@@ -691,6 +765,11 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 						return fmt.Errorf("error calling accepted: %v", err)
 					}
 				}
+			}
+
+			err = g.unlockObject(obj)
+			if err != nil {
+				return fmt.Errorf("error unlocking object: %v", err)
 			}
 
 			err = g.Storage.Set(FinishedBucket, id, nowBytes())
