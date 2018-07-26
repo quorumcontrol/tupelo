@@ -352,33 +352,31 @@ func (g *Gossiper) HandleGossipRequest(ctx context.Context, req network.Request,
 	// something like a "REJECT" state would be ok to sign too
 	if ownSig == nil {
 		log.Trace("ownSig nil", "g", g.Id, "uuid", req.Id, "elapsed", elapsedTime(ctx))
-
-		//TODO: we need to check if the message is reasonable so that we can't DOS a chaintree
-		isLocked, err := g.lockObject(gossipMessage.ObjectId)
-		if err != nil {
-			return fmt.Errorf("error locking: %v", err)
-		}
-
 		var nextState []byte
 
-		if isLocked {
-			currentState, err := g.GetCurrentState(gossipMessage.ObjectId)
-			if err != nil {
-				return fmt.Errorf("error getting current state")
-			}
-			handlerState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState.State)
-			if err != nil {
-				return fmt.Errorf("error calling state handler: %v", err)
-			}
+		currentState, err := g.GetCurrentState(gossipMessage.ObjectId)
+		if err != nil {
+			return fmt.Errorf("error getting current state")
+		}
+		handlerState, isAccepted, err := g.StateHandler(ctx, g.Group, gossipMessage.ObjectId, gossipMessage.Transaction, currentState.State)
+		if err != nil {
+			return fmt.Errorf("error calling state handler: %v", err)
+		}
 
-			if isAccepted {
+		if isAccepted {
+			// only lock if the transaction is even possible
+			//TODO: we need to check if the message is reasonable so that we can't DOS a chaintree
+			isLocked, err := g.lockObject(gossipMessage.ObjectId)
+			if err != nil {
+				return fmt.Errorf("error locking: %v", err)
+			}
+			if isLocked {
 				nextState = handlerState
 			} else {
+				log.Error("could not get lock on object", "g", g.Id)
 				nextState = RejectedByte
 			}
-
 		} else {
-			log.Error("could not get lock on object", "g", g.Id)
 			nextState = RejectedByte
 		}
 
