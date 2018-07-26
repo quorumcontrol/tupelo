@@ -624,6 +624,7 @@ func (g *Gossiper) setCurrentState(objectId []byte, sigs GossipSignatureMap) err
 		return fmt.Errorf("error wrapping obj: %v", err)
 	}
 
+	log.Debug("saving object to current state", "g", g.Id, "obj", string(objectId))
 	err = g.Storage.Set(CurrentStateBucket, objectId, node.RawData())
 	if err != nil {
 		return fmt.Errorf("error setting storage: %v", err)
