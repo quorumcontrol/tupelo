@@ -52,7 +52,7 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 		return nil, fmt.Errorf("error decoding: %v", sw.Err)
 	}
 
-	log.Debug("received: ", "tip", req.Tip, "len(nodes)", len(cborNodes))
+	log.Debug("received: ", "tip", req.Tip, "nodeLength", len(cborNodes))
 
 	tree := dag.NewBidirectionalTree(currentTip, cborNodes...)
 

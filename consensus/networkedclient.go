@@ -65,7 +65,7 @@ func (nc *NetworkedClient) AddBlock(tree *SignedChainTree, block *chaintree.Bloc
 		Tip:      tree.Tip(),
 	}
 
-	log.Debug("sending: ", "tip", addBlockRequest.Tip, "len(nodes)", len(nodes))
+	log.Debug("sending: ", "tip", addBlockRequest.Tip, "nodeLength", len(nodes))
 
 	req, err := network.BuildRequest(MessageType_AddBlock, addBlockRequest)
 	if err != nil {

@@ -113,7 +113,7 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		ChainId:  tree.MustId(),
 	}
 
-	log.Debug("sending: ", "tip", addBlockRequest.Tip, "len(nodes)", len(nodes))
+	log.Debug("sending: ", "tip", addBlockRequest.Tip, "nodeLength", len(nodes))
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 
