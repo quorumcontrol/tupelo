@@ -26,14 +26,14 @@ var bootNodes = []string{
 }
 
 type MessageParams struct {
-	TTL      uint32
-	Src      *ecdsa.PrivateKey
-	Dst      *ecdsa.PublicKey
-	KeySym   []byte
-	Topic    []byte
-	WorkTime uint32
-	PoW      float64
-	Payload  []byte
+	TTL         uint32
+	Source      *ecdsa.PrivateKey
+	Destination *ecdsa.PublicKey
+	KeySym      []byte
+	Topic       []byte
+	WorkTime    uint32
+	PoW         float64
+	Payload     []byte
 	//Padding  []byte
 }
 
@@ -44,12 +44,12 @@ type ReceivedMessage struct {
 	Padding   []byte
 	Signature []byte
 
-	PoW   float64          // Proof of work as described in the Whisper spec
-	Sent  uint32           // Time when the message was posted into the network
-	TTL   uint32           // Maximum time to live allowed for the message
-	Src   *ecdsa.PublicKey // Message recipient (identity used to decode the message)
-	Dst   *ecdsa.PublicKey // Message recipient (identity used to decode the message)
-	Topic TopicType
+	PoW         float64          // Proof of work as described in the Whisper spec
+	Sent        uint32           // Time when the message was posted into the network
+	TTL         uint32           // Maximum time to live allowed for the message
+	Source      *ecdsa.PublicKey // Message recipient (identity used to decode the message)
+	Destination *ecdsa.PublicKey // Message recipient (identity used to decode the message)
+	Topic       TopicType
 
 	SymKeyHash      common.Hash // The Keccak256Hash of the key, associated with the Topic
 	EnvelopeHash    common.Hash // Message envelope hash to act as a unique id
@@ -59,8 +59,8 @@ type ReceivedMessage struct {
 func (mp *MessageParams) toWhisper() *whisper.MessageParams {
 	return &whisper.MessageParams{
 		TTL:      mp.TTL,
-		Src:      mp.Src,
-		Dst:      mp.Dst,
+		Src:      mp.Source,
+		Dst:      mp.Destination,
 		KeySym:   mp.KeySym,
 		Topic:    whisper.BytesToTopic(mp.Topic),
 		WorkTime: mp.WorkTime,
@@ -76,12 +76,12 @@ func fromWhisper(whispMessage *whisper.ReceivedMessage) *ReceivedMessage {
 		Padding:   whispMessage.Padding,
 		Signature: whispMessage.Signature,
 
-		PoW:   whispMessage.PoW,  // Proof of work as described in the Whisper spec
-		Sent:  whispMessage.Sent, // Time when the message was posted into the network
-		TTL:   whispMessage.TTL,  // Maximum time to live allowed for the message
-		Src:   whispMessage.Src,  // Message recipient (identity used to decode the message)
-		Dst:   whispMessage.Dst,  // Message recipient (identity used to decode the message)
-		Topic: TopicType(whispMessage.Topic),
+		PoW:         whispMessage.PoW,  // Proof of work as described in the Whisper spec
+		Sent:        whispMessage.Sent, // Time when the message was posted into the network
+		TTL:         whispMessage.TTL,  // Maximum time to live allowed for the message
+		Source:      whispMessage.Src,  // Message recipient (identity used to decode the message)
+		Destination: whispMessage.Dst,  // Message recipient (identity used to decode the message)
+		Topic:       TopicType(whispMessage.Topic),
 
 		SymKeyHash:   whispMessage.SymKeyHash,   // The Keccak256Hash of the key, associated with the Topic
 		EnvelopeHash: whispMessage.EnvelopeHash, // Message envelope hash to act as a unique id

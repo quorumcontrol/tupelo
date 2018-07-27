@@ -52,7 +52,7 @@ func TestNode_Integration(t *testing.T) {
 		WorkTime: 2,
 		Payload:  node.RawData(),
 		TTL:      5,
-		Src:      clientKey,
+		Source:   clientKey,
 	}
 
 	time.Sleep(5 * time.Second)
@@ -64,12 +64,12 @@ func TestNode_Integration(t *testing.T) {
 	assert.Nil(t, err)
 
 	err = client.Send(MessageParams{
-		Topic:    testTopic,
-		Dst:      &listenerKey.PublicKey,
-		PoW:      0.1,
-		WorkTime: 10,
-		Payload:  []byte("hiKey"),
-		TTL:      5,
+		Topic:       testTopic,
+		Destination: &listenerKey.PublicKey,
+		PoW:         0.1,
+		WorkTime:    10,
+		Payload:     []byte("hiKey"),
+		TTL:         5,
 	})
 
 	assert.Nil(t, err)
