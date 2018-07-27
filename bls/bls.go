@@ -11,15 +11,29 @@ import (
 	"log"
 	"unsafe"
 
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 const GeneratorHex = "0x00505d3670be80403e051ea1fe991e21a65aa7a34fb217faaaeece6d07f4ace018a4598fa281ccd9604a24024146861defe23200344c20ee95780eda2c5bd3630a7bd596e91c1e8359e503c088a9eeb87a895821e2ea7d96c39fc1acc5d9453d1957e94588afaf7fc0a232d77d4f73097b4c66ec4bce715e58023031ac289b4a"
 
 var GeneratorBytes []byte
+var CGenerator *unsafe.Pointer
 
 func init() {
 	GeneratorBytes = hexutil.MustDecode(GeneratorHex)
+	CGenerator = getStandardGenerator()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		C.indy_crypto_bls_generator_free(*CGenerator)
+		os.Exit(0)
+	}()
 }
 
 func SetupLogger() {
@@ -131,8 +145,7 @@ func (sk *SignKey) Sign(msg []byte) ([]byte, error) {
 
 func (sk *SignKey) VerKey() (*VerKey, error) {
 	cVerKey := (*unsafe.Pointer)(unsafe.Pointer(new(interface{})))
-	cGenerator := getStandardGenerator()
-	defer C.indy_crypto_bls_generator_free(*cGenerator)
+	cGenerator := CGenerator
 
 	cSignKey, err := sk.getCSignKey()
 	if err != nil {
@@ -201,8 +214,7 @@ func (vk *VerKey) Verify(sig, msg []byte) (bool, error) {
 	}
 	defer C.indy_crypto_bls_ver_key_free(*cVerKey)
 
-	cGenerator := getStandardGenerator()
-	defer C.indy_crypto_bls_generator_free(*cGenerator)
+	cGenerator := CGenerator
 
 	cMessageBytes := C.CBytes(msg)
 	defer C.free(cMessageBytes)
@@ -276,8 +288,7 @@ func VerifyMultiSig(sig, msg []byte, verKeys [][]byte) (bool, error) {
 		}
 	}()
 
-	cGenerator := getStandardGenerator()
-	defer C.indy_crypto_bls_generator_free(*cGenerator)
+	cGenerator := CGenerator
 
 	cMessageBytes := C.CBytes(msg)
 	defer C.free(cMessageBytes)

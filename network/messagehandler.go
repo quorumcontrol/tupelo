@@ -1,6 +1,7 @@
 package network
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"sync"
@@ -26,25 +27,25 @@ type ResponseChan chan *Response
 type Message struct {
 	Request  *Request
 	Response *Response
-	src      *ecdsa.PublicKey
+	source   *ecdsa.PublicKey
 }
 
 type Request struct {
-	Type    string
-	Id      string
-	Payload []byte
-	dst     *ecdsa.PublicKey
-	src     *ecdsa.PublicKey
+	Type        string
+	Id          string
+	Payload     []byte
+	destination *ecdsa.PublicKey
+	source      *ecdsa.PublicKey
 }
 
 type Response struct {
 	Id      string
 	Code    int
 	Payload []byte
-	src     *ecdsa.PublicKey
+	source  *ecdsa.PublicKey
 }
 
-type HandlerFunc func(req Request, respChan ResponseChan) error
+type HandlerFunc func(ctx context.Context, req Request, respChan ResponseChan) error
 
 type MessageHandler struct {
 	mainTopic           []byte
@@ -56,6 +57,7 @@ type MessageHandler struct {
 	requestLock         *sync.RWMutex
 	closeChan           chan bool
 	messageChan         chan *Message
+	started             bool
 }
 
 func NewMessageHandler(node *Node, topic []byte) *MessageHandler {
@@ -122,7 +124,7 @@ func BuildRequest(reqType string, payload interface{}) (*Request, error) {
 	}, nil
 }
 
-func (rh *MessageHandler) DoRequest(dst *ecdsa.PublicKey, req *Request) (chan *Response, error) {
+func (rh *MessageHandler) DoRequest(destination *ecdsa.PublicKey, req *Request) (chan *Response, error) {
 	log.Debug("do request")
 	respChan := make(chan *Response)
 	rh.requestLock.Lock()
@@ -134,8 +136,8 @@ func (rh *MessageHandler) DoRequest(dst *ecdsa.PublicKey, req *Request) (chan *R
 		return nil, fmt.Errorf("error converting request: %v", err)
 	}
 
-	log.Debug("sending destination message", "id", req.Id, "dst", crypto.PubkeyToAddress(*dst).String(), "src", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
-	err = rh.send(dst, wireBytes)
+	log.Debug("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	err = rh.send(destination, wireBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error sending: %v", err)
 	}
@@ -157,7 +159,7 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *R
 		return nil, fmt.Errorf("error wrapping request: %v", sw.Err)
 	}
 
-	log.Debug("sending message", "id", req.Id, "src", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Debug("sending message", "id", req.Id, "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err := rh.node.Send(MessageParams{
 		Payload:  reqNode.RawData(),
 		TTL:      DefaultTTL,
@@ -165,7 +167,7 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *R
 		WorkTime: 10,
 		KeySym:   symKey,
 		Topic:    topic,
-		Src:      rh.node.key,
+		Source:   rh.node.key,
 	})
 
 	if err != nil {
@@ -177,12 +179,12 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *R
 
 func (rh *MessageHandler) send(dst *ecdsa.PublicKey, payload []byte) error {
 	return rh.node.Send(MessageParams{
-		Payload:  payload,
-		TTL:      DefaultTTL,
-		PoW:      0.02,
-		WorkTime: 10,
-		Dst:      dst,
-		Src:      rh.node.key,
+		Payload:     payload,
+		TTL:         DefaultTTL,
+		PoW:         0.02,
+		WorkTime:    10,
+		Destination: dst,
+		Source:      rh.node.key,
 	})
 }
 
@@ -196,7 +198,7 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 
 		var resp *Response
 
-		err := handler(*req, respChan)
+		err := handler(context.Background(), *req, respChan)
 		if err == nil {
 			resp = <-respChan
 		} else {
@@ -213,9 +215,9 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 			log.Error("error converting response", "err", err)
 			return
 		}
-		log.Debug("responding", "id", req.Id, "dst", crypto.PubkeyToAddress(*req.src).String())
+		log.Debug("responding", "id", req.Id, "destination", crypto.PubkeyToAddress(*req.source).String())
 
-		err = rh.send(req.src, wireBytes)
+		err = rh.send(req.source, wireBytes)
 		if err != nil {
 			log.Error("error sending request", "err", err)
 		}
@@ -225,7 +227,7 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 }
 
 func (rh *MessageHandler) handleResponse(resp *Response) {
-	log.Debug("response received", "src", crypto.PubkeyToAddress(*resp.src).String())
+	log.Debug("response received", "source", crypto.PubkeyToAddress(*resp.source).String())
 
 	log.Debug("client sending response to response channel", "id", resp.Id)
 	rh.requestLock.RLock()
@@ -244,6 +246,11 @@ func (rh *MessageHandler) handleResponse(resp *Response) {
 }
 
 func (rh *MessageHandler) Start() {
+	if rh.started {
+		return
+	}
+	rh.started = true
+
 	rh.node.Start()
 	rh.HandleKey(rh.mainTopic, rh.node.key)
 
@@ -257,13 +264,13 @@ func (rh *MessageHandler) Start() {
 					continue
 				}
 				if msg.Request != nil {
-					msg.Request.src = msg.src
-					rh.handleRequest(msg.Request)
+					msg.Request.source = msg.source
+					go rh.handleRequest(msg.Request)
 					continue
 				}
 				if msg.Response != nil {
-					msg.Response.src = msg.src
-					rh.handleResponse(msg.Response)
+					msg.Response.source = msg.source
+					go rh.handleResponse(msg.Response)
 					continue
 				}
 				log.Error("message handler reached a loop it should not have")
@@ -295,9 +302,13 @@ func (rh *MessageHandler) Start() {
 }
 
 func (rh *MessageHandler) Stop() {
+	if !rh.started {
+		return
+	}
 	rh.node.Stop()
 	rh.closeChan <- true
 	rh.closeChan <- true
+	rh.started = false
 }
 
 func messageToWireFormat(message *ReceivedMessage) *Message {
@@ -308,7 +319,7 @@ func messageToWireFormat(message *ReceivedMessage) *Message {
 		log.Error("invalid message", "err", err)
 		return nil
 	}
-	msg.src = message.Src
+	msg.source = message.Source
 	return msg
 }
 

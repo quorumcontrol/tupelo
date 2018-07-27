@@ -5,13 +5,21 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 )
 
+const (
+	TransactionTypeSetData      = "SET_DATA"
+	TransactionTypeSetOwnership = "SET_OWNERSHIP"
+	TransactionTypeStake        = "STAKE"
+)
+
 var DefaultTransactors = map[string]chaintree.TransactorFunc{
-	"SET_DATA":      SetDataTransaction,
-	"SET_OWNERSHIP": SetOwnershipTransaction,
+	TransactionTypeSetData:      SetDataTransaction,
+	TransactionTypeSetOwnership: SetOwnershipTransaction,
+	TransactionTypeStake:        StakeTransaction,
 }
 
 type SignedChainTree struct {
@@ -21,6 +29,14 @@ type SignedChainTree struct {
 
 func (sct *SignedChainTree) Id() (string, error) {
 	return sct.ChainTree.Id()
+}
+
+func (sct *SignedChainTree) MustId() string {
+	id, err := sct.ChainTree.Id()
+	if err != nil {
+		log.Error("error getting id from chaintree: %v", id)
+	}
+	return id
 }
 
 func (sct *SignedChainTree) Tip() *cid.Cid {

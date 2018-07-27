@@ -14,6 +14,7 @@ func init() {
 	cbornode.RegisterCborType(FeedbackRequest{})
 	cbornode.RegisterCborType(TipRequest{})
 	cbornode.RegisterCborType(TipResponse{})
+	cbornode.RegisterCborType(TipSignature{})
 }
 
 type Wallet interface {
@@ -54,6 +55,11 @@ type TipRequest struct {
 
 type TipResponse struct {
 	ChainId   string
+	Tip       *cid.Cid
+	Signature Signature
+}
+
+type TipSignature struct {
 	Tip       *cid.Cid
 	Signature Signature
 }

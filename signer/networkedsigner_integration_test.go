@@ -88,7 +88,7 @@ func TestIntegrationNetworkedSignerBuildingTransactions(t *testing.T) {
 		Tip:      tree.Tip(),
 	}
 
-	log.Debug("sending: ", "tip", addBlockRequest.Tip, "len(nodes)", len(nodes))
+	log.Debug("sending: ", "tip", addBlockRequest.Tip, "nodeLength", len(nodes))
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 
@@ -139,7 +139,7 @@ func TestIntegrationNetworkedSignerBuildingTransactions(t *testing.T) {
 		Tip:      tree.Tip(),
 	}
 
-	log.Debug("sending: ", "tip", addBlockRequest2.Tip, "len(nodes)", len(nodes))
+	log.Debug("sending: ", "tip", addBlockRequest2.Tip, "nodeLength", len(nodes))
 
 	req2, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest2)
 
@@ -190,7 +190,7 @@ func TestIntegrationNetworkedSignerBuildingTransactions(t *testing.T) {
 		Tip:      tree.Tip(),
 	}
 
-	log.Debug("sending: ", "tip", addBlockRequest3.Tip, "len(nodes)", len(nodes))
+	log.Debug("sending: ", "tip", addBlockRequest3.Tip, "nodeLength", len(nodes))
 
 	req3, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest3)
 
@@ -275,7 +275,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 		Tip:      tree.Tip(),
 	}
 
-	log.Debug("sending: ", "tip", addBlockRequest.Tip, "len(nodes)", len(nodes))
+	log.Debug("sending: ", "tip", addBlockRequest.Tip, "nodeLength", len(nodes))
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 

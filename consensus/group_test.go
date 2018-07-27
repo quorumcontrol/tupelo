@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testSet struct {
@@ -154,4 +155,43 @@ func TestGroup_SuperMajorityCount(t *testing.T) {
 	ts := newTestSet(t)
 	g := groupFromTestSet(t, ts)
 	assert.Equal(t, int64(3), g.SuperMajorityCount())
+}
+
+func TestGroup_AddMember(t *testing.T) {
+	ts := newTestSet(t)
+	g := groupFromTestSet(t, ts)
+
+	newDst, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	newBls := bls.MustNewSignKey()
+
+	newMem := NewRemoteNode(BlsKeyToPublicKey(newBls.MustVerKey()), EcdsaToPublicKey(&newDst.PublicKey))
+
+	err = g.AddMember(newMem)
+	assert.Nil(t, err)
+
+	var isIncluded bool
+
+	for _, mem := range g.SortedMembers {
+		if mem == newMem {
+			isIncluded = true
+		}
+	}
+
+	assert.True(t, isIncluded)
+
+	// test that adding again doesn't increase the length
+
+	err = g.AddMember(newMem)
+	assert.Nil(t, err)
+	assert.Len(t, g.SortedMembers, 6)
+
+	// also adding a different object but same info, doesn't increase it
+
+	newMemSameAsOldMem := NewRemoteNode(BlsKeyToPublicKey(newBls.MustVerKey()), EcdsaToPublicKey(&newDst.PublicKey))
+
+	err = g.AddMember(newMemSameAsOldMem)
+	assert.Nil(t, err)
+	assert.Len(t, g.SortedMembers, 6)
 }

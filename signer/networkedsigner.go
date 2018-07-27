@@ -3,6 +3,8 @@ package signer
 import (
 	"fmt"
 
+	"context"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
@@ -47,7 +49,7 @@ func (ns *NetworkedSigner) SetupStorage() {
 	ns.Storage.CreateBucketIfNotExists(SigBucket)
 }
 
-func (ns *NetworkedSigner) AddBlockHandler(req network.Request, respChan network.ResponseChan) error {
+func (ns *NetworkedSigner) AddBlockHandler(_ context.Context, req network.Request, respChan network.ResponseChan) error {
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err := cbornode.DecodeInto(req.Payload, addBlockrequest)
 	if err != nil {
@@ -86,7 +88,7 @@ func (ns *NetworkedSigner) AddBlockHandler(req network.Request, respChan network
 	return nil
 }
 
-func (ns *NetworkedSigner) FeedbackHandler(req network.Request, respChan network.ResponseChan) error {
+func (ns *NetworkedSigner) FeedbackHandler(_ context.Context, req network.Request, respChan network.ResponseChan) error {
 	feedbackRequest := &consensus.FeedbackRequest{}
 	err := cbornode.DecodeInto(req.Payload, feedbackRequest)
 	if err != nil {
@@ -125,7 +127,7 @@ func (ns *NetworkedSigner) FeedbackHandler(req network.Request, respChan network
 	return nil
 }
 
-func (ns *NetworkedSigner) TipHandler(req network.Request, respChan network.ResponseChan) error {
+func (ns *NetworkedSigner) TipHandler(_ context.Context, req network.Request, respChan network.ResponseChan) error {
 	tipRequest := &consensus.TipRequest{}
 	err := cbornode.DecodeInto(req.Payload, tipRequest)
 	if err != nil {

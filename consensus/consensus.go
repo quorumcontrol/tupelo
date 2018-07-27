@@ -215,6 +215,49 @@ func BlsSign(payload interface{}, key *bls.SignKey) (*Signature, error) {
 	return sig, nil
 }
 
+func EcdsaSign(payload interface{}, key *ecdsa.PrivateKey) (*Signature, error) {
+	hsh, err := ObjToHash(payload)
+	if err != nil {
+		return nil, fmt.Errorf("error hashing block: %v", err)
+	}
+
+	sigBytes, err := crypto.Sign(hsh, key)
+	if err != nil {
+		return nil, fmt.Errorf("error signing: %v", err)
+	}
+	return &Signature{
+		Signature: sigBytes,
+		Type:      KeyTypeSecp256k1,
+	}, nil
+}
+
+func Verify(hsh []byte, sig Signature, key PublicKey) (bool, error) {
+	switch sig.Type {
+	case KeyTypeSecp256k1:
+		recoverdPub, err := crypto.SigToPub(hsh, sig.Signature)
+		if err != nil {
+			return false, fmt.Errorf("error recovering signature: %v", err)
+		}
+
+		if crypto.PubkeyToAddress(*recoverdPub).String() != PublicKeyToAddr(&key) {
+			return false, nil
+		}
+
+		return crypto.VerifySignature(crypto.FromECDSAPub(recoverdPub), hsh, sig.Signature[:len(sig.Signature)-1]), nil
+	case KeyTypeBLSGroupSig:
+		verKey := bls.BytesToVerKey(key.PublicKey)
+		verified, err := verKey.Verify(sig.Signature, hsh)
+		if err != nil {
+			log.Error("error verifying", "err", err)
+			return false, fmt.Errorf("error verifying: %v", err)
+		}
+		return verified, nil
+	default:
+		log.Error("unknown signature type", "type", sig.Type)
+		return false, fmt.Errorf("error: unknown signature type: %v", sig.Type)
+	}
+}
+
 func ObjToHash(payload interface{}) ([]byte, error) {
 	sw := &dag.SafeWrap{}
 

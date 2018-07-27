@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"math/big"
 
+	"sync"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
 )
@@ -38,13 +40,31 @@ func NewRemoteNode(verKey, dstKey PublicKey) *RemoteNode {
 type Group struct {
 	SortedMembers []*RemoteNode
 	id            string
+	lock          *sync.RWMutex
 }
 
 func NewGroup(members []*RemoteNode) *Group {
 	sort.Sort(byAddress(members))
 	return &Group{
 		SortedMembers: members,
+		lock:          new(sync.RWMutex),
 	}
+}
+
+func (group *Group) AddMember(node *RemoteNode) error {
+	group.lock.Lock()
+	defer group.lock.Unlock()
+
+	mapped := group.AsVerKeyMap()
+	_, ok := mapped[node.Id]
+	if ok {
+		return nil
+	}
+
+	members := append(group.SortedMembers, node)
+	sort.Sort(byAddress(members))
+	group.SortedMembers = members
+	return nil
 }
 
 func (group *Group) Id() string {
