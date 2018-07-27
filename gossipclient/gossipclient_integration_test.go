@@ -114,6 +114,8 @@ func TestIntegrationGossipClient(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "hi", val)
 
+	assert.Equal(t, resp.Signature, tree.Signatures[group.Id()])
+
 	// now get the tip and make sure it maches the response
 
 	tipResp, err := client.TipRequest(tree.MustId())

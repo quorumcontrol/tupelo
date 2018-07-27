@@ -129,6 +129,10 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		return nil, fmt.Errorf("error, invalid transactions: %v", err)
 	}
 
+	if tree.Signatures == nil {
+		tree.Signatures = make(consensus.SignatureMap)
+	}
+
 	resp := <-respChan
 
 	if resp.Code == 200 {
@@ -137,6 +141,8 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		if err != nil {
 			return nil, fmt.Errorf("error decoding: %v", err)
 		}
+		tree.Signatures[gc.Group.Id()] = addResponse.Signature
+
 		return addResponse, nil
 	} else {
 		return nil, fmt.Errorf("error on request code: %d, err: %s", resp.Code, resp.Payload)
