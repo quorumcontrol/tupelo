@@ -6,6 +6,7 @@ import (
 
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
 	"github.com/quorumcontrol/qc3/wallet"
@@ -121,7 +122,7 @@ func RunGossip(name string, group *consensus.Group) {
 		Func: func(c *ishell.Context) {
 			chain, err := currentWallet.GetChain(c.Args[0])
 			if err != nil {
-				c.Println("error getting key", err)
+				c.Println("error getting chain", err)
 				return
 			}
 			c.Println(chain.ChainTree.Dag.Dump())
@@ -142,6 +143,47 @@ func RunGossip(name string, group *consensus.Group) {
 			} else {
 				c.Printf("err: %v", err)
 			}
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "set-data",
+		Help: "set-data on a chain-tree usage: set-data chain-id key-id path value",
+		Func: func(c *ishell.Context) {
+			chain, err := currentWallet.GetChain(c.Args[0])
+			if err != nil {
+				c.Println("error getting chain", err)
+				return
+			}
+
+			key, err := currentWallet.GetKey(c.Args[1])
+			if err != nil {
+				c.Println("error getting key", err)
+				return
+			}
+
+			var remoteTip string
+			if !chain.IsGenesis() {
+				remoteTip = chain.Tip().String()
+			}
+
+			resp, err := currentClient.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{
+				{
+					Type: consensus.TransactionTypeSetData,
+					Payload: consensus.SetDataPayload{
+						Path:  c.Args[2],
+						Value: c.Args[3],
+					},
+				},
+			})
+			if err != nil {
+				c.Printf("error playing transaction: %v", err)
+			} else {
+				c.Printf("resp: %v", resp)
+			}
+
+			currentWallet.SaveChain(chain)
+
 		},
 	})
 
