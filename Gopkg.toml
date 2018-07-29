@@ -72,3 +72,16 @@
 [[constraint]]
   name = "github.com/multiformats/go-multihash"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/ethereum/go-ethereum"
+  revision = "1e67410e88d2685bc54611a7c9f75c327b553ccc"
+
+[[constraint]]
+  name = "github.com/ipfs/go-ipld-cbor"
+  branch = "refmt"
+
+[[constraint]]
+  name = "github.com/quorumcontrol/chaintree"
+  revision = "a5b36259df6cd5b1f7867c58d0bd1b04ed128cc8"
+
