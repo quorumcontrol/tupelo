@@ -79,6 +79,7 @@ func init() {
 }
 
 var nodeIndex int
+var isGossip bool
 
 // testnodeCmd represents the testnode command
 var testnodeCmd = &cobra.Command{
@@ -86,43 +87,83 @@ var testnodeCmd = &cobra.Command{
 	Short: "Run a testnet node with hardcoded (insecure) keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
-
-		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
-		os.MkdirAll(".storage", 0700)
-
-		boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
-
-		sign := &signer.Signer{
-			Group:   TestNetGroup,
-			Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
-			SignKey: BlsSignKeys[nodeIndex],
-			VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
+		if isGossip {
+			setupGossipNode()
+		} else {
+			setupBroadcastNode()
 		}
-
-		node := network.NewNode(EcdsaKeys[nodeIndex])
-
-		networkedSigner := signer.NewNetworkedSigner(node, sign, boltStorage)
-		networkedSigner.Start()
-
-		sigs := make(chan os.Signal, 1)
-		done := make(chan bool, 1)
-		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			sig := <-sigs
-			fmt.Println()
-			fmt.Println(sig)
-			networkedSigner.Stop()
-			done <- true
-		}()
-		fmt.Println("awaiting signal")
-		<-done
-		fmt.Println("exiting")
 	},
+}
+
+func setupGossipNode() {
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Info("starting up a test GOSSIP node", "index", nodeIndex)
+
+	os.MkdirAll(".storage", 0700)
+	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
+	sign := &signer.Signer{
+		Group:   TestNetGroup,
+		Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
+		SignKey: BlsSignKeys[nodeIndex],
+		VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
+	}
+	node := network.NewNode(EcdsaKeys[nodeIndex])
+
+	gossipedSigner := signer.NewGossipedSigner(node, sign, boltStorage)
+	gossipedSigner.Start()
+
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println(sig)
+		gossipedSigner.Stop()
+		done <- true
+	}()
+	fmt.Println("awaiting signal")
+	<-done
+	fmt.Println("exiting")
+}
+
+func setupBroadcastNode() {
+	fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
+
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
+	os.MkdirAll(".storage", 0700)
+
+	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
+
+	sign := &signer.Signer{
+		Group:   TestNetGroup,
+		Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
+		SignKey: BlsSignKeys[nodeIndex],
+		VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
+	}
+
+	node := network.NewNode(EcdsaKeys[nodeIndex])
+
+	networkedSigner := signer.NewNetworkedSigner(node, sign, boltStorage)
+	networkedSigner.Start()
+
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println()
+		fmt.Println(sig)
+		networkedSigner.Stop()
+		done <- true
+	}()
+	fmt.Println("awaiting signal")
+	<-done
+	fmt.Println("exiting")
 }
 
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
 	testnodeCmd.Flags().IntVarP(&nodeIndex, "index", "i", 0, "which key to use")
+	testnodeCmd.Flags().BoolVarP(&isGossip, "gossip", "g", false, "use the gossip network")
 }

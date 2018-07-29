@@ -5,38 +5,23 @@ import (
 	"sort"
 	"testing"
 
+	"crypto/ecdsa"
+
+	"strings"
+
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func newSavedChain(t *testing.T, fw *FileWallet, id string) *consensus.SignedChainTree {
-	sw := &dag.SafeWrap{}
-
-	tree := sw.WrapObject(map[string]string{
-		"hithere": "hothere",
-	})
-
-	chain := sw.WrapObject(make(map[string]string))
-
-	root := sw.WrapObject(map[string]interface{}{
-		"chain": chain.Cid(),
-		"tree":  tree.Cid(),
-		"id":    id,
-	})
-
-	chainTree, err := chaintree.NewChainTree(
-		dag.NewBidirectionalTree(root.Cid(), root, tree, chain),
-		nil,
-		consensus.DefaultTransactors,
-	)
-	assert.Nil(t, err)
-
-	signedTree := &consensus.SignedChainTree{
-		ChainTree: chainTree,
-	}
+func newSavedChain(t *testing.T, fw *FileWallet, key ecdsa.PublicKey) *consensus.SignedChainTree {
+	signedTree, err := consensus.NewSignedChainTree(key)
+	require.Nil(t, err)
 
 	err = fw.SaveChain(signedTree)
 	assert.Nil(t, err)
@@ -52,9 +37,12 @@ func TestFileWallet_GetChain(t *testing.T) {
 	fw := NewFileWallet("password", "testtmp/filewallet")
 	defer fw.Close()
 
-	signedTree := newSavedChain(t, fw, "test")
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
 
-	savedTree, err := fw.GetChain("test")
+	signedTree := newSavedChain(t, fw, key.PublicKey)
+
+	savedTree, err := fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
 
 	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
@@ -75,6 +63,119 @@ func TestFileWallet_GetChain(t *testing.T) {
 	assert.Equal(t, origCids, newCids)
 }
 
+func TestFileWallet_SaveChain(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+
+	fw := NewFileWallet("password", "testtmp/filewallet")
+	defer fw.Close()
+
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	signedTree := newSavedChain(t, fw, key.PublicKey)
+
+	savedTree, err := fw.GetChain(signedTree.MustId())
+	assert.Nil(t, err)
+
+	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+
+	hsh := crypto.Keccak256([]byte("hi"))
+
+	ecdsaSig, _ := crypto.Sign(hsh, key)
+
+	sig := &consensus.Signature{
+		Type:      consensus.KeyTypeSecp256k1,
+		Signature: ecdsaSig,
+	}
+
+	signedTree.Signatures = consensus.SignatureMap{
+		"id": *sig,
+	}
+
+	err = fw.SaveChain(signedTree)
+	require.Nil(t, err)
+
+	savedTree, err = fw.GetChain(signedTree.MustId())
+	assert.Nil(t, err)
+
+	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: consensus.TransactionTypeSetData,
+					Payload: &consensus.SetDataPayload{
+						Path:  "something",
+						Value: "hi",
+					},
+				},
+			},
+		},
+	}
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, key)
+	require.Nil(t, err)
+
+	//isValid, err := signedTree.ChainTree.ProcessBlock(blockWithHeaders)
+	//require.Nil(t, err)
+	//require.True(t, isValid)
+
+	newTree := signedTree.ChainTree.Dag.Copy()
+
+	unmarshaledRoot := newTree.Get(newTree.Tip)
+	require.NotNil(t, unmarshaledRoot)
+
+	root := &chaintree.RootNode{}
+
+	err = cbornode.DecodeInto(unmarshaledRoot.Node.RawData(), root)
+	require.Nil(t, err)
+
+	require.NotNil(t, root.Tree)
+
+	newTree.Tip = root.Tree
+
+	newTree.Set(strings.Split("something", "/"), "hi")
+	signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
+
+	chainNode := signedTree.ChainTree.Dag.Get(root.Chain)
+	chainMap, err := chainNode.AsMap()
+	require.Nil(t, err)
+
+	sw := &dag.SafeWrap{}
+
+	wrappedBlock := sw.WrapObject(blockWithHeaders)
+	require.Nil(t, sw.Err)
+
+	lastEntry := &chaintree.ChainEntry{
+		PreviousTip:       "",
+		BlocksWithHeaders: []*cid.Cid{wrappedBlock.Cid()},
+	}
+	entryNode := sw.WrapObject(lastEntry)
+	chainMap["end"] = entryNode.Cid()
+	newChainNode := sw.WrapObject(chainMap)
+
+	signedTree.ChainTree.Dag.AddNodes(entryNode)
+	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
+	signedTree.ChainTree.Dag.Swap(chainNode.Node.Cid(), newChainNode)
+
+	signedTree.ChainTree.Dag.Prune()
+
+	t.Log(signedTree.ChainTree.Dag.Dump())
+
+	err = fw.SaveChain(signedTree)
+	require.Nil(t, err)
+
+	savedTree, err = fw.GetChain(signedTree.MustId())
+	require.Nil(t, err)
+
+	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+
+}
+
 func TestFileWallet_GetChainIds(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
@@ -83,12 +184,15 @@ func TestFileWallet_GetChainIds(t *testing.T) {
 	fw := NewFileWallet("password", "testtmp/filewallet")
 	defer fw.Close()
 
-	newSavedChain(t, fw, "test")
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	chain := newSavedChain(t, fw, key.PublicKey)
 
 	ids, err := fw.GetChainIds()
 	assert.Nil(t, err)
 
-	assert.Equal(t, []string{"test"}, ids)
+	assert.Equal(t, []string{chain.MustId()}, ids)
 }
 
 func TestFileWallet_GetKey(t *testing.T) {

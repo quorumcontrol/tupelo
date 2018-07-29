@@ -311,7 +311,7 @@ func (rh *MessageHandler) Start() {
 		for {
 			select {
 			case msg := <-rh.messageChan:
-				log.Debug("message received", "msg", msg)
+				log.Trace("message received", "msg", msg)
 				if msg == nil {
 					log.Error("received nil msg")
 					continue
@@ -343,7 +343,7 @@ func (rh *MessageHandler) Start() {
 				for _, sub := range rh.subs {
 					messages := sub.RetrieveMessages()
 					for _, msg := range messages {
-						log.Debug("message received", "msg", msg)
+						log.Trace("message received", "msg", msg)
 						rh.messageChan <- messageToWireFormat(msg)
 					}
 				}
