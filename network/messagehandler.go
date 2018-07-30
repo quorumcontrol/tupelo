@@ -155,7 +155,23 @@ func (rh *MessageHandler) DoRequest(destination *ecdsa.PublicKey, req *Request) 
 	return respChan, nil
 }
 
-// will be deprecated when gossip, but leaving for current implementation
+// Push sends a message to a destination, but does not wait for any response
+func (rh *MessageHandler) Push(destination *ecdsa.PublicKey, req *Request) error {
+	wireBytes, err := requestToWireFormat(req)
+	if err != nil {
+		return fmt.Errorf("error converting request: %v", err)
+	}
+
+	log.Debug("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	err = rh.send(destination, wireBytes)
+	if err != nil {
+		return fmt.Errorf("error sending: %v", err)
+	}
+
+	return nil
+}
+
+// Broadcast will be deprecated when gossip, but leaving for current implementation
 func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *Response, error) {
 	respChan := make(chan *Response)
 	rh.requestLock.Lock()
@@ -219,17 +235,19 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 			}
 		}
 
-		resp.Id = req.Id
-		wireBytes, err := responseToWireFormat(resp)
-		if err != nil {
-			log.Error("error converting response", "err", err)
-			return
-		}
-		log.Debug("responding", "id", req.Id, "destination", crypto.PubkeyToAddress(*req.source).String())
+		if resp != nil {
+			resp.Id = req.Id
+			wireBytes, err := responseToWireFormat(resp)
+			if err != nil {
+				log.Error("error converting response", "err", err)
+				return
+			}
+			log.Debug("responding", "id", req.Id, "destination", crypto.PubkeyToAddress(*req.source).String())
 
-		err = rh.send(req.source, wireBytes)
-		if err != nil {
-			log.Error("error sending request", "err", err)
+			err = rh.send(req.source, wireBytes)
+			if err != nil {
+				log.Error("error sending request", "err", err)
+			}
 		}
 	} else {
 		log.Info("invalid message type", "type", req.Type)
