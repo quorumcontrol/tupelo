@@ -24,7 +24,7 @@ import (
 
 func init() {
 	cbornode.RegisterCborType(storedTransaction{})
-	cbornode.RegisterCborType(InitialMessage{})
+	cbornode.RegisterCborType(ProposalMessage{})
 }
 
 const MessageType_Proposal = "PROPOSAL"
@@ -52,11 +52,12 @@ type StoredCurrentState struct {
 }
 
 type storedTransaction struct {
-	ObjectId    ObjectId
-	Transaction Transaction
-	PreviousTip []byte
-	NewTip      []byte
-	Round       int64
+	ObjectId         ObjectId
+	Transaction      Transaction
+	PreviousTip      []byte
+	NewTip           []byte
+	Round            int64
+	rumorGossipCount int64
 }
 
 func (st *storedTransaction) Id() TransactionId {
@@ -69,17 +70,11 @@ type storedRound struct {
 	Signatures    *consensus.SignatureMap
 }
 
-type proposalMessage struct {
+type ProposalMessage struct {
 	Transaction Transaction
 	ObjectId    ObjectId
 	PreviousTip []byte
 	Round       int64
-}
-
-type InitialMessage struct {
-	Transaction Transaction
-	ObjectId    ObjectId
-	PreviousTip []byte
 }
 
 type conflictSet struct {
@@ -144,10 +139,20 @@ func (g *Gossiper) roundAt(t time.Time) int64 {
 }
 
 func (g *Gossiper) Propose(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
-	msg := &InitialMessage{}
+	msg := &ProposalMessage{}
 	err := cbornode.DecodeInto(req.Payload, msg)
 	if err != nil {
 		return fmt.Errorf("error decoding: %v", err)
+	}
+
+	currRound := g.roundAt(time.Now())
+
+	if msg.Round == 0 {
+		msg.Round = currRound
+	}
+
+	if msg.Round > currRound {
+		return fmt.Errorf("error, round is in the future: %d", msg.Round)
 	}
 
 	currState, err := g.GetCurrenState(ctx, msg.ObjectId)
@@ -173,7 +178,7 @@ func (g *Gossiper) Propose(ctx context.Context, req network.Request, respChan ne
 		Transaction: msg.Transaction,
 		PreviousTip: msg.PreviousTip,
 		NewTip:      handlerState,
-		Round:       g.roundAt(time.Now()),
+		Round:       msg.Round,
 	}
 
 	err = g.saveTransaction(toStore)
@@ -186,7 +191,7 @@ func (g *Gossiper) Propose(ctx context.Context, req network.Request, respChan ne
 		// then prepare it
 	}()
 
-	//gossip the msg
+	//gossip the msg - maybe as a group of messages?
 
 	resp, err := network.BuildResponse(req.Id, 200, true)
 	if err != nil {
@@ -197,12 +202,13 @@ func (g *Gossiper) Propose(ctx context.Context, req network.Request, respChan ne
 	return err
 }
 
-func (g *Gossiper) HandleTransactionGossip(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
-
-	return nil
-}
-
 func (g *Gossiper) HandlePrepare(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
+
+	// save new signatures to the current state
+	// if 2/3 have approved
+	// gossip the TC message
+	// else gossip the combined signature Prepare message
+
 	return nil
 }
 
