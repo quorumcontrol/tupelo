@@ -210,29 +210,3 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 
 	return gossipers
 }
-
-func TestGossiper_Propose(t *testing.T) {
-	gossipers := generateTestGossipGroup(t, 1, 0)
-
-	message := &ProposalMessage{
-		ObjectId:    []byte("obj"),
-		Transaction: []byte("trans"),
-		PreviousTip: []byte{},
-	}
-
-	req, err := network.BuildRequest(messageTypeProposal, message)
-	assert.Nil(t, err)
-
-	respChan := make(network.ResponseChan, 1)
-
-	err = gossipers[0].Propose(context.TODO(), *req, respChan)
-	assert.Nil(t, err)
-
-	resp := <-respChan
-
-	gossipResp := new(bool)
-	err = cbornode.DecodeInto(resp.Payload, gossipResp)
-	assert.Nil(t, err)
-
-	assert.True(t, *gossipResp)
-}
