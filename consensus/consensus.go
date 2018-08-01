@@ -56,6 +56,12 @@ func DidToAddr(did string) string {
 	return segs[len(segs)-1]
 }
 
+// ToEcdsaPub returns the ecdsa typed key from the bytes in the PublicKey
+// at this time there is no error checking.
+func (pk *PublicKey) ToEcdsaPub() *ecdsa.PublicKey {
+	return crypto.ToECDSAPub(pk.PublicKey)
+}
+
 func PublicKeyToAddr(key *PublicKey) string {
 	switch key.Type {
 	case KeyTypeSecp256k1:

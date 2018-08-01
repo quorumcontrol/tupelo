@@ -76,6 +76,28 @@ type InMemoryHandler struct {
 	Mapping map[string]network.HandlerFunc
 }
 
+func (imh *InMemoryHandler) Push(dst *ecdsa.PublicKey, req *network.Request) error {
+	go func(dst *ecdsa.PublicKey, req *network.Request) {
+		log.Trace("DoRequest go func started", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed")
+		handler, ok := imh.System.Handlers[crypto.PubkeyToAddress(*dst).String()]
+		if !ok {
+			log.Error("could not find handler")
+			panic("could not find handler")
+		}
+		internalRespChan := make(network.ResponseChan, 1)
+		defer close(internalRespChan)
+		err := handler.Mapping[req.Type](context.Background(), *req, internalRespChan)
+		if err != nil {
+			log.Error("error handling request: %v", err)
+		}
+
+		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id)
+		<-internalRespChan
+	}(dst, req)
+
+	return nil
+}
+
 func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error) {
 	respChan := make(chan *network.Response, 1)
 	start := time.Now()
@@ -192,13 +214,13 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 func TestGossiper_Propose(t *testing.T) {
 	gossipers := generateTestGossipGroup(t, 1, 0)
 
-	message := &InitialMessage{
+	message := &ProposalMessage{
 		ObjectId:    []byte("obj"),
 		Transaction: []byte("trans"),
 		PreviousTip: []byte{},
 	}
 
-	req, err := network.BuildRequest(MessageType_Proposal, message)
+	req, err := network.BuildRequest(messageTypeProposal, message)
 	assert.Nil(t, err)
 
 	respChan := make(network.ResponseChan, 1)
