@@ -328,10 +328,6 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		}
 	} else {
 		log.Debug("handlePrepareMessag - existing transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
-		if savedTrans.Phase != phasePrepare {
-			// drop the message
-			return nil
-		}
 		savedTrans.PrepareSignatures = savedTrans.PrepareSignatures.Merge(msg.PhaseSignatures)
 		err = g.saveTransaction(csID, savedTrans)
 		if err != nil {
@@ -437,9 +433,8 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		}
 		if trans == nil {
 			return fmt.Errorf("error creating transaction: %v", err)
-		} else {
-			savedTrans = trans
 		}
+		savedTrans = trans
 	} else {
 		savedTrans.Phase = phaseTentativeCommit
 		savedTrans.TentativeCommitSignatures = savedTrans.TentativeCommitSignatures.Merge(msg.PhaseSignatures)
@@ -474,7 +469,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 			return fmt.Errorf("error saving transaction: %v", err)
 		}
 
-		//TODO: when do we delete the old state
+		//TODO: when do we delete the transaction
 	}
 	newMessage = &GossipMessage{
 		ObjectID:         savedTrans.ObjectID,
