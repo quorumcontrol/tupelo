@@ -2,6 +2,7 @@ package signer
 
 import (
 	"context"
+	"time"
 
 	"fmt"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossip"
+	gossip "github.com/quorumcontrol/qc3/gossip2"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
 )
@@ -48,16 +49,16 @@ func NewGossipedSigner(node *network.Node, signer *Signer, store storage.Storage
 
 	handler := network.NewMessageHandler(node, GroupToTopic(signer.Group))
 
-	gossiper := gossip.NewGossiper(&gossip.GossiperOpts{
-		MessageHandler:     handler,
-		SignKey:            signer.SignKey,
-		Group:              signer.Group,
-		Storage:            store,
-		StateHandler:       gossipSigner.stateHandler,
-		AcceptedHandler:    gossipSigner.acceptedHandler,
-		NumberOfGossips:    5,
-		TimeBetweenGossips: 200,
-	})
+	gossiper := &gossip.Gossiper{
+		MessageHandler:  handler,
+		SignKey:         signer.SignKey,
+		Group:           signer.Group,
+		Storage:         store,
+		StateHandler:    gossipSigner.stateHandler,
+		AcceptedHandler: gossipSigner.acceptedHandler,
+		Fanout:          5,
+	}
+	gossiper.Initialize()
 
 	gossipSigner.gossiper = gossiper
 	handler.AssignHandler(consensus.MessageType_AddBlock, gossipSigner.AddBlockHandler)
@@ -157,13 +158,11 @@ func (gs *GossipedSigner) AddBlockHandler(ctx context.Context, addBlockNetworkRe
 	log.Debug("add block handler", "tip", addBlockrequest.Tip, "request", addBlockrequest)
 
 	gossipMessage := &gossip.GossipMessage{
-		ObjectId:    []byte(addBlockrequest.ChainId),
+		ObjectID:    []byte(addBlockrequest.ChainId),
 		Transaction: addBlockNetworkReq.Payload,
-	}
-
-	gossipReq, err := network.BuildRequest(gossip.MessageType_Gossip, gossipMessage)
-	if err != nil {
-		return fmt.Errorf("error building gossip message")
+		PreviousTip: []byte(addBlockrequest.NewBlock.PreviousTip),
+		Phase:       0,
+		Round:       gs.gossiper.RoundAt(time.Now()),
 	}
 
 	pending := &pendingResponse{
@@ -175,15 +174,10 @@ func (gs *GossipedSigner) AddBlockHandler(ctx context.Context, addBlockNetworkRe
 	gs.responses[string(crypto.Keccak256(addBlockNetworkReq.Payload))] = pending
 	gs.respLock.Unlock()
 
-	internalRespChan := make(network.ResponseChan, 1)
-
-	err = gs.gossiper.HandleGossipRequest(ctx, *gossipReq, internalRespChan)
+	err = gs.gossiper.HandleGossip(ctx, gossipMessage)
 	if err != nil {
 		return fmt.Errorf("error handling request")
 	}
-
-	<-internalRespChan
-	close(internalRespChan)
 
 	return nil
 }
@@ -240,7 +234,7 @@ func (gs *GossipedSigner) respondToTransaction(objectId, transaction []byte) err
 	return nil
 }
 
-func (gs *GossipedSigner) tipForObject(objectId gossip.ObjectId) (*consensus.TipResponse, error) {
+func (gs *GossipedSigner) tipForObject(objectId []byte) (*consensus.TipResponse, error) {
 	currState, err := gs.gossiper.GetCurrentState(objectId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting state: %v", err)
@@ -248,8 +242,8 @@ func (gs *GossipedSigner) tipForObject(objectId gossip.ObjectId) (*consensus.Tip
 
 	var tip *cid.Cid
 
-	if len(currState.State) > 0 {
-		tip, err = cid.Cast(currState.State)
+	if len(currState.Tip) > 0 {
+		tip, err = cid.Cast(currState.Tip)
 		if err != nil {
 			return nil, fmt.Errorf("error casting tip: %v", err)
 		}

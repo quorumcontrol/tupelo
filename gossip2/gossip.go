@@ -43,7 +43,7 @@ type tip []byte
 type phase int8
 type roundSignatures map[string]storedTransaction
 
-const messageTypeGossip = "GOSSIP"
+const MessageTypeGossip = "GOSSIP"
 
 const (
 	phasePrepare         phase = 0
@@ -191,7 +191,7 @@ func (g *Gossiper) Initialize() {
 		g.ID = consensus.BlsVerKeyToAddress(g.SignKey.MustVerKey().Bytes()).String()
 	}
 	g.Storage.CreateBucketIfNotExists(stateBucket)
-	g.MessageHandler.AssignHandler(messageTypeGossip, g.handleIncomingRequest)
+	g.MessageHandler.AssignHandler(MessageTypeGossip, g.handleIncomingRequest)
 	g.locker = namedlocker.NewNamedLocker()
 	if g.RoundLength == 0 {
 		g.RoundLength = defaultRoundLength
@@ -219,7 +219,8 @@ func (g *Gossiper) Stop() {
 	g.MessageHandler.Stop()
 }
 
-func (g *Gossiper) roundAt(t time.Time) int64 {
+// RoundAt returns the round number for the time
+func (g *Gossiper) RoundAt(t time.Time) int64 {
 	return t.UTC().Unix() / int64(g.RoundLength)
 }
 
@@ -234,7 +235,7 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 	if err != nil {
 		return fmt.Errorf("error decoding: %v", err)
 	}
-	return g.handleGossip(ctx, gm)
+	return g.HandleGossip(ctx, gm)
 }
 
 // if the message round doesn't match, then look at the conflict set for the correct transaction to gossip
@@ -243,10 +244,10 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 // if the PREPARE message has 2/3 of signers then gossip a TENTATIVE_COMMIT message by wrapping up the prepare sigs into one and starting a new phase with own sig
 // if the message is a TENTATIVE_COMMIT message and the proof is valid then add known sigs and gossip
 // if the TENTATIVE_COMMIT message has 2/3 of signers, then COMMIT
-func (g *Gossiper) handleGossip(ctx context.Context, msg *GossipMessage) error {
+func (g *Gossiper) HandleGossip(ctx context.Context, msg *GossipMessage) error {
 	log.Debug("handleGossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(msg.PhaseSignatures), "phase", msg.Phase)
 
-	currentRound := g.roundAt(time.Now())
+	currentRound := g.RoundAt(time.Now())
 
 	if msg.Round > currentRound+1 {
 		log.Info("dropping message from the future", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "phase", msg.Phase)
@@ -326,7 +327,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		log.Debug("handlePrepareMessage - new transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 
 		// new transaction
-		currState, err := g.getCurrentState(msg.ObjectID)
+		currState, err := g.GetCurrentState(msg.ObjectID)
 		if err != nil {
 			return fmt.Errorf("error getting current state: %v", err)
 		}
@@ -397,7 +398,13 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		}
 	}
 
-	g.doGossip(ctx, newMessage)
+	if len(g.Group.SortedMembers) == 1 {
+		go func() {
+			g.HandleGossip(ctx, newMessage)
+		}()
+	} else {
+		g.doGossip(ctx, newMessage)
+	}
 
 	return nil
 }
@@ -453,7 +460,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 
 	if savedTrans == nil {
 		// new transaction
-		currState, err := g.getCurrentState(msg.ObjectID)
+		currState, err := g.GetCurrentState(msg.ObjectID)
 		if err != nil {
 			return fmt.Errorf("error getting current state: %v", err)
 		}
@@ -502,6 +509,14 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 			return fmt.Errorf("error saving transaction: %v", err)
 		}
 
+		if g.AcceptedHandler != nil {
+			err = g.AcceptedHandler(ctx, g.Group, newState.ObjectID, savedTrans.Transaction, newState.Tip)
+			if err != nil {
+				log.Error("error calling accepted", "err", err)
+				return fmt.Errorf("error calling accepted: %v", err)
+			}
+		}
+
 		//TODO: when do we delete the transaction
 	}
 
@@ -519,6 +534,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		PhaseSignatures:  savedTrans.TentativeCommitSignatures,
 		Round:            savedTrans.Round,
 	}
+
 	g.doGossip(ctx, newMessage)
 
 	return nil
@@ -527,8 +543,10 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
 	go func(ctx context.Context, msg *GossipMessage) {
 		num := min(g.Fanout, len(g.Group.SortedMembers)-1)
+		log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
+
 		for i := 0; i < num; i++ {
-			req, err := network.BuildRequest(messageTypeGossip, msg)
+			req, err := network.BuildRequest(MessageTypeGossip, msg)
 			if err != nil {
 				log.Error("error building request", "err", err)
 			}
@@ -536,7 +554,7 @@ func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
 			for rn == nil || rn.Id == g.ID {
 				rn = g.Group.RandomMember()
 			}
-			log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "dst", consensus.PublicKeyToAddr(&rn.VerKey), "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
+			log.Debug("one gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "dst", consensus.PublicKeyToAddr(&rn.VerKey), "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
 
 			err = g.MessageHandler.Push(rn.DstKey.ToEcdsaPub(), req)
 			if err != nil {
@@ -616,7 +634,7 @@ func transactionToID(trans transaction, round int64) transactionID {
 	return crypto.Keccak256(append(trans, roundToBytes(round)...))
 }
 
-func (g *Gossiper) getCurrentState(objID objectID) (currState CurrentState, err error) {
+func (g *Gossiper) GetCurrentState(objID objectID) (currState CurrentState, err error) {
 	g.locker.RLock(string(objID))
 	defer g.locker.RUnlock(string(objID))
 

@@ -236,7 +236,7 @@ func TestTest(t *testing.T) {
 	assert.True(t, verified)
 }
 
-func TestGossiper_handleGossip(t *testing.T) {
+func TestGossiper_HandleGossip(t *testing.T) {
 	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	gossipers := generateTestGossipGroup(t, 3, 0)
@@ -258,7 +258,7 @@ func TestGossiper_handleGossip(t *testing.T) {
 					PreviousTip: nil,
 					Transaction: []byte("trans"),
 					Phase:       phasePrepare,
-					Round:       gossipers[0].roundAt(time.Now()),
+					Round:       gossipers[0].RoundAt(time.Now()),
 				},
 			}
 		},
@@ -271,13 +271,13 @@ func TestGossiper_handleGossip(t *testing.T) {
 					PreviousTip: nil,
 					Transaction: []byte("trans"),
 					Phase:       phaseTentativeCommit,
-					Round:       gossipers[0].roundAt(time.Now()),
+					Round:       gossipers[0].RoundAt(time.Now()),
 				},
 			}
 		},
 	} {
 		tc := testCaseCreator()
-		err := gossipers[0].handleGossip(context.TODO(), tc.message)
+		err := gossipers[0].HandleGossip(context.TODO(), tc.message)
 		if tc.shouldErr {
 			require.NotNil(t, err, tc.description)
 		} else {
