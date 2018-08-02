@@ -9,6 +9,7 @@ import (
 
 	"sync"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
 )
@@ -87,6 +88,21 @@ func (group *Group) AsVerKeyMap() map[string]PublicKey {
 		sigMap[member.Id] = member.VerKey
 	}
 	return sigMap
+}
+
+// VerifyAvailableSignatures just validates that all the sigs are valid in the supplied argument,
+// but does not verify that the super majority count has signed
+func (group *Group) VerifyAvailableSignatures(msg []byte, sig *Signature) (bool, error) {
+	var expectedKeyBytes [][]byte
+	for i, didSign := range sig.Signers {
+		if didSign {
+			expectedKeyBytes = append(expectedKeyBytes, group.SortedMembers[i].VerKey.PublicKey)
+		}
+	}
+
+	log.Trace("verifyAvailableSignature - verifying")
+
+	return bls.VerifyMultiSig(sig.Signature, crypto.Keccak256(msg), expectedKeyBytes)
 }
 
 func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {

@@ -26,6 +26,19 @@ func init() {
 
 type SignatureMap map[string]Signature
 
+// Merge returns a new SignatatureMap composed of the original with the other merged in
+// other wins when both SignatureMaps have signatures
+func (sm SignatureMap) Merge(other SignatureMap) SignatureMap {
+	newSm := make(SignatureMap)
+	for k, v := range sm {
+		newSm[k] = v
+	}
+	for k, v := range other {
+		newSm[k] = v
+	}
+	return newSm
+}
+
 const (
 	KeyTypeBLSGroupSig = "BLS"
 	KeyTypeSecp256k1   = "secp256k1"
@@ -207,6 +220,22 @@ func BlsSign(payload interface{}, key *bls.SignKey) (*Signature, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error hashing block: %v", err)
 	}
+
+	sigBytes, err := key.Sign(hsh)
+	if err != nil {
+		return nil, fmt.Errorf("error signing: %v", err)
+	}
+
+	sig := &Signature{
+		Signature: sigBytes,
+		Type:      KeyTypeBLSGroupSig,
+	}
+
+	return sig, nil
+}
+
+func BlsSignBytes(payload []byte, key *bls.SignKey) (*Signature, error) {
+	hsh := crypto.Keccak256(payload)
 
 	sigBytes, err := key.Sign(hsh)
 	if err != nil {

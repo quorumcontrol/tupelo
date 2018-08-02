@@ -9,12 +9,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var lastAccepted []byte
@@ -209,4 +208,21 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 	}
 
 	return gossipers
+}
+
+func TestGossiper_handleGossip(t *testing.T) {
+	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
+	gossipers := generateTestGossipGroup(t, 3, 0)
+
+	message := &gossipMessage{
+		objectID:    []byte("obj"),
+		previousTip: nil,
+		transaction: []byte("trans"),
+		phase:       phasePrepare,
+		round:       gossipers[0].roundAt(time.Now()),
+	}
+
+	err := gossipers[0].handleGossip(context.TODO(), message)
+	require.Nil(t, err)
 }
