@@ -463,6 +463,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 			Round:     savedTrans.Round,
 			Signature: *newSig,
 		}
+		log.Debug("---------COMMIT", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 		err = g.setCurrentState(newState)
 		if err != nil {
 			return fmt.Errorf("error setting new state: %v", err)
