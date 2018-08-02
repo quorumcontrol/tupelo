@@ -33,14 +33,14 @@ func TestGossiper_Integration(t *testing.T) {
 		PreviousTip: nil,
 		Transaction: []byte("trans"),
 		Phase:       phasePrepare,
-		Round:       gossipers[0].roundAt(time.Now()),
+		Round:       gossipers[0].RoundAt(time.Now()),
 	}
 
-	err := gossipers[0].handleGossip(context.TODO(), message)
+	err := gossipers[0].HandleGossip(context.TODO(), message)
 	require.Nil(t, err)
 	now := time.Now()
 	for {
-		state, err := gossipers[0].getCurrentState(message.ObjectID)
+		state, err := gossipers[0].GetCurrentState(message.ObjectID)
 		require.Nil(t, err)
 		if state.Tip.Equals(tip(message.Transaction)) {
 			break
