@@ -9,7 +9,6 @@ import (
 
 	"sync"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
 )
@@ -102,7 +101,7 @@ func (group *Group) VerifyAvailableSignatures(msg []byte, sig *Signature) (bool,
 
 	log.Trace("verifyAvailableSignature - verifying")
 
-	return bls.VerifyMultiSig(sig.Signature, crypto.Keccak256(msg), expectedKeyBytes)
+	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
 func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {
@@ -134,11 +133,11 @@ func (group *Group) CombineSignatures(sigs SignatureMap) (*Signature, error) {
 	for i, member := range group.SortedMembers {
 		sig, ok := sigs[member.Id]
 		if ok {
-			log.Debug("combine signatures, signer signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
+			log.Trace("combine signatures, signer signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
 			sigBytes = append(sigBytes, sig.Signature)
 			signers[i] = true
 		} else {
-			log.Debug("signer not signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
+			log.Trace("signer not signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
 			signers[i] = false
 		}
 	}

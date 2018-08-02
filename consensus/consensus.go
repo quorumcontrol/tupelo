@@ -234,9 +234,8 @@ func BlsSign(payload interface{}, key *bls.SignKey) (*Signature, error) {
 	return sig, nil
 }
 
-func BlsSignBytes(payload []byte, key *bls.SignKey) (*Signature, error) {
-	hsh := crypto.Keccak256(payload)
-
+// Sign the bytes sent in with no additional manipulation (no hashing or serializing)
+func BlsSignBytes(hsh []byte, key *bls.SignKey) (*Signature, error) {
 	sigBytes, err := key.Sign(hsh)
 	if err != nil {
 		return nil, fmt.Errorf("error signing: %v", err)

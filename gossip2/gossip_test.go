@@ -13,6 +13,7 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -87,7 +88,7 @@ func (imh *InMemoryHandler) Push(dst *ecdsa.PublicKey, req *network.Request) err
 		defer close(internalRespChan)
 		err := handler.Mapping[req.Type](context.Background(), *req, internalRespChan)
 		if err != nil {
-			log.Error("error handling request: %v", err)
+			log.Error("error handling request", "err", err)
 		}
 
 		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id)
@@ -114,7 +115,7 @@ func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request
 
 		err := handler.Mapping[req.Type](context.Background(), *req, internalRespChan)
 		if err != nil {
-			log.Error("error handling request: %v", err)
+			log.Error("error handling request", "err", err)
 		}
 
 		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
@@ -210,19 +211,77 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 	return gossipers
 }
 
+func TestTest(t *testing.T) {
+	gossipers := generateTestGossipGroup(t, 2, 0)
+
+	key := gossipers[0].SignKey
+	msg := []byte("hi")
+
+	sig, err := consensus.BlsSignBytes(crypto.Keccak256(msg), key)
+	require.Nil(t, err)
+
+	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
+
+	verified, err := consensus.Verify(crypto.Keccak256(msg), *sig, pubKey)
+	require.Nil(t, err)
+	require.True(t, verified)
+
+	sigMap := consensus.SignatureMap{gossipers[0].ID: *sig}
+
+	groupSig, err := gossipers[0].Group.CombineSignatures(sigMap)
+	require.Nil(t, err)
+
+	verified, err = gossipers[0].Group.VerifyAvailableSignatures(crypto.Keccak256(msg), groupSig)
+	require.Nil(t, err)
+	assert.True(t, verified)
+}
+
 func TestGossiper_handleGossip(t *testing.T) {
 	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	gossipers := generateTestGossipGroup(t, 3, 0)
 
-	message := &gossipMessage{
-		objectID:    []byte("obj"),
-		previousTip: nil,
-		transaction: []byte("trans"),
-		phase:       phasePrepare,
-		round:       gossipers[0].roundAt(time.Now()),
+	type testCase struct {
+		description string
+		message     *GossipMessage
+		shouldErr   bool
 	}
 
-	err := gossipers[0].handleGossip(context.TODO(), message)
-	require.Nil(t, err)
+	type createTestCase func() *testCase
+
+	for _, testCaseCreator := range []createTestCase{
+		func() *testCase {
+			return &testCase{
+				description: "prepare messsage no sigs",
+				message: &GossipMessage{
+					ObjectID:    []byte("obj"),
+					PreviousTip: nil,
+					Transaction: []byte("trans"),
+					Phase:       phasePrepare,
+					Round:       gossipers[0].roundAt(time.Now()),
+				},
+			}
+		},
+		func() *testCase {
+			return &testCase{
+				description: "tentativeCommit messsage no sigs",
+				shouldErr:   true,
+				message: &GossipMessage{
+					ObjectID:    []byte("obj"),
+					PreviousTip: nil,
+					Transaction: []byte("trans"),
+					Phase:       phaseTentativeCommit,
+					Round:       gossipers[0].roundAt(time.Now()),
+				},
+			}
+		},
+	} {
+		tc := testCaseCreator()
+		err := gossipers[0].handleGossip(context.TODO(), tc.message)
+		if tc.shouldErr {
+			require.NotNil(t, err, tc.description)
+		} else {
+			require.Nil(t, err, tc.description)
+		}
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/bls"
@@ -21,7 +22,9 @@ import (
 )
 
 func init() {
-	cbornode.RegisterCborType(gossipMessage{})
+	cbornode.RegisterCborType(storedTransaction{})
+	cbornode.RegisterCborType(CurrentState{})
+	cbornode.RegisterCborType(GossipMessage{})
 }
 
 type internalCtxKey int
@@ -72,49 +75,52 @@ type stateHandler func(ctx context.Context, group *consensus.Group, objectId, tr
 type acceptedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, newState []byte) (err error)
 type rejectedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error)
 
-type currentState struct {
-	objectID  objectID
-	tip       tip
-	round     int64
-	signature consensus.Signature
+// CurrentState is the state of an object in the gossip system
+// and its associated tip and signature
+type CurrentState struct {
+	ObjectID  objectID
+	Tip       tip
+	Round     int64
+	Signature consensus.Signature
 }
 
-type gossipMessage struct {
-	objectID         objectID
-	previousTip      tip
-	newTip           tip
-	transaction      transaction
-	phase            phase
-	prepareSignature consensus.Signature
-	phaseSignatures  consensus.SignatureMap
-	round            int64
+// GossipMessage is the message used for all phases of the consensus algorithm
+type GossipMessage struct {
+	ObjectID         objectID
+	PreviousTip      tip
+	NewTip           tip
+	Transaction      transaction
+	Phase            phase
+	PrepareSignature consensus.Signature
+	PhaseSignatures  consensus.SignatureMap
+	Round            int64
 }
 
-func (gm *gossipMessage) toUnsignedStoredTransaction() *storedTransaction {
+func (gm *GossipMessage) toUnsignedStoredTransaction() *storedTransaction {
 	return &storedTransaction{
-		objectID:                  gm.objectID,
-		previousTip:               gm.previousTip,
-		transaction:               gm.transaction,
-		newTip:                    gm.newTip,
-		round:                     gm.round,
-		prepareSignatures:         make(consensus.SignatureMap),
-		tentativeCommitSignatures: make(consensus.SignatureMap),
+		ObjectID:                  gm.ObjectID,
+		PreviousTip:               gm.PreviousTip,
+		Transaction:               gm.Transaction,
+		NewTip:                    gm.NewTip,
+		Round:                     gm.Round,
+		PrepareSignatures:         make(consensus.SignatureMap),
+		TentativeCommitSignatures: make(consensus.SignatureMap),
 	}
 }
 
 type storedTransaction struct {
-	objectID                  objectID
-	previousTip               tip
-	newTip                    tip
-	transaction               transaction
-	round                     int64
-	phase                     phase
-	prepareSignatures         consensus.SignatureMap
-	tentativeCommitSignatures consensus.SignatureMap
+	ObjectID                  objectID
+	PreviousTip               tip
+	NewTip                    tip
+	Transaction               transaction
+	Round                     int64
+	Phase                     phase
+	PrepareSignatures         consensus.SignatureMap
+	TentativeCommitSignatures consensus.SignatureMap
 }
 
 func (st *storedTransaction) ID() transactionID {
-	return transactionToID(st.transaction, st.round)
+	return transactionToID(st.Transaction, st.Round)
 }
 
 func (st *storedTransaction) signPrepare(key *bls.SignKey) (*consensus.Signature, error) {
@@ -126,6 +132,7 @@ func (st *storedTransaction) signTentativeCommit(key *bls.SignKey) (*consensus.S
 }
 
 func (st *storedTransaction) verifyPrepareSignatures(group *consensus.Group, sigs consensus.SignatureMap) (bool, error) {
+	log.Debug("combinging sigs for verifyingPrepare")
 	sig, err := group.CombineSignatures(sigs)
 	if err != nil {
 		return false, fmt.Errorf("error combining signatures: %v", err)
@@ -134,6 +141,7 @@ func (st *storedTransaction) verifyPrepareSignatures(group *consensus.Group, sig
 }
 
 func (st *storedTransaction) verifyTentativeCommitSignatures(group *consensus.Group, sigs consensus.SignatureMap) (bool, error) {
+	log.Debug("combinging sigs for verifyingTenativeCommit")
 	sig, err := group.CombineSignatures(sigs)
 	if err != nil {
 		return false, fmt.Errorf("error combining signatures: %v", err)
@@ -142,16 +150,17 @@ func (st *storedTransaction) verifyTentativeCommitSignatures(group *consensus.Gr
 }
 
 func (st *storedTransaction) msgToSignPrepare() []byte {
-	msg := append([]byte("PREPARE"), st.previousTip...)
-	msg = append(msg, st.transaction...)
-	msg = append(msg, st.newTip...)
-	return append(msg, roundToBytes(st.round)...)
+	msg := append([]byte("PREPARE"), st.PreviousTip...)
+	msg = append(msg, st.Transaction...)
+	msg = append(msg, st.NewTip...)
+	return crypto.Keccak256(append(msg, roundToBytes(st.Round)...))
 }
 
 func (st *storedTransaction) msgToSignTentativeCommit() []byte {
-	msg := append(st.objectID, st.newTip...)
-	msg = append(msg, roundToBytes(st.round)...)
-	return msg
+	log.Debug("msgToSignTentativeCommit", "objectID", string(st.ObjectID), "newTip", string(st.NewTip), "round", st.Round)
+	msg := append(st.ObjectID, st.NewTip...)
+	msg = append(msg, roundToBytes(st.Round)...)
+	return crypto.Keccak256(msg)
 }
 
 // Gossiper is a node in a network (belonging to a group) that gossips around messages and comes to
@@ -168,6 +177,7 @@ type Gossiper struct {
 	RoundLength     int
 	Fanout          int
 	locker          *namedlocker.NamedLocker
+	started         bool
 }
 
 const (
@@ -177,7 +187,11 @@ const (
 
 // Initialize sets up the storage and data structures of the gossiper
 func (g *Gossiper) Initialize() {
+	if g.ID == "" {
+		g.ID = consensus.BlsVerKeyToAddress(g.SignKey.MustVerKey().Bytes()).String()
+	}
 	g.Storage.CreateBucketIfNotExists(stateBucket)
+	g.MessageHandler.AssignHandler(messageTypeGossip, g.handleIncomingRequest)
 	g.locker = namedlocker.NewNamedLocker()
 	if g.RoundLength == 0 {
 		g.RoundLength = defaultRoundLength
@@ -185,6 +199,22 @@ func (g *Gossiper) Initialize() {
 	if g.Fanout == 0 {
 		g.Fanout = defaultFanout
 	}
+}
+
+func (g *Gossiper) Start() {
+	if g.started {
+		return
+	}
+	g.started = true
+	g.MessageHandler.Start()
+}
+
+func (g *Gossiper) Stop() {
+	if !g.started {
+		return
+	}
+	g.started = false
+	g.MessageHandler.Stop()
 }
 
 func (g *Gossiper) roundAt(t time.Time) int64 {
@@ -195,7 +225,9 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 	ctx = context.WithValue(ctx, ctxRequestKey, req.Id)
 	ctx = context.WithValue(ctx, ctxStartKey, time.Now())
 
-	gm := &gossipMessage{}
+	log.Debug("handleIncomingRequest", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+
+	gm := &GossipMessage{}
 	err := cbornode.DecodeInto(req.Payload, gm)
 	if err != nil {
 		return fmt.Errorf("error decoding: %v", err)
@@ -209,53 +241,55 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 // if the PREPARE message has 2/3 of signers then gossip a TENTATIVE_COMMIT message by wrapping up the prepare sigs into one and starting a new phase with own sig
 // if the message is a TENTATIVE_COMMIT message and the proof is valid then add known sigs and gossip
 // if the TENTATIVE_COMMIT message has 2/3 of signers, then COMMIT
-func (g *Gossiper) handleGossip(ctx context.Context, msg *gossipMessage) error {
-	// currentRound := g.roundAt(time.Now())
-	currState, err := g.getCurrentState(msg.objectID)
-	if err != nil {
-		return fmt.Errorf("error getting current state: %v", err)
+func (g *Gossiper) handleGossip(ctx context.Context, msg *GossipMessage) error {
+	log.Debug("handleGossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(msg.PhaseSignatures), "phase", msg.Phase)
+
+	currentRound := g.roundAt(time.Now())
+
+	if msg.Round > currentRound {
+		return fmt.Errorf("msg is from a future round")
+	}
+	if msg.Round < currentRound-2 {
+		return fmt.Errorf("msg is from an old round")
 	}
 
-	//TODO: if this is a commit message, then we can probably still accept it
-	if !msg.previousTip.Equals(currState.tip) {
-		return fmt.Errorf("msg tip did not match current stored tip current: %s, msg: %s", currState.tip, msg.previousTip)
-	}
-
-	switch msg.phase {
+	switch msg.Phase {
 	case phasePrepare:
-		if len(msg.phaseSignatures) > 0 {
+		if len(msg.PhaseSignatures) > 0 {
 			trans := msg.toUnsignedStoredTransaction()
-			verified, err := trans.verifyPrepareSignatures(g.Group, msg.phaseSignatures)
+			verified, err := trans.verifyPrepareSignatures(g.Group, msg.PhaseSignatures)
 			if err != nil {
 				return fmt.Errorf("error verifying signatures: %v", err)
 			}
 			if !verified {
-				return fmt.Errorf("error, invalid phaseSignatures")
+				return fmt.Errorf("error, invalid phaseSignatures in prepare message")
 			}
 		}
 		return g.handlePrepareMessage(ctx, msg)
 	case phaseTentativeCommit:
-		if len(msg.phaseSignatures) > 0 {
+		if len(msg.PhaseSignatures) > 0 {
 			trans := msg.toUnsignedStoredTransaction()
-			verified, err := trans.verifyTentativeCommitSignatures(g.Group, msg.phaseSignatures)
+			verified, err := trans.verifyTentativeCommitSignatures(g.Group, msg.PhaseSignatures)
 			if err != nil {
 				return fmt.Errorf("error verifying signatures: %v", err)
 			}
 			if !verified {
-				return fmt.Errorf("error, invalid phaseSignatures")
+				return fmt.Errorf("error, invalid phaseSignatures in phaseTenativeCommit")
 			}
 		}
 		return g.handleTentativeCommitMessage(ctx, msg)
 	default:
-		return fmt.Errorf("unknown phase: %d", msg.phase)
+		return fmt.Errorf("unknown phase: %d", msg.Phase)
 	}
 }
 
 // if the message is new and a PREPARE message then we save the message to the conflic set, add our signature to the PREPARE and then gossip
 // if the PREPARE message has 2/3 of signers then gossip a TENTATIVE_COMMIT message by wrapping up the prepare sigs into one and starting a new phase with own sig
-func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *gossipMessage) error {
-	if msg.phase != phasePrepare {
-		return fmt.Errorf("incorrect phase: %d", msg.phase)
+func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage) error {
+	log.Debug("handlePrepareMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(msg.PhaseSignatures))
+
+	if msg.Phase != phasePrepare {
+		return fmt.Errorf("incorrect phase: %d", msg.Phase)
 	}
 
 	trans := msg.toUnsignedStoredTransaction()
@@ -274,8 +308,10 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *gossipMessage)
 	}
 
 	if savedTrans == nil {
+		log.Debug("handlePrepareMessage - new transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+
 		// new transaction
-		currState, err := g.getCurrentState(msg.objectID)
+		currState, err := g.getCurrentState(msg.ObjectID)
 		if err != nil {
 			return fmt.Errorf("error getting current state: %v", err)
 		}
@@ -285,80 +321,88 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *gossipMessage)
 			return fmt.Errorf("error handling transaction: %v", err)
 		}
 		if trans != nil {
+			log.Debug("handlePrepareMessage - saved new transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(trans.PrepareSignatures))
 			savedTrans = trans
+		} else {
+			return fmt.Errorf("error creating new transaction: %v", err)
 		}
 	} else {
-		if savedTrans.phase != phasePrepare {
+		log.Debug("handlePrepareMessag - existing transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+		if savedTrans.Phase != phasePrepare {
 			// drop the message
 			return nil
 		}
-		savedTrans.prepareSignatures = savedTrans.prepareSignatures.Merge(msg.phaseSignatures)
+		savedTrans.PrepareSignatures = savedTrans.PrepareSignatures.Merge(msg.PhaseSignatures)
 		err = g.saveTransaction(csID, savedTrans)
 		if err != nil {
 			return fmt.Errorf("error saving transaction: %v", err)
 		}
 	}
 
-	var newMessage *gossipMessage
+	var newMessage *GossipMessage
 	// do we have 2/3 of the prepare messges?
-	if int64(len(savedTrans.prepareSignatures)) >= g.Group.SuperMajorityCount() {
+	if int64(len(savedTrans.PrepareSignatures)) >= g.Group.SuperMajorityCount() {
+		log.Debug("handlePrepareMessag - super majority prepared", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+
 		// if so, then change phase
-		prepareSig, err := g.Group.CombineSignatures(savedTrans.prepareSignatures)
+		prepareSig, err := g.Group.CombineSignatures(savedTrans.PrepareSignatures)
 		if err != nil {
 			return fmt.Errorf("error combining sigs: %v", err)
 		}
-		savedTrans.phase = phaseTentativeCommit
+		savedTrans.Phase = phaseTentativeCommit
 		ownSig, err := savedTrans.signTentativeCommit(g.SignKey)
 		if err != nil {
 			return fmt.Errorf("error signing: %v", err)
 		}
-		savedTrans.tentativeCommitSignatures[g.ID] = *ownSig
+		savedTrans.TentativeCommitSignatures[g.ID] = *ownSig
 
 		err = g.saveTransaction(csID, savedTrans)
 		if err != nil {
 			return fmt.Errorf("error saving transaction: %v", err)
 		}
 
-		newMessage = &gossipMessage{
-			objectID:         savedTrans.objectID,
-			previousTip:      savedTrans.previousTip,
-			newTip:           savedTrans.newTip,
-			transaction:      savedTrans.transaction,
-			phase:            phaseTentativeCommit,
-			prepareSignature: *prepareSig,
-			phaseSignatures:  savedTrans.tentativeCommitSignatures,
-			round:            savedTrans.round,
+		newMessage = &GossipMessage{
+			ObjectID:         savedTrans.ObjectID,
+			PreviousTip:      savedTrans.PreviousTip,
+			NewTip:           savedTrans.NewTip,
+			Transaction:      savedTrans.Transaction,
+			Phase:            phaseTentativeCommit,
+			PrepareSignature: *prepareSig,
+			PhaseSignatures:  savedTrans.TentativeCommitSignatures,
+			Round:            savedTrans.Round,
 		}
 	} else {
+		log.Debug("handlePrepareMessag - re-gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(savedTrans.PrepareSignatures))
+
 		// else gossip new prepare message
-		newMessage = &gossipMessage{
-			objectID:        savedTrans.objectID,
-			previousTip:     savedTrans.previousTip,
-			newTip:          savedTrans.newTip,
-			transaction:     savedTrans.transaction,
-			phase:           phasePrepare,
-			phaseSignatures: savedTrans.prepareSignatures,
-			round:           savedTrans.round,
+		newMessage = &GossipMessage{
+			ObjectID:        savedTrans.ObjectID,
+			PreviousTip:     savedTrans.PreviousTip,
+			NewTip:          savedTrans.NewTip,
+			Transaction:     savedTrans.Transaction,
+			Phase:           phasePrepare,
+			PhaseSignatures: savedTrans.PrepareSignatures,
+			Round:           savedTrans.Round,
 		}
 	}
 
-	err = g.doGossip(newMessage)
-	if err != nil {
-		return fmt.Errorf("error doing gossip: %v", err)
-	}
+	g.doGossip(ctx, newMessage)
 
 	return nil
 }
 
-func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *gossipMessage) error {
-	if msg.phase != phaseTentativeCommit {
-		return fmt.Errorf("incorrect phase: %d", msg.phase)
+func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *GossipMessage) error {
+	log.Debug("handleTentativeCommitMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+
+	if msg.Phase != phaseTentativeCommit {
+		return fmt.Errorf("incorrect phase: %d", msg.Phase)
 	}
 
 	trans := msg.toUnsignedStoredTransaction()
 
 	// if the prepare signature is not valid then drop message
-	verified, err := g.Group.VerifySignature(trans.msgToSignPrepare(), &msg.prepareSignature)
+	log.Trace("prepare sig", "sig", msg.PrepareSignature)
+	verified, err := g.Group.VerifySignature(trans.msgToSignPrepare(), &msg.PrepareSignature)
 	if err != nil {
 		return fmt.Errorf("error verifying signature: %v", err)
 	}
@@ -382,7 +426,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *gossip
 
 	if savedTrans == nil {
 		// new transaction
-		currState, err := g.getCurrentState(msg.objectID)
+		currState, err := g.getCurrentState(msg.ObjectID)
 		if err != nil {
 			return fmt.Errorf("error getting current state: %v", err)
 		}
@@ -397,95 +441,106 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *gossip
 			savedTrans = trans
 		}
 	} else {
-		savedTrans.phase = phaseTentativeCommit
-		savedTrans.tentativeCommitSignatures = savedTrans.tentativeCommitSignatures.Merge(msg.phaseSignatures)
+		savedTrans.Phase = phaseTentativeCommit
+		savedTrans.TentativeCommitSignatures = savedTrans.TentativeCommitSignatures.Merge(msg.PhaseSignatures)
 		err = g.saveTransaction(csID, savedTrans)
 		if err != nil {
 			return fmt.Errorf("error saving transaction: %v", err)
 		}
 	}
 
-	var newMessage *gossipMessage
-	// do we have 2/3 of the prepare messges?
-	if int64(len(savedTrans.prepareSignatures)) >= g.Group.SuperMajorityCount() {
-		newSig, err := g.Group.CombineSignatures(msg.phaseSignatures)
+	var newMessage *GossipMessage
+	// do we have 2/3 of the TentativeCommit messges?
+	if int64(len(savedTrans.TentativeCommitSignatures)) >= g.Group.SuperMajorityCount() && savedTrans.Phase != phaseCommit {
+		newSig, err := g.Group.CombineSignatures(savedTrans.TentativeCommitSignatures)
 		if err != nil {
 			return fmt.Errorf("error combining sigs: %v", err)
 		}
 		// commit
-		newState := &currentState{
-			objectID:  savedTrans.objectID,
-			tip:       savedTrans.newTip,
-			round:     savedTrans.round,
-			signature: *newSig,
+		newState := &CurrentState{
+			ObjectID:  savedTrans.ObjectID,
+			Tip:       savedTrans.NewTip,
+			Round:     savedTrans.Round,
+			Signature: *newSig,
 		}
 		err = g.setCurrentState(newState)
 		if err != nil {
 			return fmt.Errorf("error setting new state: %v", err)
 		}
-		defer g.locker.Delete(string(csID))
-		//TODO: delete conflict set bucket
+		savedTrans.Phase = phaseCommit
+		err = g.saveTransaction(csID, savedTrans)
+		if err != nil {
+			return fmt.Errorf("error saving transaction: %v", err)
+		}
 
+		//TODO: when do we delete the old state
 	}
-	newMessage = &gossipMessage{
-		objectID:        savedTrans.objectID,
-		previousTip:     savedTrans.previousTip,
-		newTip:          savedTrans.newTip,
-		transaction:     savedTrans.transaction,
-		phase:           phaseTentativeCommit,
-		phaseSignatures: savedTrans.tentativeCommitSignatures,
-		round:           savedTrans.round,
+	newMessage = &GossipMessage{
+		ObjectID:         savedTrans.ObjectID,
+		PreviousTip:      savedTrans.PreviousTip,
+		NewTip:           savedTrans.NewTip,
+		Transaction:      savedTrans.Transaction,
+		Phase:            phaseTentativeCommit,
+		PrepareSignature: msg.PrepareSignature,
+		PhaseSignatures:  savedTrans.TentativeCommitSignatures,
+		Round:            savedTrans.Round,
 	}
-	err = g.doGossip(newMessage)
-	if err != nil {
-		return fmt.Errorf("error doing gossip: %v", err)
-	}
+	g.doGossip(ctx, newMessage)
 
 	return nil
 }
 
-func (g *Gossiper) doGossip(msg *gossipMessage) error {
-	num := min(g.Fanout, len(g.Group.SortedMembers))
-	for i := 0; i < num; i++ {
-		req, err := network.BuildRequest(messageTypeGossip, msg)
-		if err != nil {
-			return fmt.Errorf("error building request: %v", err)
+func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
+	go func(ctx context.Context, msg *GossipMessage) {
+		num := min(g.Fanout, len(g.Group.SortedMembers)-1)
+		for i := 0; i < num; i++ {
+			req, err := network.BuildRequest(messageTypeGossip, msg)
+			if err != nil {
+				log.Error("error building request", "err", err)
+			}
+			var rn *consensus.RemoteNode
+			for rn == nil || rn.Id == g.ID {
+				rn = g.Group.RandomMember()
+			}
+			log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "dst", consensus.PublicKeyToAddr(&rn.VerKey), "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
+
+			err = g.MessageHandler.Push(rn.DstKey.ToEcdsaPub(), req)
+			if err != nil {
+				log.Error("error pushing", "err", err)
+			}
 		}
-		rn := g.Group.RandomMember()
-		err = g.MessageHandler.Push(rn.DstKey.ToEcdsaPub(), req)
-		if err != nil {
-			return fmt.Errorf("error pushing message: %v", err)
-		}
-	}
-	return nil
+	}(ctx, msg)
 }
 
-func (g *Gossiper) handleNewTransaction(ctx context.Context, csID conflictSetID, currState currentState, msg *gossipMessage) (*storedTransaction, error) {
+func (g *Gossiper) handleNewTransaction(ctx context.Context, csID conflictSetID, currState CurrentState, msg *GossipMessage) (*storedTransaction, error) {
+	log.Debug("handleNewTransaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 	trans := msg.toUnsignedStoredTransaction()
-	newTip, isAccepted, err := g.StateHandler(ctx, g.Group, trans.objectID, trans.transaction, currState.tip)
+	newTip, isAccepted, err := g.StateHandler(ctx, g.Group, trans.ObjectID, trans.Transaction, currState.Tip)
 	if err != nil {
 		return nil, fmt.Errorf("error calling state handler: %v", err)
 	}
 
 	if isAccepted {
-		trans.newTip = newTip
-		switch msg.phase {
+		log.Debug("handleNewTransaction - accepted", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+
+		trans.NewTip = newTip
+		switch msg.Phase {
 		case phasePrepare:
 			ownSig, err := trans.signPrepare(g.SignKey)
 			if err != nil {
 				return nil, fmt.Errorf("error signing: %v", err)
 			}
-			trans.prepareSignatures[g.ID] = *ownSig
-			trans.prepareSignatures = msg.phaseSignatures.Merge(trans.prepareSignatures)
+			trans.PrepareSignatures[g.ID] = *ownSig
+			trans.PrepareSignatures = msg.PhaseSignatures.Merge(trans.PrepareSignatures)
 		case phaseTentativeCommit:
 			ownSig, err := trans.signTentativeCommit(g.SignKey)
 			if err != nil {
 				return nil, fmt.Errorf("error signing: %v", err)
 			}
-			trans.tentativeCommitSignatures[g.ID] = *ownSig
-			trans.tentativeCommitSignatures = msg.phaseSignatures.Merge(trans.tentativeCommitSignatures)
+			trans.TentativeCommitSignatures[g.ID] = *ownSig
+			trans.TentativeCommitSignatures = msg.PhaseSignatures.Merge(trans.TentativeCommitSignatures)
 		default:
-			return nil, fmt.Errorf("error, unkown phase: %d", msg.phase)
+			return nil, fmt.Errorf("error, unkown phase: %d", msg.Phase)
 		}
 
 		g.saveTransaction(csID, trans)
@@ -527,7 +582,7 @@ func transactionToID(trans transaction, round int64) transactionID {
 	return crypto.Keccak256(append(trans, roundToBytes(round)...))
 }
 
-func (g *Gossiper) getCurrentState(objID objectID) (currState currentState, err error) {
+func (g *Gossiper) getCurrentState(objID objectID) (currState CurrentState, err error) {
 	g.locker.RLock(string(objID))
 	defer g.locker.RUnlock(string(objID))
 
@@ -546,16 +601,16 @@ func (g *Gossiper) getCurrentState(objID objectID) (currState currentState, err 
 	return currState, nil
 }
 
-func (g *Gossiper) setCurrentState(state *currentState) error {
-	g.locker.Lock(string(state.objectID))
-	defer g.locker.Unlock(string(state.objectID))
+func (g *Gossiper) setCurrentState(state *CurrentState) error {
+	g.locker.Lock(string(state.ObjectID))
+	defer g.locker.Unlock(string(state.ObjectID))
 
 	sw := &dag.SafeWrap{}
 	node := sw.WrapObject(state)
 	if sw.Err != nil {
 		return fmt.Errorf("error wraping: %v", sw.Err)
 	}
-	return g.Storage.Set(stateBucket, state.objectID, node.RawData())
+	return g.Storage.Set(stateBucket, state.ObjectID, node.RawData())
 }
 
 func roundToBytes(round int64) []byte {
@@ -564,8 +619,8 @@ func roundToBytes(round int64) []byte {
 	return b
 }
 
-func msgToConflictSetID(msg *gossipMessage) conflictSetID {
-	return crypto.Keccak256(append(msg.objectID, msg.previousTip...))
+func msgToConflictSetID(msg *GossipMessage) conflictSetID {
+	return crypto.Keccak256(append(msg.ObjectID, msg.PreviousTip...))
 }
 
 func min(a, b int) int {
@@ -573,4 +628,12 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func elapsedTime(ctx context.Context) time.Duration {
+	start := ctx.Value(ctxStartKey)
+	if start == nil {
+		start = 0
+	}
+	return time.Now().Sub(start.(time.Time))
 }
