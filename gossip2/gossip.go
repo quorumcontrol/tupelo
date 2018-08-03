@@ -255,16 +255,6 @@ func (g *Gossiper) handleGossip(ctx context.Context, msg *GossipMessage) error {
 
 	switch msg.Phase {
 	case phasePrepare:
-		if len(msg.PhaseSignatures) > 0 {
-			trans := msg.toUnsignedStoredTransaction()
-			verified, err := trans.verifyPrepareSignatures(g.Group, msg.PhaseSignatures)
-			if err != nil {
-				return fmt.Errorf("error verifying signatures: %v", err)
-			}
-			if !verified {
-				return fmt.Errorf("error, invalid phaseSignatures in prepare message")
-			}
-		}
 		return g.handlePrepareMessage(ctx, msg)
 	case phaseTentativeCommit:
 		if len(msg.PhaseSignatures) > 0 {
@@ -307,6 +297,27 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		return fmt.Errorf("error getting transaction: %v", err)
 	}
 
+	if savedTrans != nil && savedTrans.Phase != phasePrepare {
+		// just drop an old prepare message
+		return nil
+	}
+
+	newSigs := msg.PhaseSignatures
+	if savedTrans != nil {
+		newSigs = msg.PhaseSignatures.Subtract(savedTrans.PrepareSignatures)
+	}
+
+	if len(newSigs) > 0 {
+		trans := msg.toUnsignedStoredTransaction()
+		verified, err := trans.verifyPrepareSignatures(g.Group, newSigs)
+		if err != nil {
+			return fmt.Errorf("error verifying signatures: %v", err)
+		}
+		if !verified {
+			return fmt.Errorf("error, invalid phaseSignatures in prepare message")
+		}
+	}
+
 	if savedTrans == nil {
 		log.Debug("handlePrepareMessage - new transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 
@@ -328,7 +339,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		}
 	} else {
 		log.Debug("handlePrepareMessag - existing transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
-		savedTrans.PrepareSignatures = savedTrans.PrepareSignatures.Merge(msg.PhaseSignatures)
+		savedTrans.PrepareSignatures = savedTrans.PrepareSignatures.Merge(newSigs)
 		err = g.saveTransaction(csID, savedTrans)
 		if err != nil {
 			return fmt.Errorf("error saving transaction: %v", err)
@@ -420,6 +431,22 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		return fmt.Errorf("error getting transaction: %v", err)
 	}
 
+	newSigs := msg.PhaseSignatures
+	if savedTrans != nil {
+		newSigs = msg.PhaseSignatures.Subtract(savedTrans.TentativeCommitSignatures)
+	}
+
+	if len(newSigs) > 0 {
+		trans := msg.toUnsignedStoredTransaction()
+		verified, err := trans.verifyTentativeCommitSignatures(g.Group, newSigs)
+		if err != nil {
+			return fmt.Errorf("error verifying signatures: %v", err)
+		}
+		if !verified {
+			return fmt.Errorf("error, invalid phaseSignatures in tentativeCommit message")
+		}
+	}
+
 	if savedTrans == nil {
 		// new transaction
 		currState, err := g.getCurrentState(msg.ObjectID)
@@ -437,7 +464,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		savedTrans = trans
 	} else {
 		savedTrans.Phase = phaseTentativeCommit
-		savedTrans.TentativeCommitSignatures = savedTrans.TentativeCommitSignatures.Merge(msg.PhaseSignatures)
+		savedTrans.TentativeCommitSignatures = savedTrans.TentativeCommitSignatures.Merge(newSigs)
 		err = g.saveTransaction(csID, savedTrans)
 		if err != nil {
 			return fmt.Errorf("error saving transaction: %v", err)
