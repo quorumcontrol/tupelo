@@ -182,7 +182,7 @@ type Gossiper struct {
 
 const (
 	defaultRoundLength = 10
-	defaultFanout      = 3
+	defaultFanout      = 5
 )
 
 // Initialize sets up the storage and data structures of the gossiper
@@ -201,6 +201,7 @@ func (g *Gossiper) Initialize() {
 	}
 }
 
+// Start starts the message handler and gossiper
 func (g *Gossiper) Start() {
 	if g.started {
 		return
@@ -209,6 +210,7 @@ func (g *Gossiper) Start() {
 	g.MessageHandler.Start()
 }
 
+// Stop stops the message handler and gossiper
 func (g *Gossiper) Stop() {
 	if !g.started {
 		return
@@ -246,11 +248,13 @@ func (g *Gossiper) handleGossip(ctx context.Context, msg *GossipMessage) error {
 
 	currentRound := g.roundAt(time.Now())
 
-	if msg.Round > currentRound {
-		return fmt.Errorf("msg is from a future round")
+	if msg.Round > currentRound+1 {
+		log.Info("dropping message from the future", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "phase", msg.Phase)
+		return nil
 	}
-	if msg.Round < currentRound-2 {
-		return fmt.Errorf("msg is from an old round")
+	if msg.Round < currentRound-1 {
+		log.Info("dropping message from the past", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "phase", "sigCount", len(msg.PhaseSignatures), "phase", msg.Phase)
+		return nil
 	}
 
 	switch msg.Phase {
@@ -284,13 +288,13 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 
 	trans := msg.toUnsignedStoredTransaction()
 	csID := msgToConflictSetID(msg)
+
+	g.locker.Lock(string(csID))
+	defer g.locker.Unlock(string(csID))
 	err := g.Storage.CreateBucketIfNotExists(csID)
 	if err != nil {
 		return fmt.Errorf("error creating bucket: %v", err)
 	}
-
-	g.locker.Lock(string(csID))
-	defer g.locker.Unlock(string(csID))
 
 	savedTrans, err := g.getTransaction(csID, trans.ID())
 	if err != nil {
@@ -418,13 +422,13 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 	}
 
 	csID := msgToConflictSetID(msg)
+
+	g.locker.Lock(string(csID))
+	defer g.locker.Unlock(string(csID))
 	err = g.Storage.CreateBucketIfNotExists(csID)
 	if err != nil {
 		return fmt.Errorf("error creating bucket: %v", err)
 	}
-
-	g.locker.Lock(string(csID))
-	defer g.locker.Unlock(string(csID))
 
 	savedTrans, err := g.getTransaction(csID, trans.ID())
 	if err != nil {
@@ -463,11 +467,13 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		}
 		savedTrans = trans
 	} else {
-		savedTrans.Phase = phaseTentativeCommit
-		savedTrans.TentativeCommitSignatures = savedTrans.TentativeCommitSignatures.Merge(newSigs)
-		err = g.saveTransaction(csID, savedTrans)
-		if err != nil {
-			return fmt.Errorf("error saving transaction: %v", err)
+		if len(newSigs) > 0 {
+			savedTrans.Phase = phaseTentativeCommit
+			savedTrans.TentativeCommitSignatures = savedTrans.TentativeCommitSignatures.Merge(newSigs)
+			err = g.saveTransaction(csID, savedTrans)
+			if err != nil {
+				return fmt.Errorf("error saving transaction: %v", err)
+			}
 		}
 	}
 
@@ -497,6 +503,11 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		}
 
 		//TODO: when do we delete the transaction
+	}
+
+	if len(savedTrans.TentativeCommitSignatures) == len(g.Group.SortedMembers) {
+		log.Info("saturated the network, stopping gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+		return nil
 	}
 	newMessage = &GossipMessage{
 		ObjectID:         savedTrans.ObjectID,
