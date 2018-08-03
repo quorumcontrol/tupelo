@@ -179,7 +179,7 @@ func RunGossip(name string, group *consensus.Group) {
 			if err != nil {
 				c.Printf("error playing transaction: %v", err)
 			} else {
-				c.Printf("resp: %v", resp)
+				c.Printf("new tip: %v", resp.Tip)
 			}
 
 			currentWallet.SaveChain(chain)

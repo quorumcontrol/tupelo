@@ -3,10 +3,8 @@ package network
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
@@ -125,8 +123,6 @@ func (n *Node) Start() error {
 		peer := discover.MustParseNode(enode)
 		peers = append(peers, peer)
 	}
-
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(false))))
 
 	whisp := whisper.New(&whisper.Config{
 		MaxMessageSize:     whisper.MaxMessageSize,

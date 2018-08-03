@@ -146,7 +146,7 @@ func (rh *MessageHandler) DoRequest(destination *ecdsa.PublicKey, req *Request) 
 		return nil, fmt.Errorf("error converting request: %v", err)
 	}
 
-	log.Debug("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Trace("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err = rh.send(destination, wireBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error sending: %v", err)
@@ -162,7 +162,7 @@ func (rh *MessageHandler) Push(destination *ecdsa.PublicKey, req *Request) error
 		return fmt.Errorf("error converting request: %v", err)
 	}
 
-	log.Debug("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Trace("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err = rh.send(destination, wireBytes)
 	if err != nil {
 		return fmt.Errorf("error sending: %v", err)
@@ -215,10 +215,10 @@ func (rh *MessageHandler) send(dst *ecdsa.PublicKey, payload []byte) error {
 }
 
 func (rh *MessageHandler) handleRequest(req *Request) {
-	log.Debug("request received", "type", req.Type)
+	log.Trace("request received", "type", req.Type)
 	handler, ok := rh.mappings[req.Type]
 	if ok {
-		log.Debug("handling message", "id", req.Id)
+		log.Trace("handling message", "id", req.Id)
 		respChan := make(ResponseChan, 1)
 		defer close(respChan)
 

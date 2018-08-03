@@ -250,11 +250,11 @@ func (g *Gossiper) HandleGossip(ctx context.Context, msg *GossipMessage) error {
 	currentRound := g.RoundAt(time.Now())
 
 	if msg.Round > currentRound+1 {
-		log.Info("dropping message from the future", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "phase", msg.Phase)
+		log.Info("dropping message from the future", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "phase", msg.Phase)
 		return nil
 	}
 	if msg.Round < currentRound-1 {
-		log.Info("dropping message from the past", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "phase", "sigCount", len(msg.PhaseSignatures), "phase", msg.Phase)
+		log.Info("dropping message from the past", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "msgRound", msg.Round, "round", currentRound, "sigCount", len(msg.PhaseSignatures), "phase", msg.Phase)
 		return nil
 	}
 
