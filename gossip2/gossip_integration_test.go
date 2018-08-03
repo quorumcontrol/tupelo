@@ -4,14 +4,16 @@ package gossip2
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGossiper_Integration(t *testing.T) {
-	// log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	// f, ferr := os.Create("gossip.prof")
 	// if ferr != nil {

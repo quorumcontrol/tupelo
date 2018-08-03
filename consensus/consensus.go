@@ -39,6 +39,32 @@ func (sm SignatureMap) Merge(other SignatureMap) SignatureMap {
 	return newSm
 }
 
+// Subtract returns a new SignatureMap with only the new signatures
+// in other.
+func (sm SignatureMap) Subtract(other SignatureMap) SignatureMap {
+	newSm := make(SignatureMap)
+	for k, v := range sm {
+		_, ok := other[k]
+		if !ok {
+			newSm[k] = v
+		}
+	}
+	return newSm
+}
+
+// Only returns a new SignatureMap with only keys in the keys
+// slice argument
+func (sm SignatureMap) Only(keys []string) SignatureMap {
+	newSm := make(SignatureMap)
+	for _, key := range keys {
+		v, ok := sm[key]
+		if ok {
+			newSm[key] = v
+		}
+	}
+	return newSm
+}
+
 const (
 	KeyTypeBLSGroupSig = "BLS"
 	KeyTypeSecp256k1   = "secp256k1"
