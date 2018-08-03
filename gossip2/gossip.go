@@ -227,7 +227,6 @@ func (g *Gossiper) RoundAt(t time.Time) int64 {
 func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
 	ctx = context.WithValue(ctx, ctxRequestKey, req.Id)
 	ctx = context.WithValue(ctx, ctxStartKey, time.Now())
-
 	log.Debug("handleIncomingRequest", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 
 	gm := &GossipMessage{}
@@ -235,7 +234,11 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 	if err != nil {
 		return fmt.Errorf("error decoding: %v", err)
 	}
-	return g.HandleGossip(ctx, gm)
+	err = g.HandleGossip(ctx, gm)
+	if err == nil {
+		respChan <- nil
+	}
+	return err
 }
 
 // if the message round doesn't match, then look at the conflict set for the correct transaction to gossip
