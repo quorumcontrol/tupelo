@@ -47,7 +47,10 @@ type Response struct {
 
 type HandlerFunc func(ctx context.Context, req Request, respChan ResponseChan) error
 
+// MessageHandler is used to listen to and respond to events as well
+// as send requests on the network.
 type MessageHandler struct {
+	Concurrency         int
 	mainTopic           []byte
 	node                *Node
 	outstandingRequests map[string]chan *Response
@@ -58,10 +61,15 @@ type MessageHandler struct {
 	closeChan           chan bool
 	messageChan         chan *Message
 	started             bool
+	requestChannel      chan *Request
+	responseChannel     chan *Response
 }
+
+const defaultConcurrency = 10
 
 func NewMessageHandler(node *Node, topic []byte) *MessageHandler {
 	return &MessageHandler{
+		Concurrency:         defaultConcurrency,
 		mainTopic:           topic,
 		node:                node,
 		mappings:            make(map[string]HandlerFunc),
@@ -70,6 +78,8 @@ func NewMessageHandler(node *Node, topic []byte) *MessageHandler {
 		messageChan:         make(chan *Message, 10),
 		subscriptionLock:    &sync.RWMutex{},
 		requestLock:         &sync.RWMutex{},
+		requestChannel:      make(chan *Request),
+		responseChannel:     make(chan *Response),
 	}
 }
 
@@ -245,6 +255,26 @@ func (rh *MessageHandler) handleResponse(resp *Response) {
 	}
 }
 
+func (rh *MessageHandler) requestWorker(incoming <-chan *Request) {
+	for {
+		req, ok := <-incoming
+		if !ok {
+			return
+		}
+		rh.handleRequest(req)
+	}
+}
+
+func (rh *MessageHandler) responseWorker(incoming <-chan *Response) {
+	for {
+		resp, ok := <-incoming
+		if !ok {
+			return
+		}
+		rh.handleResponse(resp)
+	}
+}
+
 func (rh *MessageHandler) Start() {
 	if rh.started {
 		return
@@ -253,6 +283,11 @@ func (rh *MessageHandler) Start() {
 
 	rh.node.Start()
 	rh.HandleKey(rh.mainTopic, rh.node.key)
+
+	for i := 0; i < rh.Concurrency; i++ {
+		go rh.responseWorker(rh.responseChannel)
+		go rh.requestWorker(rh.requestChannel)
+	}
 
 	go func() {
 		for {
@@ -265,12 +300,12 @@ func (rh *MessageHandler) Start() {
 				}
 				if msg.Request != nil {
 					msg.Request.source = msg.source
-					go rh.handleRequest(msg.Request)
+					rh.requestChannel <- msg.Request
 					continue
 				}
 				if msg.Response != nil {
 					msg.Response.source = msg.source
-					go rh.handleResponse(msg.Response)
+					rh.responseChannel <- msg.Response
 					continue
 				}
 				log.Error("message handler reached a loop it should not have")
@@ -305,6 +340,8 @@ func (rh *MessageHandler) Stop() {
 	if !rh.started {
 		return
 	}
+	close(rh.requestChannel)
+	close(rh.responseChannel)
 	rh.node.Stop()
 	rh.closeChan <- true
 	rh.closeChan <- true
