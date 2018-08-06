@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/quorumcontrol/chaintree/dag"
@@ -18,6 +19,7 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/namedlocker"
 	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/stack"
 	"github.com/quorumcontrol/qc3/storage"
 )
 
@@ -59,10 +61,6 @@ func (pt tip) Equals(otherTip tip) bool {
 	return bytes.Equal([]byte(pt), []byte(otherTip))
 }
 
-func (t transaction) ID() transactionID {
-	return transactionID(crypto.Keccak256([]byte(t)))
-}
-
 type handler interface {
 	DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error)
 	Push(dst *ecdsa.PublicKey, req *network.Request) error
@@ -94,6 +92,7 @@ type GossipMessage struct {
 	PrepareSignature consensus.Signature
 	PhaseSignatures  consensus.SignatureMap
 	Round            int64
+	ctx              context.Context
 }
 
 func (gm *GossipMessage) toUnsignedStoredTransaction() *storedTransaction {
@@ -132,7 +131,7 @@ func (st *storedTransaction) signTentativeCommit(key *bls.SignKey) (*consensus.S
 }
 
 func (st *storedTransaction) verifyPrepareSignatures(group *consensus.Group, sigs consensus.SignatureMap) (bool, error) {
-	log.Debug("combinging sigs for verifyingPrepare")
+	log.Trace("combinging sigs for verifyingPrepare")
 	sig, err := group.CombineSignatures(sigs)
 	if err != nil {
 		return false, fmt.Errorf("error combining signatures: %v", err)
@@ -141,7 +140,7 @@ func (st *storedTransaction) verifyPrepareSignatures(group *consensus.Group, sig
 }
 
 func (st *storedTransaction) verifyTentativeCommitSignatures(group *consensus.Group, sigs consensus.SignatureMap) (bool, error) {
-	log.Debug("combinging sigs for verifyingTenativeCommit")
+	log.Trace("combinging sigs for verifyingTenativeCommit")
 	sig, err := group.CombineSignatures(sigs)
 	if err != nil {
 		return false, fmt.Errorf("error combining signatures: %v", err)
@@ -157,7 +156,7 @@ func (st *storedTransaction) msgToSignPrepare() []byte {
 }
 
 func (st *storedTransaction) msgToSignTentativeCommit() []byte {
-	log.Debug("msgToSignTentativeCommit", "objectID", string(st.ObjectID), "newTip", string(st.NewTip), "round", st.Round)
+	log.Trace("msgToSignTentativeCommit", "objectID", string(st.ObjectID), "newTip", string(st.NewTip), "round", st.Round)
 	msg := append(st.ObjectID, st.NewTip...)
 	msg = append(msg, roundToBytes(st.Round)...)
 	return crypto.Keccak256(msg)
@@ -178,6 +177,9 @@ type Gossiper struct {
 	Fanout          int
 	locker          *namedlocker.NamedLocker
 	started         bool
+	stacks          *sync.Map
+	stackPokeChan   chan *poker
+	pokeStopChan    chan bool
 }
 
 const (
@@ -199,12 +201,20 @@ func (g *Gossiper) Initialize() {
 	if g.Fanout == 0 {
 		g.Fanout = defaultFanout
 	}
+	g.stacks = new(sync.Map)
+	g.stackPokeChan = make(chan *poker)
+	g.pokeStopChan = make(chan bool, concurrency)
 }
+
+const concurrency = 10
 
 // Start starts the message handler and gossiper
 func (g *Gossiper) Start() {
 	if g.started {
 		return
+	}
+	for i := 0; i < concurrency; i++ {
+		go g.pokeWorker(g.stackPokeChan, g.pokeStopChan)
 	}
 	g.started = true
 	g.MessageHandler.Start()
@@ -217,6 +227,39 @@ func (g *Gossiper) Stop() {
 	}
 	g.started = false
 	g.MessageHandler.Stop()
+	for i := 0; i < concurrency; i++ {
+		g.pokeStopChan <- true
+	}
+}
+
+type poker struct {
+	stack *stack.Stack
+	csID  conflictSetID
+}
+
+func (g *Gossiper) pokeWorker(incoming <-chan *poker, stopChan <-chan bool) {
+	for {
+		select {
+		case poke, ok := <-incoming:
+			if !ok {
+				return
+			}
+			g.locker.Lock(string(poke.csID))
+			gm := poke.stack.Pop()
+			if gm != nil {
+				ctx := gm.(*GossipMessage).ctx
+				msg := gm.(*GossipMessage)
+				err := g.HandleGossip(ctx, msg)
+				if err != nil {
+					log.Error("error handling gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "err", err)
+				}
+			}
+			g.locker.Unlock(string(poke.csID))
+		case <-stopChan:
+			return
+		}
+
+	}
 }
 
 // RoundAt returns the round number for the time
@@ -225,6 +268,7 @@ func (g *Gossiper) RoundAt(t time.Time) int64 {
 }
 
 func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
+
 	ctx = context.WithValue(ctx, ctxRequestKey, req.Id)
 	ctx = context.WithValue(ctx, ctxStartKey, time.Now())
 	log.Debug("handleIncomingRequest", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
@@ -234,11 +278,26 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 	if err != nil {
 		return fmt.Errorf("error decoding: %v", err)
 	}
-	err = g.HandleGossip(ctx, gm)
-	if err == nil {
-		respChan <- nil
+	csID := msgToConflictSetID(gm)
+	gm.ctx = ctx
+
+	// We want to process messages in a LIFO instead of a FIFO order because later messages will have more signatures on them
+	csStack, _ := g.stacks.LoadOrStore(string(csID), stack.NewStack())
+	csStack.(*stack.Stack).Push(gm)
+	poke := &poker{
+		stack: csStack.(*stack.Stack),
+		csID:  csID,
 	}
+
+	g.stackPokeChan <- poke
+
+	respChan <- nil
 	return err
+}
+
+func (g *Gossiper) clearPendingMessages(csID conflictSetID) {
+	csStack, _ := g.stacks.LoadOrStore(string(csID), stack.NewStack())
+	csStack.(*stack.Stack).Clear()
 }
 
 // if the message round doesn't match, then look at the conflict set for the correct transaction to gossip
@@ -293,8 +352,6 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 	trans := msg.toUnsignedStoredTransaction()
 	csID := msgToConflictSetID(msg)
 
-	g.locker.Lock(string(csID))
-	defer g.locker.Unlock(string(csID))
 	err := g.Storage.CreateBucketIfNotExists(csID)
 	if err != nil {
 		return fmt.Errorf("error creating bucket: %v", err)
@@ -375,6 +432,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		if err != nil {
 			return fmt.Errorf("error saving transaction: %v", err)
 		}
+		log.Debug("handlePrepareMessage - resending TentativeCommitMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(savedTrans.TentativeCommitSignatures), "sigs", sigMapToString(savedTrans.TentativeCommitSignatures))
 
 		newMessage = &GossipMessage{
 			ObjectID:         savedTrans.ObjectID,
@@ -387,7 +445,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 			Round:            savedTrans.Round,
 		}
 	} else {
-		log.Debug("handlePrepareMessag - re-gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(savedTrans.PrepareSignatures))
+		log.Debug("handlePrepareMessage - re-gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(savedTrans.PrepareSignatures), "sigs", sigMapToString(savedTrans.PrepareSignatures))
 
 		// else gossip new prepare message
 		newMessage = &GossipMessage{
@@ -433,8 +491,6 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 
 	csID := msgToConflictSetID(msg)
 
-	g.locker.Lock(string(csID))
-	defer g.locker.Unlock(string(csID))
 	err = g.Storage.CreateBucketIfNotExists(csID)
 	if err != nil {
 		return fmt.Errorf("error creating bucket: %v", err)
@@ -447,10 +503,21 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 
 	newSigs := msg.PhaseSignatures
 	if savedTrans != nil {
+		_, hasOwnSignature := savedTrans.TentativeCommitSignatures[g.ID]
+		if !hasOwnSignature {
+			ownSig, err := trans.signTentativeCommit(g.SignKey)
+			if err != nil {
+				return fmt.Errorf("error signing: %v", err)
+			}
+			log.Debug("tentativeCommit - adding own signature", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+			savedTrans.TentativeCommitSignatures[g.ID] = *ownSig
+		}
+		log.Debug("saved trans, getting new sigs", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "savedSigs", sigMapToString(savedTrans.TentativeCommitSignatures), "msgSigs", sigMapToString(msg.PhaseSignatures))
 		newSigs = msg.PhaseSignatures.Subtract(savedTrans.TentativeCommitSignatures)
 	}
 
 	if len(newSigs) > 0 {
+		log.Debug("new signatures", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(newSigs), "sigs", sigMapToString(newSigs))
 		trans := msg.toUnsignedStoredTransaction()
 		verified, err := trans.verifyTentativeCommitSignatures(g.Group, newSigs)
 		if err != nil {
@@ -527,6 +594,9 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		log.Info("saturated the network, stopping gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 		return nil
 	}
+
+	log.Debug("missing some signatures", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "have", sigMapToString(savedTrans.TentativeCommitSignatures))
+
 	newMessage = &GossipMessage{
 		ObjectID:         savedTrans.ObjectID,
 		PreviousTip:      savedTrans.PreviousTip,
@@ -538,15 +608,31 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		Round:            savedTrans.Round,
 	}
 
+	if savedTrans.Phase == phaseCommit {
+		log.Debug("clearing pending messages", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "csId", string(csID))
+		// clear out any pending messages if this is already committed and only gossip the commit ones
+		g.clearPendingMessages(csID)
+	}
+
 	g.doGossip(ctx, newMessage)
 
 	return nil
 }
 
+func sigMapToString(sigMap consensus.SignatureMap) string {
+	haveSigs := ""
+	for id := range sigMap {
+		haveSigs += id + ", "
+	}
+	return haveSigs
+}
+
 func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
 	go func(ctx context.Context, msg *GossipMessage) {
 		num := min(g.Fanout, len(g.Group.SortedMembers)-1)
-		log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
+		log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures), "sigs", sigMapToString(msg.PhaseSignatures))
+
+		gossipList := map[string]bool{g.ID: true}
 
 		for i := 0; i < num; i++ {
 			req, err := network.BuildRequest(MessageTypeGossip, msg)
@@ -554,8 +640,14 @@ func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
 				log.Error("error building request", "err", err)
 			}
 			var rn *consensus.RemoteNode
-			for rn == nil || rn.Id == g.ID {
+			alreadyOnList := true
+			for alreadyOnList {
 				rn = g.Group.RandomMember()
+				log.Trace("rn search", "g", g.ID, "rn", rn.Id, "already", gossipList)
+				_, alreadyOnList = gossipList[rn.Id]
+				if !alreadyOnList {
+					gossipList[rn.Id] = true
+				}
 			}
 			log.Debug("one gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "dst", consensus.PublicKeyToAddr(&rn.VerKey), "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
 

@@ -4,7 +4,10 @@ package signer
 
 import (
 	"crypto/ecdsa"
+	"os"
 	"testing"
+
+	"github.com/quorumcontrol/qc3/gossipclient"
 
 	"time"
 
@@ -264,4 +267,53 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	require.Nil(t, err)
 
 	assert.True(t, tipResp.Tip.Equals(tree.Tip()), "tipResp: %s, tree: %s", tipResp.Tip.String(), tree.Tip().String())
+}
+
+func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
+	ts := newTestSet(t, 3)
+	remoteNodes := make([]*consensus.RemoteNode, len(ts.SignKeys))
+
+	for i := 0; i < len(ts.SignKeys); i++ {
+		remoteNodes[i] = consensus.NewRemoteNode(ts.PubKeys[i], ts.DstKeys[i])
+	}
+	group := consensus.NewGroup(remoteNodes)
+
+	for i := 0; i < len(ts.SignKeys); i++ {
+		signer := &Signer{
+			Group:   group,
+			Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[i].Bytes()).String(),
+			SignKey: ts.SignKeys[i],
+			VerKey:  ts.SignKeys[i].MustVerKey(),
+		}
+		node := network.NewNode(ts.EcdsaKeys[i])
+		store := storage.NewMemStorage()
+		gossipedSigner := NewGossipedSigner(node, signer, store)
+		gossipedSigner.Start()
+		defer gossipedSigner.Stop()
+	}
+
+	client := gossipclient.NewGossipClient(group)
+
+	client.Start()
+	defer client.Stop()
+
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	chain, err := consensus.NewSignedChainTree(key.PublicKey)
+	require.Nil(t, err)
+
+	resp, err := client.PlayTransactions(chain, key, "", []*chaintree.Transaction{
+		{
+			Type: consensus.TransactionTypeSetData,
+			Payload: consensus.SetDataPayload{
+				Path:  "test/path",
+				Value: "value",
+			},
+		},
+	})
+
+	require.Nil(t, err)
+	assert.True(t, resp.Tip.Equals(chain.Tip()), "resp: %s, chain: %s", resp.Tip.String(), chain.Tip().String())
 }
