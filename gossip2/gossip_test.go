@@ -285,3 +285,16 @@ func TestGossiper_HandleGossip(t *testing.T) {
 		}
 	}
 }
+func TestGossiper_RoundHandlers(t *testing.T) {
+	gossipers := generateTestGossipGroup(t, 1, 0)
+	gossipers[0].RoundLength = 1
+	var lastCalled int64
+	currRound := gossipers[0].RoundAt(time.Now())
+	gossipers[0].AddRoundHandler(func(_ context.Context, round int64) {
+		lastCalled = round
+	})
+	gossipers[0].Start()
+	defer gossipers[0].Stop()
+	time.Sleep(time.Duration(gossipers[0].RoundLength) * time.Second)
+	assert.Equal(t, lastCalled, currRound+1)
+}
