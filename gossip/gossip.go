@@ -203,6 +203,7 @@ func (g *Gossiper) Initialize() {
 	g.stacks = new(sync.Map)
 	g.stackPokeChan = make(chan *poker)
 	g.pokeStopChan = make(chan bool, concurrency)
+	g.roundStopChan = make(chan bool, 1)
 }
 
 const concurrency = 10
@@ -217,6 +218,7 @@ func (g *Gossiper) Start() {
 	}
 	g.started = true
 	g.MessageHandler.Start()
+	go g.roundHandler()
 }
 
 // Stop stops the message handler and gossiper
@@ -226,6 +228,7 @@ func (g *Gossiper) Stop() {
 	}
 	g.started = false
 	g.MessageHandler.Stop()
+	g.roundStopChan <- true
 	for i := 0; i < concurrency; i++ {
 		g.pokeStopChan <- true
 	}
@@ -234,6 +237,40 @@ func (g *Gossiper) Stop() {
 type poker struct {
 	stack *stack.Stack
 	csID  conflictSetID
+}
+
+// AddRoundHandler adds a function that will be called
+// every time a round changes, with the current round
+func (g *Gossiper) AddRoundHandler(f roundHandler) {
+	g.locker.Lock("roundHandlers")
+	defer g.locker.Unlock("roundHandlers")
+	g.roundHandlers = append(g.roundHandlers, f)
+}
+
+func (g *Gossiper) roundHandler() {
+	nextRound := make(chan time.Time, 1)
+	// don't immediately call the round handler at start, wait for the next
+	// round to actually happen
+	currRound := g.RoundAt(time.Now())
+	nextRoundAt := (currRound + 1) * int64(g.RoundLength)
+	nextAt := time.Unix(nextRoundAt, 0)
+	nextRound <- <-time.After(nextAt.Sub(time.Now()))
+	for {
+		select {
+		case <-g.roundStopChan:
+			return
+		case <-nextRound:
+			g.locker.RLock("roundHandlers")
+			currRound := g.RoundAt(time.Now())
+			for _, handler := range g.roundHandlers {
+				go handler(context.TODO(), currRound)
+			}
+			g.locker.RUnlock("roundHandlers")
+			nextRoundAt := (g.RoundAt(time.Now()) + 1) * int64(g.RoundLength)
+			nextAt := time.Unix(nextRoundAt, 0)
+			nextRound <- <-time.After(nextAt.Sub(time.Now()))
+		}
+	}
 }
 
 func (g *Gossiper) pokeWorker(incoming <-chan *poker, stopChan <-chan bool) {
@@ -589,13 +626,6 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		//TODO: when do we delete the transaction
 	}
 
-	if len(savedTrans.TentativeCommitSignatures) == len(g.Group.SortedMembers) {
-		log.Info("saturated the network, stopping gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
-		return nil
-	}
-
-	log.Debug("missing some signatures", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "have", sigMapToString(savedTrans.TentativeCommitSignatures))
-
 	newMessage = &GossipMessage{
 		ObjectID:         savedTrans.ObjectID,
 		PreviousTip:      savedTrans.PreviousTip,
@@ -627,35 +657,33 @@ func sigMapToString(sigMap consensus.SignatureMap) string {
 }
 
 func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
-	go func(ctx context.Context, msg *GossipMessage) {
-		num := min(g.Fanout, len(g.Group.SortedMembers)-1)
-		log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures), "sigs", sigMapToString(msg.PhaseSignatures))
+	num := min(g.Fanout, len(g.Group.SortedMembers)-1)
+	log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures), "sigs", sigMapToString(msg.PhaseSignatures))
 
-		gossipList := map[string]bool{g.ID: true}
+	gossipList := map[string]bool{g.ID: true}
 
-		for i := 0; i < num; i++ {
-			req, err := network.BuildRequest(MessageTypeGossip, msg)
-			if err != nil {
-				log.Error("error building request", "err", err)
-			}
-			var rn *consensus.RemoteNode
-			alreadyOnList := true
-			for alreadyOnList {
-				rn = g.Group.RandomMember()
-				log.Trace("rn search", "g", g.ID, "rn", rn.Id, "already", gossipList)
-				_, alreadyOnList = gossipList[rn.Id]
-				if !alreadyOnList {
-					gossipList[rn.Id] = true
-				}
-			}
-			log.Debug("one gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "dst", consensus.PublicKeyToAddr(&rn.VerKey), "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
-
-			err = g.MessageHandler.Push(rn.DstKey.ToEcdsaPub(), req)
-			if err != nil {
-				log.Error("error pushing", "err", err)
+	for i := 0; i < num; i++ {
+		req, err := network.BuildRequest(MessageTypeGossip, msg)
+		if err != nil {
+			log.Error("error building request", "err", err)
+		}
+		var rn *consensus.RemoteNode
+		alreadyOnList := true
+		for alreadyOnList {
+			rn = g.Group.RandomMember()
+			log.Trace("rn search", "g", g.ID, "rn", rn.Id, "already", gossipList)
+			_, alreadyOnList = gossipList[rn.Id]
+			if !alreadyOnList {
+				gossipList[rn.Id] = true
 			}
 		}
-	}(ctx, msg)
+		log.Debug("one gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "dst", consensus.PublicKeyToAddr(&rn.VerKey), "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures))
+
+		err = g.MessageHandler.Push(rn.DstKey.ToEcdsaPub(), req)
+		if err != nil {
+			log.Error("error pushing", "err", err)
+		}
+	}
 }
 
 func (g *Gossiper) handleNewTransaction(ctx context.Context, csID conflictSetID, currState CurrentState, msg *GossipMessage) (*storedTransaction, error) {
