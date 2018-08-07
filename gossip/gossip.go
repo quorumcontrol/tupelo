@@ -91,7 +91,6 @@ type GossipMessage struct {
 	PrepareSignature consensus.Signature
 	PhaseSignatures  consensus.SignatureMap
 	Round            int64
-	ctx              context.Context
 }
 
 func (gm *GossipMessage) toUnsignedStoredTransaction() *storedTransaction {
@@ -237,6 +236,7 @@ func (g *Gossiper) Stop() {
 type poker struct {
 	stack *stack.Stack
 	csID  conflictSetID
+	ctx   context.Context
 }
 
 // AddRoundHandler adds a function that will be called
@@ -290,11 +290,10 @@ func (g *Gossiper) pokeWorker(incoming <-chan *poker, stopChan <-chan bool) {
 			g.locker.Lock(string(poke.csID))
 			gm := poke.stack.Pop()
 			if gm != nil {
-				ctx := gm.(*GossipMessage).ctx
 				msg := gm.(*GossipMessage)
-				err := g.HandleGossip(ctx, msg)
+				err := g.HandleGossip(poke.ctx, msg)
 				if err != nil {
-					log.Error("error handling gossip", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "err", err)
+					log.Error("error handling gossip", "g", g.ID, "uuid", poke.ctx.Value(ctxRequestKey), "err", err)
 				}
 			}
 			g.locker.Unlock(string(poke.csID))
@@ -322,7 +321,6 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 		return fmt.Errorf("error decoding: %v", err)
 	}
 	csID := msgToConflictSetID(gm)
-	gm.ctx = ctx
 
 	// We want to process messages in a LIFO instead of a FIFO order because later messages will have more signatures on them
 	csStack, _ := g.stacks.LoadOrStore(string(csID), stack.NewStack())
@@ -330,6 +328,7 @@ func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Reques
 	poke := &poker{
 		stack: csStack.(*stack.Stack),
 		csID:  csID,
+		ctx:   ctx,
 	}
 
 	g.stackPokeChan <- poke
