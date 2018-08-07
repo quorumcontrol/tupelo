@@ -23,7 +23,7 @@ func TestGossiper_Integration(t *testing.T) {
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
 
-	numberOfNodes := 10
+	numberOfNodes := 20
 
 	gossipers := generateTestGossipGroup(t, numberOfNodes, 0)
 	for i := 0; i < len(gossipers); i++ {
@@ -39,8 +39,13 @@ func TestGossiper_Integration(t *testing.T) {
 		Round:       gossipers[0].RoundAt(time.Now()),
 	}
 
-	err := gossipers[0].HandleGossip(context.TODO(), message)
-	require.Nil(t, err)
+	for i := 0; i < gossipers[0].Fanout; i++ {
+		go func() {
+			err := gossipers[i].HandleGossip(context.TODO(), message)
+			require.Nil(t, err)
+		}()
+	}
+
 	now := time.Now()
 	for {
 		state, err := gossipers[0].GetCurrentState(message.ObjectID)
@@ -50,23 +55,27 @@ func TestGossiper_Integration(t *testing.T) {
 		}
 		time.Sleep(200 * time.Millisecond)
 		if time.Now().Sub(now) > (20 * time.Second) {
-			t.Fatalf("timeout")
+			t.Fatalf("timeout on commit")
 			break
 		}
 	}
 	// assert that the network was saturated
 	now = time.Now()
-	csID := msgToConflictSetID(message)
-	transID := transactionToID(message.Transaction, message.Round)
 	for {
-		trans, err := gossipers[0].getTransaction(csID, transID)
-		require.Nil(t, err)
-		if len(trans.TentativeCommitSignatures) == numberOfNodes {
+		count := 0
+		for _, gossiper := range gossipers {
+			state, err := gossiper.GetCurrentState(message.ObjectID)
+			require.Nil(t, err)
+			if state.Tip.Equals(tip(message.Transaction)) {
+				count++
+			}
+		}
+		if count >= len(gossipers) {
 			break
 		}
 		time.Sleep(200 * time.Millisecond)
 		if time.Now().Sub(now) > (10 * time.Second) {
-			t.Fatalf("timeout")
+			t.Fatalf("timeout on saturation")
 			break
 		}
 	}
