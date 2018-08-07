@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
-	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,31 +22,7 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 	return nodes
 }
 
-func createSigner(t *testing.T) *Signer {
-	key, err := bls.NewSignKey()
-	assert.Nil(t, err)
-
-	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
-
-	dstKey, err := crypto.GenerateKey()
-	assert.Nil(t, err)
-	dstPubKey := consensus.EcdsaToPublicKey(&dstKey.PublicKey)
-
-	group := consensus.NewGroup([]*consensus.RemoteNode{consensus.NewRemoteNode(pubKey, dstPubKey)})
-
-	signer := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(key.MustVerKey().Bytes()).String(),
-		SignKey: key,
-		VerKey:  key.MustVerKey(),
-	}
-
-	return signer
-}
-
-func TestSigner_ProcessRequest(t *testing.T) {
-
-	signer := createSigner(t)
+func TestprocessAddBlock(t *testing.T) {
 
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
@@ -82,7 +57,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := signer.ProcessAddBlock(nil, req)
+	resp, err := processAddBlock(nil, req)
 
 	assert.Nil(t, err)
 
@@ -92,7 +67,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	testTree.ProcessBlock(blockWithHeaders)
 	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
-	resp, err = signer.ProcessAddBlock(resp.Tip, req)
+	resp, err = processAddBlock(resp.Tip, req)
 	assert.NotNil(t, err)
 
 	// playing a new transaction should work when there are no auths
@@ -122,7 +97,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
@@ -159,7 +134,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(blockWithHeaders)
@@ -196,7 +171,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
@@ -209,7 +184,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	valid, err = testTree.ProcessBlock(blockWithHeaders)
@@ -249,7 +224,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.NotNil(t, err)
 }
 func TestSigner_CoinTransactions(t *testing.T) {
@@ -405,8 +380,6 @@ func TestSigner_CoinTransactions(t *testing.T) {
 }
 
 func TestSigner_NextBlockValidation(t *testing.T) {
-	signer := createSigner(t)
-
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -438,11 +411,11 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	req := &consensus.AddBlockRequest{
 		Nodes:    nodes1,
-		Tip:      emptyTree.Tip,
+		Tip:      testTree.Dag.Tipp,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := signer.ProcessAddBlock(emptyTree.Tip, req)
+	resp, err := processAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
@@ -474,7 +447,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders2,
 	}
 
-	resp2, err := signer.ProcessAddBlock(testTree.Dag.Tip, req2)
+	resp2, err := processAddBlock(testTree.Dag.Tip, req2)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders2)
@@ -509,6 +482,6 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders3,
 	}
 
-	_, err = signer.ProcessAddBlock(testTree.Dag.Tip, req3)
+	_, err = processAddBlock(testTree.Dag.Tip, req3)
 	assert.NotNil(t, err)
 }

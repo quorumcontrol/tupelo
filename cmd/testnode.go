@@ -141,15 +141,9 @@ func setupGossipNode() {
 
 	os.MkdirAll(".storage", 0700)
 	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
-	sign := &signer.Signer{
-		Group:   TestNetGroup,
-		Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
-		SignKey: BlsSignKeys[nodeIndex],
-		VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
-	}
 	node := network.NewNode(EcdsaKeys[nodeIndex])
 
-	gossipedSigner := signer.NewGossipedSigner(node, sign, boltStorage)
+	gossipedSigner := signer.NewGossipedSigner(node, TestNetGroup, boltStorage, BlsSignKeys[nodeIndex])
 	gossipedSigner.Start()
 
 	sigs := make(chan os.Signal, 1)
