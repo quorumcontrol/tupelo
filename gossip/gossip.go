@@ -263,16 +263,23 @@ func (g *Gossiper) roundHandler() {
 		select {
 		case <-g.roundStopChan:
 			return
-		case <-nextRound:
+		case sent := <-nextRound:
 			g.locker.RLock("roundHandlers")
-			currRound := g.RoundAt(time.Now())
+			currRound := g.RoundAt(sent)
 			for _, handler := range g.roundHandlers {
 				go handler(context.TODO(), currRound)
 			}
 			g.locker.RUnlock("roundHandlers")
-			nextRoundAt := (g.RoundAt(time.Now()) + 1) * int64(g.RoundLength)
+			nextRoundAt := (currRound + 1) * int64(g.RoundLength)
 			nextAt := time.Unix(nextRoundAt, 0)
-			nextRound <- <-time.After(nextAt.Sub(time.Now()))
+			diff := nextAt.Sub(time.Now())
+			// in case we get behind on the rounds, we still call every round
+			// if we're behind, we'll catch up
+			if diff > 0 {
+				nextRound <- <-time.After(diff)
+			} else {
+				nextRound <- nextAt
+			}
 		}
 	}
 }
