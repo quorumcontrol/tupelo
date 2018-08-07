@@ -71,6 +71,7 @@ type handler interface {
 type stateHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error)
 type acceptedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, newState []byte) (err error)
 type rejectedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error)
+type roundHandler func(ctx context.Context, round int64)
 
 // CurrentState is the state of an object in the gossip system
 // and its associated tip and signature
@@ -174,6 +175,8 @@ type Gossiper struct {
 	RejectedHandler rejectedHandler
 	RoundLength     int
 	Fanout          int
+	roundHandlers   []roundHandler
+	roundStopChan   chan bool
 	locker          *namedlocker.NamedLocker
 	started         bool
 	stacks          *sync.Map
@@ -203,6 +206,7 @@ func (g *Gossiper) Initialize() {
 	g.stacks = new(sync.Map)
 	g.stackPokeChan = make(chan *poker)
 	g.pokeStopChan = make(chan bool, concurrency)
+	g.roundStopChan = make(chan bool)
 }
 
 const concurrency = 10
@@ -217,6 +221,7 @@ func (g *Gossiper) Start() {
 	}
 	g.started = true
 	g.MessageHandler.Start()
+	go g.roundHandler()
 }
 
 // Stop stops the message handler and gossiper
@@ -226,6 +231,7 @@ func (g *Gossiper) Stop() {
 	}
 	g.started = false
 	g.MessageHandler.Stop()
+	g.roundStopChan <- true
 	for i := 0; i < concurrency; i++ {
 		g.pokeStopChan <- true
 	}
@@ -234,6 +240,33 @@ func (g *Gossiper) Stop() {
 type poker struct {
 	stack *stack.Stack
 	csID  conflictSetID
+}
+
+// AddRoundHandler adds a function that will be called
+// every time a round changes, with the current round
+func (g *Gossiper) AddRoundHandler(f roundHandler) {
+	g.locker.Lock("roundHandlers")
+	defer g.locker.Unlock("roundHandlers")
+	g.roundHandlers = append(g.roundHandlers, f)
+}
+
+func (g *Gossiper) roundHandler() {
+	for {
+		select {
+		case <-g.roundStopChan:
+			return
+		default:
+			currRound := g.RoundAt(time.Now())
+			nextRoundAt := (currRound + 1) * int64(g.RoundLength)
+			nextAt := time.Unix(nextRoundAt, 0)
+			time.Sleep(nextAt.Sub(time.Now()))
+			g.locker.RLock("roundHandlers")
+			for _, handler := range g.roundHandlers {
+				go handler(context.TODO(), currRound+1)
+			}
+			g.locker.RUnlock("roundHandlers")
+		}
+	}
 }
 
 func (g *Gossiper) pokeWorker(incoming <-chan *poker, stopChan <-chan bool) {
