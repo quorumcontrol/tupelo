@@ -67,6 +67,13 @@ func (group *Group) AddMember(node *RemoteNode) error {
 	return nil
 }
 
+// SetID sets the ID of the group
+func (group *Group) SetID(id string) {
+	group.id = id
+}
+
+// Id returns the ID of the group. If the ID isn't set then it calculates an ID based
+// on the public keys of the group members
 func (group *Group) Id() string {
 	if group.id != "" {
 		return group.id
