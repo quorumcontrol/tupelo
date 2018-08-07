@@ -15,7 +15,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/consensus"
-	gossip "github.com/quorumcontrol/qc3/gossip2"
+	"github.com/quorumcontrol/qc3/gossip"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
 )

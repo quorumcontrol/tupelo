@@ -1,22 +1,20 @@
 package gossip
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"testing"
-
 	"time"
-
-	"bytes"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var lastAccepted []byte
@@ -78,6 +76,28 @@ type InMemoryHandler struct {
 	Mapping map[string]network.HandlerFunc
 }
 
+func (imh *InMemoryHandler) Push(dst *ecdsa.PublicKey, req *network.Request) error {
+	go func(dst *ecdsa.PublicKey, req *network.Request) {
+		log.Trace("DoRequest go func started", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed")
+		handler, ok := imh.System.Handlers[crypto.PubkeyToAddress(*dst).String()]
+		if !ok {
+			log.Error("could not find handler")
+			panic("could not find handler")
+		}
+		internalRespChan := make(network.ResponseChan, 1)
+		defer close(internalRespChan)
+		err := handler.Mapping[req.Type](context.Background(), *req, internalRespChan)
+		if err != nil {
+			log.Error("error handling request", "err", err)
+		}
+
+		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id)
+		<-internalRespChan
+	}(dst, req)
+
+	return nil
+}
+
 func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error) {
 	respChan := make(chan *network.Response, 1)
 	start := time.Now()
@@ -95,7 +115,7 @@ func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request
 
 		err := handler.Mapping[req.Type](context.Background(), *req, internalRespChan)
 		if err != nil {
-			log.Error("error handling request: %v", err)
+			log.Error("error handling request", "err", err)
 		}
 
 		log.Trace("DoRequest func executed", "dst", crypto.PubkeyToAddress(*dst).String(), "uuid", req.Id, "elapsed", time.Now().Sub(start))
@@ -174,150 +194,107 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 
 		member := group.SortedMembers[i]
 
-		gossiper := NewGossiper(&GossiperOpts{
-			SignKey:            ts.SignKeysByAddress[member.Id],
-			Storage:            stor,
-			StateHandler:       simpleHandler,
-			AcceptedHandler:    simpleAcceptance,
-			RejectedHandler:    simpleRejecter,
-			Group:              group,
-			MessageHandler:     system.NewHandler(crypto.ToECDSAPub(member.DstKey.PublicKey)),
-			TimeBetweenGossips: 200,
-			NumberOfGossips:    3,
-		})
+		gossiper := &Gossiper{
+			SignKey:         ts.SignKeysByAddress[member.Id],
+			Storage:         stor,
+			StateHandler:    simpleHandler,
+			AcceptedHandler: simpleAcceptance,
+			RejectedHandler: simpleRejecter,
+			Group:           group,
+			MessageHandler:  system.NewHandler(crypto.ToECDSAPub(member.DstKey.PublicKey)),
+		}
+
+		gossiper.Initialize()
 		gossipers[i] = gossiper
 	}
 
 	return gossipers
 }
 
-func TestGossiper_HandleGossipRequest(t *testing.T) {
-	gossipers := generateTestGossipGroup(t, 1, 0)
-
-	message := &GossipMessage{
-		ObjectId:    []byte("obj"),
-		Transaction: []byte("trans"),
-	}
-
-	req, err := network.BuildRequest(MessageType_Gossip, message)
-	assert.Nil(t, err)
-
-	respChan := make(network.ResponseChan, 1)
-
-	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
-	assert.Nil(t, err)
-
-	resp := <-respChan
-
-	gossipResp := &GossipMessage{}
-	err = cbornode.DecodeInto(resp.Payload, gossipResp)
-	assert.Nil(t, err)
-
-	assert.Len(t, gossipResp.Signatures, 1)
-}
-
-func TestGossiper_DoOneGossip(t *testing.T) {
+func TestTest(t *testing.T) {
 	gossipers := generateTestGossipGroup(t, 2, 0)
 
-	message := &GossipMessage{
-		ObjectId:    []byte("obj"),
-		Transaction: []byte("trans"),
-	}
+	key := gossipers[0].SignKey
+	msg := []byte("hi")
 
-	req, err := network.BuildRequest(MessageType_Gossip, message)
-	assert.Nil(t, err)
+	sig, err := consensus.BlsSignBytes(crypto.Keccak256(msg), key)
+	require.Nil(t, err)
 
-	respChan := make(network.ResponseChan, 1)
+	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
 
-	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
-	assert.Nil(t, err)
+	verified, err := consensus.Verify(crypto.Keccak256(msg), *sig, pubKey)
+	require.Nil(t, err)
+	require.True(t, verified)
 
-	resp := <-respChan
+	sigMap := consensus.SignatureMap{gossipers[0].ID: *sig}
 
-	gossipResp := &GossipMessage{}
-	err = cbornode.DecodeInto(resp.Payload, gossipResp)
-	assert.Nil(t, err)
+	groupSig, err := gossipers[0].Group.CombineSignatures(sigMap)
+	require.Nil(t, err)
 
-	assert.Len(t, gossipResp.Signatures, 1)
-
-	err = gossipers[0].DoOneGossip(gossipers[1].Group.SortedMembers[1].DstKey, message.Id())
-	assert.Nil(t, err)
-
-	// The original gossiper should have added the other gossiper
-	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
-	assert.Nil(t, err)
-	assert.Len(t, sigs, 2)
-
-	// The new gossiper should have both its own and the gossiped signature
-	sigs, err = gossipers[1].savedSignaturesFor(context.Background(), message.Id())
-	assert.Nil(t, err)
-	assert.Len(t, sigs, 2)
+	verified, err = gossipers[0].Group.VerifyAvailableSignatures(crypto.Keccak256(msg), groupSig)
+	require.Nil(t, err)
+	assert.True(t, verified)
 }
 
-func TestGossiper_DoOneGossipRound(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlError), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+func TestGossiper_HandleGossip(t *testing.T) {
+	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	gossipers := generateTestGossipGroup(t, 3, 0)
 
-	message := &GossipMessage{
-		ObjectId:    []byte("obj"),
-		Transaction: []byte("roundTest"),
+	type testCase struct {
+		description string
+		message     *GossipMessage
+		shouldErr   bool
 	}
 
-	req, err := network.BuildRequest(MessageType_Gossip, message)
-	assert.Nil(t, err)
+	type createTestCase func() *testCase
 
-	respChan := make(network.ResponseChan, 1)
-
-	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
-	assert.Nil(t, err)
-
-	resp := <-respChan
-
-	gossipResp := &GossipMessage{}
-	err = cbornode.DecodeInto(resp.Payload, gossipResp)
-	assert.Nil(t, err)
-
-	assert.Len(t, gossipResp.Signatures, 1)
-
-	err = gossipers[0].DoOneGossipRound(message.Id())
-	assert.Nil(t, err)
-
-	// The original gossiper should have added the other gossiper
-	sigs, err := gossipers[0].savedSignaturesFor(context.Background(), message.Id())
-	assert.Nil(t, err)
-	assert.Len(t, sigs, 3)
-
-	// The new gossiper should have both its own and the gossiped signature
-	sigs, err = gossipers[1].savedSignaturesFor(context.Background(), message.Id())
-	assert.Nil(t, err)
-	assert.Len(t, sigs, 2)
+	for _, testCaseCreator := range []createTestCase{
+		func() *testCase {
+			return &testCase{
+				description: "prepare messsage no sigs",
+				message: &GossipMessage{
+					ObjectID:    []byte("obj"),
+					PreviousTip: nil,
+					Transaction: []byte("trans"),
+					Phase:       phasePrepare,
+					Round:       gossipers[0].RoundAt(time.Now()),
+				},
+			}
+		},
+		func() *testCase {
+			return &testCase{
+				description: "tentativeCommit messsage no sigs",
+				shouldErr:   true,
+				message: &GossipMessage{
+					ObjectID:    []byte("obj"),
+					PreviousTip: nil,
+					Transaction: []byte("trans"),
+					Phase:       phaseTentativeCommit,
+					Round:       gossipers[0].RoundAt(time.Now()),
+				},
+			}
+		},
+	} {
+		tc := testCaseCreator()
+		err := gossipers[0].HandleGossip(context.TODO(), tc.message)
+		if tc.shouldErr {
+			require.NotNil(t, err, tc.description)
+		} else {
+			require.Nil(t, err, tc.description)
+		}
+	}
 }
-
-func TestGossiper_RejectTransaction(t *testing.T) {
-	gossipers := generateTestGossipGroup(t, 3, 0)
-
-	message := &GossipMessage{
-		ObjectId:    []byte("obj"),
-		Transaction: []byte("reject-test"),
-	}
-
-	req, err := network.BuildRequest(MessageType_Gossip, message)
-	assert.Nil(t, err)
-
-	respChan := make(network.ResponseChan, 1)
-
-	err = gossipers[0].HandleGossipRequest(context.TODO(), *req, respChan)
-	assert.Nil(t, err)
-
-	resp := <-respChan
-
-	gossipResp := &GossipMessage{}
-	err = cbornode.DecodeInto(resp.Payload, gossipResp)
-	assert.Nil(t, err)
-
-	assert.Len(t, gossipResp.Signatures, 1)
-
-	assert.Equal(t, RejectedByte, gossipResp.Signatures[gossipers[0].Id].State)
-
+func TestGossiper_RoundHandlers(t *testing.T) {
+	gossipers := generateTestGossipGroup(t, 1, 0)
+	gossipers[0].RoundLength = 1
+	var lastCalled int64
+	currRound := gossipers[0].RoundAt(time.Now())
+	gossipers[0].AddRoundHandler(func(_ context.Context, round int64) {
+		lastCalled = round
+	})
+	gossipers[0].Start()
+	defer gossipers[0].Stop()
+	time.Sleep(time.Duration(gossipers[0].RoundLength) * time.Second)
+	assert.Equal(t, lastCalled, currRound+1)
 }

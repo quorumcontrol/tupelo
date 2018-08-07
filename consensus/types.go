@@ -17,6 +17,10 @@ func init() {
 	cbornode.RegisterCborType(TipSignature{})
 }
 
+const MessageType_AddBlock = "ADD_BLOCK"
+const MessageType_Feedback = "FEEDBACK"
+const MessageType_TipRequest = "TIP_REQUEST"
+
 type Wallet interface {
 	GetChain(id string) (*SignedChainTree, error)
 	SaveChain(chain *SignedChainTree) error
