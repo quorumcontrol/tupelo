@@ -69,17 +69,10 @@ func TestIntegrationGossipClient(t *testing.T) {
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
 	group := consensus.NewGroup(remoteNodes)
 
-	signer1 := &signer.Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[0].Bytes()).String(),
-		SignKey: ts.SignKeys[0],
-		VerKey:  ts.SignKeys[0].MustVerKey(),
-	}
-
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := signer.NewGossipedSigner(node1, signer1, store1)
+	gossipedSigner1 := signer.NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()

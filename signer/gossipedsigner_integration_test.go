@@ -97,17 +97,10 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
 	group := consensus.NewGroup(remoteNodes)
 
-	signer1 := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[0].Bytes()).String(),
-		SignKey: ts.SignKeys[0],
-		VerKey:  ts.SignKeys[0].MustVerKey(),
-	}
-
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := NewGossipedSigner(node1, signer1, store1)
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -152,17 +145,10 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	tree.ChainTree.ProcessBlock(signed)
 	log.Debug("expected tip: ", "tip", tree.Tip().String())
 
-	signer2 := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[1].Bytes()).String(),
-		SignKey: ts.SignKeys[1],
-		VerKey:  ts.SignKeys[1].MustVerKey(),
-	}
-
 	node2 := network.NewNode(ts.EcdsaKeys[1])
 	store2 := storage.NewMemStorage()
 
-	gossipedSigner2 := NewGossipedSigner(node2, signer2, store2)
+	gossipedSigner2 := NewGossipedSigner(node2, group, store2, ts.SignKeys[1])
 	gossipedSigner2.Start()
 	defer gossipedSigner2.Stop()
 
@@ -196,17 +182,10 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
 	group := consensus.NewGroup(remoteNodes)
 
-	signer1 := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[0].Bytes()).String(),
-		SignKey: ts.SignKeys[0],
-		VerKey:  ts.SignKeys[0].MustVerKey(),
-	}
-
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := NewGossipedSigner(node1, signer1, store1)
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -281,15 +260,9 @@ func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 	group := consensus.NewGroup(remoteNodes)
 
 	for i := 0; i < len(ts.SignKeys); i++ {
-		signer := &Signer{
-			Group:   group,
-			Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[i].Bytes()).String(),
-			SignKey: ts.SignKeys[i],
-			VerKey:  ts.SignKeys[i].MustVerKey(),
-		}
 		node := network.NewNode(ts.EcdsaKeys[i])
 		store := storage.NewMemStorage()
-		gossipedSigner := NewGossipedSigner(node, signer, store)
+		gossipedSigner := NewGossipedSigner(node, group, store, ts.SignKeys[i])
 		gossipedSigner.Start()
 		defer gossipedSigner.Stop()
 	}

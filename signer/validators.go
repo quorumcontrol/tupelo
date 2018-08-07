@@ -9,7 +9,7 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 )
 
-func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
+func isOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
 
 	id, _, err := tree.Resolve([]string{"id"})
 	if err != nil {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/quorumcontrol/qc3/bls"
+
 	"fmt"
 
 	"sync"
@@ -29,30 +31,29 @@ type responseHolder map[string]*pendingResponse
 
 type GossipedSigner struct {
 	gossiper  *gossip.Gossiper
-	signer    *Signer
 	started   bool
 	responses responseHolder
 	respLock  *sync.RWMutex
+	group     *consensus.Group
 }
 
 func GroupToTopic(group *consensus.Group) []byte {
 	return []byte(group.Id())
 }
 
-func NewGossipedSigner(node *network.Node, signer *Signer, store storage.Storage) *GossipedSigner {
+func NewGossipedSigner(node *network.Node, group *consensus.Group, store storage.Storage, signKey *bls.SignKey) *GossipedSigner {
 
 	gossipSigner := &GossipedSigner{
-		signer:    signer,
 		responses: make(responseHolder),
 		respLock:  &sync.RWMutex{},
 	}
 
-	handler := network.NewMessageHandler(node, GroupToTopic(signer.Group))
+	handler := network.NewMessageHandler(node, GroupToTopic(group))
 
 	gossiper := &gossip.Gossiper{
 		MessageHandler:  handler,
-		SignKey:         signer.SignKey,
-		Group:           signer.Group,
+		SignKey:         signKey,
+		Group:           group,
 		Storage:         store,
 		StateHandler:    gossipSigner.stateHandler,
 		AcceptedHandler: gossipSigner.acceptedHandler,
@@ -100,7 +101,7 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, group *consensus.Gro
 		}
 	}
 
-	resp, err := gs.signer.ProcessAddBlock(storedTip, addBlockrequest)
+	resp, err := processAddBlock(storedTip, addBlockrequest)
 	if err != nil {
 		log.Error("error processing block", "err", err)
 		return nil, false, nil

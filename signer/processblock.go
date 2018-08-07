@@ -9,7 +9,6 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/typecaster"
-	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 )
 
@@ -18,14 +17,7 @@ func init() {
 	typecaster.AddType(consensus.AddBlockRequest{})
 }
 
-type Signer struct {
-	Id      string
-	Group   *consensus.Group
-	VerKey  *bls.VerKey
-	SignKey *bls.SignKey
-}
-
-func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockRequest) (*consensus.AddBlockResponse, error) {
+func processAddBlock(currentTip *cid.Cid, req *consensus.AddBlockRequest) (*consensus.AddBlockResponse, error) {
 	log.Debug("process add block", "storedTip", currentTip)
 	if currentTip == nil {
 		if req.NewBlock.PreviousTip != "" {
@@ -59,7 +51,7 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 	chainTree, err := chaintree.NewChainTree(
 		tree,
 		[]chaintree.BlockValidatorFunc{
-			s.IsOwner,
+			isOwner,
 		},
 		consensus.DefaultTransactors,
 	)
@@ -75,14 +67,6 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 
 	tip := chainTree.Dag.Tip
 
-	log.Debug("signing", "tip", tip.String())
-
-	sig, err := consensus.BlsSign(tip.Bytes(), s.SignKey)
-
-	if err != nil {
-		return nil, fmt.Errorf("error signing: %v", err)
-	}
-
 	id, _, err := tree.Resolve([]string{"id"})
 	if err != nil {
 		return nil, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
@@ -90,9 +74,7 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 	log.Debug("signer stating new tip", "tip", tip.String())
 
 	return &consensus.AddBlockResponse{
-		SignerId:  s.Id,
-		Tip:       tip,
-		Signature: *sig,
-		ChainId:   id.(string),
+		Tip:     tip,
+		ChainId: id.(string),
 	}, nil
 }
