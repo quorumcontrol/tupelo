@@ -1,4 +1,4 @@
-package gossip2
+package gossip
 
 import (
 	"bytes"
