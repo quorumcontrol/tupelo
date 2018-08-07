@@ -295,6 +295,9 @@ func TestGossiper_RoundHandlers(t *testing.T) {
 	})
 	gossipers[0].Start()
 	defer gossipers[0].Stop()
+
 	time.Sleep(time.Duration(gossipers[0].RoundLength) * time.Second)
-	assert.Equal(t, lastCalled, currRound+1)
+	require.Equal(t, currRound+1, lastCalled)
+	time.Sleep(time.Duration(gossipers[0].RoundLength) * time.Second)
+	require.Equal(t, currRound+2, lastCalled)
 }
