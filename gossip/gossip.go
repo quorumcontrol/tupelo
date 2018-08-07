@@ -366,16 +366,6 @@ func (g *Gossiper) HandleGossip(ctx context.Context, msg *GossipMessage) error {
 	case phasePrepare:
 		return g.handlePrepareMessage(ctx, msg)
 	case phaseTentativeCommit:
-		if len(msg.PhaseSignatures) > 0 {
-			trans := msg.toUnsignedStoredTransaction()
-			verified, err := trans.verifyTentativeCommitSignatures(g.Group, msg.PhaseSignatures)
-			if err != nil {
-				return fmt.Errorf("error verifying signatures: %v", err)
-			}
-			if !verified {
-				return fmt.Errorf("error, invalid phaseSignatures in phaseTenativeCommit")
-			}
-		}
 		return g.handleTentativeCommitMessage(ctx, msg)
 	default:
 		return fmt.Errorf("unknown phase: %d", msg.Phase)
