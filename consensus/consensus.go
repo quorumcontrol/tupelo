@@ -26,6 +26,45 @@ func init() {
 
 type SignatureMap map[string]Signature
 
+// Merge returns a new SignatatureMap composed of the original with the other merged in
+// other wins when both SignatureMaps have signatures
+func (sm SignatureMap) Merge(other SignatureMap) SignatureMap {
+	newSm := make(SignatureMap)
+	for k, v := range sm {
+		newSm[k] = v
+	}
+	for k, v := range other {
+		newSm[k] = v
+	}
+	return newSm
+}
+
+// Subtract returns a new SignatureMap with only the new signatures
+// in other.
+func (sm SignatureMap) Subtract(other SignatureMap) SignatureMap {
+	newSm := make(SignatureMap)
+	for k, v := range sm {
+		_, ok := other[k]
+		if !ok {
+			newSm[k] = v
+		}
+	}
+	return newSm
+}
+
+// Only returns a new SignatureMap with only keys in the keys
+// slice argument
+func (sm SignatureMap) Only(keys []string) SignatureMap {
+	newSm := make(SignatureMap)
+	for _, key := range keys {
+		v, ok := sm[key]
+		if ok {
+			newSm[key] = v
+		}
+	}
+	return newSm
+}
+
 const (
 	KeyTypeBLSGroupSig = "BLS"
 	KeyTypeSecp256k1   = "secp256k1"
@@ -54,6 +93,12 @@ func AddrToDid(addr string) string {
 func DidToAddr(did string) string {
 	segs := strings.Split(did, ":")
 	return segs[len(segs)-1]
+}
+
+// ToEcdsaPub returns the ecdsa typed key from the bytes in the PublicKey
+// at this time there is no error checking.
+func (pk *PublicKey) ToEcdsaPub() *ecdsa.PublicKey {
+	return crypto.ToECDSAPub(pk.PublicKey)
 }
 
 func PublicKeyToAddr(key *PublicKey) string {
@@ -202,6 +247,21 @@ func BlsSign(payload interface{}, key *bls.SignKey) (*Signature, error) {
 		return nil, fmt.Errorf("error hashing block: %v", err)
 	}
 
+	sigBytes, err := key.Sign(hsh)
+	if err != nil {
+		return nil, fmt.Errorf("error signing: %v", err)
+	}
+
+	sig := &Signature{
+		Signature: sigBytes,
+		Type:      KeyTypeBLSGroupSig,
+	}
+
+	return sig, nil
+}
+
+// Sign the bytes sent in with no additional manipulation (no hashing or serializing)
+func BlsSignBytes(hsh []byte, key *bls.SignKey) (*Signature, error) {
 	sigBytes, err := key.Sign(hsh)
 	if err != nil {
 		return nil, fmt.Errorf("error signing: %v", err)

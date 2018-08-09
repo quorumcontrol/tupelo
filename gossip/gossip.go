@@ -699,6 +699,7 @@ func (g *Gossiper) handleCheckAccepted(ctx context.Context, id TransactionId) er
 		return fmt.Errorf("error checking bucket: %v", err)
 	}
 	if len(acceptedBytes) > 0 {
+		g.stopGossipChan <- id
 		return nil
 	}
 

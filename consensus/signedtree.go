@@ -43,6 +43,11 @@ func (sct *SignedChainTree) Tip() *cid.Cid {
 	return sct.ChainTree.Dag.Tip
 }
 
+func (sct *SignedChainTree) IsGenesis() bool {
+	newEmpty := NewEmptyTree(sct.MustId())
+	return newEmpty.Tip.Equals(sct.Tip())
+}
+
 func NewSignedChainTree(key ecdsa.PublicKey) (*SignedChainTree, error) {
 	tree, err := chaintree.NewChainTree(
 		NewEmptyTree(AddrToDid(crypto.PubkeyToAddress(key).String())),

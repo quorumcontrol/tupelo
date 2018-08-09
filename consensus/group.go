@@ -89,6 +89,21 @@ func (group *Group) AsVerKeyMap() map[string]PublicKey {
 	return sigMap
 }
 
+// VerifyAvailableSignatures just validates that all the sigs are valid in the supplied argument,
+// but does not verify that the super majority count has signed
+func (group *Group) VerifyAvailableSignatures(msg []byte, sig *Signature) (bool, error) {
+	var expectedKeyBytes [][]byte
+	for i, didSign := range sig.Signers {
+		if didSign {
+			expectedKeyBytes = append(expectedKeyBytes, group.SortedMembers[i].VerKey.PublicKey)
+		}
+	}
+
+	log.Trace("verifyAvailableSignature - verifying")
+
+	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
+}
+
 func (group *Group) VerifySignature(msg []byte, sig *Signature) (bool, error) {
 	requiredNum := group.SuperMajorityCount()
 	log.Trace("verify signature", "requiredNum", requiredNum)
@@ -118,11 +133,11 @@ func (group *Group) CombineSignatures(sigs SignatureMap) (*Signature, error) {
 	for i, member := range group.SortedMembers {
 		sig, ok := sigs[member.Id]
 		if ok {
-			log.Debug("combine signatures, signer signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
+			log.Trace("combine signatures, signer signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
 			sigBytes = append(sigBytes, sig.Signature)
 			signers[i] = true
 		} else {
-			log.Debug("signer not signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
+			log.Trace("signer not signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
 			signers[i] = false
 		}
 	}

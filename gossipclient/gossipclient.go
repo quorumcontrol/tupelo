@@ -124,21 +124,28 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		return nil, fmt.Errorf("error doing request: %v", err)
 	}
 
-	isValid, err := tree.ChainTree.ProcessBlock(blockWithHeaders)
-	if err != nil || !isValid {
-		return nil, fmt.Errorf("error, invalid transactions: %v", err)
-	}
-
 	resp := <-respChan
-
+	var addResponse *consensus.AddBlockResponse
 	if resp.Code == 200 {
-		addResponse := &consensus.AddBlockResponse{}
+		addResponse = &consensus.AddBlockResponse{}
 		err = cbornode.DecodeInto(resp.Payload, addResponse)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding: %v", err)
 		}
-		return addResponse, nil
+		tree.Signatures[gc.Group.Id()] = addResponse.Signature
+
 	} else {
 		return nil, fmt.Errorf("error on request code: %d, err: %s", resp.Code, resp.Payload)
 	}
+
+	_, err = tree.ChainTree.ProcessBlock(blockWithHeaders)
+	if err != nil {
+		return nil, fmt.Errorf("error, invalid transactions: %v", err)
+	}
+
+	if tree.Signatures == nil {
+		tree.Signatures = make(consensus.SignatureMap)
+	}
+
+	return addResponse, nil
 }

@@ -146,7 +146,7 @@ func (rh *MessageHandler) DoRequest(destination *ecdsa.PublicKey, req *Request) 
 		return nil, fmt.Errorf("error converting request: %v", err)
 	}
 
-	log.Debug("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Trace("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err = rh.send(destination, wireBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error sending: %v", err)
@@ -155,7 +155,23 @@ func (rh *MessageHandler) DoRequest(destination *ecdsa.PublicKey, req *Request) 
 	return respChan, nil
 }
 
-// will be deprecated when gossip, but leaving for current implementation
+// Push sends a message to a destination, but does not wait for any response
+func (rh *MessageHandler) Push(destination *ecdsa.PublicKey, req *Request) error {
+	wireBytes, err := requestToWireFormat(req)
+	if err != nil {
+		return fmt.Errorf("error converting request: %v", err)
+	}
+
+	log.Trace("sending destination message", "id", req.Id, "destination", crypto.PubkeyToAddress(*destination).String(), "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	err = rh.send(destination, wireBytes)
+	if err != nil {
+		return fmt.Errorf("error sending: %v", err)
+	}
+
+	return nil
+}
+
+// Broadcast will be deprecated when gossip, but leaving for current implementation
 func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *Response, error) {
 	respChan := make(chan *Response)
 	rh.requestLock.Lock()
@@ -199,10 +215,10 @@ func (rh *MessageHandler) send(dst *ecdsa.PublicKey, payload []byte) error {
 }
 
 func (rh *MessageHandler) handleRequest(req *Request) {
-	log.Debug("request received", "type", req.Type)
+	log.Trace("request received", "type", req.Type)
 	handler, ok := rh.mappings[req.Type]
 	if ok {
-		log.Debug("handling message", "id", req.Id)
+		log.Trace("handling message", "id", req.Id)
 		respChan := make(ResponseChan, 1)
 		defer close(respChan)
 
@@ -219,17 +235,19 @@ func (rh *MessageHandler) handleRequest(req *Request) {
 			}
 		}
 
-		resp.Id = req.Id
-		wireBytes, err := responseToWireFormat(resp)
-		if err != nil {
-			log.Error("error converting response", "err", err)
-			return
-		}
-		log.Debug("responding", "id", req.Id, "destination", crypto.PubkeyToAddress(*req.source).String())
+		if resp != nil {
+			resp.Id = req.Id
+			wireBytes, err := responseToWireFormat(resp)
+			if err != nil {
+				log.Error("error converting response", "err", err)
+				return
+			}
+			log.Debug("responding", "id", req.Id, "destination", crypto.PubkeyToAddress(*req.source).String())
 
-		err = rh.send(req.source, wireBytes)
-		if err != nil {
-			log.Error("error sending request", "err", err)
+			err = rh.send(req.source, wireBytes)
+			if err != nil {
+				log.Error("error sending request", "err", err)
+			}
 		}
 	} else {
 		log.Info("invalid message type", "type", req.Type)
@@ -293,7 +311,7 @@ func (rh *MessageHandler) Start() {
 		for {
 			select {
 			case msg := <-rh.messageChan:
-				log.Debug("message received", "msg", msg)
+				log.Trace("message received", "msg", msg)
 				if msg == nil {
 					log.Error("received nil msg")
 					continue
@@ -325,7 +343,7 @@ func (rh *MessageHandler) Start() {
 				for _, sub := range rh.subs {
 					messages := sub.RetrieveMessages()
 					for _, msg := range messages {
-						log.Debug("message received", "msg", msg)
+						log.Trace("message received", "msg", msg)
 						rh.messageChan <- messageToWireFormat(msg)
 					}
 				}

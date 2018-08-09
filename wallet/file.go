@@ -42,11 +42,15 @@ func (fw *FileWallet) Close() {
 	fw.boltStorage.Close()
 }
 
-func (fw *FileWallet) getAllNodes(cid []byte) ([]*cbornode.Node, error) {
+func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
 	nodes := make([]*cbornode.Node, 1)
-	nodeBytes, err := fw.boltStorage.Get(nodeBucket, cid)
+	nodeBytes, err := fw.boltStorage.Get(nodeBucket, objCid)
 	if err != nil {
 		return nil, fmt.Errorf("error getting nodes: %v", err)
+	}
+	if len(nodeBytes) == 0 {
+		id, _ := cid.Cast(objCid)
+		return nil, fmt.Errorf("error, node not stored: %s ", id.String())
 	}
 
 	sw := dag.SafeWrap{}
