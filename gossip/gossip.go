@@ -20,11 +20,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 )
 
 func init() {
@@ -602,7 +602,7 @@ func (g *Gossiper) GetCurrentState(objectId []byte) (sig GossipSignature, err er
 func (g *Gossiper) setCurrentState(objectId []byte, sigs GossipSignatureMap) error {
 	consensusSigs := make(consensus.SignatureMap)
 	var state []byte
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 
 	for signer, gossipSig := range sigs {
 		consensusSigs[signer] = gossipSig.Signature
@@ -658,7 +658,7 @@ func (g *Gossiper) sigFromBytes(_ context.Context, sigBytes []byte) (*GossipSign
 
 func (g *Gossiper) saveSig(ctx context.Context, transactionId TransactionId, signer string, sig *GossipSignature) error {
 	log.Trace("saveSig", "req", ctx.Value(ctxRequestKey), "elapsed", elapsedTime(ctx))
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	sigBytes := sw.WrapObject(sig)
 	if sw.Err != nil {
 		return fmt.Errorf("error wrapping sig: %v", sw.Err)

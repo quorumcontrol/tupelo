@@ -9,18 +9,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/quorumcontrol/chaintree/dag"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/namedlocker"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/stack"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 )
 
 func init() {
@@ -716,7 +715,7 @@ func (g *Gossiper) getTransaction(csID conflictSetID, transID transactionID) (*s
 }
 
 func (g *Gossiper) saveTransaction(csID conflictSetID, trans *storedTransaction) error {
-	sw := dag.SafeWrap{}
+	sw := safewrap.SafeWrap{}
 	node := sw.WrapObject(trans)
 	if sw.Err != nil {
 		return fmt.Errorf("error wrapping object: %v", sw.Err)
@@ -752,7 +751,7 @@ func (g *Gossiper) setCurrentState(state *CurrentState) error {
 	g.locker.Lock(string(state.ObjectID))
 	defer g.locker.Unlock(string(state.ObjectID))
 
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	node := sw.WrapObject(state)
 	if sw.Err != nil {
 		return fmt.Errorf("error wraping: %v", sw.Err)

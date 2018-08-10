@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
 	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 )
 
 const DefaultTTL = 60
@@ -107,7 +107,7 @@ func (rh *MessageHandler) HandleKey(topic []byte, key *ecdsa.PrivateKey) {
 }
 
 func BuildResponse(id string, code int, payload interface{}) (*Response, error) {
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	node := sw.WrapObject(payload)
 	if sw.Err != nil {
 		return nil, fmt.Errorf("error wrapping: %v", sw.Err)
@@ -121,7 +121,7 @@ func BuildResponse(id string, code int, payload interface{}) (*Response, error) 
 }
 
 func BuildRequest(reqType string, payload interface{}) (*Request, error) {
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	node := sw.WrapObject(payload)
 	if sw.Err != nil {
 		return nil, fmt.Errorf("error wrapping: %v", sw.Err)
@@ -178,7 +178,7 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *R
 	rh.outstandingRequests[req.Id] = respChan
 	rh.requestLock.Unlock()
 
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	reqNode := sw.WrapObject(&Message{Request: req})
 	if sw.Err != nil {
 		log.Error("error wrapping request", "err", sw.Err)
@@ -379,7 +379,7 @@ func messageToWireFormat(message *ReceivedMessage) *Message {
 }
 
 func responseToWireFormat(resp *Response) ([]byte, error) {
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 
 	msg := &Message{
 		Response: resp,
@@ -394,7 +394,7 @@ func responseToWireFormat(resp *Response) ([]byte, error) {
 }
 
 func requestToWireFormat(req *Request) ([]byte, error) {
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 
 	msg := &Message{
 		Request: req,

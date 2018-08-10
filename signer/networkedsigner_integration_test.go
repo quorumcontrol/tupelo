@@ -13,7 +13,7 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,10 +77,7 @@ func TestIntegrationNetworkedSignerBuildingTransactions(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	nodes := make([][]byte, len(tree.ChainTree.Dag.Nodes()))
-	for i, node := range tree.ChainTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
+	nodes := dagToByteNodes(t, tree.ChainTree.Dag)
 
 	addBlockRequest := &consensus.AddBlockRequest{
 		Nodes:    nodes,
@@ -128,10 +125,7 @@ func TestIntegrationNetworkedSignerBuildingTransactions(t *testing.T) {
 	blockWithHeaders2, err := consensus.SignBlock(unsignedBlock2, treeKey)
 	assert.Nil(t, err)
 
-	nodes2 := make([][]byte, len(tree.ChainTree.Dag.Nodes()))
-	for i, node := range tree.ChainTree.Dag.Nodes() {
-		nodes2[i] = node.Node.RawData()
-	}
+	nodes2 := dagToByteNodes(t, tree.ChainTree.Dag)
 
 	addBlockRequest2 := &consensus.AddBlockRequest{
 		Nodes:    nodes2,
@@ -179,10 +173,7 @@ func TestIntegrationNetworkedSignerBuildingTransactions(t *testing.T) {
 	blockWithHeaders3, err := consensus.SignBlock(unsignedBlock3, treeKey)
 	assert.Nil(t, err)
 
-	nodes3 := make([][]byte, len(tree.ChainTree.Dag.Nodes()))
-	for i, node := range tree.ChainTree.Dag.Nodes() {
-		nodes3[i] = node.Node.RawData()
-	}
+	nodes3 := dagToByteNodes(t, tree.ChainTree.Dag)
 
 	addBlockRequest3 := &consensus.AddBlockRequest{
 		Nodes:    nodes3,
@@ -264,10 +255,7 @@ func TestIntegrationNetworkedSigner(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	nodes := make([][]byte, len(tree.ChainTree.Dag.Nodes()))
-	for i, node := range tree.ChainTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
+	nodes := dagToByteNodes(t, tree.ChainTree.Dag)
 
 	addBlockRequest := &consensus.AddBlockRequest{
 		Nodes:    nodes,

@@ -5,14 +5,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/storage"
 )
 
 func init() {
@@ -136,8 +140,8 @@ func BlockToHash(block chaintree.Block) ([]byte, error) {
 	return ObjToHash(block)
 }
 
-func NewEmptyTree(did string) *dag.BidirectionalTree {
-	sw := &dag.SafeWrap{}
+func NewEmptyTree(did string) *dag.Dag {
+	sw := &safewrap.SafeWrap{}
 	treeNode := sw.WrapObject(make(map[string]string))
 
 	chainNode := sw.WrapObject(make(map[string]string))
@@ -152,8 +156,12 @@ func NewEmptyTree(did string) *dag.BidirectionalTree {
 	if sw.Err != nil {
 		panic(sw.Err)
 	}
-
-	return dag.NewBidirectionalTree(root.Cid(), root, treeNode, chainNode)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	dag, err := dag.NewDagWithNodes(nodeStore, root, treeNode, chainNode)
+	if err != nil {
+		panic(err) // TODO: this err was introduced, keeping external interface the same
+	}
+	return dag
 }
 
 func SignBlock(blockWithHeaders *chaintree.BlockWithHeaders, key *ecdsa.PrivateKey) (*chaintree.BlockWithHeaders, error) {
@@ -319,7 +327,7 @@ func Verify(hsh []byte, sig Signature, key PublicKey) (bool, error) {
 }
 
 func ObjToHash(payload interface{}) ([]byte, error) {
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 
 	wrapped := sw.WrapObject(payload)
 	if sw.Err != nil {

@@ -2,6 +2,7 @@ package signer
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -9,14 +10,12 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 )
 
-func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
+func (s *Signer) IsOwner(tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
 
 	id, _, err := tree.Resolve([]string{"id"})
 	if err != nil {
 		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
-
-	storedTip := tree.Tip
 
 	headers := &consensus.StandardHeaders{}
 
@@ -27,33 +26,23 @@ func (s *Signer) IsOwner(tree *dag.BidirectionalTree, blockWithHeaders *chaintre
 
 	var addrs []string
 
-	oldRoot := tree.Get(storedTip)
-	if oldRoot == nil {
-		return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: "missing old root"}
-	}
-
-	uncastAuths, remain, err := oldRoot.Resolve(tree, []string{"tree", "_qc", "authentications"})
+	uncastAuths, _, err := tree.Resolve(strings.Split("tree/"+consensus.TreePathForAuthentications, "/"))
 	if err != nil {
-		if err.(*dag.ErrorCode).GetCode() == dag.ErrMissingPath {
-			addrs = []string{consensus.DidToAddr(id.(string))}
-		} else {
-			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
-		}
+		return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
+	}
+	// If there are no authentications then the Chain Tree is still owned by its genesis key
+	if uncastAuths == nil {
+		addrs = []string{consensus.DidToAddr(id.(string))}
 	} else {
-		// if there is no _qc or no authentications then it's like a genesis block
-		if len(remain) == 1 || len(remain) == 2 {
-			addrs = []string{consensus.DidToAddr(id.(string))}
-		} else {
-			var authentications []*consensus.PublicKey
-			err = typecaster.ToType(uncastAuths, &authentications)
-			if err != nil {
-				return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
-			}
+		var authentications []*consensus.PublicKey
+		err = typecaster.ToType(uncastAuths, &authentications)
+		if err != nil {
+			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
+		}
 
-			addrs = make([]string, len(authentications))
-			for i, key := range authentications {
-				addrs[i] = consensus.PublicKeyToAddr(key)
-			}
+		addrs = make([]string, len(authentications))
+		for i, key := range authentications {
+			addrs[i] = consensus.PublicKeyToAddr(key)
 		}
 	}
 

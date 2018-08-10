@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
-	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +39,7 @@ func TestNode_Integration(t *testing.T) {
 		Payload: []byte("PONG"),
 	}
 
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	node := sw.WrapObject(req)
 	if sw.Err != nil {
 		t.Fatalf("error wrapping: %v", sw.Err)

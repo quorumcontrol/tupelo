@@ -4,14 +4,17 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 )
 
 var chainBucket = []byte("chains")
@@ -53,7 +56,7 @@ func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
 		return nil, fmt.Errorf("error, node not stored: %s ", id.String())
 	}
 
-	sw := dag.SafeWrap{}
+	sw := safewrap.SafeWrap{}
 	node := sw.Decode(nodeBytes)
 	if sw.Err != nil {
 		return nil, fmt.Errorf("error decoding: %v", err)
@@ -101,9 +104,12 @@ func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
 		return nil, fmt.Errorf("error getting nodes: %v", err)
 	}
 
-	dag := dag.NewBidirectionalTree(tipCid, nodes...)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
-	tree, err := chaintree.NewChainTree(dag, nil, consensus.DefaultTransactors)
+	dagTree := dag.NewDag(tipCid, nodeStore)
+	dagTree.AddNodes(nodes...)
+
+	tree, err := chaintree.NewChainTree(dagTree, nil, consensus.DefaultTransactors)
 	if err != nil {
 		return nil, fmt.Errorf("error creating tree: %v", err)
 	}
@@ -115,12 +121,15 @@ func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
 }
 
 func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
-	nodes := signedChain.ChainTree.Dag.Nodes()
+	nodes, err := signedChain.ChainTree.Dag.Nodes()
+	if err != nil {
+		return fmt.Errorf("error getting nodes: %v", err)
+	}
 	for _, node := range nodes {
-		fw.boltStorage.Set(nodeBucket, node.Node.Cid().Bytes(), node.Node.RawData())
+		fw.boltStorage.Set(nodeBucket, node.Cid().Bytes(), node.RawData())
 	}
 
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 	signatureNode := sw.WrapObject(signedChain.Signatures)
 	if sw.Err != nil {
 		return fmt.Errorf("error wrapping signatures: %v", sw.Err)

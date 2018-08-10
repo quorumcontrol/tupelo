@@ -24,47 +24,51 @@ func init() {
 	cbornode.RegisterCborType(StakePayload{})
 }
 
+// SetDataPayload is the payload for a SetDataTransaction
+// Path / Value
 type SetDataPayload struct {
 	Path  string
 	Value interface{}
 }
 
-func SetDataTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
+// SetDataTransaction just sets a path in a tree to arbitrary data. It makes sure no data is being changed in the _qc path.
+func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &SetDataPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
-		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
 	if payload.Path == "_qc" || strings.HasPrefix(payload.Path, "_qc/") {
-		return false, &ErrorCode{Code: 999, Memo: "the path prefix _qc is reserved"}
+		return nil, false, &ErrorCode{Code: 999, Memo: "the path prefix _qc is reserved"}
 	}
 
-	err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
+	newTree, err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
 	if err != nil {
-		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
 
-	return true, nil
+	return newTree, true, nil
 }
 
 type setOwnershipPayload struct {
 	Authentication []*PublicKey
 }
 
-func SetOwnershipTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
+// SetOwnershipTransaction changes the ownership of a tree by adding a public key array to /_qc/authentications
+func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &setOwnershipPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
-		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	err = tree.Set(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
+	newTree, err = tree.Set(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
 	if err != nil {
-		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
 
-	return true, nil
+	return newTree, true, nil
 }
 
 type StakePayload struct {
@@ -76,17 +80,17 @@ type StakePayload struct {
 
 // THIS IS A pre-ALPHA TRANSACTION AND NO RULES ARE ENFORCED! Anyone can stake and join a group with no consequences.
 // additionally, it only allows staking a single group at the moment
-func StakeTransaction(tree *dag.BidirectionalTree, transaction *chaintree.Transaction) (valid bool, codedErr chaintree.CodedError) {
+func StakeTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &StakePayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
-		return false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	err = tree.Set(strings.Split(TreePathForStake, "/"), payload)
+	newTree, err = tree.Set(strings.Split(TreePathForStake, "/"), payload)
 	if err != nil {
-		return false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
 
-	return true, nil
+	return newTree, true, nil
 }
