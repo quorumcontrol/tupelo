@@ -411,7 +411,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	req := &consensus.AddBlockRequest{
 		Nodes:    nodes1,
-		Tip:      testTree.Dag.Tipp,
+		Tip:      testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
