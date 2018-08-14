@@ -63,7 +63,7 @@ func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) 
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	newTree, err = tree.Set(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
+	newTree, err = tree.SetAsLink(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
@@ -87,7 +87,7 @@ func StakeTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTre
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	newTree, err = tree.Set(strings.Split(TreePathForStake, "/"), payload)
+	newTree, err = tree.SetAsLink(strings.Split(TreePathForStake, "/"), payload)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}

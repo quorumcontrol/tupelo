@@ -332,7 +332,7 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:b70ce49f8b38af453f16d33df88165ed6050effe3d5989ff1d3985eb05522e00"
+  digest = "1:d1650f2af1ccc51b64ac87cb09cfeca8f4b95ce5cea034a8d7f7e18fef8151f5"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -342,8 +342,8 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "9f5cb3528a6b53752a588ac860ef2e5d192b34f3"
-  version = "v0.0.2"
+  revision = "c111f487b8d28ae71f64695ec785fbdf29013321"
+  version = "v0.0.3"
 
 [[projects]]
   branch = "master"
@@ -586,8 +586,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/abiosoft/ishell",
-    "github.com/coreos/bbolt",
-    "github.com/davecgh/go-spew/spew",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/crypto",
@@ -601,13 +599,14 @@
     "github.com/mitchellh/go-homedir",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
+    "github.com/quorumcontrol/chaintree/nodestore",
+    "github.com/quorumcontrol/chaintree/safewrap",
     "github.com/quorumcontrol/chaintree/typecaster",
+    "github.com/quorumcontrol/storage",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
-    "golang.org/x/crypto/nacl/secretbox",
-    "golang.org/x/crypto/scrypt",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
