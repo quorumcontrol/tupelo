@@ -71,6 +71,7 @@ type handler interface {
 type stateHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error)
 type acceptedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, newState []byte) (err error)
 type rejectedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error)
+type roundHandler func(ctx context.Context, round int64)
 
 // CurrentState is the state of an object in the gossip system
 // and its associated tip and signature
@@ -178,6 +179,8 @@ type Gossiper struct {
 	stacks          *sync.Map
 	stackPokeChan   chan *poker
 	pokeStopChan    chan bool
+	roundHandlers   []roundHandler
+	roundStopChan   chan bool
 }
 
 const (
