@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"github.com/quorumcontrol/qc3/gossipclient"
 
 	"time"
@@ -118,7 +120,8 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
 	assert.Nil(t, err)
 
 	// First we test that a gossipedSigner1 can receive messages
@@ -203,7 +206,9 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
 	assert.Nil(t, err)
 
 	// First we test that a gossipedSigner1 can receive messages
@@ -275,7 +280,9 @@ func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	chain, err := consensus.NewSignedChainTree(key.PublicKey)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodeStore)
 	require.Nil(t, err)
 
 	resp, err := client.PlayTransactions(chain, key, "", []*chaintree.Transaction{

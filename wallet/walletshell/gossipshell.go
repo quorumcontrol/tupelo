@@ -95,7 +95,8 @@ func RunGossip(name string, group *consensus.Group) {
 				c.Println("error getting key", err)
 				return
 			}
-			chain, err := consensus.NewSignedChainTree(key.PublicKey)
+
+			chain, err := consensus.NewSignedChainTree(key.PublicKey, currentWallet.NodeStore())
 			if err != nil {
 				c.Printf("error generating chain: %v", err)
 				return
