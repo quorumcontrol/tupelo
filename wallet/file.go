@@ -27,6 +27,7 @@ var _ consensus.Wallet = (*FileWallet)(nil)
 
 type FileWallet struct {
 	boltStorage storage.EncryptedStorage
+	nodeStore   nodestore.NodeStore
 }
 
 func NewFileWallet(passphrase, path string) *FileWallet {
@@ -43,6 +44,14 @@ func NewFileWallet(passphrase, path string) *FileWallet {
 
 func (fw *FileWallet) Close() {
 	fw.boltStorage.Close()
+}
+
+// NodeStore returns a NodeStore based on the underlying storage system of the wallet
+func (fw *FileWallet) NodeStore() nodestore.NodeStore {
+	if fw.nodeStore == nil { //TODO: thread safety
+		fw.nodeStore = nodestore.NewStorageBasedStore(fw.boltStorage)
+	}
+	return fw.nodeStore
 }
 
 func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {

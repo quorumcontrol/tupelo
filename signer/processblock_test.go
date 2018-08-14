@@ -3,6 +3,9 @@ package signer
 import (
 	"testing"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -43,7 +46,8 @@ func TestprocessAddBlock(t *testing.T) {
 		},
 	}
 
-	emptyTree := consensus.NewEmptyTree(treeDID)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 
 	nodes := dagToByteNodes(t, emptyTree)
 
@@ -230,9 +234,9 @@ func TestprocessAddBlock(t *testing.T) {
 func TestSigner_NextBlockValidation(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
-
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
-	emptyTree := consensus.NewEmptyTree(treeDID)
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
 
 	savedcid := *emptyTree.Tip
