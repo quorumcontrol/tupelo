@@ -18,12 +18,12 @@ const (
 
 func init() {
 	typecaster.AddType(SetDataPayload{})
-	typecaster.AddType(setOwnershipPayload{})
+	typecaster.AddType(SetOwnershipPayload{})
 	typecaster.AddType(EstablishCoinPayload{})
 	typecaster.AddType(CoinMonetaryPolicy{})
 	typecaster.AddType(StakePayload{})
 	cbornode.RegisterCborType(SetDataPayload{})
-	cbornode.RegisterCborType(setOwnershipPayload{})
+	cbornode.RegisterCborType(SetOwnershipPayload{})
 	cbornode.RegisterCborType(EstablishCoinPayload{})
 	cbornode.RegisterCborType(CoinMonetaryPolicy{})
 	cbornode.RegisterCborType(StakePayload{})
@@ -56,13 +56,13 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 	return newTree, true, nil
 }
 
-type setOwnershipPayload struct {
+type SetOwnershipPayload struct {
 	Authentication []*PublicKey
 }
 
 // SetOwnershipTransaction changes the ownership of a tree by adding a public key array to /_qc/authentications
 func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
-	payload := &setOwnershipPayload{}
+	payload := &SetOwnershipPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
