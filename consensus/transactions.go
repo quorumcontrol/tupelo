@@ -12,15 +12,20 @@ import (
 
 const (
 	TreePathForAuthentications = "_qc/authentications"
+	TreePathForCoins           = "_qc/coins"
 	TreePathForStake           = "_qc/stake"
 )
 
 func init() {
 	typecaster.AddType(SetDataPayload{})
 	typecaster.AddType(setOwnershipPayload{})
+	typecaster.AddType(EstablishCoinPayload{})
+	typecaster.AddType(CoinMonetaryPolicy{})
 	typecaster.AddType(StakePayload{})
 	cbornode.RegisterCborType(SetDataPayload{})
 	cbornode.RegisterCborType(setOwnershipPayload{})
+	cbornode.RegisterCborType(EstablishCoinPayload{})
+	cbornode.RegisterCborType(CoinMonetaryPolicy{})
 	cbornode.RegisterCborType(StakePayload{})
 }
 
@@ -64,6 +69,50 @@ func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) 
 	}
 
 	newTree, err = tree.SetAsLink(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	return newTree, true, nil
+}
+
+type CoinMonetaryPolicy struct {
+	Maximum uint64
+}
+
+type EstablishCoinPayload struct {
+	Name           string
+	MonetaryPolicy CoinMonetaryPolicy
+}
+
+func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
+	payload := &EstablishCoinPayload{}
+	err := typecaster.ToType(transaction.Payload, payload)
+
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	coinName := payload.Name
+	coinPath := append(strings.Split(TreePathForCoins, "/"), coinName)
+
+	coinExists, _, _ := tree.Resolve(coinPath)
+	if coinExists != nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error, coin at path %v already exists", coinPath)}
+	}
+
+	coinData := map[string]interface{}{
+		"mints":    nil,
+		"sends":    nil,
+		"receives": nil,
+	}
+
+	newTree, err = tree.SetAsLink(coinPath, coinData)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting 4: %v", err)}
+	}
+
+	newTree, err = tree.SetAsLink(append(coinPath, "monetaryPolicy"), payload.MonetaryPolicy)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
