@@ -5,6 +5,8 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"crypto/ecdsa"
 
 	"strings"
@@ -13,7 +15,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,18 +46,22 @@ func TestFileWallet_GetChain(t *testing.T) {
 
 	savedTree, err := fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
+	signedNodes, err := signedTree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
 
-	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+	savedNodes, err := savedTree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
+	assert.Equal(t, len(signedNodes), len(savedNodes))
 
-	origCids := make([]string, len(signedTree.ChainTree.Dag.Nodes()))
-	newCids := make([]string, len(savedTree.ChainTree.Dag.Nodes()))
+	origCids := make([]string, len(signedNodes))
+	newCids := make([]string, len(savedNodes))
 
-	for i, node := range signedTree.ChainTree.Dag.Nodes() {
-		origCids[i] = node.Node.Cid().String()
+	for i, node := range signedNodes {
+		origCids[i] = node.Cid().String()
 	}
 
-	for i, node := range savedTree.ChainTree.Dag.Nodes() {
-		newCids[i] = node.Node.Cid().String()
+	for i, node := range savedNodes {
+		newCids[i] = node.Cid().String()
 	}
 	sort.Strings(origCids)
 	sort.Strings(newCids)
@@ -78,8 +84,12 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	savedTree, err := fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
+	signedNodes, err := signedTree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
 
-	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+	savedNodes, err := savedTree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
+	assert.Equal(t, len(signedNodes), len(savedNodes))
 
 	hsh := crypto.Keccak256([]byte("hi"))
 
@@ -100,7 +110,10 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	savedTree, err = fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
 
-	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+	savedNodes, err = savedTree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
+
+	assert.Equal(t, len(signedNodes), len(savedNodes))
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -124,14 +137,15 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	//require.Nil(t, err)
 	//require.True(t, isValid)
 
-	newTree := signedTree.ChainTree.Dag.Copy()
+	newTree := signedTree.ChainTree.Dag.WithNewTip(signedTree.ChainTree.Dag.Tip)
 
-	unmarshaledRoot := newTree.Get(newTree.Tip)
+	unmarshaledRoot, err := newTree.Get(newTree.Tip)
+	require.Nil(t, err)
 	require.NotNil(t, unmarshaledRoot)
 
 	root := &chaintree.RootNode{}
 
-	err = cbornode.DecodeInto(unmarshaledRoot.Node.RawData(), root)
+	err = cbornode.DecodeInto(unmarshaledRoot.RawData(), root)
 	require.Nil(t, err)
 
 	require.NotNil(t, root.Tree)
@@ -141,11 +155,12 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	newTree.Set(strings.Split("something", "/"), "hi")
 	signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
 
-	chainNode := signedTree.ChainTree.Dag.Get(root.Chain)
-	chainMap, err := chainNode.AsMap()
+	chainNode, err := signedTree.ChainTree.Dag.Get(root.Chain)
+	require.Nil(t, err)
+	chainMap, err := nodestore.CborNodeToObj(chainNode)
 	require.Nil(t, err)
 
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 
 	wrappedBlock := sw.WrapObject(blockWithHeaders)
 	require.Nil(t, sw.Err)
@@ -160,9 +175,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	signedTree.ChainTree.Dag.AddNodes(entryNode)
 	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
-	signedTree.ChainTree.Dag.Swap(chainNode.Node.Cid(), newChainNode)
-
-	signedTree.ChainTree.Dag.Prune()
+	signedTree.ChainTree.Dag.Swap(chainNode.Cid(), newChainNode)
 
 	t.Log(signedTree.ChainTree.Dag.Dump())
 
@@ -171,8 +184,10 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	savedTree, err = fw.GetChain(signedTree.MustId())
 	require.Nil(t, err)
+	savedNodes, err = savedTree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
 
-	assert.Equal(t, len(signedTree.ChainTree.Dag.Nodes()), len(savedTree.ChainTree.Dag.Nodes()))
+	assert.Equal(t, len(signedNodes), len(savedNodes))
 
 }
 

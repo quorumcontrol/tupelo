@@ -5,10 +5,22 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
+	cborNodes, err := dagTree.Nodes()
+	require.Nil(t, err)
+	nodes := make([][]byte, len(cborNodes))
+	for i, node := range cborNodes {
+		nodes[i] = node.RawData()
+	}
+	return nodes
+}
 
 func createSigner(t *testing.T) *Signer {
 	key, err := bls.NewSignKey()
@@ -58,10 +70,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 
 	emptyTree := consensus.NewEmptyTree(treeDID)
 
-	nodes := make([][]byte, len(emptyTree.Nodes()))
-	for i, node := range emptyTree.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
+	nodes := dagToByteNodes(t, emptyTree)
 
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
@@ -101,10 +110,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		},
 	}
 
-	nodes = make([][]byte, len(testTree.Dag.Nodes()))
-	for i, node := range testTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
+	nodes = dagToByteNodes(t, testTree.Dag)
 
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
@@ -115,7 +121,7 @@ func TestSigner_ProcessRequest(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
@@ -145,19 +151,14 @@ func TestSigner_ProcessRequest(t *testing.T) {
 
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
-
-	nodes = make([][]byte, len(testTree.Dag.Nodes()))
-	for i, node := range testTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
-
+	nodes = dagToByteNodes(t, testTree.Dag)
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(blockWithHeaders)
@@ -186,18 +187,15 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	nodes = make([][]byte, len(testTree.Dag.Nodes()))
-	for i, node := range testTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
+	nodes = dagToByteNodes(t, testTree.Dag)
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
@@ -206,11 +204,11 @@ func TestSigner_ProcessRequest(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
 	assert.Nil(t, err)
 
 	valid, err = testTree.ProcessBlock(blockWithHeaders)
@@ -242,18 +240,15 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
 	assert.Nil(t, err)
 
-	nodes = make([][]byte, len(testTree.Dag.Nodes()))
-	for i, node := range testTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
-	}
+	nodes = dagToByteNodes(t, testTree.Dag)
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(emptyTree.Tip, req)
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
 	assert.NotNil(t, err)
 }
 
@@ -284,10 +279,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		},
 	}
 
-	nodes1 := make([][]byte, len(emptyTree.Nodes()))
-	for i, node := range emptyTree.Nodes() {
-		nodes1[i] = node.Node.RawData()
-	}
+	nodes1 := dagToByteNodes(t, emptyTree)
 
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
@@ -319,10 +311,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		},
 	}
 
-	nodes2 := make([][]byte, len(emptyTree.Nodes()))
-	for i, node := range emptyTree.Nodes() {
-		nodes2[i] = node.Node.RawData()
-	}
+	nodes2 := dagToByteNodes(t, testTree.Dag)
 
 	blockWithHeaders2, err := consensus.SignBlock(unsignedBlock2, treeKey)
 	assert.Nil(t, err)
@@ -333,16 +322,14 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders2,
 	}
 
-	resp2, err := signer.ProcessAddBlock(emptyTree.Tip, req2)
+	resp2, err := signer.ProcessAddBlock(testTree.Dag.Tip, req2)
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders2)
 	assert.Equal(t, resp2.Tip, testTree.Dag.Tip)
 
-	nodes3 := make([][]byte, len(emptyTree.Nodes()))
-	for i, node := range emptyTree.Nodes() {
-		nodes3[i] = node.Node.RawData()
-	}
+	// test that a nil PreviousTip fails
+	nodes3 := dagToByteNodes(t, testTree.Dag)
 
 	unsignedBlock3 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -370,6 +357,6 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders3,
 	}
 
-	_, err = signer.ProcessAddBlock(emptyTree.Tip, req3)
+	_, err = signer.ProcessAddBlock(testTree.Dag.Tip, req3)
 	assert.NotNil(t, err)
 }

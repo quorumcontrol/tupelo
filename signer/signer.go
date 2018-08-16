@@ -3,11 +3,15 @@ package signer
 import (
 	"fmt"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
+
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
@@ -42,7 +46,7 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 
 	cborNodes := make([]*cbornode.Node, len(req.Nodes))
 
-	sw := &dag.SafeWrap{}
+	sw := &safewrap.SafeWrap{}
 
 	for i, node := range req.Nodes {
 		cborNodes[i] = sw.Decode(node)
@@ -54,7 +58,9 @@ func (s *Signer) ProcessAddBlock(currentTip *cid.Cid, req *consensus.AddBlockReq
 
 	log.Debug("received: ", "tip", req.Tip, "nodeLength", len(cborNodes))
 
-	tree := dag.NewBidirectionalTree(currentTip, cborNodes...)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	tree := dag.NewDag(currentTip, nodeStore)
+	tree.AddNodes(cborNodes...)
 
 	chainTree, err := chaintree.NewChainTree(
 		tree,

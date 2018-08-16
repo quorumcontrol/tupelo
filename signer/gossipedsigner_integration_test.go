@@ -19,7 +19,7 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -69,10 +69,11 @@ func newTestSet(t *testing.T, size int) *testSet {
 }
 
 func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, tree *consensus.SignedChainTree, client *network.MessageHandler, dst *ecdsa.PublicKey) network.ResponseChan {
-
-	nodes := make([][]byte, len(tree.ChainTree.Dag.Nodes()))
-	for i, node := range tree.ChainTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
+	cborNodes, err := tree.ChainTree.Dag.Nodes()
+	require.Nil(t, err)
+	nodes := make([][]byte, len(cborNodes))
+	for i, node := range cborNodes {
+		nodes[i] = node.RawData()
 	}
 
 	addBlockRequest := &consensus.AddBlockRequest{
@@ -91,7 +92,7 @@ func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, t
 }
 
 func TestGossipedSignerIntegration(t *testing.T) {
-	//log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}

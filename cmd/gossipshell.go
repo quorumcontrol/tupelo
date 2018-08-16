@@ -6,6 +6,7 @@ import (
 )
 
 var gossipShellName string
+var testShellName string
 
 // shellCmd represents the shell command
 var gossipShellCmd = &cobra.Command{

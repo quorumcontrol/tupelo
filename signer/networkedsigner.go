@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 )
 
 type NetworkedSigner struct {
@@ -109,7 +109,7 @@ func (ns *NetworkedSigner) FeedbackHandler(_ context.Context, req network.Reques
 	}
 
 	if verified {
-		sw := &dag.SafeWrap{}
+		sw := &safewrap.SafeWrap{}
 		node := sw.WrapObject(feedbackRequest)
 		if sw.Err != nil {
 			return fmt.Errorf("error wrapping: %v", sw.Err)

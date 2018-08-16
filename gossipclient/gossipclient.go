@@ -101,9 +101,13 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 	}
 
 	//TODO: only send the necessary nodes
-	nodes := make([][]byte, len(tree.ChainTree.Dag.Nodes()))
-	for i, node := range tree.ChainTree.Dag.Nodes() {
-		nodes[i] = node.Node.RawData()
+	cborNodes, err := tree.ChainTree.Dag.Nodes()
+	if err != nil {
+		return nil, fmt.Errorf("error getting nodes: %v", err)
+	}
+	nodes := make([][]byte, len(cborNodes))
+	for i, node := range cborNodes {
+		nodes[i] = node.RawData()
 	}
 
 	addBlockRequest := &consensus.AddBlockRequest{

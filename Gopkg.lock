@@ -332,15 +332,34 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:3fe5d324b0b8753b7e1e1535bc14bac438bb2f95f23f081f1ce600e84a483d03"
+  digest = "1:d1650f2af1ccc51b64ac87cb09cfeca8f4b95ce5cea034a8d7f7e18fef8151f5"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
     "dag",
+    "nodestore",
+    "safewrap",
     "typecaster",
   ]
   pruneopts = ""
-  revision = "bb51566b5c559d807b432e70b3792d219b2f4a1c"
+  revision = "c111f487b8d28ae71f64695ec785fbdf29013321"
+  version = "v0.0.3"
+
+[[projects]]
+  branch = "master"
+  digest = "1:09af781fcd348813b35d053b14c818038daa5fa392d800762ecab21a041e51a1"
+  name = "github.com/quorumcontrol/namedlocker"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3f797c8b12b141e1e252cc202f43c27fce58ec9e"
+
+[[projects]]
+  branch = "master"
+  digest = "1:0b5f76db3a0f1efadb94bca6d9351f15f772d7658246c877f885a8f6049e9ce8"
+  name = "github.com/quorumcontrol/storage"
+  packages = ["."]
+  pruneopts = ""
+  revision = "66a294ac54c8d4f92e530800d0ee6b43415c14b3"
 
 [[projects]]
   branch = "master"
@@ -567,8 +586,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/abiosoft/ishell",
-    "github.com/coreos/bbolt",
-    "github.com/davecgh/go-spew/spew",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/crypto",
@@ -582,13 +599,14 @@
     "github.com/mitchellh/go-homedir",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
+    "github.com/quorumcontrol/chaintree/nodestore",
+    "github.com/quorumcontrol/chaintree/safewrap",
     "github.com/quorumcontrol/chaintree/typecaster",
+    "github.com/quorumcontrol/storage",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
-    "golang.org/x/crypto/nacl/secretbox",
-    "golang.org/x/crypto/scrypt",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

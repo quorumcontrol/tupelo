@@ -17,7 +17,7 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	gossip "github.com/quorumcontrol/qc3/gossip2"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/storage"
+	"github.com/quorumcontrol/storage"
 )
 
 type pendingResponse struct {
