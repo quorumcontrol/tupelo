@@ -12,6 +12,7 @@ import (
 
 const (
 	TransactionTypeEstablishCoin = "ESTABLISH_COIN"
+	TransactionTypeMintCoin      = "MINT_COIN"
 	TransactionTypeSetData       = "SET_DATA"
 	TransactionTypeSetOwnership  = "SET_OWNERSHIP"
 	TransactionTypeStake         = "STAKE"
@@ -19,6 +20,7 @@ const (
 
 var DefaultTransactors = map[string]chaintree.TransactorFunc{
 	TransactionTypeEstablishCoin: EstablishCoinTransaction,
+	TransactionTypeMintCoin:      MintCoinTransaction,
 	TransactionTypeSetData:       SetDataTransaction,
 	TransactionTypeSetOwnership:  SetOwnershipTransaction,
 	TransactionTypeStake:         StakeTransaction,

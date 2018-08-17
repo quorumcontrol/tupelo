@@ -1,6 +1,7 @@
 package signer
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -241,6 +242,157 @@ func TestSigner_ProcessRequest(t *testing.T) {
 	assert.Nil(t, err)
 
 	nodes = dagToByteNodes(t, testTree.Dag)
+
+	req = &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      testTree.Dag.Tip,
+		NewBlock: blockWithHeaders,
+	}
+
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	assert.NotNil(t, err)
+}
+func TestSigner_CoinTransactions(t *testing.T) {
+	signer := createSigner(t)
+
+	treeKey, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "ESTABLISH_COIN",
+					Payload: map[string]interface{}{
+						"name": "testcoin",
+						"monetaryPolicy": map[string]interface{}{
+							"maximum": 8675309,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	emptyTree := consensus.NewEmptyTree(treeDID)
+
+	nodes := dagToByteNodes(t, emptyTree)
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	assert.Nil(t, err)
+
+	req := &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+
+	resp, err := signer.ProcessAddBlock(nil, req)
+
+	assert.Nil(t, err)
+
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	assert.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
+
+	resp, err = signer.ProcessAddBlock(resp.Tip, req)
+	assert.NotNil(t, err)
+
+	// Can mint from established coin
+	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
+		unsignedBlock = &chaintree.BlockWithHeaders{
+			Block: chaintree.Block{
+				PreviousTip: testTree.Dag.Tip.String(),
+				Transactions: []*chaintree.Transaction{
+					{
+						Type: "MINT_COIN",
+						Payload: map[string]interface{}{
+							"name":   "testcoin",
+							"amount": testAmount,
+						},
+					},
+				},
+			},
+		}
+
+		nodes = dagToByteNodes(t, testTree.Dag)
+
+		blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+		assert.Nil(t, err)
+
+		req = &consensus.AddBlockRequest{
+			Nodes:    nodes,
+			Tip:      testTree.Dag.Tip,
+			NewBlock: blockWithHeaders,
+		}
+
+		resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+		assert.Nil(t, err)
+
+		testTree.ProcessBlock(blockWithHeaders)
+
+		assert.Equal(t, resp.Tip, testTree.Dag.Tip)
+
+		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_qc", "coins", "testcoin", "mints", fmt.Sprint(testIndex), "amount"})
+		assert.Nil(t, err)
+		assert.Equal(t, mintAmount, testAmount)
+	}
+
+	// Can't mint more than the monetary policy maximum
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: testTree.Dag.Tip.String(),
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "MINT_COIN",
+					Payload: map[string]interface{}{
+						"name":   "testcoin",
+						"amount": 675309,
+					},
+				},
+			},
+		},
+	}
+
+	nodes = dagToByteNodes(t, testTree.Dag)
+
+	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	assert.Nil(t, err)
+
+	req = &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      testTree.Dag.Tip,
+		NewBlock: blockWithHeaders,
+	}
+
+	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	assert.NotNil(t, err)
+
+	// Can't mint a negative amount
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: testTree.Dag.Tip.String(),
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "MINT_COIN",
+					Payload: map[string]interface{}{
+						"name":   "testcoin",
+						"amount": -42,
+					},
+				},
+			},
+		},
+	}
+
+	nodes = dagToByteNodes(t, testTree.Dag)
+
+	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	assert.Nil(t, err)
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
