@@ -3,6 +3,7 @@ package consensus
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -21,11 +22,16 @@ func init() {
 	cbornode.RegisterCborType(RoundInfo{})
 }
 
+const (
+	defaultRoundLength = 10
+)
+
 // NotaryGroup is a wrapper around a Chain Tree specifically used
 // for keeping track of Signer membership and rewards.
 type NotaryGroup struct {
-	signedTree *SignedChainTree
-	ID         string
+	signedTree  *SignedChainTree
+	ID          string
+	RoundLength int
 }
 
 // RoundInfo is a struct that holds information about the round.
@@ -34,6 +40,10 @@ type NotaryGroup struct {
 type RoundInfo struct {
 	Signers []*RemoteNode
 	Round   int64
+}
+
+func (ng *NotaryGroup) RoundAt(t time.Time) int64 {
+	return t.UTC().Unix() / int64(ng.RoundLength)
 }
 
 // NewNotaryGroup takes an id and a nodeStore and creates a new empty NotaryGroup
@@ -47,7 +57,8 @@ func NewNotaryGroup(id string, nodeStore nodestore.NodeStore) *NotaryGroup {
 			ChainTree:  tree,
 			Signatures: make(SignatureMap),
 		},
-		ID: id,
+		RoundLength: defaultRoundLength,
+		ID:          id,
 	}
 }
 

@@ -2,6 +2,7 @@ package gossipclient
 
 import (
 	"crypto/ecdsa"
+	"time"
 
 	"fmt"
 
@@ -24,10 +25,10 @@ type GossipClient struct {
 	handler    Handler
 	started    bool
 	SessionKey *ecdsa.PrivateKey
-	Group      *consensus.Group
+	Group      *consensus.NotaryGroup
 }
 
-func NewGossipClient(group *consensus.Group) *GossipClient {
+func NewGossipClient(group *consensus.NotaryGroup) *GossipClient {
 	sessionKey, err := crypto.GenerateKey()
 	if err != nil {
 		panic("error generating key")
@@ -37,7 +38,7 @@ func NewGossipClient(group *consensus.Group) *GossipClient {
 
 	return &GossipClient{
 		SessionKey: sessionKey,
-		handler:    network.NewMessageHandler(node, []byte(group.Id())),
+		handler:    network.NewMessageHandler(node, []byte(group.ID)),
 		Group:      group,
 	}
 }
@@ -60,7 +61,11 @@ func (gc *GossipClient) Stop() {
 }
 
 func (gc *GossipClient) TipRequest(chainId string) (*consensus.TipResponse, error) {
-	rn := gc.Group.RandomMember()
+	roundInfo, err := gc.Group.RoundInfoFor(gc.Group.RoundAt(time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("error getting round info: %v", err)
+	}
+	rn := roundInfo.RandomMember()
 	req, err := network.BuildRequest(consensus.MessageType_TipRequest, &consensus.TipRequest{
 		ChainId: chainId,
 	})
@@ -87,6 +92,10 @@ func (gc *GossipClient) TipRequest(chainId string) (*consensus.TipResponse, erro
 }
 
 func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, remoteTip string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
+	roundInfo, err := gc.Group.RoundInfoFor(gc.Group.RoundAt(time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("error getting round info: %v", err)
+	}
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -121,7 +130,7 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
 
-	rn := gc.Group.RandomMember()
+	rn := roundInfo.RandomMember()
 
 	respChan, err := gc.handler.DoRequest(crypto.ToECDSAPub(rn.DstKey.PublicKey), req)
 	if err != nil {
@@ -136,7 +145,7 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		if err != nil {
 			return nil, fmt.Errorf("error decoding: %v", err)
 		}
-		tree.Signatures[gc.Group.Id()] = addResponse.Signature
+		tree.Signatures[gc.Group.ID] = addResponse.Signature
 
 	} else {
 		return nil, fmt.Errorf("error on request code: %d, err: %s", resp.Code, resp.Payload)

@@ -172,7 +172,6 @@ type Gossiper struct {
 	StateHandler    stateHandler
 	AcceptedHandler acceptedHandler
 	RejectedHandler rejectedHandler
-	RoundLength     int
 	Fanout          int
 	locker          *namedlocker.NamedLocker
 	started         bool
@@ -184,8 +183,7 @@ type Gossiper struct {
 }
 
 const (
-	defaultRoundLength = 10
-	defaultFanout      = 5
+	defaultFanout = 5
 )
 
 // Initialize sets up the storage and data structures of the gossiper
@@ -196,9 +194,6 @@ func (g *Gossiper) Initialize() {
 	g.Storage.CreateBucketIfNotExists(stateBucket)
 	g.MessageHandler.AssignHandler(MessageTypeGossip, g.handleIncomingRequest)
 	g.locker = namedlocker.NewNamedLocker()
-	if g.RoundLength == 0 {
-		g.RoundLength = defaultRoundLength
-	}
 	if g.Fanout == 0 {
 		g.Fanout = defaultFanout
 	}
@@ -254,8 +249,8 @@ func (g *Gossiper) roundHandler() {
 	nextRound := make(chan time.Time, 1)
 	// don't immediately call the round handler at start, wait for the next
 	// round to actually happen
-	currRound := g.RoundAt(time.Now())
-	nextRoundAt := (currRound + 1) * int64(g.RoundLength)
+	currRound := g.Group.RoundAt(time.Now())
+	nextRoundAt := (currRound + 1) * int64(g.Group.RoundLength)
 	nextAt := time.Unix(nextRoundAt, 0)
 	nextRound <- <-time.After(nextAt.Sub(time.Now()))
 	for {
@@ -264,12 +259,12 @@ func (g *Gossiper) roundHandler() {
 			return
 		case sent := <-nextRound:
 			g.locker.RLock("roundHandlers")
-			currRound := g.RoundAt(sent)
+			currRound := g.Group.RoundAt(sent)
 			for _, handler := range g.roundHandlers {
 				go handler(context.TODO(), currRound)
 			}
 			g.locker.RUnlock("roundHandlers")
-			nextRoundAt := (currRound + 1) * int64(g.RoundLength)
+			nextRoundAt := (currRound + 1) * int64(g.Group.RoundLength)
 			nextAt := time.Unix(nextRoundAt, 0)
 			diff := nextAt.Sub(time.Now())
 			// in case we get behind on the rounds, we still call every round
@@ -309,7 +304,7 @@ func (g *Gossiper) pokeWorker(incoming <-chan *poker, stopChan <-chan bool) {
 
 // RoundAt returns the round number for the time
 func (g *Gossiper) RoundAt(t time.Time) int64 {
-	return t.UTC().Unix() / int64(g.RoundLength)
+	return t.UTC().Unix() / int64(g.Group.RoundLength)
 }
 
 func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
@@ -449,7 +444,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 	var newMessage *GossipMessage
 
 	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
-	if err != nil {
+	if roundInfo == nil || err != nil {
 		return fmt.Errorf("error getting round info: %v", err)
 	}
 	// do we have 2/3 of the prepare messges?
@@ -597,7 +592,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 	}
 
 	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
-	if err != nil {
+	if roundInfo == nil || err != nil {
 		return fmt.Errorf("error getting round info: %v", err)
 	}
 	var newMessage *GossipMessage
@@ -668,8 +663,8 @@ func sigMapToString(sigMap consensus.SignatureMap) string {
 
 func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) { //TODO: should this have errors?
 	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
-	if err != nil {
-		panic("should never happen")
+	if roundInfo == nil || err != nil {
+		panic(fmt.Sprintf("should never happen: roundInfo problem: %v", err))
 	}
 	num := min(g.Fanout, len(roundInfo.Signers)-1)
 	log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures), "sigs", sigMapToString(msg.PhaseSignatures))
