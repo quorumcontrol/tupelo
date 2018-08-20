@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/typecaster"
+	"github.com/quorumcontrol/qc3/bls"
 
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
@@ -65,7 +67,6 @@ func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, e
 
 // RoundInfoFor takes a round and returns the RoundInfo object
 func (ng *NotaryGroup) RoundInfoFor(round int64) (roundInfo *RoundInfo, err error) {
-	fmt.Printf(ng.signedTree.ChainTree.Dag.Dump())
 	obj, _, err := ng.signedTree.ChainTree.Dag.Resolve([]string{"tree", "rounds", strconv.Itoa(int(round))})
 	if err != nil {
 		return nil, fmt.Errorf("error resolving round nodes: %v", err)
@@ -117,4 +118,98 @@ func (ng *NotaryGroup) AddBlock(block *chaintree.BlockWithHeaders) (err error) {
 		return fmt.Errorf("error processing block (valid: %t): %v", valid, err)
 	}
 	return nil
+}
+
+// VerifyAvailableSignatures just validates that all the sigs are valid in the supplied argument,
+// but does not verify that the super majority count has signed
+func (ng *NotaryGroup) VerifyAvailableSignatures(round int64, msg []byte, sig *Signature) (bool, error) {
+	roundInfo, err := ng.RoundInfoFor(round)
+	if err != nil {
+		return false, fmt.Errorf("error getting round info: %v", err)
+	}
+	var expectedKeyBytes [][]byte
+	for i, didSign := range sig.Signers {
+		if didSign {
+			expectedKeyBytes = append(expectedKeyBytes, roundInfo.Signers[i].VerKey.PublicKey)
+		}
+	}
+
+	log.Trace("verifyAvailableSignature - verifying")
+
+	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
+}
+
+// VerifySignature makes sure over 2/3 of the signers in a particular round have approved a message
+func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) (bool, error) {
+	roundInfo, err := ng.RoundInfoFor(round)
+	if err != nil {
+		return false, fmt.Errorf("error getting round info: %v", err)
+	}
+
+	requiredNum := roundInfo.SuperMajorityCount()
+	log.Trace("verify signature", "requiredNum", requiredNum)
+
+	var expectedKeyBytes [][]byte
+	for i, didSign := range sig.Signers {
+		if didSign {
+			expectedKeyBytes = append(expectedKeyBytes, roundInfo.Signers[i].VerKey.PublicKey)
+		}
+	}
+
+	log.Trace("verify signature", "len(expectedKeyBytes)", len(expectedKeyBytes))
+
+	if int64(len(expectedKeyBytes)) < requiredNum {
+		return false, nil
+	}
+
+	log.Trace("verify signature - verifying")
+
+	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
+}
+
+// CombineSignatures turns many signatures into one for a particular round
+// in the notary group.
+func (ng *NotaryGroup) CombineSignatures(round int64, sigs SignatureMap) (*Signature, error) {
+	roundInfo, err := ng.RoundInfoFor(round)
+	if err != nil {
+		return nil, fmt.Errorf("error getting round info: %v", err)
+	}
+	sigBytes := make([][]byte, 0)
+
+	signers := make([]bool, len(roundInfo.Signers))
+	for i, member := range roundInfo.Signers {
+		sig, ok := sigs[member.Id]
+		if ok {
+			log.Trace("combine signatures, signer signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
+			sigBytes = append(sigBytes, sig.Signature)
+			signers[i] = true
+		} else {
+			log.Trace("signer not signed", "signerId", BlsVerKeyToAddress(member.VerKey.PublicKey).Hex())
+			signers[i] = false
+		}
+	}
+
+	combinedBytes, err := bls.SumSignatures(sigBytes)
+	if err != nil {
+		return nil, fmt.Errorf("error summing sigs: %v", err)
+	}
+
+	return &Signature{
+		Signers:   signers,
+		Signature: combinedBytes,
+	}, nil
+}
+
+// RandomMember returns a random signer from the RoundInfo
+func (ri *RoundInfo) RandomMember() *RemoteNode {
+	return ri.Signers[randInt(len(ri.Signers))]
+}
+
+// SuperMajorityCount returns the number needed for a consensus
+func (ri *RoundInfo) SuperMajorityCount() int64 {
+	required := int64((2.0 * float64(len(ri.Signers))) / 3.0)
+	if required == 0 {
+		return 1
+	}
+	return required
 }
