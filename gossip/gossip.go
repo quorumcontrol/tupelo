@@ -68,9 +68,9 @@ type handler interface {
 	Stop()
 }
 
-type stateHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error)
-type acceptedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, newState []byte) (err error)
-type rejectedHandler func(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error)
+type stateHandler func(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error)
+type acceptedHandler func(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, newState []byte) (err error)
+type rejectedHandler func(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (err error)
 type roundHandler func(ctx context.Context, round int64)
 
 // CurrentState is the state of an object in the gossip system
@@ -129,22 +129,22 @@ func (st *storedTransaction) signTentativeCommit(key *bls.SignKey) (*consensus.S
 	return consensus.BlsSignBytes(st.msgToSignTentativeCommit(), key)
 }
 
-func (st *storedTransaction) verifyPrepareSignatures(group *consensus.Group, sigs consensus.SignatureMap) (bool, error) {
+func (st *storedTransaction) verifyPrepareSignatures(group *consensus.NotaryGroup, sigs consensus.SignatureMap) (bool, error) {
 	log.Trace("combinging sigs for verifyingPrepare")
-	sig, err := group.CombineSignatures(sigs)
+	sig, err := group.CombineSignatures(st.Round, sigs)
 	if err != nil {
 		return false, fmt.Errorf("error combining signatures: %v", err)
 	}
-	return group.VerifyAvailableSignatures(st.msgToSignPrepare(), sig)
+	return group.VerifyAvailableSignatures(st.Round, st.msgToSignPrepare(), sig)
 }
 
-func (st *storedTransaction) verifyTentativeCommitSignatures(group *consensus.Group, sigs consensus.SignatureMap) (bool, error) {
+func (st *storedTransaction) verifyTentativeCommitSignatures(group *consensus.NotaryGroup, sigs consensus.SignatureMap) (bool, error) {
 	log.Trace("combinging sigs for verifyingTenativeCommit")
-	sig, err := group.CombineSignatures(sigs)
+	sig, err := group.CombineSignatures(st.Round, sigs)
 	if err != nil {
 		return false, fmt.Errorf("error combining signatures: %v", err)
 	}
-	return group.VerifyAvailableSignatures(st.msgToSignTentativeCommit(), sig)
+	return group.VerifyAvailableSignatures(st.Round, st.msgToSignTentativeCommit(), sig)
 }
 
 func (st *storedTransaction) msgToSignPrepare() []byte {
@@ -167,7 +167,7 @@ type Gossiper struct {
 	MessageHandler  handler
 	ID              string
 	SignKey         *bls.SignKey
-	Group           *consensus.Group
+	Group           *consensus.NotaryGroup
 	Storage         storage.Storage
 	StateHandler    stateHandler
 	AcceptedHandler acceptedHandler
@@ -447,12 +447,17 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 	}
 
 	var newMessage *GossipMessage
+
+	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
+	if err != nil {
+		return fmt.Errorf("error getting round info: %v", err)
+	}
 	// do we have 2/3 of the prepare messges?
-	if int64(len(savedTrans.PrepareSignatures)) >= g.Group.SuperMajorityCount() {
+	if int64(len(savedTrans.PrepareSignatures)) >= roundInfo.SuperMajorityCount() {
 		log.Debug("handlePrepareMessag - super majority prepared", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 
 		// if so, then change phase
-		prepareSig, err := g.Group.CombineSignatures(savedTrans.PrepareSignatures)
+		prepareSig, err := g.Group.CombineSignatures(msg.Round, savedTrans.PrepareSignatures)
 		if err != nil {
 			return fmt.Errorf("error combining sigs: %v", err)
 		}
@@ -494,7 +499,9 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		}
 	}
 
-	if len(g.Group.SortedMembers) == 1 {
+	// If there is only one signer in the notary group, we can just process the message ourselves
+	// since we can't gossip.
+	if len(roundInfo.Signers) == 1 {
 		go func() {
 			g.HandleGossip(ctx, newMessage)
 		}()
@@ -516,7 +523,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 
 	// if the prepare signature is not valid then drop message
 	log.Trace("prepare sig", "sig", msg.PrepareSignature)
-	verified, err := g.Group.VerifySignature(trans.msgToSignPrepare(), &msg.PrepareSignature)
+	verified, err := g.Group.VerifySignature(msg.Round, trans.msgToSignPrepare(), &msg.PrepareSignature)
 	if err != nil {
 		return fmt.Errorf("error verifying signature: %v", err)
 	}
@@ -589,10 +596,14 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		}
 	}
 
+	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
+	if err != nil {
+		return fmt.Errorf("error getting round info: %v", err)
+	}
 	var newMessage *GossipMessage
 	// do we have 2/3 of the TentativeCommit messges?
-	if int64(len(savedTrans.TentativeCommitSignatures)) >= g.Group.SuperMajorityCount() && savedTrans.Phase != phaseCommit {
-		newSig, err := g.Group.CombineSignatures(savedTrans.TentativeCommitSignatures)
+	if int64(len(savedTrans.TentativeCommitSignatures)) >= roundInfo.SuperMajorityCount() && savedTrans.Phase != phaseCommit {
+		newSig, err := g.Group.CombineSignatures(msg.Round, savedTrans.TentativeCommitSignatures)
 		if err != nil {
 			return fmt.Errorf("error combining sigs: %v", err)
 		}
@@ -655,8 +666,12 @@ func sigMapToString(sigMap consensus.SignatureMap) string {
 	return haveSigs
 }
 
-func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
-	num := min(g.Fanout, len(g.Group.SortedMembers)-1)
+func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) { //TODO: should this have errors?
+	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
+	if err != nil {
+		panic("should never happen")
+	}
+	num := min(g.Fanout, len(roundInfo.Signers)-1)
 	log.Debug("gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "num", num, "phase", msg.Phase, "sigCount", len(msg.PhaseSignatures), "sigs", sigMapToString(msg.PhaseSignatures))
 
 	gossipList := map[string]bool{g.ID: true}
@@ -669,7 +684,7 @@ func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) {
 		var rn *consensus.RemoteNode
 		alreadyOnList := true
 		for alreadyOnList {
-			rn = g.Group.RandomMember()
+			rn = roundInfo.RandomMember()
 			log.Trace("rn search", "g", g.ID, "rn", rn.Id, "already", gossipList)
 			_, alreadyOnList = gossipList[rn.Id]
 			if !alreadyOnList {
