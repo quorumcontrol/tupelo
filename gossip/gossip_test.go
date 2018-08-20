@@ -164,10 +164,6 @@ func newTestSet(t *testing.T, size int) *testSet {
 	}
 }
 
-func roundAt(t time.Time) int64 {
-	return t.UTC().Unix() / int64(defaultRoundLength)
-}
-
 func groupFromTestSet(t *testing.T, set *testSet) *consensus.NotaryGroup {
 	members := make([]*consensus.RemoteNode, len(set.SignKeys))
 	for i := range set.SignKeys {
@@ -177,10 +173,10 @@ func groupFromTestSet(t *testing.T, set *testSet) *consensus.NotaryGroup {
 
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	group := consensus.NewNotaryGroup("notarygroupid", nodeStore)
-	block, err := group.CreateBlockFor(roundAt(time.Now()), members)
-	require.Nil(t,err)
+	block, err := group.CreateBlockFor(group.RoundAt(time.Now()), members)
+	require.Nil(t, err)
 	err = group.AddBlock(block)
-	require.Nil(t,err)
+	require.Nil(t, err)
 	return group
 }
 
@@ -200,8 +196,8 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 
 	gossipers := make([]*Gossiper, size)
 
-	roundInfo,err := group.RoundInfoFor(roundAt(time.Now()))
-	require.Nil(t,err)
+	roundInfo, err := group.RoundInfoFor(group.RoundAt(time.Now()))
+	require.Nil(t, err)
 
 	for i := 0; i < size; i++ {
 		stor := storage.NewMemStorage()
@@ -275,7 +271,7 @@ func TestGossiper_HandleGossip(t *testing.T) {
 }
 func TestGossiper_RoundHandlers(t *testing.T) {
 	gossipers := generateTestGossipGroup(t, 1, 0)
-	gossipers[0].RoundLength = 1
+	gossipers[0].Group.RoundLength = 1
 	var lastCalled int64
 	currRound := gossipers[0].RoundAt(time.Now())
 	gossipers[0].AddRoundHandler(func(_ context.Context, round int64) {
@@ -284,8 +280,8 @@ func TestGossiper_RoundHandlers(t *testing.T) {
 	gossipers[0].Start()
 	defer gossipers[0].Stop()
 
-	time.Sleep(time.Duration(gossipers[0].RoundLength) * time.Second)
+	time.Sleep(time.Duration(gossipers[0].Group.RoundLength) * time.Second)
 	require.Equal(t, currRound+1, lastCalled)
-	time.Sleep(time.Duration(gossipers[0].RoundLength) * time.Second)
+	time.Sleep(time.Duration(gossipers[0].Group.RoundLength) * time.Second)
 	require.Equal(t, currRound+2, lastCalled)
 }
