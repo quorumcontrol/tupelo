@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -31,6 +32,17 @@ type SetDataPayload struct {
 	Value interface{}
 }
 
+func complexType(obj interface{}) bool {
+	switch obj.(type) {
+	// These are the built in type of go (excluding map) plus cid.Cid
+	// Use SetAsLink if attempting to set map
+	case bool, byte, complex64, complex128, error, float32, float64, int, int8, int16, int32, int64, string, uint, uint16, uint32, uint64, uintptr, cid.Cid, *bool, *byte, *complex64, *complex128, *error, *float32, *float64, *int, *int8, *int16, *int32, *int64, *string, *uint, *uint16, *uint32, *uint64, *uintptr, *cid.Cid, []bool, []byte, []complex64, []complex128, []error, []float32, []float64, []int, []int8, []int16, []int32, []int64, []string, []uint, []uint16, []uint32, []uint64, []uintptr, []cid.Cid, []*bool, []*byte, []*complex64, []*complex128, []*error, []*float32, []*float64, []*int, []*int8, []*int16, []*int32, []*int64, []*string, []*uint, []*uint16, []*uint32, []*uint64, []*uintptr, []*cid.Cid:
+		return false
+	default:
+		return true
+	}
+}
+
 // SetDataTransaction just sets a path in a tree to arbitrary data. It makes sure no data is being changed in the _qc path.
 func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &SetDataPayload{}
@@ -43,7 +55,11 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 		return nil, false, &ErrorCode{Code: 999, Memo: "the path prefix _qc is reserved"}
 	}
 
-	newTree, err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
+	if complexType(payload.Value) {
+		newTree, err = tree.SetAsLink(strings.Split(payload.Path, "/"), payload.Value)
+	} else {
+		newTree, err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
+	}
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
