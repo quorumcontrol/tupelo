@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/storage"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,7 +30,7 @@ type testSet struct {
 }
 
 // This is the simplest possible state handler that just always returns the transaction as the nextState
-func simpleHandler(_ context.Context, _ *consensus.Group, _, transaction, _ []byte) (nextState []byte, accepted bool, err error) {
+func simpleHandler(_ context.Context, _ *consensus.NotaryGroup, _, transaction, _ []byte) (nextState []byte, accepted bool, err error) {
 	if bytes.HasPrefix(transaction, []byte("reject")) {
 		log.Debug("rejecting transaction")
 		return []byte("bad state no use"), false, nil
@@ -37,13 +38,13 @@ func simpleHandler(_ context.Context, _ *consensus.Group, _, transaction, _ []by
 	return transaction, true, nil
 }
 
-func simpleAcceptance(_ context.Context, _ *consensus.Group, _, transaction, _ []byte) (err error) {
+func simpleAcceptance(_ context.Context, _ *consensus.NotaryGroup, _, transaction, _ []byte) (err error) {
 	log.Debug("simpleAcceptance called")
 	lastAccepted = transaction
 	return nil
 }
 
-func simpleRejecter(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error) {
+func simpleRejecter(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (err error) {
 	log.Debug("simpleRejecter called")
 	lastRejected = transaction
 	return nil
@@ -163,14 +164,24 @@ func newTestSet(t *testing.T, size int) *testSet {
 	}
 }
 
-func groupFromTestSet(t *testing.T, set *testSet) *consensus.Group {
+func roundAt(t time.Time) int64 {
+	return t.UTC().Unix() / int64(defaultRoundLength)
+}
+
+func groupFromTestSet(t *testing.T, set *testSet) *consensus.NotaryGroup {
 	members := make([]*consensus.RemoteNode, len(set.SignKeys))
 	for i := range set.SignKeys {
 		rn := consensus.NewRemoteNode(consensus.BlsKeyToPublicKey(set.VerKeys[i]), consensus.EcdsaToPublicKey(&set.EcdsaKeys[i].PublicKey))
 		members[i] = rn
 	}
 
-	return consensus.NewGroup(members)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	group := consensus.NewNotaryGroup("notarygroupid", nodeStore)
+	block, err := group.CreateBlockFor(roundAt(time.Now()), members)
+	require.Nil(t,err)
+	err = group.AddBlock(block)
+	require.Nil(t,err)
+	return group
 }
 
 func blsKeys(size int) []*bls.SignKey {
@@ -189,10 +200,12 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 
 	gossipers := make([]*Gossiper, size)
 
+	roundInfo,err := group.RoundInfoFor(roundAt(time.Now()))
+	require.Nil(t,err)
+
 	for i := 0; i < size; i++ {
 		stor := storage.NewMemStorage()
-
-		member := group.SortedMembers[i]
+		member := roundInfo.Signers[i]
 
 		gossiper := &Gossiper{
 			SignKey:         ts.SignKeysByAddress[member.Id],
@@ -209,31 +222,6 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 	}
 
 	return gossipers
-}
-
-func TestTest(t *testing.T) {
-	gossipers := generateTestGossipGroup(t, 2, 0)
-
-	key := gossipers[0].SignKey
-	msg := []byte("hi")
-
-	sig, err := consensus.BlsSignBytes(crypto.Keccak256(msg), key)
-	require.Nil(t, err)
-
-	pubKey := consensus.BlsKeyToPublicKey(key.MustVerKey())
-
-	verified, err := consensus.Verify(crypto.Keccak256(msg), *sig, pubKey)
-	require.Nil(t, err)
-	require.True(t, verified)
-
-	sigMap := consensus.SignatureMap{gossipers[0].ID: *sig}
-
-	groupSig, err := gossipers[0].Group.CombineSignatures(sigMap)
-	require.Nil(t, err)
-
-	verified, err = gossipers[0].Group.VerifyAvailableSignatures(crypto.Keccak256(msg), groupSig)
-	require.Nil(t, err)
-	assert.True(t, verified)
 }
 
 func TestGossiper_HandleGossip(t *testing.T) {
