@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/quorumcontrol/chaintree/typecaster"
+
 	"github.com/quorumcontrol/qc3/bls"
 
 	"fmt"
@@ -15,7 +17,6 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip"
 	"github.com/quorumcontrol/qc3/network"
@@ -29,19 +30,27 @@ type pendingResponse struct {
 
 type responseHolder map[string]*pendingResponse
 
+// type roundTransactionHolder map[string]
+
+// GossipedSigner uses the gosig based gossip protocol
+// in order to reach consensus.
 type GossipedSigner struct {
-	gossiper  *gossip.Gossiper
-	started   bool
-	responses responseHolder
-	respLock  *sync.RWMutex
-	group     *consensus.Group
+	gossiper   *gossip.Gossiper
+	started    bool
+	responses  responseHolder
+	respLock   *sync.RWMutex
+	roundInfos map[int64]*consensus.RoundInfo
 }
 
-func GroupToTopic(group *consensus.Group) []byte {
-	return []byte(group.Id())
+// GroupToTopic takes a NotaryGroup and returns the Whisper Topic to reach it.
+func GroupToTopic(group *consensus.NotaryGroup) []byte {
+	return []byte(group.ID)
 }
 
-func NewGossipedSigner(node *network.Node, group *consensus.Group, store storage.Storage, signKey *bls.SignKey) *GossipedSigner {
+func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store storage.Storage, signKey *bls.SignKey) *GossipedSigner {
+	if group == nil {
+		panic("invalid group")
+	}
 
 	gossipSigner := &GossipedSigner{
 		responses: make(responseHolder),
@@ -64,6 +73,7 @@ func NewGossipedSigner(node *network.Node, group *consensus.Group, store storage
 	gossipSigner.gossiper = gossiper
 	handler.AssignHandler(consensus.MessageType_AddBlock, gossipSigner.AddBlockHandler)
 	handler.AssignHandler(consensus.MessageType_TipRequest, gossipSigner.TipHandler)
+	gossiper.AddRoundHandler(gossipSigner.roundHandler)
 
 	return gossipSigner
 }
@@ -84,7 +94,7 @@ func (gs *GossipedSigner) Stop() {
 	gs.gossiper.Stop()
 }
 
-func (gs *GossipedSigner) stateHandler(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error) {
+func (gs *GossipedSigner) stateHandler(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error) {
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err = cbornode.DecodeInto(transaction, addBlockrequest)
 	if err != nil {
@@ -101,16 +111,30 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, group *consensus.Gro
 		}
 	}
 
-	resp, err := processAddBlock(storedTip, addBlockrequest)
-	if err != nil {
-		log.Error("error processing block", "err", err)
-		return nil, false, nil
+	var resp *consensus.AddBlockResponse
+
+	if addBlockrequest.ChainId == gs.gossiper.Group.ID {
+		// do special handling of notary group
+		// if this new block matches the block I have for the round of the block
+		// then we can approve the block
+	} else {
+		resp, err = processAddBlock(storedTip, addBlockrequest)
+		if err != nil {
+			log.Error("error processing block", "err", err)
+			return nil, false, nil
+		}
 	}
 
 	return resp.Tip.Bytes(), true, nil
 }
 
-func (gs *GossipedSigner) rejectedHandler(ctx context.Context, group *consensus.Group, objectId, transaction, currentState []byte) (err error) {
+func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
+	// look for stakes / unstakes in round - 2
+	// calculate round + 2 signers
+	// gossip block
+}
+
+func (gs *GossipedSigner) rejectedHandler(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (err error) {
 	log.Debug("rejected handler")
 
 	err = gs.respondToTransaction(objectId, transaction)
@@ -121,7 +145,7 @@ func (gs *GossipedSigner) rejectedHandler(ctx context.Context, group *consensus.
 	return nil
 }
 
-func (gs *GossipedSigner) acceptedHandler(ctx context.Context, group *consensus.Group, objectId, transaction, newState []byte) (err error) {
+func (gs *GossipedSigner) acceptedHandler(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, newState []byte) (err error) {
 	log.Debug("accepted handler")
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err = cbornode.DecodeInto(transaction, addBlockrequest)
@@ -136,14 +160,17 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, group *consensus.
 
 	if trans := stakeTransactionFromBlock(addBlockrequest.NewBlock); trans != nil {
 		log.Debug("new stake")
-		payload := &consensus.StakePayload{}
-		err := typecaster.ToType(trans.Payload, payload)
+
+		stakePayload := &consensus.StakePayload{}
+		err = typecaster.ToType(trans.Payload, stakePayload)
 		if err != nil {
-			return fmt.Errorf("error casting payload: %v", err)
+			return fmt.Errorf("error casting: %v", err)
 		}
-		newMem := consensus.NewRemoteNode(payload.VerKey, payload.DstKey)
-		log.Info("new stake", "member", newMem.Id)
-		group.AddMember(newMem)
+		remoteNode := consensus.NewRemoteNode(stakePayload.VerKey, stakePayload.DstKey)
+		
+		// take the DstKey and VerKey from the transaction payload
+		// create a new RemoteNode
+		// get the signers from the round before and add this RemoteNode
 	}
 
 	return nil
