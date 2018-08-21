@@ -24,6 +24,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
+
+	"github.com/quorumcontrol/chaintree/nodestore"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -54,7 +57,7 @@ var ecdsaHexKeys = []string{
 
 var BlsSignKeys []*bls.SignKey
 var EcdsaKeys []*ecdsa.PrivateKey
-var TestNetGroup *consensus.Group
+var TestNetMembers []*consensus.RemoteNode
 
 type KeySet struct {
 	BlsHexKey   string
@@ -120,7 +123,7 @@ func init() {
 		members[i] = consensus.NewRemoteNode(consensus.BlsKeyToPublicKey(key.MustVerKey()), consensus.EcdsaToPublicKey(&EcdsaKeys[i].PublicKey))
 	}
 
-	TestNetGroup = consensus.NewGroup(members)
+	TestNetMembers = members
 }
 
 var nodeIndex int
@@ -143,7 +146,11 @@ func setupGossipNode() {
 	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
 	node := network.NewNode(EcdsaKeys[nodeIndex])
 
-	gossipedSigner := signer.NewGossipedSigner(node, TestNetGroup, boltStorage, BlsSignKeys[nodeIndex])
+	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodestore.NewStorageBasedStore(boltStorage))
+	if group.IsGenesis() {
+		group.CreateGenesisState(group.RoundAt(time.Now()), TestNetMembers...)
+	}
+	gossipedSigner := signer.NewGossipedSigner(node, group, boltStorage, BlsSignKeys[nodeIndex])
 	gossipedSigner.Start()
 
 	sigs := make(chan os.Signal, 1)
