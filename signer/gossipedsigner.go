@@ -184,6 +184,7 @@ func (gs *GossipedSigner) calculateRequestForRound(round int64) *consensus.AddBl
 	}
 	roundInfo.Signers = append(roundInfo.Signers, previousInfo.Signers...)
 	sort.Sort(byAddress(roundInfo.Signers))
+	log.Debug("signers length", "g", gs.gossiper.ID, "length", len(roundInfo.Signers))
 
 	block, err := gs.gossiper.Group.CreateBlockFor(round, roundInfo.Signers)
 	if err != nil {
@@ -201,9 +202,10 @@ func (gs *GossipedSigner) calculateRequestForRound(round int64) *consensus.AddBl
 func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
 	// create block for round + 6 and gossip that block around
 	// gossip block
-	log.Debug("round handler", "round", round)
+	log.Debug("round handler", "g", gs.gossiper.ID, "round", round)
 	_, ok := gs.roundBlocks[round+6]
 	if !ok {
+		log.Debug("calculating new signers for", "g", gs.gossiper.ID, "round", round+6)
 		// no need to handle this round, it's already in the chaintree
 		roundInfo, _ := gs.gossiper.Group.RoundInfoFor(round + 6)
 		if roundInfo != nil {
@@ -249,7 +251,7 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, acceptedTransacti
 	}
 
 	if trans := stakeTransactionFromBlock(addBlockrequest.NewBlock); trans != nil {
-		log.Debug("new stake")
+		log.Debug("new stake", "g", gs.gossiper.ID, "staker", addBlockrequest.ChainId)
 
 		stakePayload := &consensus.StakePayload{}
 		err = typecaster.ToType(trans.Payload, stakePayload)

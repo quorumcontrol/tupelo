@@ -239,6 +239,12 @@ func (ng *NotaryGroup) CombineSignatures(round int64, sigs SignatureMap) (*Signa
 	if err != nil {
 		return nil, fmt.Errorf("error getting round info: %v", err)
 	}
+	log.Debug("combinging signatures", "signerLength", len(roundInfo.Signers))
+	sigKeys := make([]string, 0)
+	for sig := range sigs {
+		sigKeys = append(sigKeys, sig)
+	}
+	log.Debug("signatureMap", "sigKeys", sigKeys)
 	sigBytes := make([][]byte, 0)
 
 	signers := make([]bool, len(roundInfo.Signers))

@@ -97,6 +97,7 @@ func notaryGroupFromRemoteNodes(t *testing.T, remoteNodes []*consensus.RemoteNod
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
 	group := consensus.NewNotaryGroup("notarygroupID", nodeStore)
+	// group.RoundLength = 5
 	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
 	require.Nil(t, err)
 	return group
@@ -168,6 +169,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	gossipedSigner2.Start()
 	defer gossipedSigner2.Stop()
 
+	round := group1.RoundAt(time.Now())
 	stakeBlock, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: tree.Tip().String(),
@@ -189,9 +191,10 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	stakeRespBytes := <-respChan
 	assert.NotNil(t, stakeRespBytes)
 
-	//TODO: test staking actually changes notary group for the round
-	// <-time.After(1 * time.Second)
-	// assert.Len(t, group.SortedMembers, 2)
+	<-time.After(7 * time.Duration(group1.RoundLength) * time.Second)
+	roundInfo, err := group1.RoundInfoFor(round + 6)
+	require.Nil(t, err)
+	assert.Len(t, roundInfo.Signers, 2)
 }
 
 func TestGossipedSigner_TipHandler(t *testing.T) {
