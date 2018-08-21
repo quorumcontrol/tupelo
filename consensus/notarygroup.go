@@ -1,7 +1,9 @@
 package consensus
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"strconv"
 	"time"
 
@@ -101,6 +103,10 @@ func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, e
 	return nil, fmt.Errorf("no valid round found")
 }
 
+func (ng *NotaryGroup) IsGenesis() bool {
+	return ng.signedTree.IsGenesis()
+}
+
 // RoundInfoFor takes a round and returns the RoundInfo object
 func (ng *NotaryGroup) RoundInfoFor(round int64) (roundInfo *RoundInfo, err error) {
 	obj, _, err := ng.signedTree.ChainTree.Dag.Resolve([]string{"tree", "rounds", strconv.Itoa(int(round))})
@@ -123,6 +129,15 @@ func (ng *NotaryGroup) RoundInfoFor(round int64) (roundInfo *RoundInfo, err erro
 func (ng *NotaryGroup) FastForward(tip *cid.Cid) error {
 	ng.signedTree.ChainTree.Dag = ng.signedTree.ChainTree.Dag.WithNewTip(tip)
 	return nil
+}
+
+// Tip returns the current tip of the notary group ChainTree
+func (ng *NotaryGroup) Tip() *cid.Cid {
+	return ng.signedTree.Tip()
+}
+
+func (ng *NotaryGroup) Dump() string {
+	return ng.signedTree.ChainTree.Dag.Dump()
 }
 
 // CreateBlockFor takes a list of remoteNodes and a round and returns a block for gossipping
@@ -203,6 +218,20 @@ func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) 
 	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
+// ExpectedTipWithBlock returns what a notary group tip would be if it had the block
+// without actually changing the notary group.
+func (ng *NotaryGroup) ExpectedTipWithBlock(block *chaintree.BlockWithHeaders) (*cid.Cid, error) {
+	newTree, err := chaintree.NewChainTree(ng.signedTree.ChainTree.Dag, ng.signedTree.ChainTree.BlockValidators, ng.signedTree.ChainTree.Transactors)
+	if err != nil {
+		return nil, fmt.Errorf("error creating new tree: %v", err)
+	}
+	valid, err := newTree.ProcessBlock(block)
+	if !valid || err != nil {
+		return nil, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
+	}
+	return newTree.Dag.Tip, nil
+}
+
 // CombineSignatures turns many signatures into one for a particular round
 // in the notary group.
 func (ng *NotaryGroup) CombineSignatures(round int64, sigs SignatureMap) (*Signature, error) {
@@ -248,4 +277,25 @@ func (ri *RoundInfo) SuperMajorityCount() int64 {
 		return 1
 	}
 	return required
+}
+
+func randInt(max int) int {
+	bigInt, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		log.Error("error reading rand", "err", err)
+	}
+	return int(bigInt.Int64())
+}
+
+func concatBytes(slices [][]byte) []byte {
+	var totalLen int
+	for _, s := range slices {
+		totalLen += len(s)
+	}
+	tmp := make([]byte, totalLen)
+	var i int
+	for _, s := range slices {
+		i += copy(tmp[i:], s)
+	}
+	return tmp
 }
