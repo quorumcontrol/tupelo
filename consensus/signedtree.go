@@ -11,15 +11,17 @@ import (
 )
 
 const (
-	TransactionTypeSetData      = "SET_DATA"
-	TransactionTypeSetOwnership = "SET_OWNERSHIP"
-	TransactionTypeStake        = "STAKE"
+	TransactionTypeEstablishCoin = "ESTABLISH_COIN"
+	TransactionTypeSetData       = "SET_DATA"
+	TransactionTypeSetOwnership  = "SET_OWNERSHIP"
+	TransactionTypeStake         = "STAKE"
 )
 
 var DefaultTransactors = map[string]chaintree.TransactorFunc{
-	TransactionTypeSetData:      SetDataTransaction,
-	TransactionTypeSetOwnership: SetOwnershipTransaction,
-	TransactionTypeStake:        StakeTransaction,
+	TransactionTypeEstablishCoin: EstablishCoinTransaction,
+	TransactionTypeSetData:       SetDataTransaction,
+	TransactionTypeSetOwnership:  SetOwnershipTransaction,
+	TransactionTypeStake:         StakeTransaction,
 }
 
 type SignedChainTree struct {
