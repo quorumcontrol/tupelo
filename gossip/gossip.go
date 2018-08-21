@@ -382,7 +382,7 @@ func (g *Gossiper) HandleGossip(ctx context.Context, msg *GossipMessage) error {
 // if the message is new and a PREPARE message then we save the message to the conflic set, add our signature to the PREPARE and then gossip
 // if the PREPARE message has 2/3 of signers then gossip a TENTATIVE_COMMIT message by wrapping up the prepare sigs into one and starting a new phase with own sig
 func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage) error {
-	log.Debug("handlePrepareMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(msg.PhaseSignatures))
+	log.Debug("handlePrepareMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "round", msg.Round, "sigCount", len(msg.PhaseSignatures))
 
 	if msg.Phase != phasePrepare {
 		return fmt.Errorf("incorrect phase: %d", msg.Phase)
