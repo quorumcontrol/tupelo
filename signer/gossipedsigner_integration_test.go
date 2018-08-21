@@ -197,6 +197,40 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	assert.Len(t, roundInfo.Signers, 2)
 }
 
+func TestGossipedSigner_GetNodeHandler(t *testing.T) {
+	ts := newTestSet(t, 5)
+	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
+	group := notaryGroupFromRemoteNodes(t, remoteNodes)
+
+	node1 := network.NewNode(ts.EcdsaKeys[0])
+	store1 := storage.NewMemStorage()
+
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
+
+	gossipedSigner1.Start()
+	defer gossipedSigner1.Stop()
+
+	sessionKey, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
+
+	client.Start()
+	defer client.Stop()
+	time.Sleep(2 * time.Second)
+
+	req, err := network.BuildRequest(consensus.MessageType_GetNode, &consensus.GetNodeRequest{
+		Cid: group.Tip(),
+	})
+	require.Nil(t, err)
+
+	respChan, err := client.DoRequest(&ts.EcdsaKeys[0].PublicKey, req)
+	require.Nil(t, err)
+
+	respBytes := <-respChan
+	require.Equal(t, 200, respBytes.Code, "code: %d, payload: %s", respBytes.Code, respBytes.Payload)
+}
+
 func TestGossipedSigner_TipHandler(t *testing.T) {
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}

@@ -89,6 +89,7 @@ func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store s
 	gossipSigner.gossiper = gossiper
 	handler.AssignHandler(consensus.MessageType_AddBlock, gossipSigner.AddBlockHandler)
 	handler.AssignHandler(consensus.MessageType_TipRequest, gossipSigner.TipHandler)
+	handler.AssignHandler(consensus.MessageType_GetNode, gossipSigner.GetNode)
 	gossiper.AddRoundHandler(gossipSigner.roundHandler)
 
 	return gossipSigner
@@ -269,6 +270,33 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, acceptedTransacti
 		gs.roundInfos[acceptedTransaction.Round+6] = roundInfo
 	}
 
+	return nil
+}
+
+func (gs *GossipedSigner) GetNode(ctx context.Context, networkReq network.Request, respChan network.ResponseChan) error {
+	getNodeRequest := &consensus.GetNodeRequest{}
+	err := cbornode.DecodeInto(networkReq.Payload, getNodeRequest)
+	if err != nil {
+		return fmt.Errorf("error getting request: %v", err)
+	}
+
+	node, err := gs.gossiper.Group.GetNode(getNodeRequest.Cid)
+	if err != nil {
+		return fmt.Errorf("error getting node: %v", err)
+	}
+	var nodeResp *consensus.GetNodeResponse
+	if node == nil {
+		nodeResp = &consensus.GetNodeResponse{}
+	} else {
+		nodeResp = &consensus.GetNodeResponse{
+			Bytes: node.RawData(),
+		}
+	}
+	netResp, err := network.BuildResponse(networkReq.Id, 200, nodeResp)
+	if err != nil {
+		return fmt.Errorf("error building response: %v", err)
+	}
+	respChan <- netResp
 	return nil
 }
 
