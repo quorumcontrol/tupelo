@@ -30,23 +30,17 @@ type testSet struct {
 }
 
 // This is the simplest possible state handler that just always returns the transaction as the nextState
-func simpleHandler(_ context.Context, _ *consensus.NotaryGroup, _, transaction, _ []byte) (nextState []byte, accepted bool, err error) {
-	if bytes.HasPrefix(transaction, []byte("reject")) {
+func simpleHandler(_ context.Context, stateTrans StateTransaction) (nextState []byte, accepted bool, err error) {
+	if bytes.HasPrefix(stateTrans.Transaction, []byte("reject")) {
 		log.Debug("rejecting transaction")
 		return []byte("bad state no use"), false, nil
 	}
-	return transaction, true, nil
+	return stateTrans.Transaction, true, nil
 }
 
-func simpleAcceptance(_ context.Context, _ *consensus.NotaryGroup, _, transaction, _ []byte) (err error) {
+func simpleAcceptance(_ context.Context, accepted StateTransaction) (err error) {
 	log.Debug("simpleAcceptance called")
-	lastAccepted = transaction
-	return nil
-}
-
-func simpleRejecter(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (err error) {
-	log.Debug("simpleRejecter called")
-	lastRejected = transaction
+	lastAccepted = accepted.Transaction
 	return nil
 }
 
@@ -173,9 +167,7 @@ func groupFromTestSet(t *testing.T, set *testSet) *consensus.NotaryGroup {
 
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	group := consensus.NewNotaryGroup("notarygroupid", nodeStore)
-	block, err := group.CreateBlockFor(group.RoundAt(time.Now()), members)
-	require.Nil(t, err)
-	err = group.AddBlock(block)
+	err := group.CreateGenesisState(group.RoundAt(time.Now()), members...)
 	require.Nil(t, err)
 	return group
 }
@@ -208,7 +200,6 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 			Storage:         stor,
 			StateHandler:    simpleHandler,
 			AcceptedHandler: simpleAcceptance,
-			RejectedHandler: simpleRejecter,
 			Group:           group,
 			MessageHandler:  system.NewHandler(crypto.ToECDSAPub(member.DstKey.PublicKey)),
 		}

@@ -68,9 +68,19 @@ type handler interface {
 	Stop()
 }
 
-type stateHandler func(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (nextState []byte, accepted bool, err error)
-type acceptedHandler func(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, newState []byte) (err error)
-type rejectedHandler func(ctx context.Context, group *consensus.NotaryGroup, objectId, transaction, currentState []byte) (err error)
+// StateTransaction is what's passed to accepted
+// handlers after the transaction is accepted
+type StateTransaction struct {
+	Group         *consensus.NotaryGroup
+	Round         int64
+	ObjectID      []byte
+	Transaction   []byte
+	TransactionID []byte
+	State         []byte
+}
+
+type stateHandler func(ctx context.Context, inProgressTrans StateTransaction) (nextState []byte, accepted bool, err error)
+type acceptedHandler func(ctx context.Context, acceptedTrans StateTransaction) (err error)
 type roundHandler func(ctx context.Context, round int64)
 
 // CurrentState is the state of an object in the gossip system
@@ -171,7 +181,6 @@ type Gossiper struct {
 	Storage         storage.Storage
 	StateHandler    stateHandler
 	AcceptedHandler acceptedHandler
-	RejectedHandler rejectedHandler
 	Fanout          int
 	locker          *namedlocker.NamedLocker
 	started         bool
@@ -304,7 +313,7 @@ func (g *Gossiper) pokeWorker(incoming <-chan *poker, stopChan <-chan bool) {
 
 // RoundAt returns the round number for the time
 func (g *Gossiper) RoundAt(t time.Time) int64 {
-	return t.UTC().Unix() / int64(g.Group.RoundLength)
+	return g.Group.RoundAt(t)
 }
 
 func (g *Gossiper) handleIncomingRequest(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
@@ -621,7 +630,14 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		}
 
 		if g.AcceptedHandler != nil {
-			err = g.AcceptedHandler(ctx, g.Group, newState.ObjectID, savedTrans.Transaction, newState.Tip)
+			err = g.AcceptedHandler(ctx, StateTransaction{
+				Group:         g.Group,
+				Round:         savedTrans.Round,
+				ObjectID:      newState.ObjectID,
+				Transaction:   savedTrans.Transaction,
+				TransactionID: savedTrans.ID(),
+				State:         newState.Tip,
+			})
 			if err != nil {
 				log.Error("error calling accepted", "err", err)
 				return fmt.Errorf("error calling accepted: %v", err)
@@ -698,7 +714,14 @@ func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) { //TODO: s
 func (g *Gossiper) handleNewTransaction(ctx context.Context, csID conflictSetID, currState CurrentState, msg *GossipMessage) (*storedTransaction, error) {
 	log.Debug("handleNewTransaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 	trans := msg.toUnsignedStoredTransaction()
-	newTip, isAccepted, err := g.StateHandler(ctx, g.Group, trans.ObjectID, trans.Transaction, currState.Tip)
+	newTip, isAccepted, err := g.StateHandler(ctx, StateTransaction{
+		Group:         g.Group,
+		Round:         trans.Round,
+		ObjectID:      trans.ObjectID,
+		Transaction:   trans.Transaction,
+		TransactionID: trans.ID(),
+		State:         currState.Tip,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error calling state handler: %v", err)
 	}
