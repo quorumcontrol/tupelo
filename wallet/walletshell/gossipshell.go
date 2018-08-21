@@ -12,7 +12,7 @@ import (
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
-func RunGossip(name string, group *consensus.Group) {
+func RunGossip(name string, group *consensus.NotaryGroup) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
