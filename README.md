@@ -28,6 +28,8 @@ go generate
 
 ### Testing
 
-Integration tests are not run by default, add the "integration" tag to run these: 
+Integration tests are not run by default, add the "integration" tag to run
+these. Also add the path containing the libindy-crypto library as an ldflag so
+the linker can find it:
 
-`go test -tags=integration ./...`
+`go test -tags=integration -ldflags="-r /path/to/libindy-crypto/release" ./...`

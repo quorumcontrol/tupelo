@@ -2,7 +2,7 @@ package bls
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../indy-crypto/libindy-crypto/target/release
-#cgo LDFLAGS: -L${SRCDIR}/../indy-crypto/libindy-crypto/target/release -lindy_crypto
+#cgo LDFLAGS: -L${SRCDIR}/../indy-crypto/libindy-crypto/target/release -Wl,-rpath,\$ORIGIN/indy-crypto/libindy-crypto/target/release -lindy_crypto
 #include "./bls.h"
 */
 import "C"
