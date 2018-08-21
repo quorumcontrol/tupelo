@@ -190,6 +190,10 @@ func (ng *NotaryGroup) VerifyAvailableSignatures(round int64, msg []byte, sig *S
 	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
+func (ng *NotaryGroup) GetNode(cid *cid.Cid) (*cbornode.Node, error) {
+	return ng.signedTree.ChainTree.Dag.Get(cid)
+}
+
 // VerifySignature makes sure over 2/3 of the signers in a particular round have approved a message
 func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) (bool, error) {
 	roundInfo, err := ng.RoundInfoFor(round)
