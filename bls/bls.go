@@ -231,6 +231,9 @@ func (vk *VerKey) Verify(sig, msg []byte) (bool, error) {
 }
 
 func SumSignatures(sigs [][]byte) ([]byte, error) {
+	if len(sigs) == 0 {
+		return nil, fmt.Errorf("0 signatures sent into sum")
+	}
 	cSigs := make([]unsafe.Pointer, len(sigs))
 	for i, sig := range sigs {
 		cSig, err := cSignatureFrom(sig)
