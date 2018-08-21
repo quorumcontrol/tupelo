@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -21,11 +22,13 @@ func init() {
 	typecaster.AddType(SetOwnershipPayload{})
 	typecaster.AddType(EstablishCoinPayload{})
 	typecaster.AddType(CoinMonetaryPolicy{})
+	typecaster.AddType(MintCoinPayload{})
 	typecaster.AddType(StakePayload{})
 	cbornode.RegisterCborType(SetDataPayload{})
 	cbornode.RegisterCborType(SetOwnershipPayload{})
 	cbornode.RegisterCborType(EstablishCoinPayload{})
 	cbornode.RegisterCborType(CoinMonetaryPolicy{})
+	cbornode.RegisterCborType(MintCoinPayload{})
 	cbornode.RegisterCborType(StakePayload{})
 }
 
@@ -116,6 +119,82 @@ func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
+
+	return newTree, true, nil
+}
+
+type MintCoinPayload struct {
+	Name   string
+	Amount uint64
+}
+
+func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
+	payload := &MintCoinPayload{}
+	err := typecaster.ToType(transaction.Payload, payload)
+
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	if payload.Amount <= 0 {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: "error, can not mint an amount < 0"}
+	}
+
+	coinName := payload.Name
+	coinPath := append(strings.Split(TreePathForCoins, "/"), coinName)
+
+	uncastMonetaryPolicy, _, _ := tree.Resolve(append(coinPath, "monetaryPolicy"))
+	if uncastMonetaryPolicy == nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error, coin at path %v does not exist, must MINT_COIN first", coinPath)}
+	}
+	monetaryPolicy, _ := uncastMonetaryPolicy.(map[string]interface{})
+
+	uncastMintCids, _, err := tree.Resolve(append(coinPath, "mints"))
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching mints at %v: %v", coinPath, err)}
+	}
+
+	var mintCids []cid.Cid
+
+	if uncastMintCids == nil {
+		mintCids = make([]cid.Cid, 0)
+	} else {
+		mintCids = make([]cid.Cid, len(uncastMintCids.([]interface{})))
+		for k, c := range uncastMintCids.([]interface{}) {
+			mintCids[k] = c.(cid.Cid)
+		}
+	}
+
+	if monetaryPolicy["maximum"].(uint64) > 0 {
+		var currentMintedTotal uint64
+
+		for _, c := range mintCids {
+			node, err := tree.Get(&c)
+
+			if err != nil {
+				return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching node: %v", c)}
+			}
+
+			amount, _, err := node.Resolve([]string{"amount"})
+
+			if err != nil {
+				return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching amount from: %v", node)}
+			}
+
+			currentMintedTotal = currentMintedTotal + amount.(uint64)
+		}
+
+		if (currentMintedTotal + payload.Amount) >= monetaryPolicy["maximum"].(uint64) {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("new mint would violate monetaryPolicy of maximum: %v", monetaryPolicy["maximum"])}
+		}
+	}
+
+	newMint, err := tree.CreateNode(map[string]interface{}{
+		"amount": payload.Amount,
+	})
+	mintCids = append(mintCids, *newMint.Cid())
+
+	newTree, err = tree.SetAsLink(append(coinPath, "mints"), mintCids)
 
 	return newTree, true, nil
 }
