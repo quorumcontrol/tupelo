@@ -20,6 +20,7 @@ func init() {
 const MessageType_AddBlock = "ADD_BLOCK"
 const MessageType_Feedback = "FEEDBACK"
 const MessageType_TipRequest = "TIP_REQUEST"
+const MessageType_StateChange = "STATE_CHANGE"
 
 type Wallet interface {
 	GetChain(id string) (*SignedChainTree, error)

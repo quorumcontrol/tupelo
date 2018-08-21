@@ -93,6 +93,11 @@ func (imh *InMemoryHandler) Push(dst *ecdsa.PublicKey, req *network.Request) err
 	return nil
 }
 
+func (imh *InMemoryHandler) Broadcast(topic, symkey []byte, req *network.Request) error {
+	// for now just swallow
+	return nil
+}
+
 func (imh *InMemoryHandler) DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error) {
 	respChan := make(chan *network.Response, 1)
 	start := time.Now()

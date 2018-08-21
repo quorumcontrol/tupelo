@@ -64,6 +64,7 @@ type handler interface {
 	DoRequest(dst *ecdsa.PublicKey, req *network.Request) (chan *network.Response, error)
 	Push(dst *ecdsa.PublicKey, req *network.Request) error
 	AssignHandler(requestType string, handlerFunc network.HandlerFunc) error
+	Broadcast(topic, symKey []byte, req *network.Request) error
 	Start()
 	Stop()
 }
@@ -644,6 +645,15 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 			}
 		}
 
+		// for now ignore errors
+		req, err := network.BuildRequest(consensus.MessageType_StateChange, newState)
+		if err != nil {
+			log.Error("error building request", "g", g.ID, "err", err)
+		}
+		err = g.MessageHandler.Broadcast(newState.ObjectID, newState.ObjectID, req)
+		if err != nil {
+			log.Error("error broadcasting", "g", g.ID, "err", err)
+		}
 		//TODO: when do we delete the transaction
 	}
 
