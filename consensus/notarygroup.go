@@ -62,6 +62,31 @@ func NewNotaryGroup(id string, nodeStore nodestore.NodeStore) *NotaryGroup {
 	}
 }
 
+// CreateGenesisState is used for creating a new notary group which fills in the initial signers
+// for 8 rounds from the start because that's the time it takes for new calculations to happen
+func (ng *NotaryGroup) CreateGenesisState(startRound int64, signers ...*RemoteNode) error {
+	transactions := make([]*chaintree.Transaction, 9)
+
+	for i := 0; i <= 8; i++ {
+		transactions[i] = &chaintree.Transaction{
+			Type: TransactionTypeSetData,
+			Payload: &SetDataPayload{
+				Path:  "rounds/" + strconv.Itoa(int(startRound)+i),
+				Value: RoundInfo{Signers: signers},
+			},
+		}
+	}
+
+	block := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip:  "",
+			Transactions: transactions,
+		},
+	}
+
+	return ng.AddBlock(block)
+}
+
 // MostRecentRound returns the roundinfo that is most recent to the requested round.
 func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, err error) {
 	for i := round; i >= 0; i-- {
