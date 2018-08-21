@@ -23,12 +23,14 @@ func init() {
 	typecaster.AddType(EstablishCoinPayload{})
 	typecaster.AddType(CoinMonetaryPolicy{})
 	typecaster.AddType(MintCoinPayload{})
+	typecaster.AddType(Coin{})
 	typecaster.AddType(StakePayload{})
 	cbornode.RegisterCborType(SetDataPayload{})
 	cbornode.RegisterCborType(SetOwnershipPayload{})
 	cbornode.RegisterCborType(EstablishCoinPayload{})
 	cbornode.RegisterCborType(CoinMonetaryPolicy{})
 	cbornode.RegisterCborType(MintCoinPayload{})
+	cbornode.RegisterCborType(Coin{})
 	cbornode.RegisterCborType(StakePayload{})
 }
 
@@ -79,6 +81,13 @@ func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) 
 	return newTree, true, nil
 }
 
+type Coin struct {
+	MonetaryPolicy *cid.Cid
+	Mints          *cid.Cid
+	Sends          *cid.Cid
+	Received       *cid.Cid
+}
+
 type CoinMonetaryPolicy struct {
 	Maximum uint64
 }
@@ -106,13 +115,7 @@ func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction)
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error, coin at path %v already exists", coinPath)}
 	}
 
-	coinData := map[string]interface{}{
-		"mints":    nil,
-		"sends":    nil,
-		"receives": nil,
-	}
-
-	newTree, err = tree.SetAsLink(coinPath, coinData)
+	newTree, err = tree.SetAsLink(coinPath, &Coin{})
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
