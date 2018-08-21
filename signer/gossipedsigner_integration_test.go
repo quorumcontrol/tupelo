@@ -97,9 +97,7 @@ func notaryGroupFromRemoteNodes(t *testing.T, remoteNodes []*consensus.RemoteNod
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
 	group := consensus.NewNotaryGroup("notarygroupID", nodeStore)
-	block, err := group.CreateBlockFor(group.RoundAt(time.Now()), remoteNodes)
-	require.Nil(t, err)
-	err = group.AddBlock(block)
+	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
 	require.Nil(t, err)
 	return group
 }
@@ -112,12 +110,13 @@ func TestGossipedSignerIntegration(t *testing.T) {
 
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
-	group := notaryGroupFromRemoteNodes(t, remoteNodes)
+	group1 := notaryGroupFromRemoteNodes(t, remoteNodes)
+	group2 := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
+	gossipedSigner1 := NewGossipedSigner(node1, group1, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -125,7 +124,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group1.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -165,7 +164,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	node2 := network.NewNode(ts.EcdsaKeys[1])
 	store2 := storage.NewMemStorage()
 
-	gossipedSigner2 := NewGossipedSigner(node2, group, store2, ts.SignKeys[1])
+	gossipedSigner2 := NewGossipedSigner(node2, group2, store2, ts.SignKeys[1])
 	gossipedSigner2.Start()
 	defer gossipedSigner2.Stop()
 
@@ -178,7 +177,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 					Payload: consensus.StakePayload{
 						DstKey:  ts.DstKeys[1],
 						VerKey:  ts.PubKeys[1],
-						GroupId: group.ID,
+						GroupId: group2.ID,
 					},
 				},
 			},
@@ -278,17 +277,18 @@ func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 	for i := 0; i < len(ts.SignKeys); i++ {
 		remoteNodes[i] = consensus.NewRemoteNode(ts.PubKeys[i], ts.DstKeys[i])
 	}
-	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	for i := 0; i < len(ts.SignKeys); i++ {
+		group := notaryGroupFromRemoteNodes(t, remoteNodes)
 		node := network.NewNode(ts.EcdsaKeys[i])
 		store := storage.NewMemStorage()
 		gossipedSigner := NewGossipedSigner(node, group, store, ts.SignKeys[i])
 		gossipedSigner.Start()
 		defer gossipedSigner.Stop()
 	}
+	cliGroup := notaryGroupFromRemoteNodes(t, remoteNodes)
 
-	client := gossipclient.NewGossipClient(group)
+	client := gossipclient.NewGossipClient(cliGroup)
 
 	client.Start()
 	defer client.Stop()
