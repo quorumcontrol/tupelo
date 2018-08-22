@@ -87,7 +87,7 @@ type Coin struct {
 	MonetaryPolicy *cid.Cid
 	Mints          *cid.Cid
 	Sends          *cid.Cid
-	Received       *cid.Cid
+	Receives       *cid.Cid
 }
 
 type CoinMonetaryPolicy struct {
