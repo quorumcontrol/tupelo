@@ -155,9 +155,12 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 	if uncastMonetaryPolicy == nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error, coin at path %v does not exist, must MINT_COIN first", coinPath)}
 	}
-	monetaryPolicy, ok := uncastMonetaryPolicy.(map[string]interface{})
-	if !ok {
-		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: "error on type assertion for monetaryPolicy"}
+
+	monetaryPolicy := &CoinMonetaryPolicy{}
+	err = typecaster.ToType(uncastMonetaryPolicy, monetaryPolicy)
+
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
 
 	uncastMintCids, _, err := tree.Resolve(append(coinPath, "mints"))
@@ -176,7 +179,7 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 		}
 	}
 
-	if monetaryPolicy["maximum"].(uint64) > 0 {
+	if monetaryPolicy.Maximum > 0 {
 		var currentMintedTotal uint64
 
 		for _, c := range mintCids {
@@ -195,8 +198,8 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 			currentMintedTotal = currentMintedTotal + amount.(uint64)
 		}
 
-		if (currentMintedTotal + payload.Amount) >= monetaryPolicy["maximum"].(uint64) {
-			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("new mint would violate monetaryPolicy of maximum: %v", monetaryPolicy["maximum"])}
+		if (currentMintedTotal + payload.Amount) >= monetaryPolicy.Maximum {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("new mint would violate monetaryPolicy of maximum: %v", monetaryPolicy.Maximum)}
 		}
 	}
 
