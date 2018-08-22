@@ -21,16 +21,18 @@ func init() {
 	typecaster.AddType(SetDataPayload{})
 	typecaster.AddType(SetOwnershipPayload{})
 	typecaster.AddType(EstablishCoinPayload{})
-	typecaster.AddType(CoinMonetaryPolicy{})
 	typecaster.AddType(MintCoinPayload{})
 	typecaster.AddType(Coin{})
+	typecaster.AddType(CoinMonetaryPolicy{})
+	typecaster.AddType(CoinMint{})
 	typecaster.AddType(StakePayload{})
 	cbornode.RegisterCborType(SetDataPayload{})
 	cbornode.RegisterCborType(SetOwnershipPayload{})
 	cbornode.RegisterCborType(EstablishCoinPayload{})
-	cbornode.RegisterCborType(CoinMonetaryPolicy{})
 	cbornode.RegisterCborType(MintCoinPayload{})
 	cbornode.RegisterCborType(Coin{})
+	cbornode.RegisterCborType(CoinMonetaryPolicy{})
+	cbornode.RegisterCborType(CoinMint{})
 	cbornode.RegisterCborType(StakePayload{})
 }
 
@@ -133,6 +135,10 @@ type MintCoinPayload struct {
 	Amount uint64
 }
 
+type CoinMint struct {
+	Amount uint64
+}
+
 func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &MintCoinPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
@@ -203,8 +209,8 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 		}
 	}
 
-	newMint, err := tree.CreateNode(map[string]interface{}{
-		"amount": payload.Amount,
+	newMint, err := tree.CreateNode(&CoinMint{
+		Amount: payload.Amount,
 	})
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("could not create new node: %v", err)}
