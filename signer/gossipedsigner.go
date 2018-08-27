@@ -43,17 +43,20 @@ func (a byAddress) Less(i, j int) bool {
 	return a[i].Id < a[j].Id
 }
 
-// type roundTransactionHolder map[string]
+type PendingGroupChange struct {
+	round    int64
+	addition *consensus.RemoteNode
+}
 
 // GossipedSigner uses the gosig based gossip protocol
 // in order to reach consensus.
 type GossipedSigner struct {
-	gossiper    *gossip.Gossiper
-	started     bool
-	responses   responseHolder
-	respLock    *sync.RWMutex
-	roundInfos  map[int64]*consensus.RoundInfo
-	roundBlocks map[int64]*cid.Cid
+	gossiper            *gossip.Gossiper
+	started             bool
+	responses           responseHolder
+	respLock            *sync.RWMutex
+	roundBlocks         map[int64]*cid.Cid
+	pendingGroupChanges map[int64][]*PendingGroupChange
 }
 
 // GroupToTopic takes a NotaryGroup and returns the Whisper Topic to reach it.
@@ -67,10 +70,10 @@ func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store s
 	}
 
 	gossipSigner := &GossipedSigner{
-		responses:   make(responseHolder),
-		respLock:    &sync.RWMutex{},
-		roundInfos:  make(map[int64]*consensus.RoundInfo),
-		roundBlocks: make(map[int64]*cid.Cid),
+		responses:           make(responseHolder),
+		respLock:            &sync.RWMutex{},
+		roundBlocks:         make(map[int64]*cid.Cid),
+		pendingGroupChanges: make(map[int64][]*PendingGroupChange),
 	}
 
 	handler := network.NewMessageHandler(node, GroupToTopic(group))
@@ -134,20 +137,35 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 		log.Debug("chaintree block incoming")
 		dataPayload := &consensus.SetDataPayload{}
 		typecaster.ToType(addBlockrequest.NewBlock.Transactions[0].Payload, dataPayload)
+
 		roundStrings := strings.Split(dataPayload.Path, "rounds/")
 		round, err := strconv.Atoi(roundStrings[len(roundStrings)-1])
 		if err != nil {
 			return nil, false, &consensus.ErrorCode{Memo: fmt.Sprintf("error casting: %v", err), Code: consensus.ErrUnknown}
 		}
-		sw := &safewrap.SafeWrap{}
-		node := sw.Decode(stateTrans.Transaction)
-		existing, ok := gs.roundBlocks[int64(round)]
-		if !ok {
-			calculated := gs.calculateRequestForRound(int64(round))
-			calculatedNode := sw.WrapObject(calculated)
-			existing = calculatedNode.Cid()
-			gs.roundBlocks[int64(round)] = existing
+
+		currentRound := gs.gossiper.Group.RoundAt(time.Now())
+		if int64(round) > (currentRound + 5) {
+			return nil, false, &consensus.ErrorCode{Memo: "error, can not process chaintree change further than 5 rounds in the future", Code: consensus.ErrUnknown}
 		}
+
+		sw := &safewrap.SafeWrap{}
+
+		existing, _ := gs.roundBlocks[int64(round)]
+		if existing == nil {
+			gs.calculateBlockForRound(int64(round))
+			existing, _ = gs.roundBlocks[int64(round)]
+		}
+
+		if existing == nil {
+			return nil, false, &consensus.ErrorCode{Memo: fmt.Sprintf("could not calculate round info for %v", round), Code: consensus.ErrUnknown}
+		}
+
+		node := sw.Decode(stateTrans.Transaction)
+		if sw.Err != nil {
+			return nil, false, &consensus.ErrorCode{Memo: fmt.Sprintf("error casting: %v", sw.Err), Code: consensus.ErrUnknown}
+		}
+
 		if node.Cid().Equals(existing) {
 			expected, err := gs.gossiper.Group.ExpectedTipWithBlock(addBlockrequest.NewBlock)
 			if err != nil {
@@ -157,39 +175,53 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 		}
 		log.Error("error,existing did not match %s %s", existing.String(), node.Cid().String())
 		return nil, false, nil
+	}
 
-		// do special handling of notary group
-		// if this new block matches the block I have for the round of the block
-		// then we can approve the block
-	} else {
-		resp, err = processAddBlock(storedTip, addBlockrequest)
-		if err != nil {
-			log.Error("error processing block", "err", err)
+	for changeRound := range gs.pendingGroupChanges {
+		if changeRound <= (stateTrans.Round - 6) {
+			log.Error("cannot process block, notarygroup has pending changes", "err", err)
 			return nil, false, nil
 		}
+	}
+
+	resp, err = processAddBlock(storedTip, addBlockrequest)
+	if err != nil {
+		log.Error("error processing block", "err", err)
+		return nil, false, nil
 	}
 
 	return resp.Tip.Bytes(), true, nil
 }
 
-func (gs *GossipedSigner) calculateRequestForRound(round int64) *consensus.AddBlockRequest {
-	roundInfo := gs.roundInfos[round]
-	if roundInfo == nil {
-		roundInfo = &consensus.RoundInfo{
-			Round: round,
-		}
-	}
-	previousInfo, err := gs.gossiper.Group.RoundInfoFor(round - 1)
+func (gs *GossipedSigner) calculateBlockForRound(round int64) (*consensus.AddBlockRequest, bool) {
+	roundInfo, err := gs.gossiper.Group.MostRecentRoundInfo(round - 1)
 	if err != nil {
 		panic(fmt.Sprintf("error finding previous round: %d", round-1))
 	}
-	roundInfo.Signers = append(roundInfo.Signers, previousInfo.Signers...)
-	sort.Sort(byAddress(roundInfo.Signers))
-	log.Debug("signers length", "g", gs.gossiper.ID, "length", len(roundInfo.Signers))
+
+	var pendingChanges []*PendingGroupChange
+
+	for changeRound, changes := range gs.pendingGroupChanges {
+		if changeRound <= (round - 6) {
+			pendingChanges = append(pendingChanges, changes...)
+		}
+	}
+
+	hadChangesFromLast := false
+
+	if len(pendingChanges) > 0 {
+		for _, change := range pendingChanges {
+			if change.addition != nil && !roundInfo.HasMember(&change.addition.VerKey) {
+				hadChangesFromLast = true
+				roundInfo.Signers = append(roundInfo.Signers, change.addition)
+			}
+		}
+		sort.Sort(byAddress(roundInfo.Signers))
+	}
 
 	block, err := gs.gossiper.Group.CreateBlockFor(round, roundInfo.Signers)
 	if err != nil {
-		panic(fmt.Sprintf("error creating block:%v", err))
+		panic(fmt.Sprintf("error creating round block: %v", err))
 	}
 
 	addBlockRequest := &consensus.AddBlockRequest{
@@ -197,27 +229,38 @@ func (gs *GossipedSigner) calculateRequestForRound(round int64) *consensus.AddBl
 		NewBlock: block,
 		Tip:      gs.gossiper.Group.Tip(),
 	}
-	return addBlockRequest
+
+	sw := &safewrap.SafeWrap{}
+	cborNode := sw.WrapObject(addBlockRequest)
+	gs.roundBlocks[round] = cborNode.Cid()
+
+	return addBlockRequest, hadChangesFromLast
 }
 
 func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
-	// create block for round + 6 and gossip that block around
-	// gossip block
-	log.Debug("round handler", "g", gs.gossiper.ID, "round", round)
-	_, ok := gs.roundBlocks[round+6]
-	if !ok {
-		log.Debug("calculating new signers for", "g", gs.gossiper.ID, "round", round+6)
-		// no need to handle this round, it's already in the chaintree
-		roundInfo, _ := gs.gossiper.Group.RoundInfoFor(round + 6)
-		if roundInfo != nil {
-			return
-		}
+	// Cleanup old round blocks that are no longer used
+	_, ok := gs.roundBlocks[round-2]
+	if ok {
+		delete(gs.roundBlocks, (round - 2))
+	}
 
-		addBlockRequest := gs.calculateRequestForRound(round + 6)
+	targetRound := round + 4
 
+	roundInfo, _ := gs.gossiper.Group.RoundInfoFor(targetRound)
+	if roundInfo != nil {
+		return
+	}
+
+	existing, _ := gs.roundBlocks[targetRound]
+	if existing != nil {
+		return
+	}
+
+	addBlockRequest, hadChanges := gs.calculateBlockForRound(targetRound)
+
+	if hadChanges {
 		sw := &safewrap.SafeWrap{}
 		cborNode := sw.WrapObject(addBlockRequest)
-		gs.roundBlocks[round+6] = cborNode.Cid()
 
 		gossipMessage := &gossip.GossipMessage{
 			ObjectID:    []byte(addBlockRequest.ChainId),
@@ -235,15 +278,26 @@ func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
 }
 
 func (gs *GossipedSigner) acceptedHandler(ctx context.Context, acceptedTransaction gossip.StateTransaction) (err error) {
-	log.Debug("accepted handler")
 	addBlockrequest := &consensus.AddBlockRequest{}
 	err = cbornode.DecodeInto(acceptedTransaction.Transaction, addBlockrequest)
+	log.Debug("accepted handler", "objid", string(acceptedTransaction.ObjectID), "action", addBlockrequest.NewBlock.Block.Transactions[0].Type)
 	if err != nil {
 		return fmt.Errorf("error getting payload: %v", err)
 	}
 	if addBlockrequest.ChainId == gs.gossiper.Group.ID {
 		log.Debug("add block to chaintree")
 		gs.gossiper.Group.AddBlock(addBlockrequest.NewBlock)
+
+		for _, transaction := range addBlockrequest.NewBlock.Transactions {
+			payload := transaction.Payload.(map[string]interface{})
+			roundStrings := strings.Split(payload["path"].(string), "rounds/")
+			round, _ := strconv.Atoi(roundStrings[len(roundStrings)-1])
+
+			if _, ok := gs.pendingGroupChanges[int64(round)]; ok {
+				delete(gs.pendingGroupChanges, int64(round))
+			}
+		}
+
 		return nil
 	}
 	err = gs.respondToTransaction(acceptedTransaction.ObjectID, acceptedTransaction.Transaction)
@@ -252,7 +306,7 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, acceptedTransacti
 	}
 
 	if trans := stakeTransactionFromBlock(addBlockrequest.NewBlock); trans != nil {
-		log.Debug("new stake", "g", gs.gossiper.ID, "staker", addBlockrequest.ChainId)
+		log.Debug("new stake", "g", gs.gossiper.ID, "staker", addBlockrequest.ChainId, "targetround", acceptedTransaction.Round+6)
 
 		stakePayload := &consensus.StakePayload{}
 		err = typecaster.ToType(trans.Payload, stakePayload)

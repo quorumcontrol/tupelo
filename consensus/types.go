@@ -52,11 +52,12 @@ type AddBlockResponse struct {
 }
 
 type GetNodeRequest struct {
-	Cid *cid.Cid
+	PreviousTip *cid.Cid
+	NewTip      *cid.Cid
 }
 
 type GetNodeResponse struct {
-	Bytes []byte
+	Bytes [][]byte
 }
 
 type FeedbackRequest struct {

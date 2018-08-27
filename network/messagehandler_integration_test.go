@@ -78,9 +78,7 @@ func TestClient_Broadcast(t *testing.T) {
 	defer serverNode.Stop()
 
 	reqHandler := func(_ context.Context, req Request, respChan ResponseChan) error {
-		respChan <- &Response{
-			Payload: req.Payload,
-		}
+		assert.Equal(t, req.Payload, []byte("PONG"))
 		return nil
 	}
 
@@ -96,18 +94,12 @@ func TestClient_Broadcast(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	respChan, err := client.Broadcast(TestTopic, TestKey, &Request{
+	err = client.Broadcast(TestTopic, TestKey, &Request{
 		Type:    "PING",
 		Id:      uuid.New().String(),
 		Payload: []byte("PONG"),
 	})
-
 	assert.Nil(t, err)
-
-	resp := <-respChan
-
-	assert.IsType(t, &Response{}, resp)
-	assert.Equal(t, []byte("PONG"), resp.Payload)
 }
 
 func TestClient_Push(t *testing.T) {

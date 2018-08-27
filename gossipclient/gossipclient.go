@@ -61,7 +61,7 @@ func (gc *GossipClient) Stop() {
 }
 
 func (gc *GossipClient) TipRequest(chainId string) (*consensus.TipResponse, error) {
-	roundInfo, err := gc.Group.RoundInfoFor(gc.Group.RoundAt(time.Now()))
+	roundInfo, err := gc.Group.MostRecentRoundInfo(gc.Group.RoundAt(time.Now()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting round info: %v", err)
 	}
@@ -92,7 +92,7 @@ func (gc *GossipClient) TipRequest(chainId string) (*consensus.TipResponse, erro
 }
 
 func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, remoteTip string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
-	roundInfo, err := gc.Group.RoundInfoFor(gc.Group.RoundAt(time.Now()))
+	roundInfo, err := gc.Group.MostRecentRoundInfo(gc.Group.RoundAt(time.Now()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting round info: %v", err)
 	}

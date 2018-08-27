@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -64,25 +65,21 @@ func NewNotaryGroup(id string, nodeStore nodestore.NodeStore) *NotaryGroup {
 	}
 }
 
-// CreateGenesisState is used for creating a new notary group which fills in the initial signers
-// for 8 rounds from the start because that's the time it takes for new calculations to happen
+// CreateGenesisState is used for creating a new notary group which fills in the initial
+// signers for the first round
 func (ng *NotaryGroup) CreateGenesisState(startRound int64, signers ...*RemoteNode) error {
-	transactions := make([]*chaintree.Transaction, 9)
-
-	for i := 0; i <= 8; i++ {
-		transactions[i] = &chaintree.Transaction{
-			Type: TransactionTypeSetData,
-			Payload: &SetDataPayload{
-				Path:  "rounds/" + strconv.Itoa(int(startRound)+i),
-				Value: RoundInfo{Signers: signers},
-			},
-		}
-	}
-
 	block := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip:  "",
-			Transactions: transactions,
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				&chaintree.Transaction{
+					Type: TransactionTypeSetData,
+					Payload: &SetDataPayload{
+						Path:  "rounds/" + strconv.Itoa(int(startRound)),
+						Value: RoundInfo{Signers: signers},
+					},
+				},
+			},
 		},
 	}
 
@@ -140,6 +137,10 @@ func (ng *NotaryGroup) Dump() string {
 	return ng.signedTree.ChainTree.Dag.Dump()
 }
 
+func (ng *NotaryGroup) AddNodes(nodes ...*cbornode.Node) error {
+	return ng.signedTree.ChainTree.Dag.AddNodes(nodes...)
+}
+
 // CreateBlockFor takes a list of remoteNodes and a round and returns a block for gossipping
 func (ng *NotaryGroup) CreateBlockFor(round int64, remoteNodes []*RemoteNode) (block *chaintree.BlockWithHeaders, err error) {
 	var previousTip string
@@ -174,7 +175,7 @@ func (ng *NotaryGroup) AddBlock(block *chaintree.BlockWithHeaders) (err error) {
 // VerifyAvailableSignatures just validates that all the sigs are valid in the supplied argument,
 // but does not verify that the super majority count has signed
 func (ng *NotaryGroup) VerifyAvailableSignatures(round int64, msg []byte, sig *Signature) (bool, error) {
-	roundInfo, err := ng.RoundInfoFor(round)
+	roundInfo, err := ng.MostRecentRoundInfo(round)
 	if err != nil {
 		return false, fmt.Errorf("error getting round info: %v", err)
 	}
@@ -194,9 +195,18 @@ func (ng *NotaryGroup) GetNode(cid *cid.Cid) (*cbornode.Node, error) {
 	return ng.signedTree.ChainTree.Dag.Get(cid)
 }
 
+func (ng *NotaryGroup) Nodes() ([]*cbornode.Node, error) {
+	return ng.signedTree.ChainTree.Dag.Nodes()
+}
+
+func (ng *NotaryGroup) NodesAt(tip *cid.Cid) ([]*cbornode.Node, error) {
+	dag := ng.signedTree.ChainTree.Dag.WithNewTip(tip)
+	return dag.Nodes()
+}
+
 // VerifySignature makes sure over 2/3 of the signers in a particular round have approved a message
 func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) (bool, error) {
-	roundInfo, err := ng.RoundInfoFor(round)
+	roundInfo, err := ng.MostRecentRoundInfo(round)
 	if err != nil {
 		return false, fmt.Errorf("error getting round info: %v", err)
 	}
@@ -239,7 +249,7 @@ func (ng *NotaryGroup) ExpectedTipWithBlock(block *chaintree.BlockWithHeaders) (
 // CombineSignatures turns many signatures into one for a particular round
 // in the notary group.
 func (ng *NotaryGroup) CombineSignatures(round int64, sigs SignatureMap) (*Signature, error) {
-	roundInfo, err := ng.RoundInfoFor(round)
+	roundInfo, err := ng.MostRecentRoundInfo(round)
 	if err != nil {
 		return nil, fmt.Errorf("error getting round info: %v", err)
 	}
@@ -287,6 +297,16 @@ func (ri *RoundInfo) SuperMajorityCount() int64 {
 		return 1
 	}
 	return required
+}
+
+// HasMember will return true if provided verKey is in signers
+func (ri *RoundInfo) HasMember(verKey *PublicKey) bool {
+	for _, member := range ri.Signers {
+		if bytes.Equal(member.VerKey.PublicKey, verKey.PublicKey) {
+			return true
+		}
+	}
+	return false
 }
 
 func randInt(max int) int {

@@ -193,7 +193,7 @@ func generateTestGossipGroup(t *testing.T, size int, latency int) []*Gossiper {
 
 	gossipers := make([]*Gossiper, size)
 
-	roundInfo, err := group.RoundInfoFor(group.RoundAt(time.Now()))
+	roundInfo, err := group.MostRecentRoundInfo(group.RoundAt(time.Now()))
 	require.Nil(t, err)
 
 	for i := 0; i < size; i++ {

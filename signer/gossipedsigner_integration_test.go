@@ -95,9 +95,8 @@ func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, t
 
 func notaryGroupFromRemoteNodes(t *testing.T, remoteNodes []*consensus.RemoteNode) *consensus.NotaryGroup {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-
 	group := consensus.NewNotaryGroup("notarygroupID", nodeStore)
-	// group.RoundLength = 5
+	group.RoundLength = 5
 	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
 	require.Nil(t, err)
 	return group
@@ -111,13 +110,12 @@ func TestGossipedSignerIntegration(t *testing.T) {
 
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
-	group1 := notaryGroupFromRemoteNodes(t, remoteNodes)
-	group2 := notaryGroupFromRemoteNodes(t, remoteNodes)
+	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := NewGossipedSigner(node1, group1, store1, ts.SignKeys[0])
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -125,7 +123,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group1.ID))
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -138,7 +136,6 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	assert.Nil(t, err)
 
 	// First we test that a gossipedSigner1 can receive messages
-
 	signed, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: "",
@@ -158,43 +155,67 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	respBytes := <-respChan
 	assert.NotNil(t, respBytes)
 
-	// now we check that we can stake in order to become part of the group
 	tree.ChainTree.ProcessBlock(signed)
 	log.Debug("expected tip: ", "tip", tree.Tip().String())
 
-	node2 := network.NewNode(ts.EcdsaKeys[1])
-	store2 := storage.NewMemStorage()
+	roundsAndExpectedCount := map[int64]int{}
+	var lastRound int64
 
-	gossipedSigner2 := NewGossipedSigner(node2, group2, store2, ts.SignKeys[1])
-	gossipedSigner2.Start()
-	defer gossipedSigner2.Stop()
+	// now we check that we can stake in order to become part of the group
+	for i := 1; i <= 2; i++ {
+		nextTreeKey, err := crypto.GenerateKey()
+		assert.Nil(t, err)
+		nextNodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+		nextTree, err := consensus.NewSignedChainTree(nextTreeKey.PublicKey, nextNodeStore)
 
-	round := group1.RoundAt(time.Now())
-	stakeBlock, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: tree.Tip().String(),
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: consensus.TransactionTypeStake,
-					Payload: consensus.StakePayload{
-						DstKey:  ts.DstKeys[1],
-						VerKey:  ts.PubKeys[1],
-						GroupId: group2.ID,
+		nextNode := network.NewNode(ts.EcdsaKeys[i+1])
+		nextStore := storage.NewMemStorage()
+		nextSigner := NewGossipedSigner(nextNode, group, nextStore, ts.SignKeys[i+1])
+		nextSigner.Start()
+		defer nextSigner.Stop()
+
+		<-time.After(time.Duration(group.RoundLength) * time.Second)
+
+		stakeBlock, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
+			Block: chaintree.Block{
+				PreviousTip: "",
+				Transactions: []*chaintree.Transaction{
+					{
+						Type: consensus.TransactionTypeStake,
+						Payload: consensus.StakePayload{
+							DstKey:  ts.DstKeys[i+1],
+							VerKey:  ts.PubKeys[i+1],
+							GroupId: group.ID,
+						},
 					},
 				},
 			},
-		},
-	}, treeKey)
-	require.Nil(t, err)
-	respChan = sendBlock(t, stakeBlock, tree.Tip(), tree, client, &ts.EcdsaKeys[0].PublicKey)
+		}, nextTreeKey)
+		require.Nil(t, err)
+		respChan = sendBlock(t, stakeBlock, nextTree.Tip(), nextTree, client, &ts.EcdsaKeys[0].PublicKey)
 
-	stakeRespBytes := <-respChan
-	assert.NotNil(t, stakeRespBytes)
+		stakeRespBytes := <-respChan
+		assert.NotNil(t, stakeRespBytes)
+		nextTree.ChainTree.ProcessBlock(stakeBlock)
 
-	<-time.After(7 * time.Duration(group1.RoundLength) * time.Second)
-	roundInfo, err := group1.RoundInfoFor(round + 6)
+		expectedRound := group.RoundAt(time.Now()) + 6
+		roundsAndExpectedCount[expectedRound] = i + 1
+		lastRound = expectedRound
+	}
+
+	// Give it two rounds to commit
+	<-time.After(2 * time.Duration(group.RoundLength) * time.Second)
+
+	for round, expected := range roundsAndExpectedCount {
+		roundInfo, err := group.MostRecentRoundInfo(round)
+		require.Nil(t, err)
+		assert.Len(t, roundInfo.Signers, expected)
+	}
+
+	// Check that the round after our last insert persists length of signers
+	roundInfo, err := group.MostRecentRoundInfo(lastRound + 1)
 	require.Nil(t, err)
-	assert.Len(t, roundInfo.Signers, 2)
+	assert.Len(t, roundInfo.Signers, roundsAndExpectedCount[lastRound])
 }
 
 func TestGossipedSigner_GetNodeHandler(t *testing.T) {
