@@ -229,11 +229,9 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 		return nil, false, nil
 	}
 
-	for changeRound := range gs.pendingGroupChanges {
-		if changeRound <= (stateTrans.Round - 6) {
-			log.Error("cannot process block, notarygroup has pending changes", "err", err)
-			return nil, false, nil
-		}
+	if len(gs.processableGroupChanges(stateTrans.Round)) > 0 {
+		log.Error("cannot process block, notarygroup has pending changes", "err", err)
+		return nil, false, nil
 	}
 
 	resp, err = processAddBlock(storedTip, addBlockrequest)
@@ -245,19 +243,22 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 	return resp.Tip.Bytes(), true, nil
 }
 
+func (gs *GossipedSigner) processableGroupChanges(round int64) (pendingChanges []*PendingGroupChange) {
+	for changeRound, changes := range gs.pendingGroupChanges {
+		if changeRound <= (round - 6) {
+			pendingChanges = append(pendingChanges, changes...)
+		}
+	}
+	return pendingChanges
+}
+
 func (gs *GossipedSigner) calculateBlockForRound(round int64) (*consensus.AddBlockRequest, bool) {
 	roundInfo, err := gs.gossiper.Group.MostRecentRoundInfo(round - 1)
 	if err != nil {
 		panic(fmt.Sprintf("error finding previous round: %d", round-1))
 	}
 
-	var pendingChanges []*PendingGroupChange
-
-	for changeRound, changes := range gs.pendingGroupChanges {
-		if changeRound <= (round - 6) {
-			pendingChanges = append(pendingChanges, changes...)
-		}
-	}
+	pendingChanges := gs.processableGroupChanges(round)
 
 	hadChangesFromLast := false
 
