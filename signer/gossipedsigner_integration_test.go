@@ -96,7 +96,7 @@ func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, t
 func notaryGroupFromRemoteNodes(t *testing.T, remoteNodes []*consensus.RemoteNode) *consensus.NotaryGroup {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	group := consensus.NewNotaryGroup("notarygroupID", nodeStore)
-	group.RoundLength = 5
+	group.RoundLength = 3
 	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
 	require.Nil(t, err)
 	return group
