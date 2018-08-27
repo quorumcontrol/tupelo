@@ -183,7 +183,7 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) error {
 		return fmt.Errorf("error wrapping request: %v", sw.Err)
 	}
 
-	log.Debug("broadcast message", "id", req.Id, "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Trace("broadcast message", "id", req.Id, "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err := rh.node.Send(MessageParams{
 		Payload:  reqNode.RawData(),
 		TTL:      DefaultTTL,
