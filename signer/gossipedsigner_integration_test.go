@@ -218,7 +218,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	assert.Len(t, roundInfo.Signers, roundsAndExpectedCount[lastRound])
 }
 
-func TestGossipedSigner_GetNodeHandler(t *testing.T) {
+func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
 	group := notaryGroupFromRemoteNodes(t, remoteNodes)
@@ -240,8 +240,9 @@ func TestGossipedSigner_GetNodeHandler(t *testing.T) {
 	defer client.Stop()
 	time.Sleep(2 * time.Second)
 
-	req, err := network.BuildRequest(consensus.MessageType_GetNode, &consensus.GetNodeRequest{
-		Cid: group.Tip(),
+	req, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
+		PreviousTip: group.Tip(),
+		NewTip:      group.Tip(),
 	})
 	require.Nil(t, err)
 

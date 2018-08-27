@@ -92,10 +92,62 @@ func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store s
 	gossipSigner.gossiper = gossiper
 	handler.AssignHandler(consensus.MessageType_AddBlock, gossipSigner.AddBlockHandler)
 	handler.AssignHandler(consensus.MessageType_TipRequest, gossipSigner.TipHandler)
-	handler.AssignHandler(consensus.MessageType_GetNode, gossipSigner.GetNode)
+	handler.AssignHandler(consensus.MessageType_GetDiffNodes, gossipSigner.GetDiffNodes)
 	gossiper.AddRoundHandler(gossipSigner.roundHandler)
 
+	handler.HandleTopic(GroupToTopic(group), crypto.Keccak256(GroupToTopic(group)))
+	handler.AssignHandler(consensus.MessageType_StateChange, gossipSigner.GroupStateChangeHandler)
+
 	return gossipSigner
+}
+
+func (gs *GossipedSigner) GroupStateChangeHandler(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
+	newState := &gossip.CurrentState{}
+	err := cbornode.DecodeInto(req.Payload, newState)
+	if err != nil {
+		return fmt.Errorf("error casting state change payload: %v", err)
+	}
+
+	newTip, err := cid.Cast(newState.Tip)
+	if err != nil {
+		return fmt.Errorf("error casting state change payload: %v", err)
+	}
+
+	existingTip := gs.gossiper.Group.Tip()
+
+	if !existingTip.Equals(newTip) {
+		// TODO: this isn't very safe, we shoudl go fetch the nodes from more than just the node that published the update
+		newReq, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
+			PreviousTip: existingTip,
+			NewTip:      newTip,
+		})
+
+		if err != nil {
+			return fmt.Errorf("error building request: %v", err)
+		}
+
+		respChan, err := gs.gossiper.MessageHandler.DoRequest(req.Source(), newReq)
+		respBytes := <-respChan
+
+		diffNodes := &consensus.GetDiffNodesResponse{}
+		err = cbornode.DecodeInto(respBytes.Payload, diffNodes)
+		if err != nil {
+			return fmt.Errorf("error casting state change payload: %v", err)
+		}
+
+		for _, nodeBytes := range diffNodes.Bytes {
+			sw := &safewrap.SafeWrap{}
+			node := sw.Decode(nodeBytes)
+			if sw.Err != nil {
+				return fmt.Errorf("error fetching new nodes: %v", sw.Err)
+			}
+			gs.gossiper.Group.AddNodes(node)
+		}
+
+		gs.gossiper.Group.FastForward(newTip)
+	}
+
+	return nil
 }
 
 func (gs *GossipedSigner) Start() {
@@ -314,39 +366,66 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, acceptedTransacti
 			return fmt.Errorf("error casting: %v", err)
 		}
 		remoteNode := consensus.NewRemoteNode(stakePayload.VerKey, stakePayload.DstKey)
-		roundInfo := gs.roundInfos[acceptedTransaction.Round+6]
-		if roundInfo == nil {
-			roundInfo = &consensus.RoundInfo{
-				Round: acceptedTransaction.Round + 6,
-			}
+
+		if _, ok := gs.pendingGroupChanges[acceptedTransaction.Round]; !ok {
+			gs.pendingGroupChanges[acceptedTransaction.Round] = make([]*PendingGroupChange, 0)
 		}
-		roundInfo.Signers = append(roundInfo.Signers, remoteNode)
-		gs.roundInfos[acceptedTransaction.Round+6] = roundInfo
+
+		gs.pendingGroupChanges[acceptedTransaction.Round] = append(gs.pendingGroupChanges[acceptedTransaction.Round], &PendingGroupChange{
+			round:    acceptedTransaction.Round,
+			addition: remoteNode,
+		})
 	}
 
 	return nil
 }
 
-func (gs *GossipedSigner) GetNode(ctx context.Context, networkReq network.Request, respChan network.ResponseChan) error {
-	getNodeRequest := &consensus.GetNodeRequest{}
-	err := cbornode.DecodeInto(networkReq.Payload, getNodeRequest)
+func (gs *GossipedSigner) GetDiffNodes(ctx context.Context, networkReq network.Request, respChan network.ResponseChan) error {
+	diffRequest := &consensus.GetDiffNodesRequest{}
+	err := cbornode.DecodeInto(networkReq.Payload, diffRequest)
 	if err != nil {
 		return fmt.Errorf("error getting request: %v", err)
 	}
 
-	node, err := gs.gossiper.Group.GetNode(getNodeRequest.Cid)
+	newNodes, err := gs.gossiper.Group.NodesAt(diffRequest.NewTip)
 	if err != nil {
-		return fmt.Errorf("error getting node: %v", err)
+		return fmt.Errorf("error getting current nodes: %v", err)
 	}
-	var nodeResp *consensus.GetNodeResponse
-	if node == nil {
-		nodeResp = &consensus.GetNodeResponse{}
-	} else {
-		nodeResp = &consensus.GetNodeResponse{
-			Bytes: node.RawData(),
+
+	previousNodes := make([]*cbornode.Node, 0)
+
+	previousTipNode, err := gs.gossiper.Group.GetNode(diffRequest.PreviousTip)
+	if previousTipNode != nil {
+		previousNodes, err = gs.gossiper.Group.NodesAt(diffRequest.PreviousTip)
+		if err != nil {
+			return fmt.Errorf("error getting previous nodes: %v", err)
 		}
 	}
-	netResp, err := network.BuildResponse(networkReq.Id, 200, nodeResp)
+
+	previousNodedsByCid := make(map[*cid.Cid]*cbornode.Node)
+
+	for _, node := range previousNodes {
+		previousNodedsByCid[node.Cid()] = node
+	}
+
+	var diffNodesResp [][]byte
+
+	for _, node := range newNodes {
+		_, ok := previousNodedsByCid[node.Cid()]
+		if !ok {
+			diffNodesResp = append(diffNodesResp, node.RawData())
+		}
+	}
+
+	var nodesResp *consensus.GetDiffNodesResponse
+	if len(diffNodesResp) > 0 {
+		nodesResp = &consensus.GetDiffNodesResponse{
+			Bytes: diffNodesResp,
+		}
+	} else {
+		nodesResp = &consensus.GetDiffNodesResponse{}
+	}
+	netResp, err := network.BuildResponse(networkReq.Id, 200, nodesResp)
 	if err != nil {
 		return fmt.Errorf("error building response: %v", err)
 	}
