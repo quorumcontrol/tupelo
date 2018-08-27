@@ -417,13 +417,8 @@ func (gs *GossipedSigner) GetDiffNodes(ctx context.Context, networkReq network.R
 		}
 	}
 
-	var nodesResp *consensus.GetDiffNodesResponse
-	if len(diffNodesResp) > 0 {
-		nodesResp = &consensus.GetDiffNodesResponse{
-			Bytes: diffNodesResp,
-		}
-	} else {
-		nodesResp = &consensus.GetDiffNodesResponse{}
+	nodesResp := &consensus.GetDiffNodesResponse{
+		Bytes: diffNodesResp,
 	}
 	netResp, err := network.BuildResponse(networkReq.Id, 200, nodesResp)
 	if err != nil {
