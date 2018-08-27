@@ -136,8 +136,8 @@ func (gs *GossipedSigner) GroupStateChangeHandler(ctx context.Context, req netwo
 		}
 
 		sw := &safewrap.SafeWrap{}
-		nodes := make([]*cbornode.Node, len(diffNodes.Bytes))
-		for i, nodeBytes := range diffNodes.Bytes {
+		nodes := make([]*cbornode.Node, len(diffNodes.Nodes))
+		for i, nodeBytes := range diffNodes.Nodes {
 			nodes[i] = sw.Decode(nodeBytes)
 		}
 		if sw.Err != nil {
@@ -409,18 +409,17 @@ func (gs *GossipedSigner) GetDiffNodes(ctx context.Context, networkReq network.R
 		previousNodedsByCid[node.Cid()] = node
 	}
 
-	var diffNodesResp [][]byte
+	nodesResp := &consensus.GetDiffNodesResponse{
+		Nodes: make([][]byte, 0),
+	}
 
 	for _, node := range newNodes {
 		_, ok := previousNodedsByCid[node.Cid()]
 		if !ok {
-			diffNodesResp = append(diffNodesResp, node.RawData())
+			nodesResp.Nodes = append(nodesResp.Nodes, node.RawData())
 		}
 	}
 
-	nodesResp := &consensus.GetDiffNodesResponse{
-		Bytes: diffNodesResp,
-	}
 	netResp, err := network.BuildResponse(networkReq.Id, 200, nodesResp)
 	if err != nil {
 		return fmt.Errorf("error building response: %v", err)

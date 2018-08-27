@@ -57,7 +57,7 @@ type GetDiffNodesRequest struct {
 }
 
 type GetDiffNodesResponse struct {
-	Bytes [][]byte
+	Nodes [][]byte
 }
 
 type FeedbackRequest struct {
