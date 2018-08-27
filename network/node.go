@@ -107,8 +107,15 @@ func (s *Subscription) RetrieveMessages() []*ReceivedMessage {
 }
 
 func NewNode(key *ecdsa.PrivateKey) *Node {
+	whisp := whisper.New(&whisper.Config{
+		MaxMessageSize:     whisper.MaxMessageSize,
+		MinimumAcceptedPOW: 0.001,
+	})
+	whisp.AddKeyPair(key)
+
 	return &Node{
-		key: key,
+		key:     key,
+		whisper: whisp,
 	}
 }
 
@@ -124,19 +131,14 @@ func (n *Node) Start() error {
 		peers = append(peers, peer)
 	}
 
-	whisp := whisper.New(&whisper.Config{
-		MaxMessageSize:     whisper.MaxMessageSize,
-		MinimumAcceptedPOW: 0.001,
-	})
-	whisp.AddKeyPair(n.key)
-	whisp.Start(nil)
+	n.whisper.Start(nil)
 
 	srv := &p2p.Server{
 		Config: p2p.Config{
 			MaxPeers:   20,
 			PrivateKey: n.key,
 			//ListenAddr: ":8000",
-			Protocols:      whisp.Protocols(),
+			Protocols:      n.whisper.Protocols(),
 			BootstrapNodes: peers,
 		},
 	}
@@ -146,7 +148,6 @@ func (n *Node) Start() error {
 	}
 
 	n.srv = srv
-	n.whisper = whisp
 
 	return nil
 }
