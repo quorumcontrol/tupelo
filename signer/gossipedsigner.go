@@ -135,15 +135,15 @@ func (gs *GossipedSigner) GroupStateChangeHandler(ctx context.Context, req netwo
 			return fmt.Errorf("error casting state change payload: %v", err)
 		}
 
-		for _, nodeBytes := range diffNodes.Bytes {
-			sw := &safewrap.SafeWrap{}
-			node := sw.Decode(nodeBytes)
-			if sw.Err != nil {
-				return fmt.Errorf("error fetching new nodes: %v", sw.Err)
-			}
-			gs.gossiper.Group.AddNodes(node)
+		sw := &safewrap.SafeWrap{}
+		nodes := make([]*cbornode.Node, len(diffNodes.Bytes))
+		for i, nodeBytes := range diffNodes.Bytes {
+			nodes[i] = sw.Decode(nodeBytes)
 		}
-
+		if sw.Err != nil {
+			return fmt.Errorf("error fetching new nodes: %v", sw.Err)
+		}
+		gs.gossiper.Group.AddNodes(nodes...)
 		gs.gossiper.Group.FastForward(newTip)
 	}
 
