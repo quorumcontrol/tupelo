@@ -119,9 +119,12 @@ func TestNotaryGroupCreateGenesisState(t *testing.T) {
 	rn := NewRemoteNode(BlsKeyToPublicKey(rnKey.MustVerKey()), EcdsaToPublicKey(&rnDstKey.PublicKey))
 	group.CreateGenesisState(round, rn)
 
-	for i := 0; i <= 8; i++ {
-		roundInfo, err := group.RoundInfoFor(round + int64(i))
-		require.Nil(t, err)
-		assert.Equal(t, []*RemoteNode{rn}, roundInfo.Signers, "round %d", round+int64(i))
-	}
+	roundInfo, err := group.RoundInfoFor(round)
+	require.Nil(t, err)
+	assert.Equal(t, []*RemoteNode{rn}, roundInfo.Signers)
+
+	// check 2nd rounds mostrecent works
+	roundInfo, err = group.MostRecentRoundInfo(round + 1)
+	require.Nil(t, err)
+	assert.Equal(t, []*RemoteNode{rn}, roundInfo.Signers)
 }

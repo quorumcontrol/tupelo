@@ -178,6 +178,7 @@ type Gossiper struct {
 	MessageHandler  handler
 	ID              string
 	SignKey         *bls.SignKey
+	VerKey          consensus.PublicKey
 	Group           *consensus.NotaryGroup
 	Storage         storage.Storage
 	StateHandler    stateHandler
@@ -201,6 +202,7 @@ func (g *Gossiper) Initialize() {
 	if g.ID == "" {
 		g.ID = consensus.BlsVerKeyToAddress(g.SignKey.MustVerKey().Bytes()).String()
 	}
+	g.VerKey = consensus.BlsKeyToPublicKey(g.SignKey.MustVerKey())
 	g.Storage.CreateBucketIfNotExists(stateBucket)
 	g.MessageHandler.AssignHandler(MessageTypeGossip, g.handleIncomingRequest)
 	g.locker = namedlocker.NewNamedLocker()
@@ -383,7 +385,7 @@ func (g *Gossiper) HandleGossip(ctx context.Context, msg *GossipMessage) error {
 // if the message is new and a PREPARE message then we save the message to the conflic set, add our signature to the PREPARE and then gossip
 // if the PREPARE message has 2/3 of signers then gossip a TENTATIVE_COMMIT message by wrapping up the prepare sigs into one and starting a new phase with own sig
 func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage) error {
-	log.Debug("handlePrepareMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "round", msg.Round, "sigCount", len(msg.PhaseSignatures))
+	log.Debug("handlePrepareMessage", "g", g.ID, "objid", string(msg.ObjectID), "uuid", ctx.Value(ctxRequestKey), "round", msg.Round, "sigCount", len(msg.PhaseSignatures))
 
 	if msg.Phase != phasePrepare {
 		return fmt.Errorf("incorrect phase: %d", msg.Phase)
@@ -453,7 +455,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 
 	var newMessage *GossipMessage
 
-	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
+	roundInfo, err := g.Group.MostRecentRoundInfo(msg.Round)
 	if roundInfo == nil || err != nil {
 		return fmt.Errorf("error getting round info: %v", err)
 	}
@@ -601,7 +603,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		}
 	}
 
-	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
+	roundInfo, err := g.Group.MostRecentRoundInfo(msg.Round)
 	if roundInfo == nil || err != nil {
 		return fmt.Errorf("error getting round info: %v", err)
 	}
@@ -650,11 +652,11 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		if err != nil {
 			log.Error("error building request", "g", g.ID, "err", err)
 		}
-		err = g.MessageHandler.Broadcast(newState.ObjectID, newState.ObjectID, req)
+		err = g.MessageHandler.Broadcast(newState.ObjectID, crypto.Keccak256(newState.ObjectID), req)
 		if err != nil {
 			log.Error("error broadcasting", "g", g.ID, "err", err)
 		}
-		//TODO: when do we delete the transaction
+		//TODO: when do we delete the transactionn
 	}
 
 	newMessage = &GossipMessage{
@@ -688,7 +690,7 @@ func sigMapToString(sigMap consensus.SignatureMap) string {
 }
 
 func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) { //TODO: should this have errors?
-	roundInfo, err := g.Group.RoundInfoFor(msg.Round)
+	roundInfo, err := g.Group.MostRecentRoundInfo(msg.Round)
 	if roundInfo == nil || err != nil {
 		panic(fmt.Sprintf("should never happen: roundInfo problem: %v", err))
 	}
