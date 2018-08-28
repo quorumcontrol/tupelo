@@ -656,7 +656,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		if err != nil {
 			log.Error("error broadcasting", "g", g.ID, "err", err)
 		}
-		//TODO: when do we delete the transactionn
+		//TODO: when do we delete the transaction?
 	}
 
 	newMessage = &GossipMessage{

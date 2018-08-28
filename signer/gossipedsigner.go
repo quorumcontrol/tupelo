@@ -116,7 +116,7 @@ func (gs *GossipedSigner) GroupStateChangeHandler(ctx context.Context, req netwo
 	existingTip := gs.gossiper.Group.Tip()
 
 	if !existingTip.Equals(newTip) {
-		// TODO: this isn't very safe, we shoudl go fetch the nodes from more than just the node that published the update
+		// TODO: this isn't very safe, we should fetch the nodes from other signers, not just the signer that published the update
 		newReq, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
 			PreviousTip: existingTip,
 			NewTip:      newTip,
