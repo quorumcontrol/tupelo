@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+TARGET_DIR="/go/src/github.com/quorumcontrol/qc3/"
+IMAGE_AND_TAG="qc3:latest"
+HOST="root@51.15.114.122"
+
+pushd `dirname $0`/../
+trap popd EXIT
+
+ssh $HOST "mkdir -p $TARGET_DIR"
+
+docker build --tag $IMAGE_AND_TAG .
+
+docker save -o .storage/dockerimage.tar qc3:latest
+
+scp .storage/dockerimage.tar $HOST:$TARGET_DIR/
+
+rm -f .storage/dockerimage.tar
+
+ssh $HOST "cd $TARGET_DIR && docker load -i dockerimage.tar"
+
+scp docker-compose-testnetwork.yml $HOST:$TARGET_DIR/
