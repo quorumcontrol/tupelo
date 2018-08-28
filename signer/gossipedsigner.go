@@ -28,6 +28,9 @@ import (
 	"github.com/quorumcontrol/storage"
 )
 
+const RoundsUntilClosed = 2
+const RoundsUntilNewSignerIsLive = RoundsUntilClosed + 4
+
 type pendingResponse struct {
 	ch network.ResponseChan
 	id string
@@ -245,7 +248,7 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 
 func (gs *GossipedSigner) processableGroupChanges(round int64) (pendingChanges []*PendingGroupChange) {
 	for changeRound, changes := range gs.pendingGroupChanges {
-		if changeRound <= (round - 6) {
+		if changeRound <= (round - RoundsUntilNewSignerIsLive) {
 			pendingChanges = append(pendingChanges, changes...)
 		}
 	}
@@ -292,12 +295,12 @@ func (gs *GossipedSigner) calculateBlockForRound(round int64) (*consensus.AddBlo
 
 func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
 	// Cleanup old round blocks that are no longer used
-	_, ok := gs.roundBlocks[round-2]
+	_, ok := gs.roundBlocks[round-RoundsUntilClosed]
 	if ok {
-		delete(gs.roundBlocks, (round - 2))
+		delete(gs.roundBlocks, (round - RoundsUntilClosed))
 	}
 
-	targetRound := round + 4
+	targetRound := round + (RoundsUntilNewSignerIsLive - RoundsUntilClosed)
 
 	roundInfo, _ := gs.gossiper.Group.RoundInfoFor(targetRound)
 	if roundInfo != nil {
