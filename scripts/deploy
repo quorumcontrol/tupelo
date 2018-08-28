@@ -2,7 +2,7 @@
 
 TARGET_DIR="/go/src/github.com/quorumcontrol/qc3/"
 IMAGE_AND_TAG="qc3:latest"
-HOST="root@51.15.114.122"
+HOST="debian@51.15.114.122"
 
 pushd `dirname $0`/../
 trap popd EXIT

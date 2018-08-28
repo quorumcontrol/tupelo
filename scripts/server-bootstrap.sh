@@ -24,3 +24,10 @@ add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(
 apt-get update
 
 apt-get install -y docker-ce docker-compose
+
+# debian user is created by default with limited permissions and already has same ssh keys as root assigned
+usermod -a -G docker debian
+
+chsh -s $(which bash) debian
+
+mkdir -p /go && chown -R debian:debian /go
