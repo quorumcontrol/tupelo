@@ -1,4 +1,5 @@
 vendor
-.storage
+.storage/*
+!.storage/.gitkeep
 _old
 /qc3
