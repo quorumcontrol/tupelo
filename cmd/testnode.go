@@ -16,7 +16,9 @@ package cmd
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -54,20 +56,63 @@ var BlsSignKeys []*bls.SignKey
 var EcdsaKeys []*ecdsa.PrivateKey
 var TestNetGroup *consensus.Group
 
-func init() {
-	BlsSignKeys = make([]*bls.SignKey, len(blsHexKeys))
-	EcdsaKeys = make([]*ecdsa.PrivateKey, len(ecdsaHexKeys))
+type KeySet struct {
+	BlsHexKey   string
+	EcdsaHexKey string
+}
 
-	for i, hex := range blsHexKeys {
-		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(hex))
+var keysFile = "/keys.json"
+
+func keysFromFile() (jsonLoadedKeys []*KeySet) {
+	if _, err := os.Stat(keysFile); err == nil {
+		jsonBytes, err := ioutil.ReadFile(keysFile)
+
+		if err != nil {
+			fmt.Printf("Error reading from %v: %v", keysFile, err)
+			return nil
+		}
+		json.Unmarshal(jsonBytes, &jsonLoadedKeys)
+		if len(jsonLoadedKeys) > 0 {
+			return jsonLoadedKeys
+		}
 	}
+	return nil
+}
 
-	for i, hex := range ecdsaHexKeys {
-		key, err := crypto.ToECDSA(hexutil.MustDecode(hex))
+func keySets() []*KeySet {
+	keysFromFile := keysFromFile()
+
+	if keysFromFile != nil {
+		fmt.Print("loaded keys from file")
+		return keysFromFile
+	} else {
+		defaultKeySets := make([]*KeySet, len(blsHexKeys))
+
+		for i := range defaultKeySets {
+			defaultKeySets[i] = &KeySet{
+				BlsHexKey:   blsHexKeys[i],
+				EcdsaHexKey: ecdsaHexKeys[i],
+			}
+		}
+
+		return defaultKeySets
+	}
+}
+
+func init() {
+	keySets := keySets()
+
+	BlsSignKeys = make([]*bls.SignKey, len(keySets))
+	EcdsaKeys = make([]*ecdsa.PrivateKey, len(keySets))
+
+	for i, keySet := range keySets {
+		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(keySet.BlsHexKey))
+
+		ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(keySet.EcdsaHexKey))
 		if err != nil {
 			panic("error converting to key")
 		}
-		EcdsaKeys[i] = key
+		EcdsaKeys[i] = ecdsaKey
 	}
 
 	members := make([]*consensus.RemoteNode, len(BlsSignKeys))
