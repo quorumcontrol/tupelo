@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +25,12 @@ var generateNodeKeysCmd = &cobra.Command{
 			panic("error generating ecdsa")
 		}
 
-		fmt.Printf("bls: '%v'\necdsa: '%v'\n", hexutil.Encode(blsKey.Bytes()), hexutil.Encode(crypto.FromECDSA(ecdsa)))
+		fmt.Printf(
+			"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\n",
+			hexutil.Encode(blsKey.Bytes()),
+			hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
+			hexutil.Encode(crypto.FromECDSA(ecdsa)),
+			hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsa.PublicKey).PublicKey))
 	},
 }
 
