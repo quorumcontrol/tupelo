@@ -232,8 +232,6 @@ func TestprocessAddBlock(t *testing.T) {
 	assert.NotNil(t, err)
 }
 func TestSigner_CoinTransactions(t *testing.T) {
-	signer := createSigner(t)
-
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -256,7 +254,8 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		},
 	}
 
-	emptyTree := consensus.NewEmptyTree(treeDID)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 
 	nodes := dagToByteNodes(t, emptyTree)
 
@@ -269,7 +268,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := signer.ProcessAddBlock(nil, req)
+	resp, err := processAddBlock(nil, req)
 
 	assert.Nil(t, err)
 
@@ -279,7 +278,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	testTree.ProcessBlock(blockWithHeaders)
 	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
-	resp, err = signer.ProcessAddBlock(resp.Tip, req)
+	resp, err = processAddBlock(resp.Tip, req)
 	assert.NotNil(t, err)
 
 	// Can mint from established coin
@@ -310,7 +309,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			NewBlock: blockWithHeaders,
 		}
 
-		resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+		resp, err = processAddBlock(testTree.Dag.Tip, req)
 		assert.Nil(t, err)
 
 		testTree.ProcessBlock(blockWithHeaders)
@@ -349,7 +348,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.NotNil(t, err)
 
 	// Can't mint a negative amount
@@ -379,7 +378,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err = signer.ProcessAddBlock(testTree.Dag.Tip, req)
+	resp, err = processAddBlock(testTree.Dag.Tip, req)
 	assert.NotNil(t, err)
 }
 

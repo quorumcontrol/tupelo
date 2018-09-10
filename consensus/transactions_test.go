@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -12,8 +14,9 @@ func TestEstablishCoinTransactionWithMaximum(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
+	store := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	treeDID := AddrToDid(crypto.PubkeyToAddress(key.PublicKey).String())
-	emptyTree := NewEmptyTree(treeDID)
+	emptyTree := NewEmptyTree(treeDID, store)
 
 	blockWithHeaders := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -59,8 +62,9 @@ func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
+	store := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	treeDID := AddrToDid(crypto.PubkeyToAddress(key.PublicKey).String())
-	emptyTree := NewEmptyTree(treeDID)
+	emptyTree := NewEmptyTree(treeDID, store)
 
 	blockWithHeaders := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
