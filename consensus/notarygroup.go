@@ -26,7 +26,7 @@ func init() {
 }
 
 const (
-	defaultRoundLength = 10
+	defaultRoundLength = 30
 )
 
 // NotaryGroup is a wrapper around a Chain Tree specifically used

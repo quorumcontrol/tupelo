@@ -17,6 +17,6 @@ scp .storage/dockerimage.tar $HOST:$TARGET_DIR/
 
 rm -f .storage/dockerimage.tar
 
-ssh $HOST "cd $TARGET_DIR && docker load -i dockerimage.tar"
+ssh $HOST "cd $TARGET_DIR && docker load -i dockerimage.tar && rm -f dockerimage.tar"
 
-scp docker-compose-testnetwork.yml $HOST:$TARGET_DIR/
+scp docker-compose-testnetwork.yml $HOST:$TARGET_DIR/docker-compose.yml

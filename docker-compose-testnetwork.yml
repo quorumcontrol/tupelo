@@ -2,64 +2,94 @@ version: "3"
 services:
   node0:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "0"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node0:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_0_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_0_ECDSA_KEY_HEX
   node1:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "1"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node1:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_1_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_1_ECDSA_KEY_HEX
   node2:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "2"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node2:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_2_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_2_ECDSA_KEY_HEX
   node3:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "3"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node3:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_3_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_3_ECDSA_KEY_HEX
   node4:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "4"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node4:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_4_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_4_ECDSA_KEY_HEX
   node5:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "5"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node5:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_5_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_5_ECDSA_KEY_HEX
   node6:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "6"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node6:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_6_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_6_ECDSA_KEY_HEX
   node7:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "7"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node7:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_7_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_7_ECDSA_KEY_HEX
   node8:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "8"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node8:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_8_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_8_ECDSA_KEY_HEX
   node9:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "9"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node9:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_9_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_9_ECDSA_KEY_HEX
 
 volumes:
   node0:
