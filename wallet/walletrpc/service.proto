@@ -1,0 +1,66 @@
+syntax = "proto3";
+package github.com.quorumcontrol.qc3.wallet.walletrpc;
+
+option go_package = "walletrpc";
+
+message Credentials {
+  string wallet_name = 1;
+  string pass_phrase = 2;
+}
+
+message GenerateChainRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+  string key_addr = 2;
+}
+
+message GenerateChainResponse {
+  string chain_id = 1;
+}
+
+message GenerateKeyRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+}
+
+message GenerateKeyResponse {
+  string key_addr = 1;
+}
+
+message GetTipRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+  string chain_id = 2;
+}
+
+message GetTipResponse {
+  string tip = 1;
+}
+
+message ListChainIdsRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+}
+
+message ListChainIdsResponse {
+  repeated string chain_ids = 1;
+}
+
+message ListKeysRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+}
+
+message ListKeysResponse {
+  repeated string key_addrs = 1;
+}
+
+message PlayTransactionsRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+}
+
+message PlayTransactionsResponse {
+}
+
+service WalletRPCService {
+  rpc CreateChain (github.com.quorumcontrol.qc3.wallet.walletrpc.GenerateChainRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.GenerateChainResponse);
+  rpc GenerateKey (github.com.quorumcontrol.qc3.wallet.walletrpc.GenerateKeyRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.GenerateKeyResponse);
+  rpc GetTip (github.com.quorumcontrol.qc3.wallet.walletrpc.GetTipRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.GetTipResponse);
+  rpc ListChainIds (github.com.quorumcontrol.qc3.wallet.walletrpc.ListChainIdsRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.ListChainIdsResponse);
+  rpc ListKeys (github.com.quorumcontrol.qc3.wallet.walletrpc.ListKeysRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.ListKeysResponse);
+}
