@@ -77,15 +77,15 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 	return tipResp.Tip, nil
 }
 
-func (rpcs *RPCSession) prepareTransaction(chainId string, keyAddr string) (*consensus.SignedChainTree, *ecdsa.PrivateKey, string, error) {
+func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, err
 	}
 
 	key, err := rpcs.getKey(keyAddr)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, err
 	}
 
 	var remoteTip string
@@ -93,20 +93,17 @@ func (rpcs *RPCSession) prepareTransaction(chainId string, keyAddr string) (*con
 		remoteTip = chain.Tip().String()
 	}
 
-	return chain, key, remoteTip, nil
-}
-
-func (rpcs *RPCSession) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, remoteTip string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
-	return rpcs.client.PlayTransactions(tree, treeKey, remoteTip, transactions)
-}
-
-func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeys []*consensus.PublicKey, path string, value string) (*cid.Cid, error) {
-	chain, key, remoteTip, err := rpcs.prepareTransaction(chainId, keyAddr)
+	resp, err := rpcs.client.PlayTransactions(chain, key, remoteTip, transactions)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := rpcs.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{
+	rpcs.wallet.SaveChain(chain)
+	return resp, nil
+}
+
+func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeys []*consensus.PublicKey, path string, value string) (*cid.Cid, error) {
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetOwnership,
 			Payload: consensus.SetOwnershipPayload{
@@ -118,17 +115,11 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeys []
 		return nil, err
 	}
 
-	rpcs.wallet.SaveChain(chain)
 	return resp.Tip, nil
 }
 
 func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, value string) (*cid.Cid, error) {
-	chain, key, remoteTip, err := rpcs.prepareTransaction(chainId, keyAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := rpcs.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetData,
 			Payload: consensus.SetDataPayload{
@@ -141,14 +132,39 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 		return nil, err
 	}
 
-	rpcs.wallet.SaveChain(chain)
 	return resp.Tip, nil
 }
 
-// func (rpcs *RPCSession) EstablishCoin(id string, path string, value string) (*consensus.AddBlockResponse, error) {
+func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, policy *consensus.CoinMonetaryPolicy) (*cid.Cid, error) {
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
+		{
+			Type: consensus.TransactionTypeEstablishCoin,
+			Payload: consensus.EstablishCoinPayload{
+				Name:           coinName,
+				MonetaryPolicy: *policy,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-// }
+	return resp.Tip, nil
+}
 
-// func (rpcs *RPCSession) MintCoin(id string, path string, value string) (*consensus.AddBlockResponse, error) {
+func (rpcs *RPCSession) MintCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
+		{
+			Type: consensus.TransactionTypeMintCoin,
+			Payload: consensus.MintCoinPayload{
+				Name:   coinName,
+				Amount: amount,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
-// }
+	return resp.Tip, nil
+}
