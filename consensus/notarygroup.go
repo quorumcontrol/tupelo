@@ -144,7 +144,7 @@ func (ng *NotaryGroup) AddNodes(nodes ...*cbornode.Node) error {
 // CreateBlockFor takes a list of remoteNodes and a round and returns a block for gossipping
 func (ng *NotaryGroup) CreateBlockFor(round int64, remoteNodes []*RemoteNode) (block *chaintree.BlockWithHeaders, err error) {
 	var previousTip string
-	if !ng.signedTree.IsGenesis() {
+	if !ng.IsGenesis() {
 		previousTip = ng.signedTree.Tip().String()
 	}
 	return &chaintree.BlockWithHeaders{
