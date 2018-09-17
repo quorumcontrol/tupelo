@@ -42,7 +42,6 @@ type transactionID []byte
 type conflictSetID []byte
 type tip []byte
 type phase int8
-type roundSignatures map[string]storedTransaction
 
 const MessageTypeGossip = "GOSSIP"
 
