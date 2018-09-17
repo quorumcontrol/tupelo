@@ -7,11 +7,9 @@ type RemoteNode struct {
 }
 
 func NewRemoteNode(verKey, dstKey PublicKey) *RemoteNode {
-	remoteNode := &RemoteNode{
+	return &RemoteNode{
+		Id:     PublicKeyToAddr(&verKey),
 		VerKey: verKey,
 		DstKey: dstKey,
 	}
-
-	remoteNode.Id = PublicKeyToAddr(&verKey)
-	return remoteNode
 }
