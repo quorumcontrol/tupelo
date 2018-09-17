@@ -46,9 +46,9 @@ type phase int8
 const MessageTypeGossip = "GOSSIP"
 
 const (
-	phasePrepare         phase = 0
-	phaseTentativeCommit phase = 1
-	phaseCommit          phase = 2
+	phasePrepare phase = iota
+	phaseTentativeCommit
+	phaseCommit
 )
 
 var (
