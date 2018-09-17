@@ -50,11 +50,48 @@ message ListKeysResponse {
   repeated string key_addrs = 1;
 }
 
-message PlayTransactionsRequest {
+message SetOwnerRequest {
   github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  repeated string new_owner_keys = 4;
 }
 
-message PlayTransactionsResponse {
+message SetOwnerResponse {
+  string tip = 1;
+}
+
+message SetDataRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+  string chain_id = 2;
+}
+
+message SetDataResponse {
+  string tip = 1;
+}
+
+message EstablishCoinRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string coin_name = 4;
+  uint64 maximum = 5;
+}
+
+message EstablishCoinResponse {
+  string tip = 1;
+}
+
+message MintCoinRequest {
+  github.com.quorumcontrol.qc3.wallet.walletrpc.Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string coin_name = 4;
+  uint64 amount = 5;
+}
+
+message MintCoinResponse {
+  string tip = 1;
 }
 
 service WalletRPCService {
@@ -63,4 +100,8 @@ service WalletRPCService {
   rpc GetTip (github.com.quorumcontrol.qc3.wallet.walletrpc.GetTipRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.GetTipResponse);
   rpc ListChainIds (github.com.quorumcontrol.qc3.wallet.walletrpc.ListChainIdsRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.ListChainIdsResponse);
   rpc ListKeys (github.com.quorumcontrol.qc3.wallet.walletrpc.ListKeysRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.ListKeysResponse);
+  rpc SetOwner (github.com.quorumcontrol.qc3.wallet.walletrpc.SetOwnerRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.SetOwnerResponse);
+  rpc SetData (github.com.quorumcontrol.qc3.wallet.walletrpc.SetDataRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.SetDataResponse);
+  rpc EstablishCoin (github.com.quorumcontrol.qc3.wallet.walletrpc.EstablishCoinRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.EstablishCoinResponse);
+  rpc MintCoin (github.com.quorumcontrol.qc3.wallet.walletrpc.MintCoinRequest) returns (github.com.quorumcontrol.qc3.wallet.walletrpc.MintCoinResponse);
 }

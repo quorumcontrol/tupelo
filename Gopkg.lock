@@ -666,6 +666,7 @@
     "github.com/ethereum/go-ethereum/p2p",
     "github.com/ethereum/go-ethereum/p2p/discover",
     "github.com/ethereum/go-ethereum/whisper/whisperv6",
+    "github.com/golang/protobuf/proto",
     "github.com/google/uuid",
     "github.com/ipfs/go-cid",
     "github.com/ipfs/go-ipld-cbor",

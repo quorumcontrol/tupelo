@@ -90,9 +90,57 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 	}, nil
 }
 
-// func (s *server) PlayTransactions(ctx context.Context, req *PlayTransactionsRequest) PlayTransactionsResponse {
-//	session := NewSession(req.creds, s.NotaryGroup)
-// }
+func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+
+	newTip, err := session.SetOwner(req.ChainId, req.KeyAddr, req.NewOwnerKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SetOwnerResponse{
+		Tip: newTip.String(),
+	}, nil
+}
+
+func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+
+	tipCid, err := session.GetTip(req.ChainId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SetDataResponse{
+		Tip: tipCid.String(),
+	}, nil
+}
+
+func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+
+	tipCid, err := session.EstablishCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Maximum)
+	if err != nil {
+		return nil, err
+	}
+
+	return &EstablishCoinResponse{
+		Tip: tipCid.String(),
+	}, nil
+}
+
+func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+
+	tipCid, err := session.MintCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MintCoinResponse{
+		Tip: tipCid.String(),
+	}, nil
+}
 
 func Serve(group *consensus.Group) (*grpc.Server, error) {
 	listener, err := net.Listen("tcp", port)

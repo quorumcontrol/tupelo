@@ -102,7 +102,17 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 	return resp, nil
 }
 
-func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeys []*consensus.PublicKey, path string, value string) (*cid.Cid, error) {
+func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddrs []string) (*cid.Cid, error) {
+	newOwnerKeys := make([]*consensus.PublicKey, len(newOwnerKeyAddrs))
+	for i, addr := range newOwnerKeyAddrs {
+		k, err := rpcs.getKey(addr)
+		if err != nil {
+			return nil, err
+		}
+		pubKey := consensus.EcdsaToPublicKey(&k.PublicKey)
+		newOwnerKeys[i] = &pubKey
+	}
+
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetOwnership,
@@ -135,13 +145,13 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, policy *consensus.CoinMonetaryPolicy) (*cid.Cid, error) {
+func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeEstablishCoin,
 			Payload: consensus.EstablishCoinPayload{
 				Name:           coinName,
-				MonetaryPolicy: *policy,
+				MonetaryPolicy: consensus.CoinMonetaryPolicy{Maximum: amount},
 			},
 		},
 	})
