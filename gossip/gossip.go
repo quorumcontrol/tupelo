@@ -171,6 +171,26 @@ func (st *storedTransaction) msgToSignTentativeCommit() []byte {
 	return crypto.Keccak256(msg)
 }
 
+func (st *storedTransaction) toGossipMessage(p phase) *GossipMessage {
+	newMessage := &GossipMessage{
+		ObjectID:    st.ObjectID,
+		PreviousTip: st.PreviousTip,
+		NewTip:      st.NewTip,
+		Transaction: st.Transaction,
+		Round:       st.Round,
+		Phase:       p,
+	}
+
+	switch p {
+	case phasePrepare:
+		newMessage.PhaseSignatures = st.PrepareSignatures
+	case phaseTentativeCommit:
+		newMessage.PhaseSignatures = st.TentativeCommitSignatures
+	}
+
+	return newMessage
+}
+
 // Gossiper is a node in a network (belonging to a group) that gossips around messages and comes to
 // a consensus about what the current state of an object is.
 type Gossiper struct {
@@ -474,29 +494,13 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		}
 		log.Debug("handlePrepareMessage - resending TentativeCommitMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(savedTrans.TentativeCommitSignatures), "sigs", sigMapToString(savedTrans.TentativeCommitSignatures))
 
-		newMessage = &GossipMessage{
-			ObjectID:         savedTrans.ObjectID,
-			PreviousTip:      savedTrans.PreviousTip,
-			NewTip:           savedTrans.NewTip,
-			Transaction:      savedTrans.Transaction,
-			Phase:            phaseTentativeCommit,
-			PrepareSignature: *prepareSig,
-			PhaseSignatures:  savedTrans.TentativeCommitSignatures,
-			Round:            savedTrans.Round,
-		}
+		newMessage = savedTrans.toGossipMessage(phaseTentativeCommit)
+		newMessage.PrepareSignature = *prepareSig
 	} else {
 		log.Debug("handlePrepareMessage - re-gossipping", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "sigCount", len(savedTrans.PrepareSignatures), "sigs", sigMapToString(savedTrans.PrepareSignatures))
 
 		// else gossip new prepare message
-		newMessage = &GossipMessage{
-			ObjectID:        savedTrans.ObjectID,
-			PreviousTip:     savedTrans.PreviousTip,
-			NewTip:          savedTrans.NewTip,
-			Transaction:     savedTrans.Transaction,
-			Phase:           phasePrepare,
-			PhaseSignatures: savedTrans.PrepareSignatures,
-			Round:           savedTrans.Round,
-		}
+		newMessage = savedTrans.toGossipMessage(phasePrepare)
 	}
 
 	// If there is only one signer in the notary group, we can just process the message ourselves
@@ -662,16 +666,8 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		//TODO: when do we delete the transaction?
 	}
 
-	newMessage = &GossipMessage{
-		ObjectID:         savedTrans.ObjectID,
-		PreviousTip:      savedTrans.PreviousTip,
-		NewTip:           savedTrans.NewTip,
-		Transaction:      savedTrans.Transaction,
-		Phase:            phaseTentativeCommit,
-		PrepareSignature: msg.PrepareSignature,
-		PhaseSignatures:  savedTrans.TentativeCommitSignatures,
-		Round:            savedTrans.Round,
-	}
+	newMessage = savedTrans.toGossipMessage(phaseTentativeCommit)
+	newMessage.PrepareSignature = msg.PrepareSignature
 
 	if savedTrans.Phase == phaseCommit {
 		log.Debug("clearing pending messages", "g", g.ID, "uuid", ctx.Value(ctxRequestKey), "csId", string(csID))
