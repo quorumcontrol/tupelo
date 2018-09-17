@@ -353,7 +353,7 @@ func (g *Gossiper) clearPendingMessages(csID conflictSetID) {
 
 // if the message round doesn't match, then look at the conflict set for the correct transaction to gossip
 // otherwise, make sure that the message is valid (if it's new to us, we'll compare tips and run it through the state handler)
-// if the message is new and a PREPARE message then we save the message to the conflic set, add our signature to the PREPARE and then gossip
+// if the message is new and a PREPARE message then we save the message to the conflict set, add our signature to the PREPARE and then gossip
 // if the PREPARE message has 2/3 of signers then gossip a TENTATIVE_COMMIT message by wrapping up the prepare sigs into one and starting a new phase with own sig
 // if the message is a TENTATIVE_COMMIT message and the proof is valid then add known sigs and gossip
 // if the TENTATIVE_COMMIT message has 2/3 of signers, then COMMIT
@@ -376,6 +376,8 @@ func (g *Gossiper) HandleGossip(ctx context.Context, msg *GossipMessage) error {
 		return g.handlePrepareMessage(ctx, msg)
 	case phaseTentativeCommit:
 		return g.handleTentativeCommitMessage(ctx, msg)
+	case phaseCommit:
+		return fmt.Errorf("ignoring gossip of commit phase message")
 	default:
 		return fmt.Errorf("unknown phase: %d", msg.Phase)
 	}
