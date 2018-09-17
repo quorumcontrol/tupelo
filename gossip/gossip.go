@@ -648,7 +648,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 			}
 		}
 
-		// for now ignore errors
+		// TODO: for now ignore errors
 		req, err := network.BuildRequest(consensus.MessageType_StateChange, newState)
 		if err != nil {
 			log.Error("error building request", "g", g.ID, "err", err)
