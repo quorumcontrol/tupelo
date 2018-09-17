@@ -26,7 +26,7 @@ func init() {
 }
 
 const (
-	defaultRoundLength = 30
+	defaultRoundLength = 30 // round length in seconds
 )
 
 // NotaryGroup is a wrapper around a Chain Tree specifically used
@@ -34,7 +34,7 @@ const (
 type NotaryGroup struct {
 	signedTree  *SignedChainTree
 	ID          string
-	RoundLength int
+	RoundLength int // round length in seconds
 }
 
 // RoundInfo is a struct that holds information about the round.
