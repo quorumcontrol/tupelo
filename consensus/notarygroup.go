@@ -175,6 +175,25 @@ func (ng *NotaryGroup) AddBlock(block *chaintree.BlockWithHeaders) (err error) {
 // VerifyAvailableSignatures just validates that all the sigs are valid in the supplied argument,
 // but does not verify that the super majority count has signed
 func (ng *NotaryGroup) VerifyAvailableSignatures(round int64, msg []byte, sig *Signature) (bool, error) {
+	return ng.VerifyThresholdSignatures(round, msg, sig, 0)
+}
+
+// VerifySignature makes sure over 2/3 of the signers in a particular round have approved a message
+func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) (bool, error) {
+	roundInfo, err := ng.MostRecentRoundInfo(round)
+	if err != nil {
+		return false, fmt.Errorf("error getting round info: %v", err)
+	}
+
+	requiredNum := roundInfo.SuperMajorityCount()
+	log.Trace("verify signature", "requiredNum", requiredNum)
+
+	return ng.VerifyThresholdSignatures(round, msg, sig, requiredNum)
+}
+
+// VerifyThresholdSignatures validates that all the sigs are valid in the supplied argument,
+// and that at least a threshold number of signatures has signed
+func (ng *NotaryGroup) VerifyThresholdSignatures(round int64, msg []byte, sig *Signature, threshold int64) (bool, error) {
 	roundInfo, err := ng.MostRecentRoundInfo(round)
 	if err != nil {
 		return false, fmt.Errorf("error getting round info: %v", err)
@@ -186,7 +205,13 @@ func (ng *NotaryGroup) VerifyAvailableSignatures(round int64, msg []byte, sig *S
 		}
 	}
 
-	log.Trace("verifyAvailableSignature - verifying")
+	log.Trace("verify signature", "len(expectedKeyBytes)", len(expectedKeyBytes))
+
+	if int64(len(expectedKeyBytes)) < threshold {
+		return false, nil
+	}
+
+	log.Trace("verify signature - verifying")
 
 	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
@@ -202,34 +227,6 @@ func (ng *NotaryGroup) Nodes() ([]*cbornode.Node, error) {
 func (ng *NotaryGroup) NodesAt(tip *cid.Cid) ([]*cbornode.Node, error) {
 	dag := ng.signedTree.ChainTree.Dag.WithNewTip(tip)
 	return dag.Nodes()
-}
-
-// VerifySignature makes sure over 2/3 of the signers in a particular round have approved a message
-func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) (bool, error) {
-	roundInfo, err := ng.MostRecentRoundInfo(round)
-	if err != nil {
-		return false, fmt.Errorf("error getting round info: %v", err)
-	}
-
-	requiredNum := roundInfo.SuperMajorityCount()
-	log.Trace("verify signature", "requiredNum", requiredNum)
-
-	var expectedKeyBytes [][]byte
-	for i, didSign := range sig.Signers {
-		if didSign {
-			expectedKeyBytes = append(expectedKeyBytes, roundInfo.Signers[i].VerKey.PublicKey)
-		}
-	}
-
-	log.Trace("verify signature", "len(expectedKeyBytes)", len(expectedKeyBytes))
-
-	if int64(len(expectedKeyBytes)) < requiredNum {
-		return false, nil
-	}
-
-	log.Trace("verify signature - verifying")
-
-	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
 // ExpectedTipWithBlock returns what a notary group tip would be if it had the block
