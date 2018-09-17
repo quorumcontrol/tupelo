@@ -392,17 +392,9 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		return fmt.Errorf("incorrect phase: %d", msg.Phase)
 	}
 
-	trans := msg.toUnsignedStoredTransaction()
-	csID := msgToConflictSetID(msg)
-
-	err := g.Storage.CreateBucketIfNotExists(csID)
+	csID, savedTrans, err := g.conflictSetTransactionFromMessage(msg)
 	if err != nil {
-		return fmt.Errorf("error creating bucket: %v", err)
-	}
-
-	savedTrans, err := g.getTransaction(csID, trans.ID())
-	if err != nil {
-		return fmt.Errorf("error getting transaction: %v", err)
+		return err
 	}
 
 	if savedTrans != nil && savedTrans.Phase != phasePrepare {
@@ -520,6 +512,23 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 	return nil
 }
 
+func (g *Gossiper) conflictSetTransactionFromMessage(msg *GossipMessage) (conflictSetID, *storedTransaction, error) {
+	trans := msg.toUnsignedStoredTransaction()
+	csID := msgToConflictSetID(msg)
+
+	err := g.Storage.CreateBucketIfNotExists(csID)
+	if err != nil {
+		return csID, nil, fmt.Errorf("error creating bucket: %v", err)
+	}
+
+	savedTrans, err := g.getTransaction(csID, trans.ID())
+	if err != nil {
+		return csID, nil, fmt.Errorf("error getting transaction: %v", err)
+	}
+
+	return csID, savedTrans, nil
+}
+
 func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *GossipMessage) error {
 	log.Debug("handleTentativeCommitMessage", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 
@@ -539,16 +548,9 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		return fmt.Errorf("error, prepare statement not verified")
 	}
 
-	csID := msgToConflictSetID(msg)
-
-	err = g.Storage.CreateBucketIfNotExists(csID)
+	csID, savedTrans, err := g.conflictSetTransactionFromMessage(msg)
 	if err != nil {
-		return fmt.Errorf("error creating bucket: %v", err)
-	}
-
-	savedTrans, err := g.getTransaction(csID, trans.ID())
-	if err != nil {
-		return fmt.Errorf("error getting transaction: %v", err)
+		return err
 	}
 
 	newSigs := msg.PhaseSignatures
