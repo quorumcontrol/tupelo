@@ -77,15 +77,30 @@ func (ng *NotaryGroup) CreateGenesisState(startRound int64, signers ...*RemoteNo
 
 // MostRecentRound returns the roundinfo that is most recent to the requested round.
 func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, err error) {
-	for i := round; i >= 0; i-- {
-		roundInfo, err = ng.RoundInfoFor(i)
-		if err != nil {
-			return nil, err
-		}
-		if roundInfo != nil {
-			return
+	allRoundsUntyped, _, err := ng.signedTree.ChainTree.Dag.Resolve([]string{"tree", "rounds"})
+
+	if err != nil {
+		return nil, fmt.Errorf("error resolving round nodes: %v", err)
+	}
+
+	allRounds := allRoundsUntyped.(map[string]interface{})
+
+	if len(allRounds) == 0 {
+		return nil, fmt.Errorf("no rounds found")
+	}
+
+	for r := round; r >= 0; r-- {
+		if _, ok := allRounds[strconv.FormatInt(r, 10)]; ok {
+			roundInfo, err = ng.RoundInfoFor(r)
+			if err != nil {
+				return nil, err
+			}
+			if roundInfo != nil {
+				return
+			}
 		}
 	}
+
 	return nil, fmt.Errorf("no valid round found")
 }
 
