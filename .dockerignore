@@ -1,0 +1,9 @@
+.editorconfig
+.git
+.gitignore
+.*.swp
+.*.swo
+.DS_Store
+.netrwhist
+.vscode
+.storage
