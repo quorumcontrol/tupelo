@@ -2,7 +2,6 @@ version: "3"
 services:
   node0:
     build: .
-    image: qc3:latest
     volumes:
       - .storage:/var/lib/qc3/.storage:delegated
       - ./cmd/testnode-local-keys.json:/bootstrap-keys.json
