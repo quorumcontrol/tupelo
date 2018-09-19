@@ -187,7 +187,7 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) error {
 	err := rh.node.Send(MessageParams{
 		Payload:  reqNode.RawData(),
 		TTL:      DefaultTTL,
-		PoW:      1,
+		PoW:      0.2,
 		WorkTime: 10,
 		KeySym:   symKey,
 		Topic:    topic,
@@ -205,7 +205,7 @@ func (rh *MessageHandler) send(dst *ecdsa.PublicKey, payload []byte) error {
 	return rh.node.Send(MessageParams{
 		Payload:     payload,
 		TTL:         DefaultTTL,
-		PoW:         1,
+		PoW:         0.2,
 		WorkTime:    10,
 		Destination: dst,
 		Source:      rh.node.key,

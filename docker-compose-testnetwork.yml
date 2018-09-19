@@ -27,7 +27,23 @@ services:
     environment:
       NODE_BLS_KEY_HEX: $NODE_2_BLS_KEY_HEX
       NODE_ECDSA_KEY_HEX: $NODE_2_ECDSA_KEY_HEX
-
+  whisper:
+    image: qc3:latest
+    command:
+      - "/usr/bin/wnode"
+      - "-standalone"
+      - "-forwarder"
+      - "-idfile=/wnode.key"
+      - "-pow=0.00001"
+      - "-ip=0.0.0.0:30379"
+      - "-boot=enode://761a6274bb6559a4ec86ffd49b5162b9d0d431ad377c1dd6447c0051567c02bcd119ec1e55ffd4582ad863e46a36d51ba8e4ec1023898c02baa4f9d8e86b625e@51.15.78.52:30379"
+      - "-boot=enode://f7be0e3c7fae87eeacad42d41d1e1fcfca6a0f7064bae2fea7d65eaf048fb9003649a43ee8e4cb6161bd800a58f628f18a44dbdd38ff37bf4ee8b2be72ea8093@51.15.45.207:30379"
+      - "-boot=enode://7bc0fddc1d45220c0f5e6dea88009bfe93ef99e6dd6a9c8c615b1ce479dc9877cd5250b2a0ffb57bc1d67bea9c4c79829915ae4990706f3da56e869a9d993232@51.15.114.122:30379"
+    tty: true
+    volumes:
+      - ./wnode.key:/wnode.key
+    ports:
+      - 30379:30379
 volumes:
   node0:
   node1:
