@@ -179,7 +179,12 @@ func (ng *NotaryGroup) AddBlock(block *chaintree.BlockWithHeaders) (err error) {
 // VerifyAvailableSignatures just validates that all the sigs are valid in the supplied argument,
 // but does not verify that the super majority count has signed
 func (ng *NotaryGroup) VerifyAvailableSignatures(round int64, msg []byte, sig *Signature) (bool, error) {
-	return ng.VerifyThresholdSignatures(round, msg, sig, 0)
+	roundInfo, err := ng.MostRecentRoundInfo(round)
+	if err != nil {
+		return false, fmt.Errorf("error getting round info: %v", err)
+	}
+
+	return ng.verifyThresholdSignatures(roundInfo, msg, sig, 0)
 }
 
 // VerifySignature makes sure over 2/3 of the signers in a particular round have approved a message
@@ -192,16 +197,12 @@ func (ng *NotaryGroup) VerifySignature(round int64, msg []byte, sig *Signature) 
 	requiredNum := roundInfo.SuperMajorityCount()
 	log.Trace("verify signature", "requiredNum", requiredNum)
 
-	return ng.VerifyThresholdSignatures(round, msg, sig, requiredNum)
+	return ng.verifyThresholdSignatures(roundInfo, msg, sig, requiredNum)
 }
 
 // VerifyThresholdSignatures validates that all the sigs are valid in the supplied argument,
 // and that at least a threshold number of signatures has signed
-func (ng *NotaryGroup) VerifyThresholdSignatures(round int64, msg []byte, sig *Signature, threshold int64) (bool, error) {
-	roundInfo, err := ng.MostRecentRoundInfo(round)
-	if err != nil {
-		return false, fmt.Errorf("error getting round info: %v", err)
-	}
+func (ng *NotaryGroup) verifyThresholdSignatures(roundInfo *RoundInfo, msg []byte, sig *Signature, threshold int64) (bool, error) {
 	var expectedKeyBytes [][]byte
 	for i, didSign := range sig.Signers {
 		if didSign {
