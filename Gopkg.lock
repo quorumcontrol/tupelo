@@ -123,6 +123,22 @@
   version = "0.2"
 
 [[projects]]
+  digest = "1:dbbeb8ddb0be949954c8157ee8439c2adfd8dc1c9510eb44a6e58cb68c3dce28"
+  name = "github.com/gorilla/context"
+  packages = ["."]
+  pruneopts = ""
+  revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+  version = "v1.1.1"
+
+[[projects]]
+  digest = "1:c2c8666b4836c81a1d247bdf21c6a6fc1ab586538ab56f74437c2e0df5c375e1"
+  name = "github.com/gorilla/mux"
+  packages = ["."]
+  pruneopts = ""
+  revision = "e3702bed27f0d39777b0b37b664b6280e8ef8fbf"
+  version = "v1.6.2"
+
+[[projects]]
   branch = "master"
   digest = "1:1e529576e7eaa5e9d6fc46dc241527d54c01a5244fbcce9c151f6d52dcc576e3"
   name = "github.com/gxed/hashland"
@@ -594,6 +610,7 @@
     "github.com/ethereum/go-ethereum/p2p/discover",
     "github.com/ethereum/go-ethereum/whisper/whisperv6",
     "github.com/google/uuid",
+    "github.com/gorilla/mux",
     "github.com/ipfs/go-cid",
     "github.com/ipfs/go-ipld-cbor",
     "github.com/mitchellh/go-homedir",

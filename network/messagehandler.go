@@ -38,6 +38,10 @@ type Request struct {
 	source      *ecdsa.PublicKey
 }
 
+func (r *Request) Source() *ecdsa.PublicKey {
+	return r.source
+}
+
 type Response struct {
 	Id      string
 	Code    int
@@ -171,25 +175,19 @@ func (rh *MessageHandler) Push(destination *ecdsa.PublicKey, req *Request) error
 	return nil
 }
 
-// Broadcast will be deprecated when gossip, but leaving for current implementation
-func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *Response, error) {
-	respChan := make(chan *Response)
-	rh.requestLock.Lock()
-	rh.outstandingRequests[req.Id] = respChan
-	rh.requestLock.Unlock()
-
+func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) error {
 	sw := &safewrap.SafeWrap{}
 	reqNode := sw.WrapObject(&Message{Request: req})
 	if sw.Err != nil {
 		log.Error("error wrapping request", "err", sw.Err)
-		return nil, fmt.Errorf("error wrapping request: %v", sw.Err)
+		return fmt.Errorf("error wrapping request: %v", sw.Err)
 	}
 
-	log.Debug("sending message", "id", req.Id, "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
+	log.Trace("broadcast message", "id", req.Id, "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
 	err := rh.node.Send(MessageParams{
 		Payload:  reqNode.RawData(),
 		TTL:      DefaultTTL,
-		PoW:      0.02,
+		PoW:      0.2,
 		WorkTime: 10,
 		KeySym:   symKey,
 		Topic:    topic,
@@ -197,17 +195,17 @@ func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) (chan *R
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("error sending: %v", err)
+		return fmt.Errorf("error sending: %v", err)
 	}
 
-	return respChan, nil
+	return nil
 }
 
 func (rh *MessageHandler) send(dst *ecdsa.PublicKey, payload []byte) error {
 	return rh.node.Send(MessageParams{
 		Payload:     payload,
 		TTL:         DefaultTTL,
-		PoW:         0.02,
+		PoW:         0.2,
 		WorkTime:    10,
 		Destination: dst,
 		Source:      rh.node.key,

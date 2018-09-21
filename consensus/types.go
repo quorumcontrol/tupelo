@@ -15,11 +15,15 @@ func init() {
 	cbornode.RegisterCborType(TipRequest{})
 	cbornode.RegisterCborType(TipResponse{})
 	cbornode.RegisterCborType(TipSignature{})
+	cbornode.RegisterCborType(GetDiffNodesRequest{})
+	cbornode.RegisterCborType(GetDiffNodesResponse{})
 }
 
 const MessageType_AddBlock = "ADD_BLOCK"
 const MessageType_Feedback = "FEEDBACK"
 const MessageType_TipRequest = "TIP_REQUEST"
+const MessageType_StateChange = "STATE_CHANGE"
+const MessageType_GetDiffNodes = "GET_DIFF_NODES"
 
 type Wallet interface {
 	GetChain(id string) (*SignedChainTree, error)
@@ -45,6 +49,15 @@ type AddBlockResponse struct {
 	ChainId   string
 	Tip       *cid.Cid
 	Signature Signature
+}
+
+type GetDiffNodesRequest struct {
+	PreviousTip *cid.Cid
+	NewTip      *cid.Cid
+}
+
+type GetDiffNodesResponse struct {
+	Nodes [][]byte
 }
 
 type FeedbackRequest struct {

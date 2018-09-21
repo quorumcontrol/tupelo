@@ -27,6 +27,8 @@ RUN set -eux; \
     cargo --version; \
     rustc --version;
 
+RUN go get github.com/ethereum/go-ethereum/cmd/wnode
+
 WORKDIR /go/src/github.com/quorumcontrol/qc3
 
 COPY . .
@@ -49,6 +51,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /go/bin/qc3 /usr/bin/qc3
+COPY --from=build /go/bin/wnode /usr/bin/wnode
 COPY --from=build /usr/lib/libindy_crypto.so /usr/lib/libindy_crypto.so
 
 CMD ["bash"]

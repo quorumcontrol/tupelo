@@ -7,17 +7,19 @@ import (
 	"os"
 	"testing"
 
-	"github.com/quorumcontrol/qc3/gossipclient"
+	"github.com/ipfs/go-ipld-cbor"
+
+	"github.com/quorumcontrol/chaintree/nodestore"
 
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/gossipclient"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
@@ -91,24 +93,29 @@ func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, t
 	return respChan
 }
 
+func notaryGroupFromRemoteNodes(t *testing.T, remoteNodes []*consensus.RemoteNode) *consensus.NotaryGroup {
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	group := consensus.NewNotaryGroup("notarygroupID", nodeStore)
+	group.RoundLength = 3
+	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
+	require.Nil(t, err)
+	return group
+}
+
 func TestGossipedSignerIntegration(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
-	group := consensus.NewGroup(remoteNodes)
 
-	signer1 := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[0].Bytes()).String(),
-		SignKey: ts.SignKeys[0],
-		VerKey:  ts.SignKeys[0].MustVerKey(),
-	}
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := NewGossipedSigner(node1, signer1, store1)
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -116,7 +123,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.Id()))
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -125,11 +132,10 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey)
+	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
 	assert.Nil(t, err)
 
 	// First we test that a gossipedSigner1 can receive messages
-
 	signed, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: "",
@@ -149,65 +155,78 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	respBytes := <-respChan
 	assert.NotNil(t, respBytes)
 
-	// now we check that we can stake in order to become part of the group
 	tree.ChainTree.ProcessBlock(signed)
 	log.Debug("expected tip: ", "tip", tree.Tip().String())
 
-	signer2 := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[1].Bytes()).String(),
-		SignKey: ts.SignKeys[1],
-		VerKey:  ts.SignKeys[1].MustVerKey(),
-	}
+	roundsAndExpectedCount := map[int64]int{}
+	var lastRound int64
 
-	node2 := network.NewNode(ts.EcdsaKeys[1])
-	store2 := storage.NewMemStorage()
+	// now we check that we can stake in order to become part of the group
+	for i := 1; i <= 2; i++ {
+		nextTreeKey, err := crypto.GenerateKey()
+		assert.Nil(t, err)
+		nextNodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+		nextTree, err := consensus.NewSignedChainTree(nextTreeKey.PublicKey, nextNodeStore)
 
-	gossipedSigner2 := NewGossipedSigner(node2, signer2, store2)
-	gossipedSigner2.Start()
-	defer gossipedSigner2.Stop()
+		nextNode := network.NewNode(ts.EcdsaKeys[i+1])
+		nextStore := storage.NewMemStorage()
+		nextSigner := NewGossipedSigner(nextNode, group, nextStore, ts.SignKeys[i+1])
+		nextSigner.Start()
+		defer nextSigner.Stop()
 
-	stakeBlock, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: tree.Tip().String(),
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: consensus.TransactionTypeStake,
-					Payload: consensus.StakePayload{
-						DstKey:  ts.DstKeys[1],
-						VerKey:  ts.PubKeys[1],
-						GroupId: group.Id(),
+		<-time.After(time.Duration(group.RoundLength) * time.Second)
+
+		stakeBlock, err := consensus.SignBlock(&chaintree.BlockWithHeaders{
+			Block: chaintree.Block{
+				PreviousTip: "",
+				Transactions: []*chaintree.Transaction{
+					{
+						Type: consensus.TransactionTypeStake,
+						Payload: consensus.StakePayload{
+							DstKey:  ts.DstKeys[i+1],
+							VerKey:  ts.PubKeys[i+1],
+							GroupId: group.ID,
+						},
 					},
 				},
 			},
-		},
-	}, treeKey)
+		}, nextTreeKey)
+		require.Nil(t, err)
+		respChan = sendBlock(t, stakeBlock, nextTree.Tip(), nextTree, client, &ts.EcdsaKeys[0].PublicKey)
+
+		stakeRespBytes := <-respChan
+		assert.NotNil(t, stakeRespBytes)
+		nextTree.ChainTree.ProcessBlock(stakeBlock)
+
+		expectedRound := group.RoundAt(time.Now()) + 6
+		roundsAndExpectedCount[expectedRound] = i + 1
+		lastRound = expectedRound
+	}
+
+	// Give it two rounds to commit
+	<-time.After(2 * time.Duration(group.RoundLength) * time.Second)
+
+	for round, expected := range roundsAndExpectedCount {
+		roundInfo, err := group.MostRecentRoundInfo(round)
+		require.Nil(t, err)
+		assert.Len(t, roundInfo.Signers, expected)
+	}
+
+	// Check that the round after our last insert persists length of signers
+	roundInfo, err := group.MostRecentRoundInfo(lastRound + 1)
 	require.Nil(t, err)
-	respChan = sendBlock(t, stakeBlock, tree.Tip(), tree, client, &ts.EcdsaKeys[0].PublicKey)
-
-	stakeRespBytes := <-respChan
-	assert.NotNil(t, stakeRespBytes)
-
-	<-time.After(1 * time.Second)
-	assert.Len(t, group.SortedMembers, 2)
+	assert.Len(t, roundInfo.Signers, roundsAndExpectedCount[lastRound])
 }
 
-func TestGossipedSigner_TipHandler(t *testing.T) {
+func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
-	group := consensus.NewGroup(remoteNodes)
-
-	signer1 := &Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[0].Bytes()).String(),
-		SignKey: ts.SignKeys[0],
-		VerKey:  ts.SignKeys[0].MustVerKey(),
-	}
+	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := NewGossipedSigner(node1, signer1, store1)
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -215,7 +234,42 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.Id()))
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
+
+	client.Start()
+	defer client.Stop()
+	time.Sleep(2 * time.Second)
+
+	req, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
+		PreviousTip: group.Tip(),
+		NewTip:      group.Tip(),
+	})
+	require.Nil(t, err)
+
+	respChan, err := client.DoRequest(&ts.EcdsaKeys[0].PublicKey, req)
+	require.Nil(t, err)
+
+	respBytes := <-respChan
+	require.Equal(t, 200, respBytes.Code, "code: %d, payload: %s", respBytes.Code, respBytes.Payload)
+}
+
+func TestGossipedSigner_TipHandler(t *testing.T) {
+	ts := newTestSet(t, 5)
+	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
+	group := notaryGroupFromRemoteNodes(t, remoteNodes)
+
+	node1 := network.NewNode(ts.EcdsaKeys[0])
+	store1 := storage.NewMemStorage()
+
+	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
+
+	gossipedSigner1.Start()
+	defer gossipedSigner1.Stop()
+
+	sessionKey, err := crypto.GenerateKey()
+	assert.Nil(t, err)
+
+	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -224,7 +278,9 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
 	assert.Nil(t, err)
 
 	// First we test that a gossipedSigner1 can receive messages
@@ -261,11 +317,12 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	require.Nil(t, err)
 
 	respBytes = <-respChan
-	assert.Equal(t, 200, respBytes.Code, "code: %d, payload: %s", respBytes.Code, respBytes.Payload)
+	require.Equal(t, 200, respBytes.Code, "code: %d, payload: %s", respBytes.Code, respBytes.Payload)
 
 	tipResp := &consensus.TipResponse{}
 	err = cbornode.DecodeInto(respBytes.Payload, tipResp)
 	require.Nil(t, err)
+	require.NotNil(t, tipResp.Tip)
 
 	assert.True(t, tipResp.Tip.Equals(tree.Tip()), "tipResp: %s, tree: %s", tipResp.Tip.String(), tree.Tip().String())
 }
@@ -279,30 +336,27 @@ func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 	for i := 0; i < len(ts.SignKeys); i++ {
 		remoteNodes[i] = consensus.NewRemoteNode(ts.PubKeys[i], ts.DstKeys[i])
 	}
-	group := consensus.NewGroup(remoteNodes)
 
 	for i := 0; i < len(ts.SignKeys); i++ {
-		signer := &Signer{
-			Group:   group,
-			Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[i].Bytes()).String(),
-			SignKey: ts.SignKeys[i],
-			VerKey:  ts.SignKeys[i].MustVerKey(),
-		}
+		group := notaryGroupFromRemoteNodes(t, remoteNodes)
 		node := network.NewNode(ts.EcdsaKeys[i])
 		store := storage.NewMemStorage()
-		gossipedSigner := NewGossipedSigner(node, signer, store)
+		gossipedSigner := NewGossipedSigner(node, group, store, ts.SignKeys[i])
 		gossipedSigner.Start()
 		defer gossipedSigner.Stop()
 	}
+	cliGroup := notaryGroupFromRemoteNodes(t, remoteNodes)
 
-	client := gossipclient.NewGossipClient(group)
+	client := gossipclient.NewGossipClient(cliGroup)
 
 	client.Start()
 	defer client.Stop()
 
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
-	chain, err := consensus.NewSignedChainTree(key.PublicKey)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodeStore)
 	require.Nil(t, err)
 
 	resp, err := client.PlayTransactions(chain, key, "", []*chaintree.Transaction{

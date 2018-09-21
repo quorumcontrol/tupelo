@@ -5,6 +5,9 @@ package gossipclient
 import (
 	"crypto/ecdsa"
 	"testing"
+	"time"
+
+	"github.com/quorumcontrol/chaintree/nodestore"
 
 	"strings"
 
@@ -66,20 +69,15 @@ func newTestSet(t *testing.T, size int) *testSet {
 func TestIntegrationGossipClient(t *testing.T) {
 	ts := newTestSet(t, 5)
 
+	store := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
-	group := consensus.NewGroup(remoteNodes)
-
-	signer1 := &signer.Signer{
-		Group:   group,
-		Id:      consensus.BlsVerKeyToAddress(ts.VerKeys[0].Bytes()).String(),
-		SignKey: ts.SignKeys[0],
-		VerKey:  ts.SignKeys[0].MustVerKey(),
-	}
-
+	group := consensus.NewNotaryGroup("notaryGroupId", store)
+	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
+	require.Nil(t, err)
 	node1 := network.NewNode(ts.EcdsaKeys[0])
 	store1 := storage.NewMemStorage()
 
-	gossipedSigner1 := signer.NewGossipedSigner(node1, signer1, store1)
+	gossipedSigner1 := signer.NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
 
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
@@ -91,7 +89,7 @@ func TestIntegrationGossipClient(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey)
+	tree, err := consensus.NewSignedChainTree(treeKey.PublicKey, store)
 	assert.Nil(t, err)
 
 	resp, err := client.PlayTransactions(tree, treeKey, "", []*chaintree.Transaction{
@@ -114,7 +112,7 @@ func TestIntegrationGossipClient(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "hi", val)
 
-	assert.Equal(t, resp.Signature, tree.Signatures[group.Id()])
+	assert.Equal(t, resp.Signature, tree.Signatures[group.ID])
 
 	// now get the tip and make sure it maches the response
 

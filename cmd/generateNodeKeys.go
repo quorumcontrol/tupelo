@@ -1,17 +1,3 @@
-// Copyright © 2018 NAME HERE <EMAIL ADDRESS>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package cmd
 
 import (
@@ -20,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +25,12 @@ var generateNodeKeysCmd = &cobra.Command{
 			panic("error generating ecdsa")
 		}
 
-		fmt.Printf("bls: '%v'\necdsa: '%v'\n", hexutil.Encode(blsKey.Bytes()), hexutil.Encode(crypto.FromECDSA(ecdsa)))
+		fmt.Printf(
+			"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\n",
+			hexutil.Encode(blsKey.Bytes()),
+			hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
+			hexutil.Encode(crypto.FromECDSA(ecdsa)),
+			hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsa.PublicKey).PublicKey))
 	},
 }
 

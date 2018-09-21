@@ -22,8 +22,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
+	"time"
+
+	"github.com/quorumcontrol/chaintree/nodestore"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -36,95 +38,47 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// These are private keys and they are PURPOSEFULLY checked in
-// no testnode should be used to secure anything.
-var blsHexKeys = []string{
-	"0x062826fc0f8034ce63f160dfa30fca1c11cb66cdbdd0524b0a5103539c44e153",
-	"0x047490c1cacdc0e1da3694ce4aa7610e6c094720fe245d860bc6b950fe01af64",
-	"0x23d13849867754cff263189bb4b039a7f5fc6c7a63a3b95b31a807fd1a9d2a37",
-}
-
-// These are private keys and they are PURPOSEFULLY checked in
-// no testnode should be used to secure anything.
-var ecdsaHexKeys = []string{
-	"0xa457195d256894b7a44400b2ec844a5c58ecadaea5da271abdf0abad1f30c1f0",
-	"0x6ed4da1806f0c8587644e6a27ad11b2053d7b7e03d41ffec589a217fd839eae6",
-	"0xef8d350dffaed798e846c0b84316023e28b5128cb15158aafdafc5738b6a745b",
-}
-
 var BlsSignKeys []*bls.SignKey
 var EcdsaKeys []*ecdsa.PrivateKey
-var TestNetGroup *consensus.Group
 
 type KeySet struct {
-	BlsHexKey   string
-	EcdsaHexKey string
+	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
+	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
 }
 
-var keysFile = "/keys.json"
+func bootstrapMembers(path string) (members []*consensus.RemoteNode) {
+	var jsonLoadedKeys []*KeySet
 
-func keysFromFile() (jsonLoadedKeys []*KeySet) {
-	if _, err := os.Stat(keysFile); err == nil {
-		jsonBytes, err := ioutil.ReadFile(keysFile)
+	if _, err := os.Stat(path); err == nil {
+		jsonBytes, err := ioutil.ReadFile(path)
 
 		if err != nil {
-			fmt.Printf("Error reading from %v: %v", keysFile, err)
+			fmt.Printf("Error reading from %v: %v", path, err)
 			return nil
 		}
 		json.Unmarshal(jsonBytes, &jsonLoadedKeys)
-		if len(jsonLoadedKeys) > 0 {
-			return jsonLoadedKeys
-		}
 	}
-	return nil
+
+	for _, keySet := range jsonLoadedKeys {
+		blsPubKey := consensus.PublicKey{
+			PublicKey: hexutil.MustDecode(keySet.BlsHexPublicKey),
+			Type:      consensus.KeyTypeBLSGroupSig,
+		}
+		blsPubKey.Id = consensus.PublicKeyToAddr(&blsPubKey)
+
+		ecdsaPubKey := consensus.PublicKey{
+			PublicKey: hexutil.MustDecode(keySet.EcdsaHexPublicKey),
+			Type:      consensus.KeyTypeSecp256k1,
+		}
+		ecdsaPubKey.Id = consensus.PublicKeyToAddr(&ecdsaPubKey)
+
+		members = append(members, consensus.NewRemoteNode(blsPubKey, ecdsaPubKey))
+	}
+
+	return members
 }
 
-func keySets() []*KeySet {
-	keysFromFile := keysFromFile()
-
-	if keysFromFile != nil {
-		fmt.Print("loaded keys from file")
-		return keysFromFile
-	} else {
-		defaultKeySets := make([]*KeySet, len(blsHexKeys))
-
-		for i := range defaultKeySets {
-			defaultKeySets[i] = &KeySet{
-				BlsHexKey:   blsHexKeys[i],
-				EcdsaHexKey: ecdsaHexKeys[i],
-			}
-		}
-
-		return defaultKeySets
-	}
-}
-
-func init() {
-	keySets := keySets()
-
-	BlsSignKeys = make([]*bls.SignKey, len(keySets))
-	EcdsaKeys = make([]*ecdsa.PrivateKey, len(keySets))
-
-	for i, keySet := range keySets {
-		BlsSignKeys[i] = bls.BytesToSignKey(hexutil.MustDecode(keySet.BlsHexKey))
-
-		ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(keySet.EcdsaHexKey))
-		if err != nil {
-			panic("error converting to key")
-		}
-		EcdsaKeys[i] = ecdsaKey
-	}
-
-	members := make([]*consensus.RemoteNode, len(BlsSignKeys))
-	for i, key := range BlsSignKeys {
-		members[i] = consensus.NewRemoteNode(consensus.BlsKeyToPublicKey(key.MustVerKey()), consensus.EcdsaToPublicKey(&EcdsaKeys[i].PublicKey))
-	}
-
-	TestNetGroup = consensus.NewGroup(members)
-}
-
-var nodeIndex int
-var isGossip bool
+var bootstrapKeysFile string
 
 // testnodeCmd represents the testnode command
 var testnodeCmd = &cobra.Command{
@@ -132,29 +86,34 @@ var testnodeCmd = &cobra.Command{
 	Short: "Run a testnet node with hardcoded (insecure) keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		if isGossip {
-			setupGossipNode()
-		} else {
-			setupBroadcastNode()
-		}
+		setupGossipNode()
 	},
 }
 
 func setupGossipNode() {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-	log.Info("starting up a test GOSSIP node", "index", nodeIndex)
+
+	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(os.Getenv("NODE_ECDSA_KEY_HEX")))
+	if err != nil {
+		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
+	}
+
+	blsKey := bls.BytesToSignKey(hexutil.MustDecode(os.Getenv("NODE_BLS_KEY_HEX")))
+
+	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
+	log.Info("starting up a test GOSSIP node", "id", id)
 
 	os.MkdirAll(".storage", 0700)
-	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
-	sign := &signer.Signer{
-		Group:   TestNetGroup,
-		Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
-		SignKey: BlsSignKeys[nodeIndex],
-		VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
-	}
-	node := network.NewNode(EcdsaKeys[nodeIndex])
+	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+id))
+	node := network.NewNode(ecdsaKey)
 
-	gossipedSigner := signer.NewGossipedSigner(node, sign, boltStorage)
+	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodestore.NewStorageBasedStore(boltStorage))
+	if group.IsGenesis() {
+		testNetMembers := bootstrapMembers(bootstrapKeysFile)
+		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
+		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
+	}
+	gossipedSigner := signer.NewGossipedSigner(node, group, boltStorage, blsKey)
 	gossipedSigner.Start()
 
 	sigs := make(chan os.Signal, 1)
@@ -171,44 +130,7 @@ func setupGossipNode() {
 	fmt.Println("exiting")
 }
 
-func setupBroadcastNode() {
-	fmt.Printf("starting up a test node with index: %v\n", nodeIndex)
-
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
-	os.MkdirAll(".storage", 0700)
-
-	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+strconv.Itoa(nodeIndex)))
-
-	sign := &signer.Signer{
-		Group:   TestNetGroup,
-		Id:      consensus.BlsVerKeyToAddress(BlsSignKeys[nodeIndex].MustVerKey().Bytes()).String(),
-		SignKey: BlsSignKeys[nodeIndex],
-		VerKey:  BlsSignKeys[nodeIndex].MustVerKey(),
-	}
-
-	node := network.NewNode(EcdsaKeys[nodeIndex])
-
-	networkedSigner := signer.NewNetworkedSigner(node, sign, boltStorage)
-	networkedSigner.Start()
-
-	sigs := make(chan os.Signal, 1)
-	done := make(chan bool, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		sig := <-sigs
-		fmt.Println()
-		fmt.Println(sig)
-		networkedSigner.Stop()
-		done <- true
-	}()
-	fmt.Println("awaiting signal")
-	<-done
-	fmt.Println("exiting")
-}
-
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
-	testnodeCmd.Flags().IntVarP(&nodeIndex, "index", "i", 0, "which key to use")
-	testnodeCmd.Flags().BoolVarP(&isGossip, "gossip", "g", false, "use the gossip network")
+	testnodeCmd.Flags().StringVarP(&bootstrapKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 }

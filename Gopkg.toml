@@ -85,3 +85,6 @@
   name = "github.com/quorumcontrol/chaintree"
   version = "v0.0.3"
 
+[[constraint]]
+  name = "github.com/gorilla/mux"
+  version = "1.6.2"
