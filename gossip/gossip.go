@@ -442,12 +442,7 @@ func (g *Gossiper) handlePrepareMessage(ctx context.Context, msg *GossipMessage)
 		log.Debug("handlePrepareMessage - new transaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
 
 		// new transaction
-		currState, err := g.GetCurrentState(msg.ObjectID)
-		if err != nil {
-			return fmt.Errorf("error getting current state: %v", err)
-		}
-
-		trans, err := g.handleNewTransaction(ctx, csID, currState, msg)
+		trans, err := g.handleNewTransaction(ctx, csID, msg)
 		if err != nil {
 			return fmt.Errorf("error handling transaction: %v", err)
 		}
@@ -586,12 +581,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 
 	if savedTrans == nil {
 		// new transaction
-		currState, err := g.GetCurrentState(msg.ObjectID)
-		if err != nil {
-			return fmt.Errorf("error getting current state: %v", err)
-		}
-
-		trans, err := g.handleNewTransaction(ctx, csID, currState, msg)
+		trans, err := g.handleNewTransaction(ctx, csID, msg)
 		if err != nil {
 			return fmt.Errorf("error handling transaction: %v", err)
 		}
@@ -722,8 +712,13 @@ func (g *Gossiper) doGossip(ctx context.Context, msg *GossipMessage) { //TODO: s
 	}
 }
 
-func (g *Gossiper) handleNewTransaction(ctx context.Context, csID conflictSetID, currState CurrentState, msg *GossipMessage) (*storedTransaction, error) {
+func (g *Gossiper) handleNewTransaction(ctx context.Context, csID conflictSetID, msg *GossipMessage) (*storedTransaction, error) {
 	log.Debug("handleNewTransaction", "g", g.ID, "uuid", ctx.Value(ctxRequestKey))
+	currState, err := g.GetCurrentState(msg.ObjectID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting current state: %v", err)
+	}
+
 	trans := msg.toUnsignedStoredTransaction()
 	newTip, isAccepted, err := g.StateHandler(ctx, StateTransaction{
 		Group:         g.Group,
