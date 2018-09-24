@@ -209,7 +209,7 @@ func TestprocessAddBlock(t *testing.T) {
 				{
 					Type: "SET_DATA",
 					Payload: map[string]interface{}{
-						"path":  "_qc/authentications/publicKey",
+						"path":  "_tupelo/authentications/publicKey",
 						"value": "test",
 					},
 				},
@@ -316,7 +316,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 		assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
-		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_qc", "coins", "testcoin", "mints", fmt.Sprint(testIndex), "amount"})
+		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "mints", fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
 		assert.Equal(t, mintAmount, testAmount)
 	}
