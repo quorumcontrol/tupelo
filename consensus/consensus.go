@@ -90,7 +90,7 @@ type StandardHeaders struct {
 }
 
 func AddrToDid(addr string) string {
-	return fmt.Sprintf("did:qc:%s", addr)
+	return fmt.Sprintf("did:tupelo:%s", addr)
 }
 
 func DidToAddr(did string) string {

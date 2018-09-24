@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	TreePathForAuthentications = "_qc/authentications"
-	TreePathForCoins           = "_qc/coins"
-	TreePathForStake           = "_qc/stake"
+	TreePathForAuthentications = "_tupelo/authentications"
+	TreePathForCoins           = "_tupelo/coins"
+	TreePathForStake           = "_tupelo/stake"
 )
 
 func init() {
@@ -54,7 +54,7 @@ func complexType(obj interface{}) bool {
 	}
 }
 
-// SetDataTransaction just sets a path in a tree to arbitrary data. It makes sure no data is being changed in the _qc path.
+// SetDataTransaction just sets a path in a tree to arbitrary data. It makes sure no data is being changed in the _tupelo path.
 func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &SetDataPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
@@ -62,8 +62,8 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	if payload.Path == "_qc" || strings.HasPrefix(payload.Path, "_qc/") {
-		return nil, false, &ErrorCode{Code: 999, Memo: "the path prefix _qc is reserved"}
+	if payload.Path == "_tupelo" || strings.HasPrefix(payload.Path, "_tupelo/") {
+		return nil, false, &ErrorCode{Code: 999, Memo: "the path prefix _tupelo is reserved"}
 	}
 
 	if complexType(payload.Value) {
@@ -82,7 +82,7 @@ type SetOwnershipPayload struct {
 	Authentication []*PublicKey
 }
 
-// SetOwnershipTransaction changes the ownership of a tree by adding a public key array to /_qc/authentications
+// SetOwnershipTransaction changes the ownership of a tree by adding a public key array to /_tupelo/authentications
 func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &SetOwnershipPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
