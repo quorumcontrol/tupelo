@@ -1,6 +1,7 @@
 package walletrpc
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,6 +22,7 @@ type server struct {
 
 func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	key, err := session.GenerateKey()
 	if err != nil {
@@ -35,6 +37,7 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 
 func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	keys, err := session.ListKeys()
 	if err != nil {
@@ -48,6 +51,7 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 
 func (s *server) CreateChain(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	chain, err := session.CreateChain(req.KeyAddr)
 	if err != nil {
@@ -66,6 +70,7 @@ func (s *server) CreateChain(ctx context.Context, req *GenerateChainRequest) (*G
 
 func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	ids, err := session.GetChainIds()
 	if err != nil {
@@ -79,6 +84,7 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 
 func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	tipCid, err := session.GetTip(req.ChainId)
 	if err != nil {
@@ -92,6 +98,7 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 
 func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	newTip, err := session.SetOwner(req.ChainId, req.KeyAddr, req.NewOwnerKeys)
 	if err != nil {
@@ -105,8 +112,9 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 
 func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
-	tipCid, err := session.GetTip(req.ChainId)
+	tipCid, err := session.SetData(req.ChainId, req.KeyAddr, req.Path, req.Value)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +126,7 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 
 func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	tipCid, err := session.EstablishCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Maximum)
 	if err != nil {
@@ -131,6 +140,7 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 
 func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
 
 	tipCid, err := session.MintCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Amount)
 	if err != nil {
@@ -143,6 +153,9 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 }
 
 func Serve(group *consensus.Group) (*grpc.Server, error) {
+	fmt.Println("Starting Tupelo RPC server")
+
+	fmt.Println("Listening on port", port)
 	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		return nil, err
