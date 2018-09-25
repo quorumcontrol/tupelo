@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 
 	"crypto/ecdsa"
 
@@ -22,7 +23,9 @@ import (
 )
 
 func newSavedChain(t *testing.T, fw *FileWallet, key ecdsa.PublicKey) *consensus.SignedChainTree {
-	signedTree, err := consensus.NewSignedChainTree(key)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	signedTree, err := consensus.NewSignedChainTree(key, nodeStore)
 	require.Nil(t, err)
 
 	err = fw.SaveChain(signedTree)

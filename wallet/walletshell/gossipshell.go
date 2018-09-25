@@ -12,7 +12,7 @@ import (
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
-func RunGossip(name string, group *consensus.Group) {
+func RunGossip(name string, group *consensus.NotaryGroup) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
@@ -95,7 +95,8 @@ func RunGossip(name string, group *consensus.Group) {
 				c.Println("error getting key", err)
 				return
 			}
-			chain, err := consensus.NewSignedChainTree(key.PublicKey)
+
+			chain, err := consensus.NewSignedChainTree(key.PublicKey, currentWallet.NodeStore())
 			if err != nil {
 				c.Printf("error generating chain: %v", err)
 				return

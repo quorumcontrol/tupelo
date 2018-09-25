@@ -16,7 +16,6 @@ import (
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/bls"
-	"github.com/quorumcontrol/storage"
 )
 
 func init() {
@@ -91,7 +90,7 @@ type StandardHeaders struct {
 }
 
 func AddrToDid(addr string) string {
-	return fmt.Sprintf("did:qc:%s", addr)
+	return fmt.Sprintf("did:tupelo:%s", addr)
 }
 
 func DidToAddr(did string) string {
@@ -140,7 +139,7 @@ func BlockToHash(block chaintree.Block) ([]byte, error) {
 	return ObjToHash(block)
 }
 
-func NewEmptyTree(did string) *dag.Dag {
+func NewEmptyTree(did string, nodeStore nodestore.NodeStore) *dag.Dag {
 	sw := &safewrap.SafeWrap{}
 	treeNode := sw.WrapObject(make(map[string]string))
 
@@ -156,7 +155,6 @@ func NewEmptyTree(did string) *dag.Dag {
 	if sw.Err != nil {
 		panic(sw.Err)
 	}
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	dag, err := dag.NewDagWithNodes(nodeStore, root, treeNode, chainNode)
 	if err != nil {
 		panic(err) // TODO: this err was introduced, keeping external interface the same

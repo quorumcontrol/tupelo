@@ -2,73 +2,49 @@ version: "3"
 services:
   node0:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "0"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node0:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_0_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_0_ECDSA_KEY_HEX
   node1:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "1"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node1:/var/lib/qc3
-      - ./keys.json:/keys.json
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_1_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_1_ECDSA_KEY_HEX
   node2:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "2"]
+    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
       - node2:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node3:
+      - ./bootstrap-keys.json:/bootstrap-keys.json
+    environment:
+      NODE_BLS_KEY_HEX: $NODE_2_BLS_KEY_HEX
+      NODE_ECDSA_KEY_HEX: $NODE_2_ECDSA_KEY_HEX
+  whisper:
     image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "3"]
+    command:
+      - "/usr/bin/wnode"
+      - "-standalone"
+      - "-forwarder"
+      - "-idfile=/wnode.key"
+      - "-pow=0.00001"
+      - "-ip=0.0.0.0:30379"
+      - "-boot=enode://761a6274bb6559a4ec86ffd49b5162b9d0d431ad377c1dd6447c0051567c02bcd119ec1e55ffd4582ad863e46a36d51ba8e4ec1023898c02baa4f9d8e86b625e@51.15.78.52:30379"
+      - "-boot=enode://f7be0e3c7fae87eeacad42d41d1e1fcfca6a0f7064bae2fea7d65eaf048fb9003649a43ee8e4cb6161bd800a58f628f18a44dbdd38ff37bf4ee8b2be72ea8093@51.15.45.207:30379"
+      - "-boot=enode://7bc0fddc1d45220c0f5e6dea88009bfe93ef99e6dd6a9c8c615b1ce479dc9877cd5250b2a0ffb57bc1d67bea9c4c79829915ae4990706f3da56e869a9d993232@51.15.114.122:30379"
+    tty: true
     volumes:
-      - node3:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node4:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "4"]
-    volumes:
-      - node4:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node5:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "5"]
-    volumes:
-      - node5:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node6:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "6"]
-    volumes:
-      - node6:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node7:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "7"]
-    volumes:
-      - node7:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node8:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "8"]
-    volumes:
-      - node8:/var/lib/qc3
-      - ./keys.json:/keys.json
-  node9:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-i", "9"]
-    volumes:
-      - node9:/var/lib/qc3
-      - ./keys.json:/keys.json
-
+      - ./wnode.key:/wnode.key
+    ports:
+      - 30379:30379
 volumes:
   node0:
   node1:
   node2:
-  node3:
-  node4:
-  node5:
-  node6:
-  node7:
-  node8:
-  node9:

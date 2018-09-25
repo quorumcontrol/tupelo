@@ -19,8 +19,9 @@ var NotaryGroupKey = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
 
 // From here: https://github.com/status-im/status-go/blob/38a60135b2d7d31a3a00d4e0b519e2dadbf728ff/params/cluster.go
 var bootNodes = []string{
-	"enode://a6a2a9b3a7cbb0a15da74301537ebba549c990e3325ae78e1272a19a3ace150d03c184b8ac86cc33f1f2f63691e467d49308f02d613277754c4dccd6773b95e8@206.189.108.68:30304",
-	"enode://207e53d9bf66be7441e3daba36f53bfbda0b6099dba9a865afc6260a2d253fb8a56a72a48598a4f7ba271792c2e4a8e1a43aaef7f34857f520c8c820f63b44c8@35.224.15.65:30304",
+	"enode://761a6274bb6559a4ec86ffd49b5162b9d0d431ad377c1dd6447c0051567c02bcd119ec1e55ffd4582ad863e46a36d51ba8e4ec1023898c02baa4f9d8e86b625e@51.15.78.52:30379",
+	"enode://f7be0e3c7fae87eeacad42d41d1e1fcfca6a0f7064bae2fea7d65eaf048fb9003649a43ee8e4cb6161bd800a58f628f18a44dbdd38ff37bf4ee8b2be72ea8093@51.15.45.207:30379",
+	"enode://7bc0fddc1d45220c0f5e6dea88009bfe93ef99e6dd6a9c8c615b1ce479dc9877cd5250b2a0ffb57bc1d67bea9c4c79829915ae4990706f3da56e869a9d993232@51.15.114.122:30379",
 }
 
 type MessageParams struct {
@@ -107,8 +108,15 @@ func (s *Subscription) RetrieveMessages() []*ReceivedMessage {
 }
 
 func NewNode(key *ecdsa.PrivateKey) *Node {
+	whisp := whisper.New(&whisper.Config{
+		MaxMessageSize:     whisper.MaxMessageSize,
+		MinimumAcceptedPOW: 0.001,
+	})
+	whisp.AddKeyPair(key)
+
 	return &Node{
-		key: key,
+		key:     key,
+		whisper: whisp,
 	}
 }
 
@@ -124,19 +132,14 @@ func (n *Node) Start() error {
 		peers = append(peers, peer)
 	}
 
-	whisp := whisper.New(&whisper.Config{
-		MaxMessageSize:     whisper.MaxMessageSize,
-		MinimumAcceptedPOW: 0.001,
-	})
-	whisp.AddKeyPair(n.key)
-	whisp.Start(nil)
+	n.whisper.Start(nil)
 
 	srv := &p2p.Server{
 		Config: p2p.Config{
 			MaxPeers:   20,
 			PrivateKey: n.key,
 			//ListenAddr: ":8000",
-			Protocols:      whisp.Protocols(),
+			Protocols:      n.whisper.Protocols(),
 			BootstrapNodes: peers,
 		},
 	}
@@ -146,7 +149,6 @@ func (n *Node) Start() error {
 	}
 
 	n.srv = srv
-	n.whisper = whisp
 
 	return nil
 }

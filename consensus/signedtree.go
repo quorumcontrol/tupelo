@@ -4,6 +4,10 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
+	"github.com/quorumcontrol/storage"
+
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
@@ -48,13 +52,14 @@ func (sct *SignedChainTree) Tip() *cid.Cid {
 }
 
 func (sct *SignedChainTree) IsGenesis() bool {
-	newEmpty := NewEmptyTree(sct.MustId())
+	store := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	newEmpty := NewEmptyTree(sct.MustId(), store)
 	return newEmpty.Tip.Equals(sct.Tip())
 }
 
-func NewSignedChainTree(key ecdsa.PublicKey) (*SignedChainTree, error) {
+func NewSignedChainTree(key ecdsa.PublicKey, nodeStore nodestore.NodeStore) (*SignedChainTree, error) {
 	tree, err := chaintree.NewChainTree(
-		NewEmptyTree(AddrToDid(crypto.PubkeyToAddress(key).String())),
+		NewEmptyTree(AddrToDid(crypto.PubkeyToAddress(key).String()), nodeStore),
 		nil,
 		DefaultTransactors,
 	)
