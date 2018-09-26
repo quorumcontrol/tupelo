@@ -17,7 +17,7 @@ const (
 )
 
 type server struct {
-	NotaryGroup *consensus.Group
+	NotaryGroup *consensus.NotaryGroup
 }
 
 func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
@@ -152,7 +152,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	}, nil
 }
 
-func Serve(group *consensus.Group) (*grpc.Server, error) {
+func Serve(group *consensus.NotaryGroup) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
 	fmt.Println("Listening on port", port)

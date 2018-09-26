@@ -24,7 +24,7 @@ func walletPath(name string) string {
 
 var StoppedError = errors.New("Session is stopped")
 
-func NewSession(creds *Credentials, group *consensus.Group) *RPCSession {
+func NewSession(creds *Credentials, group *consensus.NotaryGroup) *RPCSession {
 	path := walletPath(creds.WalletName)
 	fileWallet := wallet.NewFileWallet(creds.PassPhrase, path)
 
@@ -78,7 +78,7 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 		return nil, err
 	}
 
-	chain, err := consensus.NewSignedChainTree(key.PublicKey)
+	chain, err := consensus.NewSignedChainTree(key.PublicKey, rpcs.wallet.NodeStore())
 	if err != nil {
 		return nil, err
 	}
