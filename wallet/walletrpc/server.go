@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	port = ":50051"
+	defaultPort = ":50051"
 )
 
 type server struct {
@@ -155,8 +155,8 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 func Serve(group *consensus.NotaryGroup) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
-	fmt.Println("Listening on port", port)
-	listener, err := net.Listen("tcp", port)
+	fmt.Println("Listening on port", defaultPort)
+	listener, err := net.Listen("tcp", defaultPort)
 	if err != nil {
 		return nil, err
 	}
