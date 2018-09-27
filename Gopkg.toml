@@ -78,12 +78,8 @@
   revision = "1e67410e88d2685bc54611a7c9f75c327b553ccc"
 
 [[constraint]]
-  name = "github.com/ipfs/go-ipld-cbor"
-  branch = "refmt"
-
-[[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  version = "v0.0.3"
+  version = "v0.0.4"
 
 [[constraint]]
   name = "github.com/gorilla/mux"

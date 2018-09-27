@@ -229,12 +229,11 @@
   version = "v1.2.8"
 
 [[projects]]
-  branch = "refmt"
-  digest = "1:36edf06601257a5adeb784a1ad1dc8b1d685c07407a385f9b546f5103d4fe90b"
+  digest = "1:8e5c84ed3786865c04c554a00deea1cc52d218dea8da596223bea99cd0727526"
   name = "github.com/ipfs/go-ipld-cbor"
   packages = ["."]
   pruneopts = ""
-  revision = "ab2a510fdde7b8b9277be778f8d661f1f62bb62d"
+  revision = "8b666bca090899848849a507a008080db0fcfe21"
 
 [[projects]]
   digest = "1:2d7613236d574251f739f34e51e5f280d6aa45243b5c2128f86adc3afbc2a2b8"
@@ -363,7 +362,7 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:d1650f2af1ccc51b64ac87cb09cfeca8f4b95ce5cea034a8d7f7e18fef8151f5"
+  digest = "1:3c7a5dd665059ebb9e66087c562e802362c1c5d209398f31f74196c91bfbfdd6"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -373,8 +372,8 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "c111f487b8d28ae71f64695ec785fbdf29013321"
-  version = "v0.0.3"
+  revision = "5e4a09b95c6aebd15c92fd8134452e4d960f8987"
+  version = "v0.0.4"
 
 [[projects]]
   branch = "master"
