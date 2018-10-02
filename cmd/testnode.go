@@ -41,22 +41,62 @@ import (
 var BlsSignKeys []*bls.SignKey
 var EcdsaKeys []*ecdsa.PrivateKey
 
-type KeySet struct {
+type PublicKeySet struct {
 	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
 	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
 }
 
+type PrivateKeySet struct {
+	BlsHexPrivateKey   string `json:"blsHexPrivateKey,omitempty"`
+	EcdsaHexPrivateKey string `json:"ecdsaHexPrivateKey,omitempty"`
+}
+
+func loadJSON(path string) ([]byte, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return ioutil.ReadFile(path)
+}
+
+func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
+	var jsonLoadedKeys []*PublicKeySet
+
+	jsonBytes, err := loadJSON(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonLoadedKeys, nil
+}
+
+func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
+	var jsonLoadedKeys []*PrivateKeySet
+
+	jsonBytes, err := loadJSON(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonLoadedKeys, nil
+}
+
 func bootstrapMembers(path string) (members []*consensus.RemoteNode) {
-	var jsonLoadedKeys []*KeySet
-
-	if _, err := os.Stat(path); err == nil {
-		jsonBytes, err := ioutil.ReadFile(path)
-
-		if err != nil {
-			fmt.Printf("Error reading from %v: %v", path, err)
-			return nil
-		}
-		json.Unmarshal(jsonBytes, &jsonLoadedKeys)
+	jsonLoadedKeys, err := loadPublicKeyFile(path)
+	if err != nil {
+		fmt.Printf("Error loading key file: %v", err)
+		return nil
 	}
 
 	for _, keySet := range jsonLoadedKeys {
@@ -78,7 +118,7 @@ func bootstrapMembers(path string) (members []*consensus.RemoteNode) {
 	return members
 }
 
-var bootstrapKeysFile string
+var bootstrapPublicKeysFile string
 
 // testnodeCmd represents the testnode command
 var testnodeCmd = &cobra.Command{
@@ -86,19 +126,35 @@ var testnodeCmd = &cobra.Command{
 	Short: "Run a testnet node with hardcoded (insecure) keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		setupGossipNode()
+		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
+		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
+		group := setupNotaryGroup()
+		signer := setupGossipNode(ecdsaKeyHex, blsKeyHex, group)
+		stopOnSignal(signer)
 	},
 }
 
-func setupGossipNode() {
+func setupNotaryGroup() *consensus.NotaryGroup {
+	memStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", memStore)
+	if group.IsGenesis() {
+		testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
+		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
+		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
+	}
+
+	return group
+}
+
+func setupGossipNode(ecdsaKeyHex string, blsKeyHex string, group *consensus.NotaryGroup) *signer.GossipedSigner {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
-	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(os.Getenv("NODE_ECDSA_KEY_HEX")))
+	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
 	}
 
-	blsKey := bls.BytesToSignKey(hexutil.MustDecode(os.Getenv("NODE_BLS_KEY_HEX")))
+	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
 
 	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
 	log.Info("starting up a test GOSSIP node", "id", id)
@@ -107,22 +163,22 @@ func setupGossipNode() {
 	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+id))
 	node := network.NewNode(ecdsaKey)
 
-	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodestore.NewStorageBasedStore(boltStorage))
-	if group.IsGenesis() {
-		testNetMembers := bootstrapMembers(bootstrapKeysFile)
-		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
-		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
-	}
 	gossipedSigner := signer.NewGossipedSigner(node, group, boltStorage, blsKey)
 	gossipedSigner.Start()
 
+	return gossipedSigner
+}
+
+func stopOnSignal(signers ...*signer.GossipedSigner) {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigs
 		fmt.Println(sig)
-		gossipedSigner.Stop()
+		for _, signer := range signers {
+			signer.Stop()
+		}
 		done <- true
 	}()
 	fmt.Println("awaiting signal")
@@ -132,5 +188,5 @@ func setupGossipNode() {
 
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
-	testnodeCmd.Flags().StringVarP(&bootstrapKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
+	testnodeCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 }

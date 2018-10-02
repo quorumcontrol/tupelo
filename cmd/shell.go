@@ -22,7 +22,7 @@ var shellCmd = &cobra.Command{
 		nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 		group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
 		if group.IsGenesis() {
-			testNetMembers := bootstrapMembers(bootstrapKeysFile)
+			testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
 			fmt.Printf("Bootstrapping notary group with %v nodes\n", len(testNetMembers))
 			group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
 		}
@@ -33,7 +33,7 @@ var shellCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(shellCmd)
 	shellCmd.Flags().StringVarP(&shellName, "name", "n", "alice", "the name to use for the wallet")
-	shellCmd.Flags().StringVarP(&bootstrapKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
+	shellCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 
 	// Here you will define your flags and configuration settings.
 
