@@ -25,6 +25,14 @@
   revision = "9a2f9524024889e129a5422aca2cff73cb3eabf6"
 
 [[projects]]
+  branch = "master"
+  digest = "1:56b87c786a316d6e9b9c7ba8f3dd64e3199ca3b33a55cc596c633023bed20264"
+  name = "github.com/btcsuite/btcutil"
+  packages = ["base58"]
+  pruneopts = ""
+  revision = "ab6388e0c60ae4834a1f57511e20c17b5f78be4b"
+
+[[projects]]
   digest = "1:8e9e9b413d0d42246340a89debd1d2c2ae0284774462c11a7ea1b1e25d913700"
   name = "github.com/chzyer/readline"
   packages = ["."]
@@ -674,6 +682,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/abiosoft/ishell",
+    "github.com/btcsuite/btcutil/base58",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/crypto",

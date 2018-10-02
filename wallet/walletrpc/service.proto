@@ -8,8 +8,19 @@ message Credentials {
   string pass_phrase = 2;
 }
 
+message SerializedSignature {
+  repeated bool signers = 1;
+  string signature = 2;
+  string type = 3;
+}
+
+message SerializedChainTree {
+  repeated string dag = 1;
+  map<string, SerializedSignature> signatures = 2;
+}
+
 message GenerateChainRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
   string key_addr = 2;
 }
 
@@ -17,8 +28,17 @@ message GenerateChainResponse {
   string chain_id = 1;
 }
 
+message ExportChainRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+}
+
+message ExportChainResponse {
+  SerializedChainTree chain_tree = 1;
+}
+
 message GenerateKeyRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
 }
 
 message GenerateKeyResponse {
@@ -26,7 +46,7 @@ message GenerateKeyResponse {
 }
 
 message GetTipRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
   string chain_id = 2;
 }
 
@@ -35,7 +55,7 @@ message GetTipResponse {
 }
 
 message ListChainIdsRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
 }
 
 message ListChainIdsResponse {
@@ -43,7 +63,7 @@ message ListChainIdsResponse {
 }
 
 message ListKeysRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
 }
 
 message ListKeysResponse {
@@ -51,7 +71,7 @@ message ListKeysResponse {
 }
 
 message SetOwnerRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
   string chain_id = 2;
   string key_addr = 3;
   repeated string new_owner_keys = 4;
@@ -62,7 +82,7 @@ message SetOwnerResponse {
 }
 
 message SetDataRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
   string chain_id = 2;
   string key_addr = 3;
   string path = 4;
@@ -73,8 +93,19 @@ message SetDataResponse {
   string tip = 1;
 }
 
+message ResolveRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string path = 4;
+}
+
+message ResolveResponse {
+  string remaining_path = 1;
+  bytes data = 2;
+}
+
 message EstablishCoinRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
   string chain_id = 2;
   string key_addr = 3;
   string coin_name = 4;
@@ -86,7 +117,7 @@ message EstablishCoinResponse {
 }
 
 message MintCoinRequest {
-  walletrpc.Credentials creds = 1;
+  Credentials creds = 1;
   string chain_id = 2;
   string key_addr = 3;
   string coin_name = 4;
@@ -98,13 +129,14 @@ message MintCoinResponse {
 }
 
 service WalletRPCService {
-  rpc GenerateKey (walletrpc.GenerateKeyRequest) returns (walletrpc.GenerateKeyResponse);
-  rpc CreateChain (walletrpc.GenerateChainRequest) returns (walletrpc.GenerateChainResponse);
-  rpc GetTip (walletrpc.GetTipRequest) returns (walletrpc.GetTipResponse);
-  rpc ListChainIds (walletrpc.ListChainIdsRequest) returns (walletrpc.ListChainIdsResponse);
-  rpc ListKeys (walletrpc.ListKeysRequest) returns (walletrpc.ListKeysResponse);
-  rpc SetOwner (walletrpc.SetOwnerRequest) returns (walletrpc.SetOwnerResponse);
-  rpc SetData (walletrpc.SetDataRequest) returns (walletrpc.SetDataResponse);
-  rpc EstablishCoin (walletrpc.EstablishCoinRequest) returns (walletrpc.EstablishCoinResponse);
-  rpc MintCoin (walletrpc.MintCoinRequest) returns (walletrpc.MintCoinResponse);
+  rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
+  rpc CreateChain (GenerateChainRequest) returns (GenerateChainResponse);
+  rpc ExportChain (ExportChainRequest) returns (ExportChainResponse);
+  rpc GetTip (GetTipRequest) returns (GetTipResponse);
+  rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
+  rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
+  rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
+  rpc SetData (SetDataRequest) returns (SetDataResponse);
+  rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse);
+  rpc MintCoin (MintCoinRequest) returns (MintCoinResponse);
 }

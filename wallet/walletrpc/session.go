@@ -195,6 +195,18 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 
 	return resp.Tip, nil
 }
+func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []string, error) {
+	if rpcs.isStopped {
+		return nil, nil, StoppedError
+	}
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return chain.ChainTree.Dag.Resolve(path)
+}
 
 func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.isStopped {

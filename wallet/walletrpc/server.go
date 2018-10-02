@@ -1,10 +1,14 @@
 package walletrpc
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-ipld-cbor"
+	"github.com/mr-tron/base58/base58"
 	"github.com/quorumcontrol/qc3/consensus"
 	"golang.org/x/net/context"
 
@@ -68,6 +72,45 @@ func (s *server) CreateChain(ctx context.Context, req *GenerateChainRequest) (*G
 	}, nil
 }
 
+func (s *server) ExportChain(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
+
+	chain, err := session.GetChain(req.ChainId)
+	if err != nil {
+		return nil, err
+	}
+
+	dagNodes, err := chain.ChainTree.Dag.Nodes()
+	if err != nil {
+		return nil, err
+	}
+
+	dagData := make([]string, len(dagNodes))
+	for i, node := range dagNodes {
+		raw := node.RawData()
+		dagData[i] = base58.Encode(raw)
+	}
+
+	serializedSigs := make(map[string]*SerializedSignature)
+	for k, sig := range chain.Signatures {
+		serializedSigs[k] = &SerializedSignature{
+			Signers:   sig.Signers,
+			Signature: base58.Encode(sig.Signature),
+			Type:      sig.Type,
+		}
+	}
+
+	serializedChain := &SerializedChainTree{
+		Dag:        dagData,
+		Signatures: serializedSigs,
+	}
+
+	return &ExportChainResponse{
+		ChainTree: serializedChain,
+	}, nil
+}
+
 func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
 	defer session.Stop()
@@ -121,6 +164,30 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 
 	return &SetDataResponse{
 		Tip: tipCid.String(),
+	}, nil
+}
+
+func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
+
+	pathSegments := strings.Split(req.Path, "/")
+
+	data, remainingSegments, err := session.Resolve(req.ChainId, pathSegments)
+	if err != nil {
+		return nil, err
+	}
+
+	remainingPath := strings.Join(remainingSegments, "/")
+	dataNode, ok := data.(cbornode.Node)
+	if !ok {
+		return nil, errors.New("Can't cast data to cbor")
+	}
+	dataBytes := dataNode.RawData()
+
+	return &ResolveResponse{
+		RemainingPath: remainingPath,
+		Data:          dataBytes,
 	}, nil
 }
 
