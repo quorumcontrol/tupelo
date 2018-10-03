@@ -86,10 +86,10 @@ func (s *server) ExportChain(ctx context.Context, req *ExportChainRequest) (*Exp
 		return nil, err
 	}
 
-	dagData := make([]string, len(dagNodes))
+	dagStrings := make([]string, len(dagNodes))
 	for i, node := range dagNodes {
 		raw := node.RawData()
-		dagData[i] = base58.Encode(raw)
+		dagStrings[i] = base58.Encode(raw)
 	}
 
 	serializedSigs := make(map[string]*SerializedSignature)
@@ -102,12 +102,31 @@ func (s *server) ExportChain(ctx context.Context, req *ExportChainRequest) (*Exp
 	}
 
 	serializedChain := &SerializedChainTree{
-		Dag:        dagData,
+		Dag:        dagStrings,
 		Signatures: serializedSigs,
 	}
 
 	return &ExportChainResponse{
 		ChainTree: serializedChain,
+	}, nil
+}
+
+func (s *server) ImportChain(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
+	session := NewSession(req.Creds, s.NotaryGroup)
+	defer session.Stop()
+
+	chain, err := session.ImportChain(req.KeyAddr, req.ChainTree)
+	if err != nil {
+		return nil, err
+	}
+
+	chainId, err := chain.Id()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImportChainResponse{
+		ChainId: chainId,
 	}, nil
 }
 

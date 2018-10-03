@@ -37,6 +37,16 @@ message ExportChainResponse {
   SerializedChainTree chain_tree = 1;
 }
 
+message ImportChainRequest {
+  Credentials creds = 1;
+  string key_addr = 2;
+  SerializedChainTree chain_tree = 3;
+}
+
+message ImportChainResponse {
+  string chain_id = 1;
+}
+
 message GenerateKeyRequest {
   Credentials creds = 1;
 }
@@ -132,6 +142,7 @@ service WalletRPCService {
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
   rpc CreateChain (GenerateChainRequest) returns (GenerateChainResponse);
   rpc ExportChain (ExportChainRequest) returns (ExportChainResponse);
+  rpc ImportChain (ImportChainRequest) returns (ImportChainResponse);
   rpc GetTip (GetTipRequest) returns (GetTipResponse);
   rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
   rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);

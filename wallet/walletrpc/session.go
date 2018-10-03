@@ -5,8 +5,14 @@ import (
 	"errors"
 	"path/filepath"
 
+	"github.com/ipfs/go-ipld-cbor"
+
+	"github.com/btcsuite/btcutil/base58"
+	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
 	"github.com/quorumcontrol/qc3/wallet"
@@ -36,6 +42,42 @@ func NewSession(creds *Credentials, group *consensus.NotaryGroup) *RPCSession {
 		wallet:    fileWallet,
 		isStopped: false,
 	}
+}
+
+func decodeDag(encodedDag []string, store nodestore.NodeStore) (*dag.Dag, error) {
+	dagNodes := make([]*cbornode.Node, len(encodedDag))
+
+	for i, nodeString := range encodedDag {
+		raw := base58.Decode(nodeString)
+
+		block := blocks.NewBlock(raw)
+		node, err := cbornode.DecodeBlock(block)
+		if err != nil {
+			return nil, err
+		}
+
+		dagNodes[i] = node.(*cbornode.Node)
+	}
+
+	return dag.NewDagWithNodes(store, dagNodes...)
+}
+
+func decodeSignatures(encodedSigs map[string]*SerializedSignature) (consensus.SignatureMap, error) {
+	signatures := make(consensus.SignatureMap)
+
+	for k, encodedSig := range encodedSigs {
+		sigBytes := base58.Decode(encodedSig.Signature)
+
+		signature := consensus.Signature{
+			Type:      encodedSig.Type,
+			Signers:   encodedSig.Signers,
+			Signature: sigBytes,
+		}
+
+		signatures[k] = signature
+	}
+
+	return signatures, nil
 }
 
 func (rpcs *RPCSession) Stop() {
@@ -85,6 +127,32 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 
 	rpcs.wallet.SaveChain(chain)
 	return chain, nil
+}
+
+func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializedChainTree) (*consensus.SignedChainTree, error) {
+	if rpcs.isStopped {
+		return nil, StoppedError
+	}
+
+	dag, err := decodeDag(serializedChain.Dag, rpcs.wallet.NodeStore())
+	if err != nil {
+		return nil, err
+	}
+
+	chainTree, err := chaintree.NewChainTree(dag, nil, consensus.DefaultTransactors)
+	if err != nil {
+		return nil, err
+	}
+
+	sigs, err := decodeSignatures(serializedChain.Signatures)
+	if err != nil {
+		return nil, err
+	}
+
+	return &consensus.SignedChainTree{
+		ChainTree:  chainTree,
+		Signatures: sigs,
+	}, nil
 }
 
 func (rpcs *RPCSession) GetChainIds() ([]string, error) {
