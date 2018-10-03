@@ -52,7 +52,7 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 	}, nil
 }
 
-func (s *server) CreateChain(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
+func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
 	defer session.Stop()
 
@@ -71,7 +71,7 @@ func (s *server) CreateChain(ctx context.Context, req *GenerateChainRequest) (*G
 	}, nil
 }
 
-func (s *server) ExportChain(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
+func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
 	defer session.Stop()
 
@@ -85,7 +85,7 @@ func (s *server) ExportChain(ctx context.Context, req *ExportChainRequest) (*Exp
 	}, nil
 }
 
-func (s *server) ImportChain(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
+func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
 	session := NewSession(req.Creds, s.NotaryGroup)
 	defer session.Stop()
 

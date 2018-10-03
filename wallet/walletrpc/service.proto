@@ -140,9 +140,9 @@ message MintCoinResponse {
 
 service WalletRPCService {
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
-  rpc CreateChain (GenerateChainRequest) returns (GenerateChainResponse);
-  rpc ExportChain (ExportChainRequest) returns (ExportChainResponse);
-  rpc ImportChain (ImportChainRequest) returns (ImportChainResponse);
+  rpc CreateChainTree (GenerateChainRequest) returns (GenerateChainResponse);
+  rpc ExportChainTree (ExportChainRequest) returns (ExportChainResponse);
+  rpc ImportChainTree (ImportChainRequest) returns (ImportChainResponse);
   rpc GetTip (GetTipRequest) returns (GetTipResponse);
   rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
   rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
