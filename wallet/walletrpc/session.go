@@ -62,6 +62,21 @@ func decodeDag(encodedDag []string, store nodestore.NodeStore) (*dag.Dag, error)
 	return dag.NewDagWithNodes(store, dagNodes...)
 }
 
+func encodeDag(dag *dag.Dag) ([]string, error) {
+	dagNodes, err := dag.Nodes()
+	if err != nil {
+		return nil, err
+	}
+
+	encodedDag := make([]string, len(dagNodes))
+	for i, node := range dagNodes {
+		raw := node.RawData()
+		encodedDag[i] = base58.Encode(raw)
+	}
+
+	return encodedDag, nil
+}
+
 func decodeSignatures(encodedSigs map[string]*SerializedSignature) (consensus.SignatureMap, error) {
 	signatures := make(consensus.SignatureMap)
 
@@ -78,6 +93,19 @@ func decodeSignatures(encodedSigs map[string]*SerializedSignature) (consensus.Si
 	}
 
 	return signatures, nil
+}
+
+func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializedSignature {
+	serializedSigs := make(map[string]*SerializedSignature)
+	for k, sig := range sigs {
+		serializedSigs[k] = &SerializedSignature{
+			Signers:   sig.Signers,
+			Signature: base58.Encode(sig.Signature),
+			Type:      sig.Type,
+		}
+	}
+
+	return serializedSigs
 }
 
 func (rpcs *RPCSession) Stop() {
@@ -127,6 +155,30 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 
 	rpcs.wallet.SaveChain(chain)
 	return chain, nil
+}
+
+func (rpcs *RPCSession) ExportChain(chainId string) (*SerializedChainTree, error) {
+	if rpcs.isStopped {
+		return nil, StoppedError
+	}
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return nil, err
+	}
+
+	encodedDag, err := encodeDag(chain.ChainTree.Dag)
+	if err != nil {
+		return nil, err
+	}
+
+	serializedSigs := serializeSignatures(chain.Signatures)
+
+	return &SerializedChainTree{
+		Dag:        encodedDag,
+		Signatures: serializedSigs,
+	}, nil
+
 }
 
 func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializedChainTree) (*consensus.SignedChainTree, error) {

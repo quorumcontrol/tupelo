@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-ipld-cbor"
-	"github.com/mr-tron/base58/base58"
 	"github.com/quorumcontrol/qc3/consensus"
 	"golang.org/x/net/context"
 
@@ -76,34 +75,9 @@ func (s *server) ExportChain(ctx context.Context, req *ExportChainRequest) (*Exp
 	session := NewSession(req.Creds, s.NotaryGroup)
 	defer session.Stop()
 
-	chain, err := session.GetChain(req.ChainId)
+	serializedChain, err := session.ExportChain(req.ChainId)
 	if err != nil {
 		return nil, err
-	}
-
-	dagNodes, err := chain.ChainTree.Dag.Nodes()
-	if err != nil {
-		return nil, err
-	}
-
-	dagStrings := make([]string, len(dagNodes))
-	for i, node := range dagNodes {
-		raw := node.RawData()
-		dagStrings[i] = base58.Encode(raw)
-	}
-
-	serializedSigs := make(map[string]*SerializedSignature)
-	for k, sig := range chain.Signatures {
-		serializedSigs[k] = &SerializedSignature{
-			Signers:   sig.Signers,
-			Signature: base58.Encode(sig.Signature),
-			Type:      sig.Type,
-		}
-	}
-
-	serializedChain := &SerializedChainTree{
-		Dag:        dagStrings,
-		Signatures: serializedSigs,
 	}
 
 	return &ExportChainResponse{
