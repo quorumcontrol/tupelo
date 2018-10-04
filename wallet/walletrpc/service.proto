@@ -148,6 +148,7 @@ service WalletRPCService {
   rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
   rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
   rpc SetData (SetDataRequest) returns (SetDataResponse);
+  rpc Resolve (ResolveRequest) returns (ResolveResponse);
   rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse);
   rpc MintCoin (MintCoinRequest) returns (MintCoinResponse);
 }
