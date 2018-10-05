@@ -1,0 +1,154 @@
+syntax = "proto3";
+package walletrpc;
+
+option go_package = "walletrpc";
+
+message Credentials {
+  string wallet_name = 1;
+  string pass_phrase = 2;
+}
+
+message SerializedSignature {
+  repeated bool signers = 1;
+  string signature = 2;
+  string type = 3;
+}
+
+message SerializedChainTree {
+  repeated string dag = 1;
+  map<string, SerializedSignature> signatures = 2;
+}
+
+message GenerateChainRequest {
+  Credentials creds = 1;
+  string key_addr = 2;
+}
+
+message GenerateChainResponse {
+  string chain_id = 1;
+}
+
+message ExportChainRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+}
+
+message ExportChainResponse {
+  SerializedChainTree chain_tree = 1;
+}
+
+message ImportChainRequest {
+  Credentials creds = 1;
+  string key_addr = 2;
+  SerializedChainTree chain_tree = 3;
+}
+
+message ImportChainResponse {
+  string chain_id = 1;
+}
+
+message GenerateKeyRequest {
+  Credentials creds = 1;
+}
+
+message GenerateKeyResponse {
+  string key_addr = 1;
+}
+
+message GetTipRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+}
+
+message GetTipResponse {
+  string tip = 1;
+}
+
+message ListChainIdsRequest {
+  Credentials creds = 1;
+}
+
+message ListChainIdsResponse {
+  repeated string chain_ids = 1;
+}
+
+message ListKeysRequest {
+  Credentials creds = 1;
+}
+
+message ListKeysResponse {
+  repeated string key_addrs = 1;
+}
+
+message SetOwnerRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  repeated string new_owner_keys = 4;
+}
+
+message SetOwnerResponse {
+  string tip = 1;
+}
+
+message SetDataRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string path = 4;
+  string value = 5;
+}
+
+message SetDataResponse {
+  string tip = 1;
+}
+
+message ResolveRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string path = 3;
+}
+
+message ResolveResponse {
+  string remaining_path = 1;
+  bytes data = 2;
+}
+
+message EstablishCoinRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string coin_name = 4;
+  uint64 maximum = 5;
+}
+
+message EstablishCoinResponse {
+  string tip = 1;
+}
+
+message MintCoinRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string coin_name = 4;
+  uint64 amount = 5;
+}
+
+message MintCoinResponse {
+  string tip = 1;
+}
+
+service WalletRPCService {
+  rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
+  rpc CreateChainTree (GenerateChainRequest) returns (GenerateChainResponse);
+  rpc ExportChainTree (ExportChainRequest) returns (ExportChainResponse);
+  rpc ImportChainTree (ImportChainRequest) returns (ImportChainResponse);
+  rpc GetTip (GetTipRequest) returns (GetTipResponse);
+  rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
+  rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
+  rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
+  rpc SetData (SetDataRequest) returns (SetDataResponse);
+  rpc Resolve (ResolveRequest) returns (ResolveResponse);
+  rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse);
+  rpc MintCoin (MintCoinRequest) returns (MintCoinResponse);
+}
