@@ -1,3 +1,0 @@
-[submodule "indy-crypto"]
-	path = indy-crypto
-	url = https://github.com/hyperledger/indy-crypto.git
