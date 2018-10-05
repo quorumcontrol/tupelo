@@ -1,7 +1,6 @@
 package walletrpc
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -172,11 +171,10 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 	}
 
 	remainingPath := strings.Join(remainingSegments, "/")
-	dataNode, ok := data.(cbornode.Node)
-	if !ok {
-		return nil, errors.New("Can't cast data to cbor")
+	dataBytes, err := cbornode.DumpObject(data)
+	if err != nil {
+		return nil, err
 	}
-	dataBytes := dataNode.RawData()
 
 	return &ResolveResponse{
 		RemainingPath: remainingPath,
