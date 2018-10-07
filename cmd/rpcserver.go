@@ -29,13 +29,6 @@ var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
-		// memStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-		// notaryGroup := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", memStore)
-		// if notaryGroup.IsGenesis() {
-		//	testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
-		//	fmt.Printf("Bootstrapping notary group with %v nodes\n", len(testNetMembers))
-		//	notaryGroup.CreateGenesisState(notaryGroup.RoundAt(time.Now()), testNetMembers...)
-		// }
 		notaryGroup := setupNotaryGroup()
 		privateKeys, _ := loadPrivateKeyFile(bootstrapPrivateKeysFile)
 		signers := make([]*signer.GossipedSigner, len(privateKeys))
