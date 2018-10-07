@@ -1,12 +1,29 @@
 package cmd
 
 import (
+	"encoding/json"
+
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/wallet/walletrpc"
 	"github.com/spf13/cobra"
 )
 
 var bootstrapPrivateKeysFile string
+func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
+	var jsonLoadedKeys []*PrivateKeySet
+
+	jsonBytes, err := loadJSON(path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
+	if err != nil {
+		return nil, err
+	}
+
+	return jsonLoadedKeys, nil
+}
 
 var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",

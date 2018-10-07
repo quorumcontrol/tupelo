@@ -38,8 +38,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var BlsSignKeys []*bls.SignKey
-var EcdsaKeys []*ecdsa.PrivateKey
+var (
+	BlsSignKeys             []*bls.SignKey
+	EcdsaKeys               []*ecdsa.PrivateKey
+	bootstrapPublicKeysFile string
+)
 
 type PublicKeySet struct {
 	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
@@ -62,22 +65,6 @@ func loadJSON(path string) ([]byte, error) {
 
 func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
 	var jsonLoadedKeys []*PublicKeySet
-
-	jsonBytes, err := loadJSON(path)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonLoadedKeys, nil
-}
-
-func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
-	var jsonLoadedKeys []*PrivateKeySet
 
 	jsonBytes, err := loadJSON(path)
 	if err != nil {
@@ -117,8 +104,6 @@ func bootstrapMembers(path string) (members []*consensus.RemoteNode) {
 
 	return members
 }
-
-var bootstrapPublicKeysFile string
 
 // testnodeCmd represents the testnode command
 var testnodeCmd = &cobra.Command{
