@@ -113,15 +113,14 @@ var testnodeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
-		group := setupNotaryGroup()
-		signer := setupGossipNode(ecdsaKeyHex, blsKeyHex, group)
+		signer := setupGossipNode(ecdsaKeyHex, blsKeyHex)
 		stopOnSignal(signer)
 	},
 }
 
-func setupNotaryGroup() *consensus.NotaryGroup {
-	memStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", memStore)
+func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
+	nodeStore := nodestore.NewStorageBasedStore(storageAdapter)
+	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
 	if group.IsGenesis() {
 		testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
 		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
@@ -131,7 +130,7 @@ func setupNotaryGroup() *consensus.NotaryGroup {
 	return group
 }
 
-func setupGossipNode(ecdsaKeyHex string, blsKeyHex string, group *consensus.NotaryGroup) *signer.GossipedSigner {
+func setupGossipNode(ecdsaKeyHex string, blsKeyHex string) *signer.GossipedSigner {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
@@ -145,10 +144,12 @@ func setupGossipNode(ecdsaKeyHex string, blsKeyHex string, group *consensus.Nota
 	log.Info("starting up a test GOSSIP node", "id", id)
 
 	os.MkdirAll(".storage", 0700)
-	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+id))
+	badgerStorage := storage.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
 	node := network.NewNode(ecdsaKey)
 
-	gossipedSigner := signer.NewGossipedSigner(node, group, boltStorage, blsKey)
+	group := setupNotaryGroup(badgerStorage)
+
+	gossipedSigner := signer.NewGossipedSigner(node, group, badgerStorage, blsKey)
 	gossipedSigner.Start()
 
 	return gossipedSigner

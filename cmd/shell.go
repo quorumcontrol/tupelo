@@ -1,11 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"time"
-
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/wallet/walletshell"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
@@ -19,13 +14,7 @@ var shellCmd = &cobra.Command{
 	Short: "launches a shell wallet that can only talk to the testnet",
 	Long:  `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
-		nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-		group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
-		if group.IsGenesis() {
-			testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
-			fmt.Printf("Bootstrapping notary group with %v nodes\n", len(testNetMembers))
-			group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
-		}
+		group := setupNotaryGroup(storage.NewMemStorage())
 		walletshell.RunGossip(shellName, group)
 	},
 }
