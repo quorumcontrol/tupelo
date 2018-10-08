@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -210,7 +211,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	}, nil
 }
 
-func Serve(group *consensus.NotaryGroup) (*grpc.Server, error) {
+func startServer(grpcServer *grpc.Server, group *consensus.NotaryGroup) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
 	fmt.Println("Listening on port", defaultPort)
@@ -219,7 +220,6 @@ func Serve(group *consensus.NotaryGroup) (*grpc.Server, error) {
 		return nil, err
 	}
 
-	grpcServer := grpc.NewServer()
 	s := &server{
 		NotaryGroup: group,
 	}
@@ -232,4 +232,22 @@ func Serve(group *consensus.NotaryGroup) (*grpc.Server, error) {
 	}
 
 	return grpcServer, nil
+}
+
+func ServeInsecure(group *consensus.NotaryGroup) (*grpc.Server, error) {
+	grpcServer := grpc.NewServer()
+
+	return startServer(grpcServer, group)
+}
+
+func ServeTLS(group *consensus.NotaryGroup, certFile string, keyFile string) (*grpc.Server, error) {
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption := grpc.Creds(creds)
+	grpcServer := grpc.NewServer(credsOption)
+
+	return startServer(grpcServer, group)
 }

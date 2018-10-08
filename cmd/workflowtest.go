@@ -19,7 +19,7 @@ func smokeTestNetwork() (bool, string) {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
 	if group.IsGenesis() {
-		testNetMembers := bootstrapMembers(bootstrapKeysFile)
+		testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
 		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
 	}
 
@@ -87,5 +87,5 @@ var workflowtest = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(workflowtest)
-	workflowtest.Flags().StringVarP(&bootstrapKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
+	workflowtest.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 }
