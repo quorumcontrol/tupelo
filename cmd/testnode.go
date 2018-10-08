@@ -145,10 +145,10 @@ func setupGossipNode(ecdsaKeyHex string, blsKeyHex string, group *consensus.Nota
 	log.Info("starting up a test GOSSIP node", "id", id)
 
 	os.MkdirAll(".storage", 0700)
-	boltStorage := storage.NewBoltStorage(filepath.Join(".storage", "testnode-chains-"+id))
+	badgerStorage := storage.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
 	node := network.NewNode(ecdsaKey)
 
-	gossipedSigner := signer.NewGossipedSigner(node, group, boltStorage, blsKey)
+	gossipedSigner := signer.NewGossipedSigner(node, group, badgerStorage, blsKey)
 	gossipedSigner.Start()
 
 	return gossipedSigner
