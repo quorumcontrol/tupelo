@@ -6,6 +6,7 @@ import (
 
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/qc3/wallet/walletrpc"
+	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -53,15 +54,15 @@ var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
-		notaryGroup := setupNotaryGroup()
 		privateKeys, _ := loadPrivateKeyFile(bootstrapPrivateKeysFile)
 		signers := make([]*signer.GossipedSigner, len(privateKeys))
 		for i, keys := range privateKeys {
-			signers[i] = setupGossipNode(keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, notaryGroup)
+			signers[i] = setupGossipNode(keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey)
 		}
+
+		notaryGroup := setupNotaryGroup(storage.NewMemStorage())
 		if tls {
 			panicWithoutTLSOpts()
-
 			walletrpc.ServeTLS(notaryGroup, certFile, keyFile)
 		} else {
 			walletrpc.ServeInsecure(notaryGroup)
