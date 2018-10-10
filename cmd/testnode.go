@@ -40,20 +40,9 @@ import (
 )
 
 var (
-	BlsSignKeys             []*bls.SignKey
-	EcdsaKeys               []*ecdsa.PrivateKey
-	bootstrapPublicKeysFile string
+	BlsSignKeys []*bls.SignKey
+	EcdsaKeys   []*ecdsa.PrivateKey
 )
-
-type PublicKeySet struct {
-	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
-	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
-}
-
-type PrivateKeySet struct {
-	BlsHexPrivateKey   string `json:"blsHexPrivateKey,omitempty"`
-	EcdsaHexPrivateKey string `json:"ecdsaHexPrivateKey,omitempty"`
-}
 
 func expandHomePath(path string) (string, error) {
 	currentUser, err := user.Current()
@@ -100,14 +89,8 @@ func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
 	return jsonLoadedKeys, nil
 }
 
-func bootstrapMembers(path string) (members []*consensus.RemoteNode) {
-	jsonLoadedKeys, err := loadPublicKeyFile(path)
-	if err != nil {
-		fmt.Printf("Error loading key file: %v", err)
-		return nil
-	}
-
-	for _, keySet := range jsonLoadedKeys {
+func bootstrapMembers(keys []*PublicKeySet) (members []*consensus.RemoteNode) {
+	for _, keySet := range keys {
 		blsPubKey := consensus.PublicKey{
 			PublicKey: hexutil.MustDecode(keySet.BlsHexPublicKey),
 			Type:      consensus.KeyTypeBLSGroupSig,
@@ -143,7 +126,7 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 	nodeStore := nodestore.NewStorageBasedStore(storageAdapter)
 	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
 	if group.IsGenesis() {
-		testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
+		testNetMembers := bootstrapMembers(bootstrapPublicKeys)
 		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
 		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
 	}

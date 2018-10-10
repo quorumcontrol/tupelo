@@ -19,7 +19,7 @@ func smokeTestNetwork() (bool, string) {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
 	if group.IsGenesis() {
-		testNetMembers := bootstrapMembers(bootstrapPublicKeysFile)
+		testNetMembers := bootstrapMembers(bootstrapPublicKeys)
 		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
 	}
 
