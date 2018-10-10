@@ -3,6 +3,7 @@ package walletrpc
 import (
 	"crypto/ecdsa"
 	"errors"
+	fmt "fmt"
 	"path/filepath"
 
 	"github.com/ipfs/go-ipld-cbor"
@@ -295,9 +296,15 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddr
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, value string) (*cid.Cid, error) {
+func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, value []byte) (*cid.Cid, error) {
 	if rpcs.isStopped {
 		return nil, StoppedError
+	}
+
+	var decodedVal interface{}
+	err := cbornode.DecodeInto(value, &decodedVal)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding value: %v", err)
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
@@ -305,7 +312,7 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 			Type: consensus.TransactionTypeSetData,
 			Payload: consensus.SetDataPayload{
 				Path:  path,
-				Value: value,
+				Value: decodedVal,
 			},
 		},
 	})
