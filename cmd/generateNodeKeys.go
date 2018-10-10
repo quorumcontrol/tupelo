@@ -41,21 +41,19 @@ var generateNodeKeysCmd = &cobra.Command{
 	Short: "Generate a new set of node keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		blsKey, err := bls.NewSignKey()
+		privateKeys, publicKeys, err := generateKeySet(1)
+
 		if err != nil {
-			panic("error generating bls")
-		}
-		ecdsa, err := crypto.GenerateKey()
-		if err != nil {
-			panic("error generating ecdsa")
+			panic(err)
 		}
 
 		fmt.Printf(
 			"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\n",
-			hexutil.Encode(blsKey.Bytes()),
-			hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
-			hexutil.Encode(crypto.FromECDSA(ecdsa)),
-			hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsa.PublicKey).PublicKey))
+			privateKeys[0].BlsHexPrivateKey,
+			publicKeys[0].BlsHexPublicKey,
+			privateKeys[0].EcdsaHexPrivateKey,
+			publicKeys[0].EcdsaHexPublicKey,
+		)
 	},
 }
 
