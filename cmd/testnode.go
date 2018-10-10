@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"os/user"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -54,13 +55,33 @@ type PrivateKeySet struct {
 	EcdsaHexPrivateKey string `json:"ecdsaHexPrivateKey,omitempty"`
 }
 
+func expandHomePath(path string) (string, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("error getting current user: %v", err)
+	}
+	homeDir := currentUser.HomeDir
+
+	if path[:2] == "~/" {
+		path = filepath.Join(homeDir, path[2:])
+	}
+	return path, nil
+}
+
 func loadJSON(path string) ([]byte, error) {
-	_, err := os.Stat(path)
+	if path == "" {
+		return nil, nil
+	}
+	modPath, err := expandHomePath(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = os.Stat(modPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return ioutil.ReadFile(path)
+	return ioutil.ReadFile(modPath)
 }
 
 func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
