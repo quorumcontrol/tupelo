@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+pushd `dirname $0`/../
+trap popd EXIT
+
+version=$1
+rm -rf release/
+mkdir -p release/
+
+if [ -z "$version" ]; then
+  echo "Specify version (v#.#.#) as first argument"
+  exit 1
+fi
+
+if ! [ "$(uname)" == "Darwin" ]; then
+  echo "detected non mac os, skipping mac build"
+else
+  go build -o release/qc3-${version}-darwin-amd64 .
+fi
+
+if ! [ -x "$(command -v docker)" ]; then
+  echo "docker is not installed, skipping linux build"
+else
+  container_id=$(docker run -d --entrypoint=tail $(docker build -q .) -f /dev/null)
+  docker cp ${container_id}:/usr/bin/qc3 release/qc3-${version}-linux-amd64
+  docker rm -fv ${container_id}
+fi
+
+git tag ${version}
+git push origin ${version}

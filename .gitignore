@@ -3,3 +3,4 @@ vendor
 !.storage/.gitkeep
 _old
 /qc3
+/release/
