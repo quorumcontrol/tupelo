@@ -10,6 +10,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, err error) {
+	for i := 1; i <= numberOfKeys; i++ {
+		blsKey, err := bls.NewSignKey()
+		if err != nil {
+			return nil, nil, err
+		}
+		ecdsa, err := crypto.GenerateKey()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		privateKeys = append(privateKeys, &PrivateKeySet{
+			BlsHexPrivateKey:   hexutil.Encode(blsKey.Bytes()),
+			EcdsaHexPrivateKey: hexutil.Encode(crypto.FromECDSA(ecdsa)),
+		})
+
+		publicKeys = append(publicKeys, &PublicKeySet{
+			BlsHexPublicKey:   hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
+			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsa.PublicKey).PublicKey),
+		})
+	}
+
+	return privateKeys, publicKeys, err
+}
+
 // generateNodeKeysCmd represents the generateNodeKeys command
 var generateNodeKeysCmd = &cobra.Command{
 	Use:   "generate-node-keys",

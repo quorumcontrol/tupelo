@@ -24,6 +24,18 @@ import (
 )
 
 var cfgFile string
+var bootstrapPublicKeysFile string
+var bootstrapPublicKeys []*PublicKeySet
+
+type PublicKeySet struct {
+	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
+	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
+}
+
+type PrivateKeySet struct {
+	BlsHexPrivateKey   string `json:"blsHexPrivateKey,omitempty"`
+	EcdsaHexPrivateKey string `json:"ecdsaHexPrivateKey,omitempty"`
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -35,6 +47,16 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if bootstrapPublicKeysFile != "" {
+			var err error
+			bootstrapPublicKeys, err = loadPublicKeyFile(bootstrapPublicKeysFile)
+			if err != nil {
+				panic("Error loading public keys file")
+			}
+		}
+	},
+
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
