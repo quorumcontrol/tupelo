@@ -3,6 +3,7 @@ package walletrpc
 import (
 	"crypto/ecdsa"
 	"errors"
+	fmt "fmt"
 	"path/filepath"
 
 	"github.com/ipfs/go-ipld-cbor"
@@ -300,12 +301,18 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 		return nil, StoppedError
 	}
 
+	var decodedVal interface{}
+	err := cbornode.DecodeInto(value, &decodedVal)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding value: %v", err)
+	}
+
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetData,
 			Payload: consensus.SetDataPayload{
 				Path:  path,
-				Value: value,
+				Value: decodedVal,
 			},
 		},
 	})
