@@ -748,6 +748,7 @@
     "github.com/stretchr/testify/require",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
+    "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/reflection",
   ]
   solver-name = "gps-cdcl"
