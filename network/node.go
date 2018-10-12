@@ -3,6 +3,8 @@ package network
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -17,8 +19,7 @@ type TopicType [TopicLength]byte
 var NotaryGroupTopic = []byte("qctt")
 var NotaryGroupKey = []byte("c8@rtq4XOuqkZwitX1TfWvIkwg88z9rw")
 
-// From here: https://github.com/status-im/status-go/blob/38a60135b2d7d31a3a00d4e0b519e2dadbf728ff/params/cluster.go
-var bootNodes = []string{
+var defaultBootNodes = []string{
 	"enode://761a6274bb6559a4ec86ffd49b5162b9d0d431ad377c1dd6447c0051567c02bcd119ec1e55ffd4582ad863e46a36d51ba8e4ec1023898c02baa4f9d8e86b625e@51.15.78.52:30379",
 	"enode://f7be0e3c7fae87eeacad42d41d1e1fcfca6a0f7064bae2fea7d65eaf048fb9003649a43ee8e4cb6161bd800a58f628f18a44dbdd38ff37bf4ee8b2be72ea8093@51.15.45.207:30379",
 	"enode://7bc0fddc1d45220c0f5e6dea88009bfe93ef99e6dd6a9c8c615b1ce479dc9877cd5250b2a0ffb57bc1d67bea9c4c79829915ae4990706f3da56e869a9d993232@51.15.114.122:30379",
@@ -120,6 +121,14 @@ func NewNode(key *ecdsa.PrivateKey) *Node {
 	}
 }
 
+func bootNodes() []string {
+	if envSpecifiedNodes, ok := os.LookupEnv("WHISPER_BOOT_NODES"); ok {
+		return strings.Split(envSpecifiedNodes, ",")
+	}
+
+	return defaultBootNodes
+}
+
 func (n *Node) Start() error {
 	if n.started == true {
 		return nil
@@ -127,7 +136,8 @@ func (n *Node) Start() error {
 	n.started = true
 
 	var peers []*discover.Node
-	for _, enode := range bootNodes {
+
+	for _, enode := range bootNodes() {
 		peer := discover.MustParseNode(enode)
 		peers = append(peers, peer)
 	}
