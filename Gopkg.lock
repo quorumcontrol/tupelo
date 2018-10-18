@@ -18,6 +18,18 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:7c95e6ada3cb4c4034a75f88a137400dfe7cbd5823c66b2ec4b014018b537ff7"
+  name = "github.com/agl/ed25519"
+  packages = [
+    ".",
+    "edwards25519",
+    "extra25519",
+  ]
+  pruneopts = ""
+  revision = "5312a61534124124185d41f09206b9fef1d88403"
+
+[[projects]]
+  branch = "master"
   digest = "1:5285e22acd9132b6a23cf9ce42eedfaeea69f3d8ab86d83bbcee1c30a623b350"
   name = "github.com/aristanetworks/goarista"
   packages = ["monotime"]
@@ -56,7 +68,15 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
+  digest = "1:3c3f68ebab415344aef64363d23471e953a4715645115604aaf57923ae904f5e"
+  name = "github.com/coreos/go-semver"
+  packages = ["semver"]
+  pruneopts = ""
+  revision = "8ab6407b697782a06568d4b7f1db25550ec2e4c6"
+  version = "v0.2.0"
+
+[[projects]]
+  digest = "1:56c130d885a4aacae1dd9c7b71cfe39912c7ebc1ff7d2b46083c8812996dc43b"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = ""
@@ -122,6 +142,14 @@
   version = "v1.7.0"
 
 [[projects]]
+  digest = "1:b0ca94349fa2ea088f641b603a88dd7e194876b6768132b86398020ac6724147"
+  name = "github.com/fd/go-nat"
+  packages = ["."]
+  pruneopts = ""
+  revision = "bad65a492f32121a87197f4a085905c35e2a367e"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:93a4238f875be092b3bc5c68424a91d8f948d5f0cda99b44bc6de4849047d883"
   name = "github.com/flynn-archive/go-shlex"
@@ -144,6 +172,17 @@
   pruneopts = ""
   revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
   version = "v1.7.0"
+
+[[projects]]
+  digest = "1:6e73003ecd35f4487a5e88270d3ca0a81bc80dc88053ac7e4dcfec5fba30d918"
+  name = "github.com/gogo/protobuf"
+  packages = [
+    "io",
+    "proto",
+  ]
+  pruneopts = ""
+  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
+  version = "v1.1.1"
 
 [[projects]]
   digest = "1:3dd078fda7500c341bc26cfbc6c6a34614f295a2457149fc1045cab767cbcf18"
@@ -191,6 +230,14 @@
   pruneopts = ""
   revision = "e3702bed27f0d39777b0b37b664b6280e8ef8fbf"
   version = "v1.6.2"
+
+[[projects]]
+  digest = "1:09aa5dd1332b93c96bde671bafb053249dc813febf7d5ca84e8f382ba255d67d"
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  pruneopts = ""
+  revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
+  version = "v1.4.0"
 
 [[projects]]
   branch = "master"
@@ -296,12 +343,138 @@
   revision = "b2d848bada9dbd11ec27b9a38e8726555e249fd4"
 
 [[projects]]
+  branch = "master"
+  digest = "1:ea668c9d9f0619886986fa3faef29c0634d12e1f36346fea36f3d1eb67b5f5ab"
+  name = "github.com/ipsn/go-ipfs"
+  packages = [
+    "gxlibs/github.com/gxed/GoEndian",
+    "gxlibs/github.com/gxed/eventfd",
+    "gxlibs/github.com/ipfs/go-cid",
+    "gxlibs/github.com/ipfs/go-datastore",
+    "gxlibs/github.com/ipfs/go-datastore/autobatch",
+    "gxlibs/github.com/ipfs/go-datastore/query",
+    "gxlibs/github.com/ipfs/go-datastore/sync",
+    "gxlibs/github.com/ipfs/go-ipfs-addr",
+    "gxlibs/github.com/ipfs/go-ipfs-config",
+    "gxlibs/github.com/ipfs/go-ipfs-util",
+    "gxlibs/github.com/ipfs/go-log",
+    "gxlibs/github.com/ipfs/go-log/tracer",
+    "gxlibs/github.com/ipfs/go-log/tracer/wire",
+    "gxlibs/github.com/ipfs/go-log/writer",
+    "gxlibs/github.com/ipfs/go-todocounter",
+    "gxlibs/github.com/jbenet/goprocess",
+    "gxlibs/github.com/jbenet/goprocess/context",
+    "gxlibs/github.com/jbenet/goprocess/periodic",
+    "gxlibs/github.com/libp2p/go-addr-util",
+    "gxlibs/github.com/libp2p/go-buffer-pool",
+    "gxlibs/github.com/libp2p/go-conn-security",
+    "gxlibs/github.com/libp2p/go-conn-security-multistream",
+    "gxlibs/github.com/libp2p/go-conn-security/insecure",
+    "gxlibs/github.com/libp2p/go-flow-metrics",
+    "gxlibs/github.com/libp2p/go-libp2p",
+    "gxlibs/github.com/libp2p/go-libp2p-circuit",
+    "gxlibs/github.com/libp2p/go-libp2p-circuit/pb",
+    "gxlibs/github.com/libp2p/go-libp2p-crypto",
+    "gxlibs/github.com/libp2p/go-libp2p-crypto/pb",
+    "gxlibs/github.com/libp2p/go-libp2p-host",
+    "gxlibs/github.com/libp2p/go-libp2p-interface-connmgr",
+    "gxlibs/github.com/libp2p/go-libp2p-interface-pnet",
+    "gxlibs/github.com/libp2p/go-libp2p-kad-dht",
+    "gxlibs/github.com/libp2p/go-libp2p-kad-dht/opts",
+    "gxlibs/github.com/libp2p/go-libp2p-kad-dht/pb",
+    "gxlibs/github.com/libp2p/go-libp2p-kad-dht/providers",
+    "gxlibs/github.com/libp2p/go-libp2p-kbucket",
+    "gxlibs/github.com/libp2p/go-libp2p-kbucket/keyspace",
+    "gxlibs/github.com/libp2p/go-libp2p-loggables",
+    "gxlibs/github.com/libp2p/go-libp2p-metrics",
+    "gxlibs/github.com/libp2p/go-libp2p-nat",
+    "gxlibs/github.com/libp2p/go-libp2p-net",
+    "gxlibs/github.com/libp2p/go-libp2p-peer",
+    "gxlibs/github.com/libp2p/go-libp2p-peer/peerset",
+    "gxlibs/github.com/libp2p/go-libp2p-peerstore",
+    "gxlibs/github.com/libp2p/go-libp2p-peerstore/addr",
+    "gxlibs/github.com/libp2p/go-libp2p-peerstore/pstoremem",
+    "gxlibs/github.com/libp2p/go-libp2p-peerstore/queue",
+    "gxlibs/github.com/libp2p/go-libp2p-protocol",
+    "gxlibs/github.com/libp2p/go-libp2p-record",
+    "gxlibs/github.com/libp2p/go-libp2p-record/pb",
+    "gxlibs/github.com/libp2p/go-libp2p-routing",
+    "gxlibs/github.com/libp2p/go-libp2p-routing/notifications",
+    "gxlibs/github.com/libp2p/go-libp2p-routing/options",
+    "gxlibs/github.com/libp2p/go-libp2p-secio",
+    "gxlibs/github.com/libp2p/go-libp2p-secio/pb",
+    "gxlibs/github.com/libp2p/go-libp2p-swarm",
+    "gxlibs/github.com/libp2p/go-libp2p-transport",
+    "gxlibs/github.com/libp2p/go-libp2p-transport-upgrader",
+    "gxlibs/github.com/libp2p/go-libp2p/config",
+    "gxlibs/github.com/libp2p/go-libp2p/p2p/host/basic",
+    "gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed",
+    "gxlibs/github.com/libp2p/go-libp2p/p2p/protocol/identify",
+    "gxlibs/github.com/libp2p/go-libp2p/p2p/protocol/identify/pb",
+    "gxlibs/github.com/libp2p/go-maddr-filter",
+    "gxlibs/github.com/libp2p/go-mplex",
+    "gxlibs/github.com/libp2p/go-msgio",
+    "gxlibs/github.com/libp2p/go-reuseport",
+    "gxlibs/github.com/libp2p/go-reuseport-transport",
+    "gxlibs/github.com/libp2p/go-reuseport/poll",
+    "gxlibs/github.com/libp2p/go-reuseport/singlepoll",
+    "gxlibs/github.com/libp2p/go-sockaddr/net",
+    "gxlibs/github.com/libp2p/go-stream-muxer",
+    "gxlibs/github.com/libp2p/go-tcp-transport",
+    "gxlibs/github.com/libp2p/go-ws-transport",
+    "gxlibs/github.com/multiformats/go-multiaddr",
+    "gxlibs/github.com/multiformats/go-multiaddr-dns",
+    "gxlibs/github.com/multiformats/go-multiaddr-net",
+    "gxlibs/github.com/multiformats/go-multibase",
+    "gxlibs/github.com/multiformats/go-multihash",
+    "gxlibs/github.com/multiformats/go-multistream",
+    "gxlibs/github.com/whyrusleeping/base32",
+    "gxlibs/github.com/whyrusleeping/go-keyspace",
+    "gxlibs/github.com/whyrusleeping/go-notifier",
+    "gxlibs/github.com/whyrusleeping/go-notifier/Godeps/_workspace/src/github.com/jbenet/goprocess",
+    "gxlibs/github.com/whyrusleeping/go-notifier/Godeps/_workspace/src/github.com/jbenet/goprocess/ratelimit",
+    "gxlibs/github.com/whyrusleeping/go-smux-multiplex",
+    "gxlibs/github.com/whyrusleeping/go-smux-multistream",
+    "gxlibs/github.com/whyrusleeping/go-smux-yamux",
+    "gxlibs/github.com/whyrusleeping/mafmt",
+    "gxlibs/github.com/whyrusleeping/multiaddr-filter",
+    "gxlibs/github.com/whyrusleeping/yamux",
+    "thirdparty/math2",
+  ]
+  pruneopts = ""
+  revision = "efc05b394c8943f675b60f2eac2dbe223d37a2a9"
+
+[[projects]]
+  digest = "1:69ba018801f808073bbbb2fc000112bf4c163284a76c0149eb45c5e521da80eb"
+  name = "github.com/jackpal/gateway"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3e333950771011fed13be63e62b9f473c5e0d9bf"
+  version = "v1.0.4"
+
+[[projects]]
   digest = "1:76f836364ae83ed811c415aa92e1209ce49de9f62aad85b85fca749a8b96a110"
   name = "github.com/jackpal/go-nat-pmp"
   packages = ["."]
   pruneopts = ""
   revision = "c9cfead9f2a36ddf3daa40ba269aa7f4bbba6b62"
   version = "v1.0.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:95abc4eba158a39873bd4fabdee576d0ae13826b550f8b710881d80ae4093a0f"
+  name = "github.com/jbenet/go-context"
+  packages = ["io"]
+  pruneopts = ""
+  revision = "d14ea06fba99483203c19d92cfcd13ebe73135f4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:89e92102152d7da4b6b324a2861f799ae2b5cbca4db3221347b0be4d70f413d6"
+  name = "github.com/jbenet/go-temp-err-catcher"
+  packages = ["."]
+  pruneopts = ""
+  revision = "aac704a3f4f27190b4ccc05f303a4931fd1241ff"
 
 [[projects]]
   digest = "1:961dc3b1d11f969370533390fdf203813162980c858e1dabe827b60940c909a5"
@@ -382,6 +555,18 @@
   pruneopts = ""
   revision = "8be2a682ab9f254311de1375145a2f78a809b07d"
   version = "v1.0.8"
+
+[[projects]]
+  digest = "1:78fb99d6011c2ae6c72f3293a83951311147b12b06a5ffa43abf750c4fab6ac5"
+  name = "github.com/opentracing/opentracing-go"
+  packages = [
+    ".",
+    "ext",
+    "log",
+  ]
+  pruneopts = ""
+  revision = "1949ddbfd147afd4d964a9f00b24eb291e0e7c38"
+  version = "v1.0.2"
 
 [[projects]]
   digest = "1:894aef961c056b6d85d12bac890bf60c44e99b46292888bfa66caf529f804457"
@@ -573,10 +758,19 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:9c2c6a83d79a33a1f306e98add1da5f45b57c4bb38b9e712dc15ae5a2b94242a"
+  name = "github.com/whyrusleeping/go-logging"
+  packages = ["."]
+  pruneopts = ""
+  revision = "0457bb6b88fc1973573aaf6b5145d8d3ae972390"
+
+[[projects]]
+  branch = "master"
   digest = "1:cae234a803b78380e4d769db6036b9fcc8c08ed4ff862571ffc1a958edc1f629"
   name = "golang.org/x/crypto"
   packages = [
     "blake2s",
+    "blowfish",
     "internal/subtle",
     "nacl/secretbox",
     "pbkdf2",
@@ -623,6 +817,7 @@
   packages = [
     "cpu",
     "unix",
+    "windows",
   ]
   pruneopts = ""
   revision = "bd9dbc187b6e1dacfdd2722a87e83093c2d7bd6e"
@@ -751,6 +946,27 @@
     "github.com/ipfs/go-block-format",
     "github.com/ipfs/go-cid",
     "github.com/ipfs/go-ipld-cbor",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore/sync",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/jbenet/goprocess",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/jbenet/goprocess/context",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/jbenet/goprocess/periodic",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-circuit",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto/pb",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-host",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-loggables",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peerstore",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr",
+    "github.com/ipsn/go-ipfs/thirdparty/math2",
+    "github.com/minio/sha256-simd",
     "github.com/mitchellh/go-homedir",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
