@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -25,19 +28,19 @@ func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys 
 		if err != nil {
 			return nil, nil, err
 		}
-		ecdsa, err := crypto.GenerateKey()
+		ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		privateKeys = append(privateKeys, &PrivateKeySet{
 			BlsHexPrivateKey:   hexutil.Encode(blsKey.Bytes()),
-			EcdsaHexPrivateKey: hexutil.Encode(crypto.FromECDSA(ecdsa)),
+			EcdsaHexPrivateKey: hexutil.Encode(crypto.FromECDSA(ecdsaKey)),
 		})
 
 		publicKeys = append(publicKeys, &PublicKeySet{
 			BlsHexPublicKey:   hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
-			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsa.PublicKey).PublicKey),
+			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).PublicKey),
 		})
 	}
 
