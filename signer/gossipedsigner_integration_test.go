@@ -157,7 +157,6 @@ func TestGossipedSignerIntegration(t *testing.T) {
 
 	client.Start()
 	defer client.Stop()
-	time.Sleep(2 * time.Second)
 
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
@@ -275,7 +274,6 @@ func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
 
 	client.Start()
 	defer client.Stop()
-	time.Sleep(2 * time.Second)
 
 	req, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
 		PreviousTip: group.Tip(),
@@ -317,7 +315,6 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 
 	client.Start()
 	defer client.Stop()
-	time.Sleep(2 * time.Second)
 
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
