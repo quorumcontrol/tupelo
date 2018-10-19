@@ -5,8 +5,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
-	"io/ioutil"
 	gonet "net"
+	"time"
 
 	ds "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore"
 	dsync "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore/sync"
@@ -17,13 +17,12 @@ import (
 	dht "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
+	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
 	rhost "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("libp2play")
-
-const STREAM_NAME = "tupelo/0.1"
 
 type Host struct {
 	host      *rhost.RoutedHost
@@ -82,34 +81,34 @@ func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
 }
 
-func (h *Host) SetHandler(handler func([]byte)) {
-	h.host.SetStreamHandler(STREAM_NAME, func(s net.Stream) {
-		log.Debugf("%s new stream", h.host.ID().Pretty())
-		data, err := ioutil.ReadAll(s)
-		if err != nil {
-			log.Errorf("%s error reading: %v", h.host.ID().Pretty(), err)
-		}
-		handler(data)
-		s.Close()
-	})
+func (h *Host) SetStreamHandler(protocol protocol.ID, handler func(net.Stream)) {
+	h.host.SetStreamHandler(protocol, handler)
 }
 
-func (h *Host) Send(publicKey *ecdsa.PublicKey, payload []byte) error {
+func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error {
 	peerID, err := peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
 	if err != nil {
 		return fmt.Errorf("Could not convert public key to peer id: %v", err)
 	}
+	fmt.Printf("sending to %s\n", peerID.Pretty())
 
-	stream, err := h.host.NewStream(context.Background(), peerID, STREAM_NAME)
+	fmt.Printf("opening stream\n")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	stream, err := h.host.NewStream(ctx, peerID, protocol)
 	if err != nil {
+		fmt.Printf("error opening stream: %v\n", err)
 		return fmt.Errorf("Error opening stream: %v", err)
 	}
+
+	fmt.Printf("writing\n")
 
 	n, err := stream.Write(payload)
 	if err != nil {
 		return fmt.Errorf("Error writing message: %v", err)
 	}
 	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
+	fmt.Printf("%s wrote %d bytes\n", h.host.ID().Pretty(), n)
 	stream.Close()
 
 	return nil
