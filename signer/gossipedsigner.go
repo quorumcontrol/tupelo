@@ -93,9 +93,6 @@ func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store s
 	handler.AssignHandler(consensus.MessageType_GetDiffNodes, gossipSigner.GetDiffNodes)
 	gossiper.AddRoundHandler(gossipSigner.roundHandler)
 
-	handler.HandleTopic(GroupToTopic(group), crypto.Keccak256(GroupToTopic(group)))
-	handler.AssignHandler(consensus.MessageType_StateChange, gossipSigner.GroupStateChangeHandler)
-
 	return gossipSigner
 }
 
