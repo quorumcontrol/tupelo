@@ -3,18 +3,22 @@
 package network
 
 import (
+	"context"
+	"fmt"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNode_Integration(t *testing.T) {
-	testTopic := []byte("nodeIntegration")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boostrapHost := newBootstrapHost(ctx, t)
 
 	listenerKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
@@ -23,15 +27,14 @@ func TestNode_Integration(t *testing.T) {
 	assert.Nil(t, err)
 
 	listener := NewNode(listenerKey)
+	listener.BoostrapNodes = bootstrapAddresses(boostrapHost)
 	listener.Start()
 	defer listener.Stop()
 
 	client := NewNode(clientKey)
+	client.BoostrapNodes = bootstrapAddresses(boostrapHost)
 	client.Start()
 	defer client.Stop()
-
-	topicSub := listener.SubscribeToTopic(testTopic, TestKey)
-	keySub := listener.SubscribeToKey(listenerKey)
 
 	req := Request{
 		Type:    "PING",
@@ -46,47 +49,29 @@ func TestNode_Integration(t *testing.T) {
 	}
 
 	params := MessageParams{
-		Topic:    testTopic,
-		KeySym:   TestKey,
-		PoW:      0.1,
-		WorkTime: 2,
-		Payload:  node.RawData(),
-		TTL:      5,
-		Source:   clientKey,
+		Destination: &listenerKey.PublicKey,
+		Payload:     node.RawData(),
+		Source:      clientKey,
 	}
-
-	time.Sleep(5 * time.Second)
 
 	log.Debug("sending", "params", params)
 
 	err = client.Send(params)
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
 
 	err = client.Send(MessageParams{
-		Topic:       testTopic,
 		Destination: &listenerKey.PublicKey,
-		PoW:         0.1,
-		WorkTime:    10,
 		Payload:     []byte("hiKey"),
-		TTL:         5,
 	})
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
+	fmt.Printf("getting messages\n")
 
-	time.Sleep(5 * time.Second)
+	msg0 := <-listener.MessageChan
+	msg1 := <-listener.MessageChan
 
-	msgs := topicSub.RetrieveMessages()
-	log.Debug("msgs:", "msgs", msgs)
-	assert.Len(t, msgs, 1)
-	if len(msgs) >= 1 {
-		assert.Equal(t, msgs[0].Payload, node.RawData())
-	}
+	assert.Equal(t, msg0.Payload, node.RawData())
 
-	msgs = keySub.RetrieveMessages()
-	log.Debug("msgs:", "msgs", msgs)
-	assert.Len(t, msgs, 1)
-	if len(msgs) >= 1 {
-		assert.Equal(t, msgs[0].Payload, []byte("hiKey"))
-	}
+	assert.Equal(t, msg1.Payload, []byte("hiKey"))
 }
