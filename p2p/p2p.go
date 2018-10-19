@@ -84,12 +84,13 @@ func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
 
 func (h *Host) SetHandler(handler func([]byte)) {
 	h.host.SetStreamHandler(STREAM_NAME, func(s net.Stream) {
-		log.Info("Got a new stream!")
+		log.Debugf("%s new stream", h.host.ID().Pretty())
 		data, err := ioutil.ReadAll(s)
 		if err != nil {
 			log.Errorf("%s error reading: %v", h.host.ID().Pretty(), err)
 		}
 		handler(data)
+		s.Close()
 	})
 }
 
@@ -112,12 +113,6 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, payload []byte) error {
 	stream.Close()
 
 	return nil
-
-	// _, err = ioutil.ReadAll(stream)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Info("read reply: %q\n", out)
 }
 
 func (h *Host) Addresses() []ma.Multiaddr {
