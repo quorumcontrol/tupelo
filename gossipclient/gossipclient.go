@@ -2,9 +2,8 @@ package gossipclient
 
 import (
 	"crypto/ecdsa"
-	"time"
-
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -28,13 +27,14 @@ type GossipClient struct {
 	Group      *consensus.NotaryGroup
 }
 
-func NewGossipClient(group *consensus.NotaryGroup) *GossipClient {
+func NewGossipClient(group *consensus.NotaryGroup, boostrapNodes []string) *GossipClient {
 	sessionKey, err := crypto.GenerateKey()
 	if err != nil {
 		panic("error generating key")
 	}
 
 	node := network.NewNode(sessionKey)
+	node.BoostrapNodes = boostrapNodes
 
 	return &GossipClient{
 		SessionKey: sessionKey,

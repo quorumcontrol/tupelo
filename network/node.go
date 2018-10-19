@@ -61,7 +61,7 @@ func NewNode(key *ecdsa.PrivateKey) *Node {
 		host:          host,
 		key:           key,
 		cancel:        cancel,
-		BoostrapNodes: bootstrapNodes(),
+		BoostrapNodes: BootstrapNodes(),
 		MessageChan:   make(chan ReceivedMessage, 10),
 	}
 
@@ -70,7 +70,7 @@ func NewNode(key *ecdsa.PrivateKey) *Node {
 	return node
 }
 
-func bootstrapNodes() []string {
+func BootstrapNodes() []string {
 	if envSpecifiedNodes, ok := os.LookupEnv("TUPELO_BOOTSTRAP_NODES"); ok {
 		return strings.Split(envSpecifiedNodes, ",")
 	}

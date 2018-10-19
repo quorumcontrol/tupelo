@@ -9,6 +9,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
+	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
@@ -21,7 +22,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 
 	pathToWallet := filepath.Join(".storage", name+"-wallet")
 
-	currentClient := gossipclient.NewGossipClient(group)
+	currentClient := gossipclient.NewGossipClient(group, network.BootstrapNodes())
 	var currentWallet *wallet.FileWallet
 
 	shell.AddCmd(&ishell.Cmd{
@@ -38,7 +39,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 			c.Println("starting client")
 			if currentClient != nil {
 				currentClient.Stop()
-				currentClient = gossipclient.NewGossipClient(group)
+				currentClient = gossipclient.NewGossipClient(group, network.BootstrapNodes())
 			}
 			currentClient.Start()
 		},
