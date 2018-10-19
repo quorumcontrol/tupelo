@@ -665,8 +665,7 @@ func (g *Gossiper) handleTentativeCommitMessage(ctx context.Context, msg *Gossip
 		g.clearPendingMessages(csID)
 	}
 
-	// Skip gossiping if this is commit phase and we already have 100% sigs
-	if savedTrans.Phase == phaseCommit && len(savedTrans.TentativeCommitSignatures) >= len(roundInfo.Signers) {
+	if savedTrans.Phase == phaseCommit && len(msg.PhaseSignatures) == len(savedTrans.TentativeCommitSignatures) && len(savedTrans.TentativeCommitSignatures) >= len(roundInfo.Signers) {
 		return nil
 	}
 
