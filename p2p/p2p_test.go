@@ -2,9 +2,13 @@ package p2p
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +27,13 @@ func NewTestHost(ctx context.Context, t *testing.T) *Host {
 
 func bootstrapAddresses(bootstrapHost *Host) []string {
 	addresses := bootstrapHost.Addresses()
-	return []string{addresses[len(addresses)-1].String()}
+	for _, addr := range addresses {
+		addrStr := addr.String()
+		if strings.Contains(addrStr, "127.0.0.1") {
+			return []string{addrStr}
+		}
+	}
+	return nil
 }
 
 func TestBootstrap(t *testing.T) {
@@ -52,11 +62,16 @@ func TestSend(t *testing.T) {
 
 	msgs := make(chan []byte, 1)
 
-	host2.SetHandler(func(data []byte) {
+	host2.SetStreamHandler("test/protocol", func(s net.Stream) {
+		data, err := ioutil.ReadAll(s)
+		if err != nil {
+			fmt.Printf("error reading: %v", err)
+		}
+		s.Close()
 		msgs <- data
 	})
 
-	host.Send(host2.publicKey, []byte("hi"))
+	host.Send(host2.publicKey, "test/protocol", []byte("hi"))
 
 	received := <-msgs
 	assert.Len(t, received, 2)

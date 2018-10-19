@@ -4,15 +4,19 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
+	"github.com/btcsuite/btcd/btcec"
+	crypto "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto"
+	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/qc3/p2p"
 )
 
-var defaultBootstrapNodes = []string{
-	"/ip4/192.168.2.78/tcp/36375/ipfs/QmfLJENuhpynUec1MkgmGqkRUFXHUpEH8bGJLmuYJLfeeV",
-}
+const ProtocolID = "tupelo/0.1"
+
+var defaultBootstrapNodes = []string{}
 
 type MessageParams struct {
 	Source      *ecdsa.PrivateKey
@@ -21,20 +25,19 @@ type MessageParams struct {
 }
 
 type ReceivedMessage struct {
-	Raw []byte
-
-	Payload   []byte
-	Padding   []byte
-	Signature []byte
+	Payload []byte
 
 	Source      *ecdsa.PublicKey // Message recipient (identity used to decode the message)
 	Destination *ecdsa.PublicKey // Message recipient (identity used to decode the message)
 }
 
 type Node struct {
-	host    p2p.Host
-	key     *ecdsa.PrivateKey
-	started bool
+	BoostrapNodes []string
+	MessageChan   chan ReceivedMessage
+	host          *p2p.Host
+	key           *ecdsa.PrivateKey
+	started       bool
+	cancel        context.CancelFunc
 }
 
 // func (s *Subscription) RetrieveMessages() []*ReceivedMessage {
@@ -47,17 +50,24 @@ type Node struct {
 // }
 
 func NewNode(key *ecdsa.PrivateKey) *Node {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	host, err := p2p.NewHost(ctx, key, 0)
 
 	if err != nil {
 		panic(fmt.Sprintf("Could not create node %v", err))
 	}
 
-	return &Node{
-		host: host,
-		key:  key,
+	node := &Node{
+		host:          host,
+		key:           key,
+		cancel:        cancel,
+		BoostrapNodes: bootstrapNodes(),
+		MessageChan:   make(chan ReceivedMessage, 10),
 	}
+
+	host.SetStreamHandler(ProtocolID, node.handler)
+
+	return node
 }
 
 func bootstrapNodes() []string {
@@ -73,7 +83,7 @@ func (n *Node) Start() error {
 		return nil
 	}
 
-	_, err := n.host.Bootstrap(bootstrapNodes())
+	_, err := n.host.Bootstrap(n.BoostrapNodes)
 	if err != nil {
 		return err
 	}
@@ -86,15 +96,30 @@ func (n *Node) Stop() {
 	if !n.started {
 		return
 	}
-	// Bootstrap proc close?
+	n.cancel()
 }
 
 func (n *Node) Send(params MessageParams) error {
-	return n.host.Send(params.Destination, params.Payload)
+	fmt.Printf("sending %s\n", params.Payload)
+	return n.host.Send(params.Destination, ProtocolID, params.Payload)
 }
 
-func (n *Node) SetHandler(handler func([]byte)) {
-	n.host.SetHandler(handler)
+func (n *Node) handler(s net.Stream) {
+	fmt.Printf("new stream from %v\n", s.Conn().RemotePeer().Pretty())
+	data, err := ioutil.ReadAll(s)
+	if err != nil {
+		fmt.Printf("error reading: %v", err)
+	}
+	s.Close()
+	fmt.Printf("received: %s\n", data)
+	n.MessageChan <- ReceivedMessage{
+		Payload: data,
+		Source:  (*btcec.PublicKey)(s.Conn().RemotePublicKey().(*crypto.Secp256k1PublicKey)).ToECDSA(),
+	}
+}
+
+func (n *Node) PublicKey() *ecdsa.PublicKey {
+	return &n.key.PublicKey
 }
 
 // func (n *Node) SubscribeToTopic(topic []byte, symKey []byte) *Subscription {

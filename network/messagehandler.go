@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -253,9 +252,6 @@ func (rh *MessageHandler) Start() {
 	rh.started = true
 
 	rh.node.Start()
-	rh.node.SetHandler(func(bytes []byte) {
-		fmt.Print("We've got a response on: %v", bytes)
-	})
 
 	for i := 0; i < rh.Concurrency; i++ {
 		go rh.responseWorker(rh.responseChannel)
@@ -290,18 +286,11 @@ func (rh *MessageHandler) Start() {
 	}()
 
 	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
-
 		for {
 			select {
-			case <-ticker.C:
-				// for _, sub := range rh.subs {
-				// 	messages := sub.RetrieveMessages()
-				// 	for _, msg := range messages {
-				// 		log.Trace("message received", "msg", msg)
-				// 		rh.messageChan <- messageToWireFormat(msg)
-				// 	}
-				// }
+			case msg := <-rh.node.MessageChan:
+				log.Trace("message received", "msg", msg)
+				rh.messageChan <- messageFromWireFormat(msg)
 			case <-rh.closeChan:
 				return
 			}
@@ -319,18 +308,6 @@ func (rh *MessageHandler) Stop() {
 	rh.closeChan <- true
 	rh.closeChan <- true
 	rh.started = false
-}
-
-func messageToWireFormat(message *ReceivedMessage) *Message {
-	msg := &Message{}
-
-	err := cbornode.DecodeInto(message.Payload, msg)
-	if err != nil {
-		log.Error("invalid message", "err", err)
-		return nil
-	}
-	msg.source = message.Source
-	return msg
 }
 
 func responseToWireFormat(resp *Response) ([]byte, error) {
@@ -361,4 +338,15 @@ func requestToWireFormat(req *Request) ([]byte, error) {
 	}
 
 	return msgBytes.RawData(), nil
+}
+
+func messageFromWireFormat(message ReceivedMessage) *Message {
+	msg := &Message{}
+	msg.source = message.Source
+	err := cbornode.DecodeInto(message.Payload, msg)
+	if err != nil {
+		log.Error("invalid message", "err", err)
+		return nil
+	}
+	return msg
 }
