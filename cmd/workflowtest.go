@@ -10,6 +10,7 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
+	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/wallet"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
@@ -30,7 +31,7 @@ func smokeTestNetwork() (bool, string) {
 	defer os.Remove(file.Name())
 
 	wallet := wallet.NewFileWallet("thisisaninsecuretestnetwallet", file.Name())
-	client := gossipclient.NewGossipClient(group)
+	client := gossipclient.NewGossipClient(group, network.BootstrapNodes())
 	client.Start()
 
 	key, err := wallet.GenerateKey()
