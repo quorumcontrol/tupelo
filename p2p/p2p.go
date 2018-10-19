@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
+	"io/ioutil"
+	gonet "net"
 
 	ds "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore"
 	dsync "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore/sync"
@@ -24,8 +26,16 @@ var log = logging.Logger("libp2play")
 const STREAM_NAME = "tupelo/0.1"
 
 type Host struct {
-	host    *rhost.RoutedHost
-	routing *dht.IpfsDHT
+	host      *rhost.RoutedHost
+	routing   *dht.IpfsDHT
+	publicKey *ecdsa.PublicKey
+}
+
+// GetRandomUnusedPort returns a random unused port
+func GetRandomUnusedPort() int {
+	listener, _ := gonet.Listen("tcp", ":0")
+	defer listener.Close()
+	return listener.Addr().(*gonet.TCPAddr).Port
 }
 
 func p2pPrivateFromEcdsaPrivate(key *ecdsa.PrivateKey) (libp2pcrypto.PrivKey, error) {
@@ -36,10 +46,10 @@ func p2pPublicKeyFromEcdsaPublic(key *ecdsa.PublicKey) libp2pcrypto.PubKey {
 	return (*libp2pcrypto.Secp256k1PublicKey)(key)
 }
 
-func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (Host, error) {
+func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host, error) {
 	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
-		return Host{}, err
+		return nil, err
 	}
 	// Generate a key pair for this host. We will use it at least
 	// to obtain a valid host ID.
@@ -55,7 +65,7 @@ func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (Host,
 	}
 	basicHost, err := libp2p.New(ctx, opts...)
 	if err != nil {
-		return Host{}, err
+		return nil, err
 	}
 	// Construct a datastore (needed by the DHT). This is just a simple, in-memory thread-safe datastore.
 	dstore := dsync.MutexWrap(ds.NewMapDatastore())
@@ -64,7 +74,7 @@ func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (Host,
 	// Make the routed host
 	routedHost := rhost.Wrap(basicHost, dht)
 
-	return Host{host: routedHost, routing: dht}, nil
+	return &Host{host: routedHost, routing: dht, publicKey: &privateKey.PublicKey}, nil
 }
 
 func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
@@ -75,7 +85,11 @@ func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
 func (h *Host) SetHandler(handler func([]byte)) {
 	h.host.SetStreamHandler(STREAM_NAME, func(s net.Stream) {
 		log.Info("Got a new stream!")
-		handler([]byte{})
+		data, err := ioutil.ReadAll(s)
+		if err != nil {
+			log.Errorf("%s error reading: %v", h.host.ID().Pretty(), err)
+		}
+		handler(data)
 	})
 }
 
@@ -90,10 +104,11 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, payload []byte) error {
 		return fmt.Errorf("Error opening stream: %v", err)
 	}
 
-	_, err = stream.Write(payload)
+	n, err := stream.Write(payload)
 	if err != nil {
 		return fmt.Errorf("Error writing message: %v", err)
 	}
+	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
 	stream.Close()
 
 	return nil
