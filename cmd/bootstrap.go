@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	cryptorand "crypto/rand"
 	"fmt"
 	"math/rand"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/spf13/cobra"
 )
@@ -17,7 +15,7 @@ var bootstrapNodeCmd = &cobra.Command{
 	Short: "Run a bootstrap node",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		key, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+		key, err := crypto.GenerateKey()
 		ctx := context.Background()
 		port := rand.Intn(10000) + 30000
 		host, err := p2p.NewHost(ctx, key, port)

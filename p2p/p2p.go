@@ -10,6 +10,7 @@ import (
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p"
 	circuit "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-circuit"
+	libp2pcrypto "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto"
 	host "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-host"
 	dht "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht"
 	rhost "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed"
@@ -22,8 +23,12 @@ type Host struct {
 	host host.Host
 }
 
+func p2pPrivateFromEcdsaPrivate(key *ecdsa.PrivateKey) (libp2pcrypto.PrivKey, error) {
+	return libp2pcrypto.UnmarshalSecp256k1PrivateKey(key.D.Bytes())
+}
+
 func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (Host, error) {
-	priv, _, err := ECDSAKeyPairFromKey(privateKey)
+	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
 		return Host{}, err
 	}
