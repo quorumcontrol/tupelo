@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -136,8 +135,6 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 
 func setupGossipNode(ecdsaKeyHex string, blsKeyHex string) *signer.GossipedSigner {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
-	// TODO: rather than overwrite curve, reconstruct ECDSA key manually
-	ecdsaKey.PublicKey.Curve = elliptic.P256()
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
 	}
