@@ -6,16 +6,16 @@ import (
 	fmt "fmt"
 	"path/filepath"
 
-	"github.com/ipfs/go-ipld-cbor"
-
 	"github.com/btcsuite/btcutil/base58"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
+	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
@@ -35,7 +35,7 @@ func NewSession(creds *Credentials, group *consensus.NotaryGroup) *RPCSession {
 	path := walletPath(creds.WalletName)
 	fileWallet := wallet.NewFileWallet(creds.PassPhrase, path)
 
-	gossipClient := gossipclient.NewGossipClient(group)
+	gossipClient := gossipclient.NewGossipClient(group, network.BootstrapNodes())
 	gossipClient.Start()
 
 	return &RPCSession{

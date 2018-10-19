@@ -3,19 +3,19 @@
 package gossipclient
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-
-	"strings"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
@@ -66,7 +66,34 @@ func newTestSet(t *testing.T, size int) *testSet {
 	}
 }
 
+func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
+
+	require.Nil(t, err)
+	require.NotNil(t, host)
+
+	return host
+}
+
+func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
+	addresses := bootstrapHost.Addresses()
+	for _, addr := range addresses {
+		addrStr := addr.String()
+		if strings.Contains(addrStr, "127.0.0.1") {
+			return []string{addrStr}
+		}
+	}
+	return nil
+}
+
 func TestIntegrationGossipClient(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boostrapHost := newBootstrapHost(ctx, t)
+
 	ts := newTestSet(t, 5)
 
 	store := nodestore.NewStorageBasedStore(storage.NewMemStorage())
@@ -75,6 +102,7 @@ func TestIntegrationGossipClient(t *testing.T) {
 	err := group.CreateGenesisState(group.RoundAt(time.Now()), remoteNodes...)
 	require.Nil(t, err)
 	node1 := network.NewNode(ts.EcdsaKeys[0])
+	node1.BoostrapNodes = bootstrapAddresses(boostrapHost)
 	store1 := storage.NewMemStorage()
 
 	gossipedSigner1 := signer.NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
@@ -82,7 +110,7 @@ func TestIntegrationGossipClient(t *testing.T) {
 	gossipedSigner1.Start()
 	defer gossipedSigner1.Stop()
 
-	client := NewGossipClient(group)
+	client := NewGossipClient(group, bootstrapAddresses(boostrapHost))
 	client.Start()
 	defer client.Stop()
 
