@@ -27,8 +27,7 @@ type MessageParams struct {
 type ReceivedMessage struct {
 	Payload []byte
 
-	Source      *ecdsa.PublicKey // Message recipient (identity used to decode the message)
-	Destination *ecdsa.PublicKey // Message recipient (identity used to decode the message)
+	Source *ecdsa.PublicKey // Message recipient (identity used to decode the message)
 }
 
 type Node struct {
@@ -39,15 +38,6 @@ type Node struct {
 	started       bool
 	cancel        context.CancelFunc
 }
-
-// func (s *Subscription) RetrieveMessages() []*ReceivedMessage {
-// 	whisperMsgs := s.whisperSubscription.Retrieve()
-// 	msgs := make([]*ReceivedMessage, len(whisperMsgs))
-// 	for i, msg := range whisperMsgs {
-// 		msgs[i] = fromWhisper(msg)
-// 	}
-// 	return msgs
-// }
 
 func NewNode(key *ecdsa.PrivateKey) *Node {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -121,36 +111,3 @@ func (n *Node) handler(s net.Stream) {
 func (n *Node) PublicKey() *ecdsa.PublicKey {
 	return &n.key.PublicKey
 }
-
-// func (n *Node) SubscribeToTopic(topic []byte, symKey []byte) *Subscription {
-// topicBytes := whisper.BytesToTopic(topic)
-
-// sub := &Subscription{
-// 	whisperSubscription: &whisper.Filter{
-// 		KeySym:   symKey,
-// 		Topics:   [][]byte{topicBytes[:]},
-// 		AllowP2P: false,
-// 	},
-// }
-
-// _, err := n.whisper.Subscribe(sub.whisperSubscription)
-// if err != nil {
-// 	panic(fmt.Sprintf("error subscribing: %v", err))
-// }
-// return sub
-// }
-
-// func (n *Node) SubscribeToKey(key *ecdsa.PrivateKey) *Subscription {
-// sub := &Subscription{
-// 	whisperSubscription: &whisper.Filter{
-// 		AllowP2P: true,
-// 		KeyAsym:  key,
-// 	},
-// }
-
-// _, err := n.whisper.Subscribe(sub.whisperSubscription)
-// if err != nil {
-// 	panic(fmt.Sprintf("error subscribing: %v", err))
-// }
-// return sub
-// }
