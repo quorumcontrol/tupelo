@@ -2,26 +2,21 @@ package signer
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/quorumcontrol/chaintree/safewrap"
-
-	"github.com/quorumcontrol/chaintree/typecaster"
-
-	"github.com/quorumcontrol/qc3/bls"
-
-	"fmt"
-
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/chaintree/typecaster"
+	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip"
 	"github.com/quorumcontrol/qc3/network"
@@ -98,59 +93,7 @@ func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store s
 	handler.AssignHandler(consensus.MessageType_GetDiffNodes, gossipSigner.GetDiffNodes)
 	gossiper.AddRoundHandler(gossipSigner.roundHandler)
 
-	handler.HandleTopic(GroupToTopic(group), crypto.Keccak256(GroupToTopic(group)))
-	handler.AssignHandler(consensus.MessageType_StateChange, gossipSigner.GroupStateChangeHandler)
-
 	return gossipSigner
-}
-
-func (gs *GossipedSigner) GroupStateChangeHandler(ctx context.Context, req network.Request, respChan network.ResponseChan) error {
-	newState := &gossip.CurrentState{}
-	err := cbornode.DecodeInto(req.Payload, newState)
-	if err != nil {
-		return fmt.Errorf("error casting state change payload: %v", err)
-	}
-
-	newTip, err := cid.Cast(newState.Tip)
-	if err != nil {
-		return fmt.Errorf("error casting state change payload: %v", err)
-	}
-
-	existingTip := gs.gossiper.Group.Tip()
-
-	if !existingTip.Equals(newTip) {
-		// TODO: this isn't very safe, we should fetch the nodes from other signers, not just the signer that published the update
-		newReq, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
-			PreviousTip: existingTip,
-			NewTip:      newTip,
-		})
-
-		if err != nil {
-			return fmt.Errorf("error building request: %v", err)
-		}
-
-		respChan, err := gs.gossiper.MessageHandler.DoRequest(req.Source(), newReq)
-		respBytes := <-respChan
-
-		diffNodes := &consensus.GetDiffNodesResponse{}
-		err = cbornode.DecodeInto(respBytes.Payload, diffNodes)
-		if err != nil {
-			return fmt.Errorf("error casting state change payload: %v", err)
-		}
-
-		sw := &safewrap.SafeWrap{}
-		nodes := make([]*cbornode.Node, len(diffNodes.Nodes))
-		for i, nodeBytes := range diffNodes.Nodes {
-			nodes[i] = sw.Decode(nodeBytes)
-		}
-		if sw.Err != nil {
-			return fmt.Errorf("error fetching new nodes: %v", sw.Err)
-		}
-		gs.gossiper.Group.AddNodes(nodes...)
-		gs.gossiper.Group.FastForward(newTip)
-	}
-
-	return nil
 }
 
 func (gs *GossipedSigner) Start() {
