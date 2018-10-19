@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -26,11 +27,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
@@ -138,6 +138,8 @@ func setupGossipNode(ecdsaKeyHex string, blsKeyHex string) *signer.GossipedSigne
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
+	// TODO: rather than overwrite curve, reconstruct ECDSA key manually
+	ecdsaKey.PublicKey.Curve = elliptic.P256()
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
 	}

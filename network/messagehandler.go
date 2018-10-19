@@ -59,7 +59,6 @@ type MessageHandler struct {
 	node                *Node
 	outstandingRequests map[string]chan *Response
 	mappings            map[string]HandlerFunc
-	subs                []*Subscription
 	subscriptionLock    *sync.RWMutex
 	requestLock         *sync.RWMutex
 	closeChan           chan bool
@@ -93,21 +92,6 @@ func (rh *MessageHandler) AssignHandler(requestType string, handlerFunc HandlerF
 
 	rh.mappings[requestType] = handlerFunc
 	return nil
-}
-
-func (rh *MessageHandler) HandleTopic(topic []byte, symkey []byte) {
-	rh.subscriptionLock.Lock()
-	defer rh.subscriptionLock.Unlock()
-
-	rh.subs = append(rh.subs, rh.node.SubscribeToTopic(topic, symkey))
-}
-
-func (rh *MessageHandler) HandleKey(topic []byte, key *ecdsa.PrivateKey) {
-	log.Debug("HandleKey", "pubKey", crypto.PubkeyToAddress(key.PublicKey).String())
-	rh.subscriptionLock.Lock()
-	defer rh.subscriptionLock.Unlock()
-
-	rh.subs = append(rh.subs, rh.node.SubscribeToKey(key))
 }
 
 func BuildResponse(id string, code int, payload interface{}) (*Response, error) {
@@ -175,38 +159,9 @@ func (rh *MessageHandler) Push(destination *ecdsa.PublicKey, req *Request) error
 	return nil
 }
 
-func (rh *MessageHandler) Broadcast(topic, symKey []byte, req *Request) error {
-	sw := &safewrap.SafeWrap{}
-	reqNode := sw.WrapObject(&Message{Request: req})
-	if sw.Err != nil {
-		log.Error("error wrapping request", "err", sw.Err)
-		return fmt.Errorf("error wrapping request: %v", sw.Err)
-	}
-
-	log.Trace("broadcast message", "id", req.Id, "source", crypto.PubkeyToAddress(rh.node.key.PublicKey).String())
-	err := rh.node.Send(MessageParams{
-		Payload:  reqNode.RawData(),
-		TTL:      DefaultTTL,
-		PoW:      0.2,
-		WorkTime: 10,
-		KeySym:   symKey,
-		Topic:    topic,
-		Source:   rh.node.key,
-	})
-
-	if err != nil {
-		return fmt.Errorf("error sending: %v", err)
-	}
-
-	return nil
-}
-
 func (rh *MessageHandler) send(dst *ecdsa.PublicKey, payload []byte) error {
 	return rh.node.Send(MessageParams{
 		Payload:     payload,
-		TTL:         DefaultTTL,
-		PoW:         0.2,
-		WorkTime:    10,
 		Destination: dst,
 		Source:      rh.node.key,
 	})
@@ -298,7 +253,9 @@ func (rh *MessageHandler) Start() {
 	rh.started = true
 
 	rh.node.Start()
-	rh.HandleKey(rh.mainTopic, rh.node.key)
+	rh.node.SetHandler(func(bytes []byte) {
+		fmt.Print("We've got a response on: %v", bytes)
+	})
 
 	for i := 0; i < rh.Concurrency; i++ {
 		go rh.responseWorker(rh.responseChannel)
@@ -338,13 +295,13 @@ func (rh *MessageHandler) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				for _, sub := range rh.subs {
-					messages := sub.RetrieveMessages()
-					for _, msg := range messages {
-						log.Trace("message received", "msg", msg)
-						rh.messageChan <- messageToWireFormat(msg)
-					}
-				}
+				// for _, sub := range rh.subs {
+				// 	messages := sub.RetrieveMessages()
+				// 	for _, msg := range messages {
+				// 		log.Trace("message received", "msg", msg)
+				// 		rh.messageChan <- messageToWireFormat(msg)
+				// 	}
+				// }
 			case <-rh.closeChan:
 				return
 			}
