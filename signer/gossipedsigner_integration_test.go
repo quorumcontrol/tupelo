@@ -3,8 +3,10 @@
 package signer
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,10 +20,34 @@ import (
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
 	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
+
+	require.Nil(t, err)
+	require.NotNil(t, host)
+
+	return host
+}
+
+func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
+	addresses := bootstrapHost.Addresses()
+	for _, addr := range addresses {
+		addrStr := addr.String()
+		if strings.Contains(addrStr, "127.0.0.1") {
+			return []string{addrStr}
+		}
+	}
+	return nil
+}
 
 type testSet struct {
 	SignKeys          []*bls.SignKey
@@ -106,6 +132,9 @@ func notaryGroupFromRemoteNodes(t *testing.T, remoteNodes []*consensus.RemoteNod
 
 func TestGossipedSignerIntegration(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boostrapHost := newBootstrapHost(ctx, t)
 
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
@@ -115,6 +144,7 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
+	node1.BoostrapNodes = bootstrapAddresses(boostrapHost)
 	store1 := storage.NewMemStorage()
 
 	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
@@ -125,7 +155,10 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
+	clientNode := network.NewNode(sessionKey)
+	clientNode.BoostrapNodes = bootstrapAddresses(boostrapHost)
+
+	client := network.NewMessageHandler(clientNode, []byte(group.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -221,11 +254,16 @@ func TestGossipedSignerIntegration(t *testing.T) {
 }
 
 func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boostrapHost := newBootstrapHost(ctx, t)
+
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
 	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
+	node1.BoostrapNodes = bootstrapAddresses(boostrapHost)
 	store1 := storage.NewMemStorage()
 
 	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
@@ -236,7 +274,9 @@ func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
+	clientNode := network.NewNode(sessionKey)
+	clientNode.BoostrapNodes = bootstrapAddresses(boostrapHost)
+	client := network.NewMessageHandler(clientNode, []byte(group.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -257,11 +297,16 @@ func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
 }
 
 func TestGossipedSigner_TipHandler(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boostrapHost := newBootstrapHost(ctx, t)
+
 	ts := newTestSet(t, 5)
 	remoteNodes := []*consensus.RemoteNode{consensus.NewRemoteNode(ts.PubKeys[0], ts.DstKeys[0])}
 	group := notaryGroupFromRemoteNodes(t, remoteNodes)
 
 	node1 := network.NewNode(ts.EcdsaKeys[0])
+	node1.BoostrapNodes = bootstrapAddresses(boostrapHost)
 	store1 := storage.NewMemStorage()
 
 	gossipedSigner1 := NewGossipedSigner(node1, group, store1, ts.SignKeys[0])
@@ -272,7 +317,9 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	client := network.NewMessageHandler(network.NewNode(sessionKey), []byte(group.ID))
+	clientNode := network.NewNode(sessionKey)
+	clientNode.BoostrapNodes = bootstrapAddresses(boostrapHost)
+	client := network.NewMessageHandler(clientNode, []byte(group.ID))
 
 	client.Start()
 	defer client.Stop()
@@ -332,6 +379,9 @@ func TestGossipedSigner_TipHandler(t *testing.T) {
 
 func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	boostrapHost := newBootstrapHost(ctx, t)
 
 	ts := newTestSet(t, 3)
 	remoteNodes := make([]*consensus.RemoteNode, len(ts.SignKeys))
@@ -343,6 +393,7 @@ func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 	for i := 0; i < len(ts.SignKeys); i++ {
 		group := notaryGroupFromRemoteNodes(t, remoteNodes)
 		node := network.NewNode(ts.EcdsaKeys[i])
+		node.BoostrapNodes = bootstrapAddresses(boostrapHost)
 		store := storage.NewMemStorage()
 		gossipedSigner := NewGossipedSigner(node, group, store, ts.SignKeys[i])
 		gossipedSigner.Start()
@@ -350,7 +401,7 @@ func TestGossipedSignerIntegrationMultiNode(t *testing.T) {
 	}
 	cliGroup := notaryGroupFromRemoteNodes(t, remoteNodes)
 
-	client := gossipclient.NewGossipClient(cliGroup)
+	client := gossipclient.NewGossipClient(cliGroup, bootstrapAddresses(boostrapHost))
 
 	client.Start()
 	defer client.Stop()
