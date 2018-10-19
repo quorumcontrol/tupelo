@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,7 +25,7 @@ func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys 
 		if err != nil {
 			return nil, nil, err
 		}
-		ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		ecdsaKey, err := crypto.GenerateKey()
 		if err != nil {
 			return nil, nil, err
 		}
