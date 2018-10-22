@@ -29,14 +29,14 @@ the linker can find it:
 ## Concepts
 Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state. 
 
-A group of Signers (as part of a Notary Group) keeps track of the current state of every Chain Tree in order to prevent forking. The Notary Group does not need to keep the entire history nor the entire state of every Chain Tree, but only the latest tip (a hash of the current root node). Therefore each owner of a Chain Tree is responsible for the storage of that Chain Tree. This provides flexibility for the owner to utilize existing storage backends, public distributed storage, or even local cold storage.
+A group of Signers (as part of a Notary Group) keep track of the current state of every Chain Tree in order to prevent forking. The Notary Group does not need to keep the entire history nor the entire state of every Chain Tree, but only the latest tip (a hash of the current root node). Therefore, each owner of a Chain Tree is responsible for the storage of that Chain Tree. This provides flexibility for the owner to utilize existing storage backends, public distributed storage, or even local cold storage.
 
-The Chain Tree DAG is modeled using the IPLD format, a specification describing linked, content-addressable, json-like data structures. Using this standardized structure allows quick and easy traversal of the data within the Chain Tree while maintaining schema flexibility. An individual IPLD node is similar to single key / value json document, however these values can be further links to other IPLD nodes, therefore creating a DAG structure. In Tupelo, all nested objects are set as links to other IPLD nodes, which allows the user to fetch only the subset of the Chain Tree they need.
+The Chain Tree DAG is modeled using the IPLD format, a specification describing linked, content-addressable, json-like data structures. Using this standardized structure allows quick and easy traversal of the data within the Chain Tree while maintaining schema flexibility. An individual IPLD node is similar to single key / value json document, however these values can be further links to other IPLD nodes, creating a DAG structure. In Tupelo, all nested objects are set as links to other IPLD nodes, which allows the user to fetch only the subset of the Chain Tree they need.
 
 #### Example
 Let’s take the scenario of Alice buying a car from VW to demonstrate how the protocol works:
 
-Every Chain Tree's genesis state begins with a public/private key pair and a deterministic name of did:tupelo:<hex-encoded-genesis-public-key>. So for this example, VW creates a new Chain Tree with their public/private key and publishes the genesis block:
+Every Chain Tree's genesis state begins with a public/private key pair and a deterministic name of `did:tupelo:<hex-encoded-genesis-public-key>`. So for this example, VW creates a new Chain Tree with their public/private key and publishes the genesis block:
 ```
 ChainId: did:tupelo:<hex-encoded-genesis-public-key>
 Transactions: [
@@ -51,7 +51,7 @@ Transactions: [
 Signatures: [<VWs secp256k1 generated key>]
 ```
 
-Upon publishing this block, VW awaits a response indicating the block has been signed by the Notary Group. It is important to highlight that the transaction is opaque to the protocol, so VW can structure this payload in any way that is reasonable for its use case. In addition, VW can use transaction internally to associate this Chain Tree with an individual vehicle in their systems.
+Upon publishing this block, VW awaits a response indicating the block has been signed by the Notary Group. It is important to highlight that the data involved in this transaction is opaque to the protocol, so VW can structure this payload in any way that is reasonable for its use case. In addition, VW can use the transaction internally to associate this Chain Tree with an individual vehicle in their systems.
 
 After the genesis block, VW can continue to perform transactions on that Chain Tree as they see fit:
 ```
