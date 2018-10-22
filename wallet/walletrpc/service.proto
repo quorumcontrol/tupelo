@@ -148,6 +148,7 @@ message MintCoinResponse {
 }
 
 service WalletRPCService {
+  rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse);
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
   rpc CreateChainTree (GenerateChainRequest) returns (GenerateChainResponse);
   rpc ExportChainTree (ExportChainRequest) returns (ExportChainResponse);
