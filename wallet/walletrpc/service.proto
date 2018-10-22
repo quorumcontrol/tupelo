@@ -20,6 +20,14 @@ message SerializedChainTree {
   map<string, SerializedSignature> signatures = 2;
 }
 
+message RegisterWalletRequest {
+  Credentials creds = 1;
+}
+
+message RegisterWalletResponse {
+  string wallet_name = 1;
+}
+
 message GenerateChainRequest {
   Credentials creds = 1;
   string key_addr = 2;

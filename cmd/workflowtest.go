@@ -29,7 +29,8 @@ func smokeTestNetwork() (bool, string) {
 	}
 	defer os.Remove(file.Name())
 
-	wallet := wallet.NewFileWallet("thisisaninsecuretestnetwallet", file.Name())
+	wallet := wallet.NewFileWallet(file.Name())
+	wallet.CreateIfNotExists("thisisaninsecuretestnetwallet")
 	client := gossipclient.NewGossipClient(group)
 	client.Start()
 
