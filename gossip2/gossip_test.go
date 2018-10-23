@@ -114,14 +114,18 @@ func TestGossip(t *testing.T) {
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		path := "test/badger/" + strconv.Itoa(i)
 		os.MkdirAll(path, 0755)
+		defer func() {
+			os.RemoveAll(path)
+		}()
 		storage := NewBadgerStorage(path)
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], host, storage)
 		gossipNodes[i].Group = group
 	}
-	time.Sleep(5 * time.Second)
+	gossipNodes[0].Add([]byte("himynameisalongobjectidthatwillhavemorethan64bits"), []byte("cool"))
+	time.Sleep(2 * time.Second)
 	err := gossipNodes[0].DoSync()
 	require.Nil(t, err)
-	time.Sleep(5 * time.Second)
+	time.Sleep(2 * time.Second)
 }
 
 func TestSanitySizes(t *testing.T) {

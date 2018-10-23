@@ -59,16 +59,25 @@ func (bs *BadgerStorage) Get(key []byte) ([]byte, error) {
 	}
 }
 
-func (bs *BadgerStorage) GetPairsByPrefix(prefix []byte) ([][]byte, error) {
-	var keys [][]byte
+type KeyValuePair struct {
+	Key   []byte
+	Value []byte
+}
+
+func (bs *BadgerStorage) GetPairsByPrefix(prefix []byte) ([]KeyValuePair, error) {
+	var pairs []KeyValuePair
 
 	err := bs.db.View(func(txn *badger.Txn) error {
 		return bucketIterator(txn, badger.DefaultIteratorOptions, prefix, func(key []byte, item *badger.Item) error {
-			keys = append(keys, key)
+			val, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+			pairs = append(pairs, KeyValuePair{Key: key, Value: val})
 			return nil
 		})
 	})
-	return keys, err
+	return pairs, err
 }
 
 // func (bs *BadgerStorage) GetKeys() ([][]byte, error) {
