@@ -45,6 +45,10 @@ func p2pPublicKeyFromEcdsaPublic(key *ecdsa.PublicKey) libp2pcrypto.PubKey {
 	return (*libp2pcrypto.Secp256k1PublicKey)(key)
 }
 
+func PeerFromEcdsaKey(publicKey *ecdsa.PublicKey) (peer.ID, error) {
+	return peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
+}
+
 func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host, error) {
 	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
@@ -85,22 +89,24 @@ func (h *Host) SetStreamHandler(protocol protocol.ID, handler func(net.Stream)) 
 	h.host.SetStreamHandler(protocol, handler)
 }
 
-func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error {
+func (h *Host) NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error) {
 	peerID, err := peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
 	if err != nil {
-		return fmt.Errorf("Could not convert public key to peer id: %v", err)
+		return nil, fmt.Errorf("Could not convert public key to peer id: %v", err)
 	}
-	fmt.Printf("sending to %s\n", peerID.Pretty())
 
-	fmt.Printf("opening stream\n")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	stream, err := h.host.NewStream(ctx, peerID, protocol)
 	if err != nil {
 		fmt.Printf("error opening stream: %v\n", err)
-		return fmt.Errorf("Error opening stream: %v", err)
+		return nil, fmt.Errorf("Error opening stream: %v", err)
 	}
+	return stream, nil
+}
 
+func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	stream, err := h.NewStream(ctx, publicKey, protocol)
 	fmt.Printf("writing\n")
 
 	n, err := stream.Write(payload)
