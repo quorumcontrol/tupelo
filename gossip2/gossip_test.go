@@ -122,33 +122,55 @@ func TestGossip(t *testing.T) {
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], host, storage)
 		gossipNodes[i].Group = group
 	}
-	KeyForZero := []byte("himynameisalongobjectidthatwillhavemorethan64bits")
-	gossipNodes[0].Add(KeyForZero, []byte("cool"))
 
-	keyForOthers := []byte("DIFFERENTBUTSTILLLONGhimynameisalongobjectidthatwillhavemorethan64bits")
+	transaction1 := &Transaction{
+		ObjectID:    []byte("himynameisalongobjectidthatwillhavemorethan64bits"),
+		PreviousTip: []byte(""),
+		NewTip:      []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr"),
+		Payload:     []byte("thisisthepayload"),
+	}
+	transaction1ID, err := gossipNodes[0].PlayTransaction(transaction1)
+	require.Nil(t, err)
+
+	transaction2 := &Transaction{
+		ObjectID:    []byte("DIFFERENTOBJhimynameisalongobjectidthatwillhavemorethan64bits"),
+		PreviousTip: []byte(""),
+		NewTip:      []byte("zdpuAx6tV9jpLEwhvGB8bdYjUvkomzdHf7ze6ckdNqJur7JBr"),
+		Payload:     []byte("thisisthepayload"),
+	}
+	var transaction2ID []byte
 	for i := 1; i < len(gossipNodes)-1; i++ {
-		gossipNodes[i].Add(keyForOthers, []byte("hot"))
+		transaction2ID, err = gossipNodes[i].PlayTransaction(transaction2)
+		require.Nil(t, err)
 	}
 
 	time.Sleep(2 * time.Second)
-	err := gossipNodes[0].DoSync()
+	err = gossipNodes[0].DoSync()
 	require.Nil(t, err)
-	time.Sleep(2 * time.Second)
-	val, err := gossipNodes[0].Storage.Get(KeyForZero)
+
+	time.Sleep(3 * time.Second)
+
+	val, err := gossipNodes[0].Storage.Get(transaction1ID)
 	require.Nil(t, err)
-	assert.Equal(t, []byte("cool"), val)
+	encodedTransaction1, err := transaction1.MarshalMsg(nil)
+	require.Nil(t, err)
+	assert.Equal(t, val, encodedTransaction1)
+
+	val, err = gossipNodes[0].Storage.Get(transaction2ID)
+	require.Nil(t, err)
+	encodedTransaction2, err := transaction2.MarshalMsg(nil)
+	require.Nil(t, err)
+	assert.Equal(t, val, encodedTransaction2)
 
 	matchedOne := false
 	for i := 1; i < len(gossipNodes)-1; i++ {
-		otherVal, err := gossipNodes[i].Storage.Get(keyForOthers)
+		otherVal, err := gossipNodes[i].Storage.Get(transaction1ID)
 		require.Nil(t, err)
-		if bytes.Equal(otherVal, []byte("hot")) {
+		if bytes.Equal(otherVal, encodedTransaction1) {
 			matchedOne = true
 		}
 	}
-
 	assert.True(t, matchedOne)
-
 }
 
 func TestSanitySizes(t *testing.T) {
