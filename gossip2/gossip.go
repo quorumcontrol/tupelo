@@ -29,12 +29,13 @@ type IBFMap map[int]*ibf.InvertibleBloomFilter
 var standardIBFSizes = []int{2000, 20000}
 
 type GossipNode struct {
-	Key     *ecdsa.PrivateKey
-	Host    *p2p.Host
-	Storage *BadgerStorage
-	Strata  *ibf.DifferenceStrata
-	Group   *consensus.NotaryGroup
-	IBFs    IBFMap
+	Key      *ecdsa.PrivateKey
+	Host     *p2p.Host
+	Storage  *BadgerStorage
+	Strata   *ibf.DifferenceStrata
+	Group    *consensus.NotaryGroup
+	IBFs     IBFMap
+	newObjCh chan ProvideMessage
 }
 
 func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
@@ -44,6 +45,8 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		Storage: storage,
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
+		//TODO: examine the 5 here?
+		newObjCh: make(chan ProvideMessage, 5),
 	}
 	for _, size := range standardIBFSizes {
 		node.IBFs[size] = ibf.NewInvertibleBloomFilter(size, 4)
@@ -88,7 +91,7 @@ func (gn *GossipNode) DoSync() error {
 		return fmt.Errorf("error opening new stream: %v", err)
 	}
 	writer := msgp.NewWriter(stream)
-	// reader := msgp.NewReader(stream)
+	reader := msgp.NewReader(stream)
 
 	err = gn.IBFs[2000].EncodeMsg(writer)
 	if err != nil {
@@ -96,11 +99,34 @@ func (gn *GossipNode) DoSync() error {
 	}
 	fmt.Println("flushing")
 	writer.Flush()
+	var wants WantMessage
+	err = wants.DecodeMsg(reader)
+	if err != nil {
+		return fmt.Errorf("error reading wants")
+	}
+	fmt.Printf("got the wants!: %v", wants)
+	for _, key := range wants.Keys {
+		key := uint64ToBytes(key)
+		objs, err := gn.Storage.GetPairsByPrefix(key)
+		if err != nil {
+			return fmt.Errorf("error getting objects: %v", err)
+		}
+		for _, kv := range objs {
+			provide := &ProvideMessage{
+				Key:   kv.Key,
+				Value: kv.Value,
+			}
+			provide.EncodeMsg(writer)
+		}
+	}
+	last := &ProvideMessage{Last: true}
+	last.EncodeMsg(writer)
+	writer.Flush()
 	return nil
 }
 
 func (gn *GossipNode) HandleSync(stream net.Stream) {
-	// writer := msgp.NewWriter(stream)
+	writer := msgp.NewWriter(stream)
 	reader := msgp.NewReader(stream)
 
 	var remoteIBF ibf.InvertibleBloomFilter
@@ -108,9 +134,32 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	if err != nil {
 		panic(fmt.Sprintf("error: %v", err))
 	}
-	fmt.Printf("received IBF!")
+	difference, err := gn.IBFs[2000].Subtract(&remoteIBF).Decode()
+	if err != nil {
+		panic(fmt.Sprintf("error getting diff: %f", err))
+	}
+	want := WantMessageFromDiff(difference.RightSet)
+	err = want.EncodeMsg(writer)
+	if err != nil {
+		panic(fmt.Sprintf("error writing wants: %v", err))
+	}
+	writer.Flush()
+	var last bool
+	for !last {
+		var provideMsg ProvideMessage
+		provideMsg.DecodeMsg(reader)
+		fmt.Printf("received a provide: %v", provideMsg)
+		gn.newObjCh <- provideMsg
+		last = provideMsg.Last
+	}
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
 	return ibf.ObjectId(binary.BigEndian.Uint64(byteID))
+}
+
+func uint64ToBytes(id uint64) []byte {
+	a := make([]byte, 8)
+	binary.BigEndian.PutUint64(a, id)
+	return a
 }
