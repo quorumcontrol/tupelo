@@ -1,13 +1,18 @@
 package gossip2
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/binary"
+	"fmt"
+	"time"
 
 	"github.com/ipfs/go-ipld-cbor"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func init() {
@@ -28,6 +33,7 @@ type GossipNode struct {
 	Host    *p2p.Host
 	Storage *BadgerStorage
 	Strata  *ibf.DifferenceStrata
+	Group   *consensus.NotaryGroup
 	IBFs    IBFMap
 }
 
@@ -70,8 +76,39 @@ func (gn *GossipNode) Remove(key []byte) {
 	}
 }
 
-func (gn *GossipNode) HandleSync(s net.Stream) {
+func (gn *GossipNode) DoSync() error {
+	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+	if err != nil {
+		return fmt.Errorf("error getting peer: %v", err)
+	}
+	peer := roundInfo.RandomMember()
+	ctx := context.Background()
+	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
+	if err != nil {
+		return fmt.Errorf("error opening new stream: %v", err)
+	}
+	writer := msgp.NewWriter(stream)
+	// reader := msgp.NewReader(stream)
 
+	err = gn.IBFs[2000].EncodeMsg(writer)
+	if err != nil {
+		return fmt.Errorf("error writing IBF: %v", err)
+	}
+	fmt.Println("flushing")
+	writer.Flush()
+	return nil
+}
+
+func (gn *GossipNode) HandleSync(stream net.Stream) {
+	// writer := msgp.NewWriter(stream)
+	reader := msgp.NewReader(stream)
+
+	var remoteIBF ibf.InvertibleBloomFilter
+	err := remoteIBF.DecodeMsg(reader)
+	if err != nil {
+		panic(fmt.Sprintf("error: %v", err))
+	}
+	fmt.Printf("received IBF!")
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
