@@ -122,6 +122,19 @@ func (gn *GossipNode) DoSync() error {
 	last := &ProvideMessage{Last: true}
 	last.EncodeMsg(writer)
 	writer.Flush()
+
+	// now get the objects we need
+	var isLastMessage bool
+	for !isLastMessage {
+		var provideMsg ProvideMessage
+		provideMsg.DecodeMsg(reader)
+		fmt.Printf("received a provide: %v", provideMsg)
+		gn.newObjCh <- provideMsg
+		isLastMessage = provideMsg.Last
+	}
+	fmt.Printf("sync complete")
+	stream.Close()
+
 	return nil
 }
 
@@ -144,14 +157,34 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 		panic(fmt.Sprintf("error writing wants: %v", err))
 	}
 	writer.Flush()
-	var last bool
-	for !last {
+	var isLastMessage bool
+	for !isLastMessage {
 		var provideMsg ProvideMessage
 		provideMsg.DecodeMsg(reader)
 		fmt.Printf("received a provide: %v", provideMsg)
 		gn.newObjCh <- provideMsg
-		last = provideMsg.Last
+		isLastMessage = provideMsg.Last
 	}
+
+	toProvideAsWantMessage := WantMessageFromDiff(difference.LeftSet)
+	for _, key := range toProvideAsWantMessage.Keys {
+		key := uint64ToBytes(key)
+		objs, err := gn.Storage.GetPairsByPrefix(key)
+		if err != nil {
+			panic(fmt.Sprintf("error getting objects: %v", err))
+		}
+		for _, kv := range objs {
+			provide := &ProvideMessage{
+				Key:   kv.Key,
+				Value: kv.Value,
+			}
+			provide.EncodeMsg(writer)
+		}
+	}
+	last := &ProvideMessage{Last: true}
+	last.EncodeMsg(writer)
+	writer.Flush()
+	stream.Close()
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {

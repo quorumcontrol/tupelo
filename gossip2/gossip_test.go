@@ -1,6 +1,7 @@
 package gossip2
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"os"
@@ -121,11 +122,33 @@ func TestGossip(t *testing.T) {
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], host, storage)
 		gossipNodes[i].Group = group
 	}
-	gossipNodes[0].Add([]byte("himynameisalongobjectidthatwillhavemorethan64bits"), []byte("cool"))
+	KeyForZero := []byte("himynameisalongobjectidthatwillhavemorethan64bits")
+	gossipNodes[0].Add(KeyForZero, []byte("cool"))
+
+	keyForOthers := []byte("DIFFERENTBUTSTILLLONGhimynameisalongobjectidthatwillhavemorethan64bits")
+	for i := 1; i < len(gossipNodes)-1; i++ {
+		gossipNodes[i].Add(keyForOthers, []byte("hot"))
+	}
+
 	time.Sleep(2 * time.Second)
 	err := gossipNodes[0].DoSync()
 	require.Nil(t, err)
 	time.Sleep(2 * time.Second)
+	val, err := gossipNodes[0].Storage.Get(KeyForZero)
+	require.Nil(t, err)
+	assert.Equal(t, []byte("cool"), val)
+
+	matchedOne := false
+	for i := 1; i < len(gossipNodes)-1; i++ {
+		otherVal, err := gossipNodes[i].Storage.Get(keyForOthers)
+		require.Nil(t, err)
+		if bytes.Equal(otherVal, []byte("hot")) {
+			matchedOne = true
+		}
+	}
+
+	assert.True(t, matchedOne)
+
 }
 
 func TestSanitySizes(t *testing.T) {
