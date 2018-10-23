@@ -80,6 +80,10 @@
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
   version = "v0.0.4"
+[[constraint]]
+  name = "github.com/quorumcontrol/differencedigest"
+  revision = "a64f7235493aee0472783a637f5bd73e9e06e484"
+
 
 [[constraint]]
   name = "github.com/gorilla/mux"
