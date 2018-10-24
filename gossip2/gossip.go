@@ -221,7 +221,7 @@ func (s *Signature) StoredID(conflictSetID []byte) []byte {
 //signatureID conflictSet[0-3],signatureHash[4-7],sigantureByte[8],transactionId[9-41],fullSignatureId[42-74]
 
 func transactionIDFromSignatureKey(key []byte) []byte {
-	return concatBytesSlice(key[0:4], key[9:13], []byte{byte(MessageTypeTransaction)}, key[9:42])
+	return concatBytesSlice(key[0:4], key[9:13], []byte{byte(MessageTypeTransaction)}, key[9:41])
 }
 
 func (gn *GossipNode) IsTransactionValid(t Transaction) (bool, error) {
