@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -145,9 +146,14 @@ func TestGossip(t *testing.T) {
 	}
 
 	time.Sleep(2 * time.Second)
-	err = gossipNodes[0].DoSync()
-	require.Nil(t, err)
-
+	for i := 0; i < 10; i++ {
+		err = gossipNodes[0].DoSync()
+		require.Nil(t, err)
+		fmt.Println("")
+		fmt.Println("+++++++++++++++++++++++++++")
+		fmt.Printf("ITEREATION %v done\n", i)
+		fmt.Println("+++++++++++++++++++++++++++")
+	}
 	time.Sleep(3 * time.Second)
 
 	val, err := gossipNodes[0].Storage.Get(transaction1ID)

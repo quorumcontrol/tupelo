@@ -85,7 +85,7 @@ func (gn *GossipNode) handleNewObjCh() {
 func (gn *GossipNode) InitiateTransaction(t Transaction) ([]byte, error) {
 	encodedTrans, err := t.MarshalMsg(nil)
 	if err != nil {
-		return nil, fmt.Errorf("error encoding: %v", err)
+		return nil, fmt.Errorf("error encoding: %v\n", err)
 	}
 	return t.StoredID(), gn.handleNewTransaction(ProvideMessage{Key: t.StoredID(), Value: encodedTrans})
 }
@@ -96,20 +96,22 @@ func (gn *GossipNode) ID() string {
 
 func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	if msg.Last {
+		fmt.Printf("%v: handling a new EndOfStream message\n", gn.ID())
 		return
 	}
 
 	exists, err := gn.Storage.Exists(msg.Key)
 	if err != nil {
-		panic(fmt.Sprintf("error seeing if element exists: %v", err))
+		panic(fmt.Sprintf("error seeing if element exists: %v\n", err))
 	}
 	if !exists {
-		// TODO: add real processing here
 		messageType := MessageType(msg.Key[8])
 		switch messageType {
 		case MessageTypeSignature:
+			fmt.Printf("%v: handling a new Signature message\n", gn.ID())
 			gn.handleNewSignature(msg)
 		case MessageTypeTransaction:
+			fmt.Printf("%v: handling a new Transaction message\n", gn.ID())
 			gn.handleNewTransaction(msg)
 		case MessageTypeDone:
 			fmt.Printf("%v: handling a new Done message\n", gn.ID())
@@ -141,13 +143,14 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 
 	var t Transaction
 	_, err := t.UnmarshalMsg(msg.Value)
+
 	if err != nil {
-		return fmt.Errorf("error getting transaction: %v", err)
+		return fmt.Errorf("error getting transaction: %v\n", err)
 	}
 
 	conflictSetDoneExists, err := gn.Storage.Exists(t.ToConflictSet().DoneID())
 	if err != nil {
-		return fmt.Errorf("error getting conflict: %v", err)
+		return fmt.Errorf("error getting conflict: %v\n", err)
 	}
 	if conflictSetDoneExists {
 		return nil
@@ -155,14 +158,14 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 
 	isValid, err := gn.IsTransactionValid(t)
 	if err != nil {
-		return fmt.Errorf("error validating transaction: %v", err)
+		return fmt.Errorf("error validating transaction: %v\n", err)
 	}
 
 	if isValid {
 		//TODO: sign the right thing
 		sig, err := gn.SignKey.Sign(msg.Value)
 		if err != nil {
-			return fmt.Errorf("error signing key: %v", err)
+			return fmt.Errorf("error signing key: %v\n", err)
 		}
 		signature := Signature{
 			TransactionID: t.ID(),
@@ -171,8 +174,9 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 		}
 		encodedSig, err := signature.MarshalMsg(nil)
 		if err != nil {
-			return fmt.Errorf("error marshaling sig: %v", err)
+			return fmt.Errorf("error marshaling sig: %v\n", err)
 		}
+
 		gn.Add(signature.StoredID(t.ToConflictSet().ID()), encodedSig)
 		gn.Add(msg.Key, msg.Value)
 	}
@@ -324,7 +328,7 @@ func transactionIDFromSignatureKey(key []byte) []byte {
 func (gn *GossipNode) IsTransactionValid(t Transaction) (bool, error) {
 	// state, err := gn.Storage.Get(t.ObjectID)
 	// if err != nil {
-	// 	return false, fmt.Errorf("error getting state: %v", err)
+	// 	return false, fmt.Errorf("error getting state: %v\n", err)
 	// }
 
 	// here we would send transaction and state to a handler
@@ -358,7 +362,7 @@ func (gn *GossipNode) Remove(key []byte) {
 func (gn *GossipNode) RandomPeer() (*consensus.RemoteNode, error) {
 	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 	if err != nil {
-		return nil, fmt.Errorf("error getting peer: %v", err)
+		return nil, fmt.Errorf("error getting peer: %v\n", err)
 	}
 	var peer *consensus.RemoteNode
 	for peer == nil {
@@ -371,22 +375,26 @@ func (gn *GossipNode) RandomPeer() (*consensus.RemoteNode, error) {
 }
 
 func (gn *GossipNode) DoSync() error {
+	fmt.Printf("%v: sync started\n", gn.ID())
+
 	peer, err := gn.RandomPeer()
 	if err != nil {
-		return fmt.Errorf("error getting peer: %v", err)
+		return fmt.Errorf("error getting peer: %v\n", err)
 	}
+
+	fmt.Printf("%v: targeting peer %v\n", gn.ID(), base64.StdEncoding.EncodeToString(peer.DstKey.PublicKey)[0:8])
 
 	ctx := context.Background()
 	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
 	if err != nil {
-		return fmt.Errorf("error opening new stream: %v", err)
+		return fmt.Errorf("error opening new stream: %v\n", err)
 	}
 	writer := msgp.NewWriter(stream)
 	reader := msgp.NewReader(stream)
 
 	err = gn.IBFs[2000].EncodeMsg(writer)
 	if err != nil {
-		return fmt.Errorf("error writing IBF: %v", err)
+		return fmt.Errorf("error writing IBF: %v\n", err)
 	}
 	fmt.Println("flushing")
 	writer.Flush()
@@ -395,12 +403,13 @@ func (gn *GossipNode) DoSync() error {
 	if err != nil {
 		return fmt.Errorf("error reading wants")
 	}
-	fmt.Printf("got the wants!: %v", wants)
+	fmt.Printf("%v: got a want request for %v keys\n", gn.ID(), len(wants.Keys))
 	for _, key := range wants.Keys {
+		fmt.Printf("%v: want is attempting to send %v\n", gn.ID(), key)
 		key := uint64ToBytes(key)
 		objs, err := gn.Storage.GetPairsByPrefix(key)
 		if err != nil {
-			return fmt.Errorf("error getting objects: %v", err)
+			return fmt.Errorf("error getting objects: %v\n", err)
 		}
 		for _, kv := range objs {
 			provide := &ProvideMessage{
@@ -410,6 +419,7 @@ func (gn *GossipNode) DoSync() error {
 			provide.EncodeMsg(writer)
 		}
 	}
+	fmt.Printf("%v: sending Last message\n", gn.ID())
 	last := &ProvideMessage{Last: true}
 	last.EncodeMsg(writer)
 	writer.Flush()
@@ -419,11 +429,10 @@ func (gn *GossipNode) DoSync() error {
 	for !isLastMessage {
 		var provideMsg ProvideMessage
 		provideMsg.DecodeMsg(reader)
-		fmt.Printf("received a provide: %v", provideMsg)
 		gn.newObjCh <- provideMsg
 		isLastMessage = provideMsg.Last
 	}
-	fmt.Printf("sync complete")
+	fmt.Printf("%v: sync complete\n", gn.ID())
 	stream.Close()
 
 	return nil
@@ -436,7 +445,7 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	var remoteIBF ibf.InvertibleBloomFilter
 	err := remoteIBF.DecodeMsg(reader)
 	if err != nil {
-		panic(fmt.Sprintf("error: %v", err))
+		panic(fmt.Sprintf("error: %v\n", err))
 	}
 	difference, err := gn.IBFs[2000].Subtract(&remoteIBF).Decode()
 	if err != nil {
@@ -445,24 +454,26 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	want := WantMessageFromDiff(difference.RightSet)
 	err = want.EncodeMsg(writer)
 	if err != nil {
-		panic(fmt.Sprintf("error writing wants: %v", err))
+		panic(fmt.Sprintf("error writing wants: %v\n", err))
 	}
 	writer.Flush()
 	var isLastMessage bool
 	for !isLastMessage {
 		var provideMsg ProvideMessage
 		provideMsg.DecodeMsg(reader)
-		fmt.Printf("received a provide: %v", provideMsg)
+		fmt.Printf("%v: HandleSync provide message - last? %v\n", gn.ID(), provideMsg.Last)
 		gn.newObjCh <- provideMsg
 		isLastMessage = provideMsg.Last
 	}
+
+	fmt.Printf("%v: HandleSync received all provides, moving forward\n", gn.ID())
 
 	toProvideAsWantMessage := WantMessageFromDiff(difference.LeftSet)
 	for _, key := range toProvideAsWantMessage.Keys {
 		key := uint64ToBytes(key)
 		objs, err := gn.Storage.GetPairsByPrefix(key)
 		if err != nil {
-			panic(fmt.Sprintf("error getting objects: %v", err))
+			panic(fmt.Sprintf("error getting objects: %v\n", err))
 		}
 		for _, kv := range objs {
 			provide := &ProvideMessage{
