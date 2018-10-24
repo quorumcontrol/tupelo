@@ -1,9 +1,17 @@
 package gossip2
 
 import (
+	"runtime"
+
 	"github.com/dgraph-io/badger"
 	"github.com/ethereum/go-ethereum/log"
 )
+
+func init() {
+	// Badger recommends setting this to 128 or higher
+	// Defaults to 12 on my laptop
+	runtime.GOMAXPROCS(128)
+}
 
 type BadgerStorage struct {
 	db *badger.DB
@@ -57,6 +65,22 @@ func (bs *BadgerStorage) Get(key []byte) ([]byte, error) {
 	default:
 		return valueBytes, err
 	}
+}
+
+func (bs *BadgerStorage) Exists(key []byte) (bool, error) {
+	err := bs.db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(key)
+		return err
+	})
+
+	switch err {
+	// Don't treat missing key as an error
+	case badger.ErrKeyNotFound:
+		return false, nil
+	default:
+		return false, err
+	}
+	return true, nil
 }
 
 type KeyValuePair struct {
