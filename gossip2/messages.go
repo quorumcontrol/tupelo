@@ -33,6 +33,12 @@ type WantMessage struct {
 	Keys []uint64
 }
 
+type CurrentState struct {
+	ObjectID  []byte
+	Tip       []byte
+	Signature Signature
+}
+
 func WantMessageFromDiff(objs []ibf.ObjectId) *WantMessage {
 	ints := make([]uint64, len(objs))
 	for i, objId := range objs {
