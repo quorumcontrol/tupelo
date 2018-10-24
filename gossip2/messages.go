@@ -25,7 +25,7 @@ type Transaction struct {
 // a completed signature looks like 32bitsConflictSetId|"done00000000" (padded done message)
 type Signature struct {
 	TransactionID []byte
-	Signers       [][]byte
+	Signers       map[string]bool
 	Signature     []byte
 }
 
