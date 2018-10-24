@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/go-ipld-cbor"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
+	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/tinylib/msgp/msgp"
@@ -39,6 +40,7 @@ const (
 
 type GossipNode struct {
 	Key      *ecdsa.PrivateKey
+	SignKey  *bls.SignKey
 	Host     *p2p.Host
 	Storage  *BadgerStorage
 	Strata   *ibf.DifferenceStrata
@@ -72,6 +74,14 @@ func (gn *GossipNode) handleNewObjCh() {
 	}
 }
 
+func (gn *GossipNode) InitiateTransaction(t Transaction) ([]byte, error) {
+	encodedTrans, err := t.MarshalMsg(nil)
+	if err != nil {
+		return nil, fmt.Errorf("error encoding: %v", err)
+	}
+	return t.StoredID(), gn.handleNewTransaction(ProvideMessage{Key: t.StoredID(), Value: encodedTrans})
+}
+
 func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	if msg.Last {
 		return
@@ -83,29 +93,52 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 		messageType := MessageType(msg.Key[8])
 		switch messageType {
 		case MessageTypeSignature:
-			fmt.Println("Got a sig message")
+			gn.handleNewSignature(msg)
 		case MessageTypeTransaction:
-			fmt.Println("Got a transaction message")
+			gn.handleNewTransaction(msg)
 		}
-
-		gn.Storage.Set(msg.Key, msg.Value)
 	}
+}
+
+func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
+	//TODO: check if we already have the transaction
+	//TODO: check if transaction hash matches key hash
+	//TODO: check if the conflict set is done
+	//TODO: sign this transaction if it's valid and new
+	gn.Add(msg.Key, msg.Value)
+	return nil
+}
+
+func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
+	transBytes, err := gn.Storage.Get(transactionIDFromSignatureKey(msg.Key))
+	if err != nil {
+		return fmt.Errorf("error getting transaction")
+	}
+	if len(transBytes) == 0 {
+		// if we don't have the transaction yet, then just put this in the back of the queue
+		//TODO: we should only process this twice... if we get a sig before a trans FINE, but
+		// we should process the trans in the same stream and if we didn't get it
+		// from this queue then we can just drop this message
+		gn.newObjCh <- msg
+		return nil
+	}
+	gn.Add(msg.Key, msg.Value)
+	//TODO: see if we have 2/3+1 of signatures
+	//TODO: check if signature hash matches signature contents
+	return nil
 }
 
 func (t *Transaction) ToConflictSet() *ConflictSet {
-	id := crypto.Keccak256(append(t.ObjectID, t.PreviousTip...))
-	return &ConflictSet{ObjectID: id, Tip: t.NewTip}
+	return &ConflictSet{ObjectID: t.ObjectID, Tip: t.PreviousTip}
 }
 
-func concatBytesSlice(byteSets ...[]byte) (concat []byte) {
-	for _, s := range byteSets {
-		concat = append(concat, s...)
-	}
-	return concat
+func (c *ConflictSet) ID() []byte {
+	return crypto.Keccak256(concatBytesSlice(c.ObjectID, c.Tip))
 }
 
 // ID in storage is 32bitsConflictSetId|32bitsTransactionHash|fulltransactionHash|"-transaction" or transaction before hash
-func (t *Transaction) StoredID(conflictSetID []byte) []byte {
+func (t *Transaction) StoredID() []byte {
+	conflictSetID := t.ToConflictSet().ID()
 	encodedTrans, err := t.MarshalMsg(nil)
 	if err != nil {
 		panic("Could not marshal transaction")
@@ -113,6 +146,8 @@ func (t *Transaction) StoredID(conflictSetID []byte) []byte {
 	id := crypto.Keccak256(encodedTrans)
 	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeTransaction)}, id)
 }
+
+// transactionID conflictSet[0-3],transactionID[4-7],transactionByte[8],FulltransactionID[9-41]
 
 // ID in storage is 32bitsConflictSetId|32bitssignaturehash|transactionid|signaturehash|"-signature" OR signature before transactionid or before signaturehash
 func (s *Signature) StoredID(conflictSetID []byte) []byte {
@@ -124,38 +159,20 @@ func (s *Signature) StoredID(conflictSetID []byte) []byte {
 	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeSignature)}, s.TransactionID, id)
 }
 
-func (gn *GossipNode) PlayTransaction(transaction *Transaction) ([]byte, error) {
-	conflictSet := transaction.ToConflictSet()
-	storedTransactionID := transaction.StoredID(conflictSet.ObjectID)
-	val, err := gn.Storage.Get(storedTransactionID)
-	if val != nil {
-		return nil, nil
-	}
-	encodedTrans, err := transaction.MarshalMsg(nil)
-	if err != nil {
-		panic("Could not marshal transaction")
-	}
+//signatureID conflictSet[0-3],signatureHash[4-7],sigantureByte[8],transactionId[9-41],fullSignatureId[42-74]
 
-	sigBytes, err := crypto.Sign(crypto.Keccak256(encodedTrans), gn.Key)
-	if err != nil {
-		panic(fmt.Errorf("error signing: %v", err))
-	}
+func transactionIDFromSignatureKey(key []byte) []byte {
+	return concatBytesSlice(key[0:4], key[9:13], []byte{byte(MessageTypeTransaction)}, key[9:42])
+}
 
-	signature := Signature{
-		TransactionID: transaction.ObjectID,
-		Signers:       [][]byte{sigBytes},
-		Signature:     sigBytes,
-	}
+func (gn *GossipNode) IsTransactionValid(t Transaction) (bool, error) {
+	// state, err := gn.Storage.Get(t.ObjectID)
+	// if err != nil {
+	// 	return false, fmt.Errorf("error getting state: %v", err)
+	// }
 
-	storedSignatureID := signature.StoredID(conflictSet.ObjectID)
-	encodedSig, err := signature.MarshalMsg(nil)
-	if err != nil {
-		panic("Could not marshal signature")
-	}
-
-	gn.Add(storedTransactionID, encodedTrans)
-	gn.Add(storedSignatureID, encodedSig)
-	return storedTransactionID, nil
+	// here we would send transaction and state to a handler
+	return true, nil
 }
 
 func (gn *GossipNode) Add(key, value []byte) {
@@ -306,6 +323,9 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
+	if len(byteID) != 8 {
+		panic("invalid byte id sent")
+	}
 	return ibf.ObjectId(binary.BigEndian.Uint64(byteID))
 }
 
@@ -313,4 +333,11 @@ func uint64ToBytes(id uint64) []byte {
 	a := make([]byte, 8)
 	binary.BigEndian.PutUint64(a, id)
 	return a
+}
+
+func concatBytesSlice(byteSets ...[]byte) (concat []byte) {
+	for _, s := range byteSets {
+		concat = append(concat, s...)
+	}
+	return concat
 }

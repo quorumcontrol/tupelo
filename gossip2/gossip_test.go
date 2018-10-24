@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
@@ -123,16 +122,16 @@ func TestGossip(t *testing.T) {
 		gossipNodes[i].Group = group
 	}
 
-	transaction1 := &Transaction{
+	transaction1 := Transaction{
 		ObjectID:    []byte("himynameisalongobjectidthatwillhavemorethan64bits"),
 		PreviousTip: []byte(""),
 		NewTip:      []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr"),
 		Payload:     []byte("thisisthepayload"),
 	}
-	transaction1ID, err := gossipNodes[0].PlayTransaction(transaction1)
+	transaction1ID, err := gossipNodes[0].InitiateTransaction(transaction1)
 	require.Nil(t, err)
 
-	transaction2 := &Transaction{
+	transaction2 := Transaction{
 		ObjectID:    []byte("DIFFERENTOBJhimynameisalongobjectidthatwillhavemorethan64bits"),
 		PreviousTip: []byte(""),
 		NewTip:      []byte("zdpuAx6tV9jpLEwhvGB8bdYjUvkomzdHf7ze6ckdNqJur7JBr"),
@@ -140,7 +139,7 @@ func TestGossip(t *testing.T) {
 	}
 	var transaction2ID []byte
 	for i := 1; i < len(gossipNodes)-1; i++ {
-		transaction2ID, err = gossipNodes[i].PlayTransaction(transaction2)
+		transaction2ID, err = gossipNodes[i].InitiateTransaction(transaction2)
 		require.Nil(t, err)
 	}
 
@@ -171,14 +170,4 @@ func TestGossip(t *testing.T) {
 		}
 	}
 	assert.True(t, matchedOne)
-}
-
-func TestSanitySizes(t *testing.T) {
-	filter := ibf.NewInvertibleBloomFilter(2000, 4)
-	objectID := []byte("himynameisalongobjectidthatwillhavemorethan64bits")
-	id := byteToIBFsObjectId(objectID)
-	filter.Add(id)
-	data, err := filter.MarshalMsg(nil)
-	require.Nil(t, err)
-	assert.True(t, len(data) < 50000)
 }
