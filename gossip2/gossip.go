@@ -30,6 +30,13 @@ type IBFMap map[int]*ibf.InvertibleBloomFilter
 
 var standardIBFSizes = []int{2000, 20000}
 
+type MessageType int
+
+const (
+	MessageTypeSignature MessageType = iota
+	MessageTypeTransaction
+)
+
 type GossipNode struct {
 	Key      *ecdsa.PrivateKey
 	Host     *p2p.Host
@@ -73,6 +80,14 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	val, _ := gn.Storage.Get(msg.Key)
 	if val == nil {
 		// TODO: add real processing here
+		messageType := MessageType(msg.Key[8])
+		switch messageType {
+		case MessageTypeSignature:
+			fmt.Println("Got a sig message")
+		case MessageTypeTransaction:
+			fmt.Println("Got a transaction message")
+		}
+
 		gn.Storage.Set(msg.Key, msg.Value)
 	}
 }
@@ -96,7 +111,7 @@ func (t *Transaction) StoredID(conflictSetID []byte) []byte {
 		panic("Could not marshal transaction")
 	}
 	id := crypto.Keccak256(encodedTrans)
-	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte("transaction"), id)
+	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeTransaction)}, id)
 }
 
 // ID in storage is 32bitsConflictSetId|32bitssignaturehash|transactionid|signaturehash|"-signature" OR signature before transactionid or before signaturehash
@@ -106,7 +121,7 @@ func (s *Signature) StoredID(conflictSetID []byte) []byte {
 		panic("Could not marshal signature")
 	}
 	id := crypto.Keccak256(encodedSig)
-	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte("signature"), s.TransactionID, id)
+	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeSignature)}, s.TransactionID, id)
 }
 
 func (gn *GossipNode) PlayTransaction(transaction *Transaction) ([]byte, error) {
