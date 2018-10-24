@@ -18,7 +18,13 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
+var doneBytes = []byte("done")
+var trueByte = []byte{byte(1)}
+
 func init() {
+	if len(doneBytes) != 4 {
+		panic("doneBytes must be 4 bytes!")
+	}
 	cbornode.RegisterCborType(WantMessage{})
 	cbornode.RegisterCborType(ProvideMessage{})
 	cbornode.RegisterCborType(ibf.InvertibleBloomFilter{})
@@ -87,8 +93,11 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 		return
 	}
 
-	val, _ := gn.Storage.Get(msg.Key)
-	if val == nil {
+	exists, err := gn.Storage.Exists(msg.Key)
+	if err != nil {
+		panic(fmt.Sprintf("error seeing if element exists: %v", err))
+	}
+	if !exists {
 		// TODO: add real processing here
 		messageType := MessageType(msg.Key[8])
 		switch messageType {
@@ -101,11 +110,48 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 }
 
 func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
-	//TODO: check if we already have the transaction
 	//TODO: check if transaction hash matches key hash
 	//TODO: check if the conflict set is done
 	//TODO: sign this transaction if it's valid and new
-	gn.Add(msg.Key, msg.Value)
+
+	var t Transaction
+	_, err := t.UnmarshalMsg(msg.Value)
+	if err != nil {
+		return fmt.Errorf("error getting transaction: %v", err)
+	}
+
+	conflictSetDoneExists, err := gn.Storage.Exists(t.ToConflictSet().DoneID())
+	if err != nil {
+		return fmt.Errorf("error getting conflict: %v", err)
+	}
+	if conflictSetDoneExists {
+		return nil
+	}
+
+	isValid, err := gn.IsTransactionValid(t)
+	if err != nil {
+		return fmt.Errorf("error validating transaction: %v", err)
+	}
+
+	if isValid {
+		//TODO: sign the right thing
+		sig, err := gn.SignKey.Sign(msg.Value)
+		if err != nil {
+			return fmt.Errorf("error signing key: %v", err)
+		}
+		signature := Signature{
+			TransactionID: t.ID(),
+			Signers:       map[string]bool{consensus.BlsVerKeyToAddress(gn.SignKey.MustVerKey().Bytes()).String(): true},
+			Signature:     sig,
+		}
+		encodedSig, err := signature.MarshalMsg(nil)
+		if err != nil {
+			return fmt.Errorf("error marshaling sig: %v", err)
+		}
+		gn.Add(signature.StoredID(t.ToConflictSet().ID()), encodedSig)
+		gn.Add(msg.Key, msg.Value)
+	}
+
 	return nil
 }
 
@@ -128,12 +174,25 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 	return nil
 }
 
+func (t *Transaction) ID() []byte {
+	encoded, err := t.MarshalMsg(nil)
+	if err != nil {
+		panic("error marshaling transaction")
+	}
+	return crypto.Keccak256(encoded)
+}
+
 func (t *Transaction) ToConflictSet() *ConflictSet {
 	return &ConflictSet{ObjectID: t.ObjectID, Tip: t.PreviousTip}
 }
 
 func (c *ConflictSet) ID() []byte {
 	return crypto.Keccak256(concatBytesSlice(c.ObjectID, c.Tip))
+}
+
+func (c *ConflictSet) DoneID() []byte {
+	conflictSetID := c.ID()
+	return concatBytesSlice(conflictSetID[0:4], doneBytes, conflictSetID)
 }
 
 // ID in storage is 32bitsConflictSetId|32bitsTransactionHash|fulltransactionHash|"-transaction" or transaction before hash
