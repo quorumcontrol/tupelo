@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -42,6 +43,7 @@ type MessageType int
 const (
 	MessageTypeSignature MessageType = iota
 	MessageTypeTransaction
+	MessageTypeDone
 )
 
 type GossipNode struct {
@@ -88,6 +90,10 @@ func (gn *GossipNode) InitiateTransaction(t Transaction) ([]byte, error) {
 	return t.StoredID(), gn.handleNewTransaction(ProvideMessage{Key: t.StoredID(), Value: encodedTrans})
 }
 
+func (gn *GossipNode) ID() string {
+	return base64.StdEncoding.EncodeToString(crypto.FromECDSAPub(&gn.Key.PublicKey))[0:8]
+}
+
 func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	if msg.Last {
 		return
@@ -105,8 +111,27 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 			gn.handleNewSignature(msg)
 		case MessageTypeTransaction:
 			gn.handleNewTransaction(msg)
+		case MessageTypeDone:
+			fmt.Printf("%v: handling a new Done message\n", gn.ID())
+			gn.handleDone(msg)
 		}
 	}
+}
+
+func (gn *GossipNode) handleDone(msg ProvideMessage) error {
+	conflictSetDoneExists, err := gn.Storage.Exists(msg.Key)
+	if err != nil {
+		return fmt.Errorf("error getting conflict: %v\n", err)
+	}
+	if conflictSetDoneExists {
+		return nil
+	}
+
+	gn.Add(msg.Key, msg.Value)
+
+	// TODO: cleanout old transactions
+
+	return nil
 }
 
 func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
@@ -156,7 +181,9 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 }
 
 func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
-	transBytes, err := gn.Storage.Get(transactionIDFromSignatureKey(msg.Key))
+	transId := transactionIDFromSignatureKey(msg.Key)
+
+	transBytes, err := gn.Storage.Get(transId)
 	if err != nil {
 		return fmt.Errorf("error getting transaction")
 	}
@@ -169,6 +196,80 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 		return nil
 	}
 	gn.Add(msg.Key, msg.Value)
+
+	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(msg.Key[0:4])
+	if err != nil {
+		return fmt.Errorf("error fetching keys %v\n", err)
+	}
+	var matchedSigKeys [][]byte
+
+	for _, k := range conflictSetKeys {
+		if k[8] == byte(MessageTypeSignature) && bytes.Equal(transactionIDFromSignatureKey(k), transId) {
+			matchedSigKeys = append(matchedSigKeys, k)
+		}
+	}
+
+	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+	if err != nil {
+		return fmt.Errorf("error fetching roundinfo %v\n", err)
+	}
+
+	if int64(len(matchedSigKeys)) >= roundInfo.SuperMajorityCount() {
+		signatures, err := gn.Storage.GetAll(matchedSigKeys)
+		if err != nil {
+			return fmt.Errorf("error fetching signers %v\n", err)
+		}
+
+		signaturesByKey := make(map[string][]byte)
+
+		for _, sigBytes := range signatures {
+			var s Signature
+			s.UnmarshalMsg(sigBytes.Value)
+			for k, v := range s.Signers {
+				if v == true {
+					signaturesByKey[k] = s.Signature
+				}
+			}
+		}
+
+		allSigners := make(map[string]bool)
+		allSignatures := make([][]byte, 0)
+
+		for _, signer := range roundInfo.Signers {
+			key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
+
+			if sig, ok := signaturesByKey[key]; ok {
+				allSignatures = append(allSignatures, sig)
+				allSigners[key] = true
+			} else {
+				allSigners[key] = false
+			}
+		}
+
+		var t Transaction
+		t.UnmarshalMsg(transBytes)
+
+		combinedSignatures, err := bls.SumSignatures(allSignatures)
+		if err != nil {
+			return fmt.Errorf("error combining sigs %v\n", err)
+		}
+
+		doneID := t.ToConflictSet().DoneID()
+
+		commitSignature := Signature{
+			TransactionID: doneID,
+			Signers:       allSigners,
+			Signature:     combinedSignatures,
+		}
+
+		encodedSig, err := commitSignature.MarshalMsg(nil)
+		if err != nil {
+			return fmt.Errorf("error marshaling sig: %v\n", err)
+		}
+
+		gn.Add(doneID, encodedSig)
+	}
+
 	//TODO: see if we have 2/3+1 of signatures
 	//TODO: check if signature hash matches signature contents
 	return nil
@@ -192,17 +293,13 @@ func (c *ConflictSet) ID() []byte {
 
 func (c *ConflictSet) DoneID() []byte {
 	conflictSetID := c.ID()
-	return concatBytesSlice(conflictSetID[0:4], doneBytes, conflictSetID)
+	return concatBytesSlice(conflictSetID[0:4], doneBytes, []byte{byte(MessageTypeDone)}, conflictSetID)
 }
 
 // ID in storage is 32bitsConflictSetId|32bitsTransactionHash|fulltransactionHash|"-transaction" or transaction before hash
 func (t *Transaction) StoredID() []byte {
 	conflictSetID := t.ToConflictSet().ID()
-	encodedTrans, err := t.MarshalMsg(nil)
-	if err != nil {
-		panic("Could not marshal transaction")
-	}
-	id := crypto.Keccak256(encodedTrans)
+	id := t.ID()
 	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeTransaction)}, id)
 }
 

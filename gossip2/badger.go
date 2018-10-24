@@ -67,6 +67,28 @@ func (bs *BadgerStorage) Get(key []byte) ([]byte, error) {
 	}
 }
 
+func (bs *BadgerStorage) GetAll(keys [][]byte) ([]KeyValuePair, error) {
+	pairs := make([]KeyValuePair, len(keys))
+
+	err := bs.db.View(func(txn *badger.Txn) error {
+		for i, key := range keys {
+			item, err := txn.Get(key)
+			if err != nil && err != badger.ErrKeyNotFound {
+				return err
+			}
+			val, err := item.ValueCopy(nil)
+			if err != nil {
+				return err
+			}
+
+			pairs[i] = KeyValuePair{Key: item.KeyCopy(nil), Value: val}
+		}
+		return nil
+	})
+
+	return pairs, err
+}
+
 func (bs *BadgerStorage) Exists(key []byte) (bool, error) {
 	err := bs.db.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(key)
@@ -104,6 +126,21 @@ func (bs *BadgerStorage) GetPairsByPrefix(prefix []byte) ([]KeyValuePair, error)
 	return pairs, err
 }
 
+func (bs *BadgerStorage) GetKeysByPrefix(prefix []byte) ([][]byte, error) {
+	var keys [][]byte
+
+	err := bs.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		return bucketIterator(txn, opts, prefix, func(key []byte, item *badger.Item) error {
+			keys = append(keys, key)
+			return nil
+		})
+	})
+
+	return keys, err
+}
+
 // func (bs *BadgerStorage) GetKeys() ([][]byte, error) {
 // 	var keys [][]byte
 
@@ -138,7 +175,7 @@ func bucketIterator(txn *badger.Txn, options badger.IteratorOptions, prefix []by
 	defer it.Close()
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 		item := it.Item()
-		key := item.Key()
+		key := item.KeyCopy(nil)
 		err := iterator(key, item)
 		if err != nil {
 			return err
