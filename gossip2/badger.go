@@ -1,7 +1,6 @@
 package gossip2
 
 import (
-	"log"
 	"runtime"
 
 	"github.com/dgraph-io/badger"
@@ -24,7 +23,7 @@ func NewBadgerStorage(path string) *BadgerStorage {
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		log.Printf("error opening db %v", err)
+		log.Errorf("error opening db %v", err)
 	}
 
 	return &BadgerStorage{db: db}
@@ -91,7 +90,6 @@ func (bs *BadgerStorage) GetAll(keys [][]byte) ([]KeyValuePair, error) {
 
 func (bs *BadgerStorage) Exists(key []byte) (bool, error) {
 	err := bs.db.View(func(txn *badger.Txn) error {
-		log.Printf("getting %s", key)
 		_, err := txn.Get(key)
 		return err
 	})
@@ -172,7 +170,7 @@ func (bs *BadgerStorage) ForEach(prefix []byte, iterator func(k, v []byte) error
 	})
 }
 
-func bucketIterator(txn *badger.Txn, options badger.IteratorOptions, prefix []byte, iterator func(key []byte, item *badger.Item) error) error {
+func bucketIterator(txn *badger.Txn, options badger.IteratorOptions, prefix []byte, iterator func([]byte, *badger.Item) error) error {
 	it := txn.NewIterator(options)
 	defer it.Close()
 	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {

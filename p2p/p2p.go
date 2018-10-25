@@ -83,6 +83,10 @@ func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host
 	return &Host{host: routedHost, routing: dht, publicKey: &privateKey.PublicKey}, nil
 }
 
+func (h *Host) P2PIdentity() string {
+	return h.host.ID().String()
+}
+
 func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
 	bootstrapCfg := BootstrapConfigWithPeers(convertPeers(peers))
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
