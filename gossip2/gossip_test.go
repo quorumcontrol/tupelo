@@ -1,10 +1,10 @@
 package gossip2
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -60,7 +60,10 @@ func newTestSet(t *testing.T, size int) *testSet {
 	ecdsaKeys := make([]*ecdsa.PrivateKey, len(signKeys))
 	signKeysByAddress := make(map[string]*bls.SignKey)
 	for i, signKey := range signKeys {
-		ecdsaKey, _ := crypto.GenerateKey()
+		ecdsaKey, err := crypto.GenerateKey()
+		if err != nil {
+			t.Fatalf("error generating key: %v", err)
+		}
 		verKeys[i] = signKey.MustVerKey()
 		pubKeys[i] = consensus.BlsKeyToPublicKey(verKeys[i])
 		ecdsaKeys[i] = ecdsaKey
@@ -149,30 +152,41 @@ func TestGossip(t *testing.T) {
 		Payload:     []byte("thisisthepayload"),
 	}
 	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
-	transaction1ID, err := gossipNodes[0].InitiateTransaction(transaction1)
-	require.Nil(t, err)
 
-	transaction2 := Transaction{
-		ObjectID:    []byte("DIFFERENTOBJhimynameisalongobjectidthatwillhavemorethan64bits"),
-		PreviousTip: []byte(""),
-		NewTip:      []byte("zdpuAx6tV9jpLEwhvGB8bdYjUvkomzdHf7ze6ckdNqJur7JBr"),
-		Payload:     []byte("thisisthepayload"),
-	}
-	var transaction2ID []byte
-	for i := 1; i < len(gossipNodes)-1; i++ {
-		transaction2ID, err = gossipNodes[i].InitiateTransaction(transaction2)
-		require.Nil(t, err)
-	}
+	// transaction2 := Transaction{
+	// 	ObjectID:    []byte("DIFFERENTOBJhimynameisalongobjectidthatwillhavemorethan64bits"),
+	// 	PreviousTip: []byte(""),
+	// 	NewTip:      []byte("zdpuAx6tV9jpLEwhvGB8bdYjUvkomzdHf7ze6ckdNqJur7JBr"),
+	// 	Payload:     []byte("thisisthepayload"),
+	// }
+	// var transaction2ID []byte
+	// for i := 1; i < len(gossipNodes)-1; i++ {
+	// 	transaction2ID, err := gossipNodes[i].InitiateTransaction(transaction2)
+	// 	require.Nil(t, err)
+	// }
 
 	for i := 0; i < groupSize; i++ {
 		defer gossipNodes[i].Stop()
 		go gossipNodes[i].Start()
 	}
+	for i := 0; i < 500; i++ {
+		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
+			ObjectID:    randBytes(32),
+			PreviousTip: []byte(""),
+			NewTip:      randBytes(49),
+			Payload:     randBytes(rand.Intn(400) + 100),
+		})
+		if err != nil {
+			t.Fatalf("error sending transaction: %v", err)
+		}
+	}
+	transaction1ID, err := gossipNodes[0].InitiateTransaction(transaction1)
+	require.Nil(t, err)
 
 	start := time.Now()
 	var stop time.Time
 	for {
-		if (time.Now().Sub(start)) > (30 * time.Second) {
+		if (time.Now().Sub(start)) > (60 * time.Second) {
 			t.Fatal("timed out looking for done function")
 			break
 		}
@@ -221,13 +235,11 @@ func TestGossip(t *testing.T) {
 		require.Nil(t, err)
 		assert.True(t, exists)
 
-		val, err = gossipNodes[i].Storage.Get(transaction2ID)
-		require.Nil(t, err)
-		encodedTransaction2, err := transaction2.MarshalMsg(nil)
-		require.Nil(t, err)
-		if bytes.Equal(otherVal, encodedTransaction1) {
-			matchedOne = true
-		}
+		// val, err = gossipNodes[i].Storage.Get(transaction2ID)
+		// require.Nil(t, err)
+		// encodedTransaction2, err := transaction2.MarshalMsg(nil)
+		// require.Nil(t, err)
+		// assert.Equal(t, val, encodedTransaction2)
 	}
 	assert.True(t, matchedOne)
 }
