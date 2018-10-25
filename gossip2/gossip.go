@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -50,15 +51,16 @@ const (
 )
 
 type GossipNode struct {
-	Key      *ecdsa.PrivateKey
-	SignKey  *bls.SignKey
-	Host     *p2p.Host
-	Storage  *BadgerStorage
-	Strata   *ibf.DifferenceStrata
-	Group    *consensus.NotaryGroup
-	IBFs     IBFMap
-	newObjCh chan ProvideMessage
-	stopChan chan struct{}
+	Key       *ecdsa.PrivateKey
+	SignKey   *bls.SignKey
+	Host      *p2p.Host
+	Storage   *BadgerStorage
+	Strata    *ibf.DifferenceStrata
+	Group     *consensus.NotaryGroup
+	IBFs      IBFMap
+	newObjCh  chan ProvideMessage
+	stopChan  chan struct{}
+	ibfSyncer *sync.RWMutex
 }
 
 func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
@@ -69,8 +71,9 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
-		newObjCh: make(chan ProvideMessage, 5),
-		stopChan: make(chan struct{}, 1),
+		newObjCh:  make(chan ProvideMessage, 5),
+		stopChan:  make(chan struct{}, 1),
+		ibfSyncer: &sync.RWMutex{},
 	}
 	go node.handleNewObjCh()
 
@@ -431,6 +434,9 @@ func (gn *GossipNode) Add(key, value []byte) {
 	if err != nil {
 		panic("storage failed")
 	}
+	gn.ibfSyncer.Lock()
+	defer gn.ibfSyncer.Unlock()
+
 	gn.Strata.Add(ibfObjectID)
 	for _, filter := range gn.IBFs {
 		filter.Add(ibfObjectID)
@@ -591,7 +597,9 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 		return
 	}
 	log.Debugf("%s decoding", gn.ID())
+	gn.ibfSyncer.RLock()
 	subtracted := gn.IBFs[2000].Subtract(&remoteIBF)
+	gn.ibfSyncer.RUnlock()
 	difference, err := subtracted.Decode()
 	if err != nil {
 		// log.Println(gn.IBFs[2000].GetDebug())
