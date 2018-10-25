@@ -1,10 +1,10 @@
 package gossip2
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -98,6 +98,14 @@ func blsKeys(size int) []*bls.SignKey {
 	return keys
 }
 
+func randBytes(length int) []byte {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		panic("couldn't generate random bytes")
+	}
+	return b
+}
+
 func TestExists(t *testing.T) {
 	path := "existsTest"
 	os.RemoveAll(path)
@@ -163,37 +171,40 @@ func TestGossip(t *testing.T) {
 	}
 
 	time.Sleep(2 * time.Second)
-	for i := 0; i < 10; i++ {
-		err = gossipNodes[0].DoSync()
+	for i := 0; i < 1000; i++ {
+		if (i%10) == 0 && i < 950 {
+			log.Printf("gossipNode0 is %s", gossipNodes[0].ID())
+			_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
+				ObjectID:    randBytes(32),
+				PreviousTip: []byte(""),
+				NewTip:      randBytes(49),
+				Payload:     randBytes(rand.Intn(400) + 100),
+			})
+			require.Nil(t, err)
+		}
+
+		err = gossipNodes[rand.Intn(len(gossipNodes))].DoSync()
 		require.Nil(t, err)
 		log.Print("")
 		log.Print("+++++++++++++++++++++++++++")
 		log.Printf("ITEREATION %v done", i)
 		log.Print("+++++++++++++++++++++++++++")
 	}
-	time.Sleep(3 * time.Second)
+	// time.Sleep(3 * time.Second)
 
-	val, err := gossipNodes[0].Storage.Get(transaction1ID)
-	require.Nil(t, err)
-	encodedTransaction1, err := transaction1.MarshalMsg(nil)
-	require.Nil(t, err)
-	assert.Equal(t, val, encodedTransaction1)
-
-	val, err = gossipNodes[0].Storage.Get(transaction2ID)
-	require.Nil(t, err)
-	encodedTransaction2, err := transaction2.MarshalMsg(nil)
-	require.Nil(t, err)
-	assert.Equal(t, val, encodedTransaction2)
-
-	matchedOne := false
-	for i := 1; i < len(gossipNodes)-1; i++ {
-		otherVal, err := gossipNodes[i].Storage.Get(transaction1ID)
+	for i := 0; i < len(gossipNodes); i++ {
+		val, err := gossipNodes[i].Storage.Get(transaction1ID)
 		require.Nil(t, err)
-		if bytes.Equal(otherVal, encodedTransaction1) {
-			matchedOne = true
-		}
+		encodedTransaction1, err := transaction1.MarshalMsg(nil)
+		require.Nil(t, err)
+		assert.Equal(t, val, encodedTransaction1)
+
+		val, err = gossipNodes[i].Storage.Get(transaction2ID)
+		require.Nil(t, err)
+		encodedTransaction2, err := transaction2.MarshalMsg(nil)
+		require.Nil(t, err)
+		assert.Equal(t, val, encodedTransaction2)
 	}
-	assert.True(t, matchedOne)
 }
 
 func TestTransactionIDFromSignatureKey(t *testing.T) {
