@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
@@ -114,7 +115,8 @@ func TestExists(t *testing.T) {
 }
 
 func TestGossip(t *testing.T) {
-	groupSize := 5
+	logging.SetLogLevel("gossip", "DEBUG")
+	groupSize := 50
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)
 
@@ -146,7 +148,7 @@ func TestGossip(t *testing.T) {
 		NewTip:      []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr"),
 		Payload:     []byte("thisisthepayload"),
 	}
-	log.Printf("gossipNode0 is %s", gossipNodes[0].ID())
+	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
 	transaction1ID, err := gossipNodes[0].InitiateTransaction(transaction1)
 	require.Nil(t, err)
 
@@ -162,32 +164,66 @@ func TestGossip(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	time.Sleep(2 * time.Second)
-	for i := 0; i < 10; i++ {
-		err = gossipNodes[0].DoSync()
-		require.Nil(t, err)
-		log.Print("")
-		log.Print("+++++++++++++++++++++++++++")
-		log.Printf("ITEREATION %v done", i)
-		log.Print("+++++++++++++++++++++++++++")
+	for i := 0; i < groupSize; i++ {
+		defer gossipNodes[i].Stop()
+		go gossipNodes[i].Start()
 	}
-	time.Sleep(3 * time.Second)
 
-	val, err := gossipNodes[0].Storage.Get(transaction1ID)
-	require.Nil(t, err)
-	encodedTransaction1, err := transaction1.MarshalMsg(nil)
-	require.Nil(t, err)
-	assert.Equal(t, val, encodedTransaction1)
+	start := time.Now()
+	var stop time.Time
+	for {
+		if (time.Now().Sub(start)) > (30 * time.Second) {
+			t.Fatal("timed out looking for done function")
+			break
+		}
+		exists, err := gossipNodes[0].Storage.Exists(transaction1.ToConflictSet().DoneID())
+		require.Nil(t, err)
+		if exists {
+			stop = time.Now()
+			break
+		}
+	}
+	for i := 0; i < groupSize; i++ {
+		gossipNodes[i].Stop()
+	}
+	assert.True(t, start.Sub(stop) < 10*time.Second)
 
-	val, err = gossipNodes[0].Storage.Get(transaction2ID)
-	require.Nil(t, err)
-	encodedTransaction2, err := transaction2.MarshalMsg(nil)
-	require.Nil(t, err)
-	assert.Equal(t, val, encodedTransaction2)
+	// time.Sleep(2 * time.Second)
+	// for i := 0; i < 1000; i++ {
+	// 	if (i%10) == 0 && i < 950 {
+	// 		log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
+	// 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
+	// 			ObjectID:    randBytes(32),
+	// 			PreviousTip: []byte(""),
+	// 			NewTip:      randBytes(49),
+	// 			Payload:     randBytes(rand.Intn(400) + 100),
+	// 		})
+	// 		require.Nil(t, err)
+	// 	}
 
-	matchedOne := false
-	for i := 1; i < len(gossipNodes)-1; i++ {
-		otherVal, err := gossipNodes[i].Storage.Get(transaction1ID)
+	// 	err = gossipNodes[rand.Intn(len(gossipNodes))].DoSync()
+	// 	require.Nil(t, err)
+	// 	log.Debugf("")
+	// 	log.Debugf("+++++++++++++++++++++++++++")
+	// 	log.Debugf("ITEREATION %v done", i)
+	// 	log.Debugf("+++++++++++++++++++++++++++")
+	// }
+	// time.Sleep(3 * time.Second)
+
+	for i := 0; i < 1; i++ {
+		val, err := gossipNodes[i].Storage.Get(transaction1ID)
+		require.Nil(t, err)
+		encodedTransaction1, err := transaction1.MarshalMsg(nil)
+		require.Nil(t, err)
+		assert.Equal(t, val, encodedTransaction1)
+
+		exists, err := gossipNodes[i].Storage.Exists(transaction1.ToConflictSet().DoneID())
+		require.Nil(t, err)
+		assert.True(t, exists)
+
+		val, err = gossipNodes[i].Storage.Get(transaction2ID)
+		require.Nil(t, err)
+		encodedTransaction2, err := transaction2.MarshalMsg(nil)
 		require.Nil(t, err)
 		if bytes.Equal(otherVal, encodedTransaction1) {
 			matchedOne = true
@@ -196,6 +232,10 @@ func TestGossip(t *testing.T) {
 	assert.True(t, matchedOne)
 }
 
+// func TestThing(t *testing.T) {
+// 	fmt.Printf("bytes: %v", mustStringToBytes("AAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+// 	t.Fatal()
+// }
 func TestTransactionIDFromSignatureKey(t *testing.T) {
 	transaction := Transaction{
 		ObjectID:    []byte("himynameisalongobjectidthatwillhavemorethan64bits"),
