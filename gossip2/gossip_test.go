@@ -176,7 +176,7 @@ func TestGossip(t *testing.T) {
 		defer gossipNodes[i].Stop()
 		go gossipNodes[i].Start()
 	}
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 100; i++ {
 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
 			ObjectID:    randBytes(32),
 			PreviousTip: []byte(""),
