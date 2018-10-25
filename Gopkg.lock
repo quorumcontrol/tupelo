@@ -604,14 +604,14 @@
   version = "v1.0.0-rc1"
 
 [[projects]]
-  digest = "1:ea080ad0808525042af386558e79a4d9060c4ebb888ae44b7f0cf841ec40e3f4"
+  digest = "1:6fc24da96275bf1ed1ee64041e3b8cd89919df02c6eea836ac382c70029ad421"
   name = "github.com/quorumcontrol/differencedigest"
   packages = [
     "hashes",
     "ibf",
   ]
   pruneopts = ""
-  revision = "a64f7235493aee0472783a637f5bd73e9e06e484"
+  revision = "19058136ba412588cdf7c612f3ab9b2e7da7fb02"
 
 [[projects]]
   branch = "master"

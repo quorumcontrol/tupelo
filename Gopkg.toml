@@ -47,7 +47,7 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
-  revision = "a64f7235493aee0472783a637f5bd73e9e06e484"
+  revision = "19058136ba412588cdf7c612f3ab9b2e7da7fb02"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
