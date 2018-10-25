@@ -196,7 +196,22 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 		//TODO: we should only process this twice... if we get a sig before a trans FINE, but
 		// we should process the trans in the same stream and if we didn't get it
 		// from this queue then we can just drop this message
-		gn.newObjCh <- msg
+		go func() {
+			counter := 0
+			for {
+				select {
+				case gn.newObjCh <- msg:
+					return
+				default:
+					fmt.Printf("OKKKKKKK %v\n", counter)
+					if counter > 4 {
+						return
+					}
+					counter = counter + 1
+					time.Sleep(time.Duration(counter) * time.Second)
+				}
+			}
+		}()
 		return nil
 	}
 	gn.Add(msg.Key, msg.Value)
