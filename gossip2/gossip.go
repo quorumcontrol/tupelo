@@ -442,6 +442,8 @@ func (gn *GossipNode) DoSync() error {
 	if err != nil {
 		return fmt.Errorf("error opening new stream: %v", err)
 	}
+	defer stream.Close()
+
 	writer := msgp.NewWriter(stream)
 	reader := msgp.NewReader(stream)
 
@@ -486,12 +488,13 @@ func (gn *GossipNode) DoSync() error {
 		isLastMessage = provideMsg.Last
 	}
 	log.Printf("%s: sync complete", gn.ID())
-	stream.Close()
 
 	return nil
 }
 
 func (gn *GossipNode) HandleSync(stream net.Stream) {
+	defer stream.Close()
+
 	writer := msgp.NewWriter(stream)
 	reader := msgp.NewReader(stream)
 
@@ -542,7 +545,6 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	last := &ProvideMessage{Last: true}
 	last.EncodeMsg(writer)
 	writer.Flush()
-	stream.Close()
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
