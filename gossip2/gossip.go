@@ -440,7 +440,12 @@ func (gn *GossipNode) DoSync() error {
 	ctx := context.Background()
 	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
 	if err != nil {
-		return fmt.Errorf("error opening new stream: %v", err)
+		if err == p2p.ErrDialBackoff {
+			log.Printf("%s: dial backoff for peer %s", gn.ID(), base64.StdEncoding.EncodeToString(peer.DstKey.PublicKey)[0:8])
+			return nil
+		} else {
+			return fmt.Errorf("%s: error opening new stream - %v", gn.ID(), err)
+		}
 	}
 	defer stream.Close()
 
