@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
-	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -130,6 +130,7 @@ func TestGossip(t *testing.T) {
 		NewTip:      []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr"),
 		Payload:     []byte("thisisthepayload"),
 	}
+	log.Printf("gossipNode0 is %s", gossipNodes[0].ID())
 	transaction1ID, err := gossipNodes[0].InitiateTransaction(transaction1)
 	require.Nil(t, err)
 
@@ -149,10 +150,10 @@ func TestGossip(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		err = gossipNodes[0].DoSync()
 		require.Nil(t, err)
-		fmt.Println("")
-		fmt.Println("+++++++++++++++++++++++++++")
-		fmt.Printf("ITEREATION %v done\n", i)
-		fmt.Println("+++++++++++++++++++++++++++")
+		log.Print("")
+		log.Print("+++++++++++++++++++++++++++")
+		log.Printf("ITEREATION %v done", i)
+		log.Print("+++++++++++++++++++++++++++")
 	}
 	time.Sleep(3 * time.Second)
 
