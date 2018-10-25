@@ -461,7 +461,8 @@ func (gn *GossipNode) DoSync() error {
 	var wants WantMessage
 	err = wants.DecodeMsg(reader)
 	if err != nil {
-		return fmt.Errorf("error reading wants")
+		log.Printf("error reading wants %v", err)
+		return nil
 	}
 	log.Printf("%s: got a want request for %v keys", gn.ID(), len(wants.Keys))
 	for _, key := range wants.Keys {
@@ -512,7 +513,8 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	difference, err := gn.IBFs[2000].Subtract(&remoteIBF).Decode()
 	if err != nil {
 		log.Println(gn.IBFs[2000].GetDebug())
-		panic(fmt.Sprintf("%s error getting diff: %f", gn.ID(), err))
+		log.Printf("%s error getting diff: %f\n", gn.ID(), err)
+		return
 	}
 	log.Printf("%s decoded", gn.ID())
 	want := WantMessageFromDiff(difference.RightSet)
