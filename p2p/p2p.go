@@ -18,11 +18,14 @@ import (
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
+	swarm "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-swarm"
 	rhost "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
 )
 
 var log = logging.Logger("libp2play")
+
+var ErrDialBackoff = swarm.ErrDialBackoff
 
 type Host struct {
 	host      *rhost.RoutedHost
@@ -96,11 +99,15 @@ func (h *Host) NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protoc
 	}
 
 	stream, err := h.host.NewStream(ctx, peerID, protocol)
-	if err != nil {
-		fmt.Printf("error opening stream: %v\n", err)
-		return nil, fmt.Errorf("Error opening stream: %v", err)
+
+	switch err {
+	case swarm.ErrDialBackoff:
+		return nil, ErrDialBackoff
+	case nil:
+		return stream, nil
+	default:
+		return stream, fmt.Errorf("Error opening stream: %v", err)
 	}
-	return stream, nil
 }
 
 func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error {
