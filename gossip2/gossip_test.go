@@ -102,14 +102,12 @@ func TestExists(t *testing.T) {
 	path := "existsTest"
 	os.RemoveAll(path)
 	os.MkdirAll(path, 0755)
-	defer func() {
-		os.RemoveAll(path)
-	}()
+	defer os.RemoveAll(path)
+
 	storage := NewBadgerStorage(path)
 	key := []byte("abcx")
 	err := storage.Set(key, []byte("a"))
 	require.Nil(t, err)
-	time.Sleep(1 * time.Second)
 	exists, err := storage.Exists(key)
 	require.Nil(t, err)
 	assert.True(t, exists)

@@ -1,10 +1,10 @@
 package gossip2
 
 import (
+	"log"
 	"runtime"
 
 	"github.com/dgraph-io/badger"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 func init() {
@@ -24,7 +24,7 @@ func NewBadgerStorage(path string) *BadgerStorage {
 
 	db, err := badger.Open(opts)
 	if err != nil {
-		log.Crit("error opening db", "error", err)
+		log.Printf("error opening db %v", err)
 	}
 
 	return &BadgerStorage{db: db}
@@ -91,6 +91,7 @@ func (bs *BadgerStorage) GetAll(keys [][]byte) ([]KeyValuePair, error) {
 
 func (bs *BadgerStorage) Exists(key []byte) (bool, error) {
 	err := bs.db.View(func(txn *badger.Txn) error {
+		log.Printf("getting %s", key)
 		_, err := txn.Get(key)
 		return err
 	})
@@ -99,10 +100,11 @@ func (bs *BadgerStorage) Exists(key []byte) (bool, error) {
 	// Don't treat missing key as an error
 	case badger.ErrKeyNotFound:
 		return false, nil
+	case nil:
+		return true, nil
 	default:
 		return false, err
 	}
-	return true, nil
 }
 
 type KeyValuePair struct {
