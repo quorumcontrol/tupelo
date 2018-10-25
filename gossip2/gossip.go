@@ -289,7 +289,19 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 		// return nil
 		go func(msg ProvideMessage) {
 			if len(msg.Key) == 0 {
-				log.Errorf("%s provide message has no key: %v", gn.ID(), msg.Key)
+				log.Errorf("%s SIGNATURE requeue provide message has no key: %v", gn.ID(), msg.Key)
+			}
+			zeroCount := 0
+			for i := len(msg.Key) - 1; i >= 0; i-- {
+				b := msg.Key[i]
+				if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
+					break
+				}
+				zeroCount++
+			}
+			if zeroCount > 5 {
+				log.Errorf("%s all zero key %v", gn.ID(), msg.Key)
+				panic("we're done in requeing the sig message")
 			}
 			gn.newObjCh <- msg
 		}(msg)
@@ -563,12 +575,33 @@ func (gn *GossipNode) DoSync() error {
 	var isLastMessage bool
 	for !isLastMessage {
 		var provideMsg ProvideMessage
-		provideMsg.DecodeMsg(reader)
+		err = provideMsg.DecodeMsg(reader)
+		if err != nil {
+			log.Errorf("%s error decoding message: %v", gn.ID(), err)
+			return nil
+		}
 		if len(provideMsg.Key) == 0 && !provideMsg.Last {
 			log.Errorf("%s error, got nil key, value: %v", gn.ID(), provideMsg.Key)
 			return nil
 		}
 		log.Debugf("%s new msg from %s %s %v", gn.ID(), peerID, bytesToString(provideMsg.Key), provideMsg.Key)
+		if !provideMsg.Last && len(provideMsg.Key) == 0 {
+			log.Errorf("%s provide message has no key: %v", gn.ID(), provideMsg.Key)
+		}
+
+		zeroCount := 0
+		for i := len(provideMsg.Key) - 1; i >= 0; i-- {
+			b := provideMsg.Key[i]
+			if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
+				break
+			}
+			zeroCount++
+		}
+		if zeroCount > 5 {
+			log.Errorf("%s all zero key %v provideMessage.Last? %t", gn.ID(), provideMsg.Key, provideMsg.Last)
+			panic("we're done in the DoSync")
+		}
+
 		gn.newObjCh <- provideMsg
 		isLastMessage = provideMsg.Last
 	}
@@ -613,13 +646,31 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	var isLastMessage bool
 	for !isLastMessage {
 		var provideMsg ProvideMessage
-		provideMsg.DecodeMsg(reader)
+		err = provideMsg.DecodeMsg(reader)
+		if err != nil {
+			log.Errorf("%s error decoding message: %v", gn.ID(), err)
+			return
+		}
 		log.Debugf("%s HandleSync provide message from %s - last? %v", gn.ID(), peerID, provideMsg.Last)
 		if len(provideMsg.Key) == 0 && !provideMsg.Last {
 			log.Errorf("%s HandleSync error, got nil key from %s, value: %v", gn.ID(), peerID, provideMsg.Key)
 			return
 		}
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), peerID, bytesToString(provideMsg.Key), provideMsg.Key)
+
+		zeroCount := 0
+		for i := len(provideMsg.Key) - 1; i >= 0; i-- {
+			b := provideMsg.Key[i]
+			if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
+				break
+			}
+			zeroCount++
+		}
+		if zeroCount > 5 {
+			log.Errorf("%s all zero key %v provideMessage.Last? %t", gn.ID(), provideMsg.Key, provideMsg.Last)
+			panic("we're done in HandleSync")
+		}
+
 		gn.newObjCh <- provideMsg
 		isLastMessage = provideMsg.Last
 	}
