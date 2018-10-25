@@ -267,3 +267,38 @@ func TestTransactionIDFromSignatureKey(t *testing.T) {
 
 	assert.Equal(t, transaction.StoredID(), transactionIDFromSignatureKey(signature.StoredID(transaction.ToConflictSet().ID())))
 }
+
+func TestGetSyncTarget(t *testing.T) {
+	logging.SetLogLevel("gossip", "ERROR")
+	groupSize := 103
+	ts := newTestSet(t, groupSize)
+	group := groupFromTestSet(t, ts)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	path := "test/badger/testgetsynctarget"
+	os.RemoveAll(path)
+	os.MkdirAll(path, 0755)
+	defer func() {
+		os.RemoveAll(path)
+	}()
+	storage := NewBadgerStorage(path)
+	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], p2p.GetRandomUnusedPort())
+	require.Nil(t, err)
+
+	collect := make(map[string]bool)
+
+	for i := 0; i < groupSize*2; i++ {
+		node := NewGossipNode(ts.EcdsaKeys[0], host, storage)
+		node.Group = group
+		node.queueSyncTargetsByRoutingKey(randBytes(42))
+		close(node.syncTargetsCh)
+
+		for rn := range node.syncTargetsCh {
+			collect[rn.Id] = true
+		}
+	}
+
+	assert.Equal(t, groupSize, len(collect))
+}
