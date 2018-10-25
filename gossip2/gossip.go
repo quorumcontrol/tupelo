@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -38,6 +39,8 @@ func init() {
 
 const syncProtocol = "tupelo-gossip/v1"
 
+const minSyncNodesPerTransaction = 3
+
 type IBFMap map[int]*ibf.InvertibleBloomFilter
 
 var standardIBFSizes = []int{2000, 20000}
@@ -51,16 +54,17 @@ const (
 )
 
 type GossipNode struct {
-	Key       *ecdsa.PrivateKey
-	SignKey   *bls.SignKey
-	Host      *p2p.Host
-	Storage   *BadgerStorage
-	Strata    *ibf.DifferenceStrata
-	Group     *consensus.NotaryGroup
-	IBFs      IBFMap
-	newObjCh  chan ProvideMessage
-	stopChan  chan struct{}
-	ibfSyncer *sync.RWMutex
+	Key           *ecdsa.PrivateKey
+	SignKey       *bls.SignKey
+	Host          *p2p.Host
+	Storage       *BadgerStorage
+	Strata        *ibf.DifferenceStrata
+	Group         *consensus.NotaryGroup
+	IBFs          IBFMap
+	newObjCh      chan ProvideMessage
+	stopChan      chan struct{}
+	syncTargetsCh chan *consensus.RemoteNode
+	ibfSyncer     *sync.RWMutex
 }
 
 func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
@@ -71,9 +75,10 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
-		newObjCh:  make(chan ProvideMessage, 5),
-		stopChan:  make(chan struct{}, 1),
-		ibfSyncer: &sync.RWMutex{},
+		newObjCh:      make(chan ProvideMessage, 5),
+		syncTargetsCh: make(chan *consensus.RemoteNode, 50),
+		stopChan:      make(chan struct{}, 1),
+		ibfSyncer:     &sync.RWMutex{},
 	}
 	go node.handleNewObjCh()
 
@@ -248,8 +253,7 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 		}
 
 		gn.checkSignatureCounts(sigMessage)
-		// on next few syncs, use these nodes
-
+		gn.queueSyncTargetsByRoutingKey(t.NewTip)
 	} else {
 		log.Debugf("%s error, invalid transaction", gn.ID())
 	}
@@ -476,10 +480,47 @@ func (gn *GossipNode) RandomPeer() (*consensus.RemoteNode, error) {
 	return peer, nil
 }
 
+func (gn *GossipNode) getSyncTarget() (*consensus.RemoteNode, error) {
+	select {
+	case peer, ok := <-gn.syncTargetsCh:
+		if ok && peer != nil {
+			log.Debugf("%s: getSyncTarget using peer from syncTargetsCh", gn.ID())
+			return peer, nil
+		}
+	default:
+	}
+	log.Debugf("%s: getSyncTarget using random peer", gn.ID())
+	return gn.RandomPeer()
+}
+
+func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
+	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+	if err != nil {
+		return fmt.Errorf("error fetching roundinfo %v", err)
+	}
+
+	signerCount := float64(len(roundInfo.Signers))
+	logOfSigners := math.Log(signerCount)
+	numberOfTargets := math.Floor(math.Max(logOfSigners, float64(minSyncNodesPerTransaction)))
+	indexSpacing := signerCount / numberOfTargets
+	moduloOffset := math.Mod(float64(bytesToUint64(key)), indexSpacing)
+
+	for i := 0; i < int(numberOfTargets); i++ {
+		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
+		select {
+		case gn.syncTargetsCh <- roundInfo.Signers[targetIndex]:
+		default:
+			log.Debugf("%s: error pushing signer onto targets queue", gn.ID())
+		}
+	}
+
+	return nil
+}
+
 func (gn *GossipNode) DoSync() error {
 	log.Debugf("%s: sync started", gn.ID())
 
-	peer, err := gn.RandomPeer()
+	peer, err := gn.getSyncTarget()
 	if err != nil {
 		return fmt.Errorf("error getting peer: %v", err)
 	}
@@ -675,7 +716,11 @@ func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
 	if len(byteID) != 8 {
 		panic("invalid byte id sent")
 	}
-	return ibf.ObjectId(binary.BigEndian.Uint64(byteID))
+	return ibf.ObjectId(bytesToUint64(byteID))
+}
+
+func bytesToUint64(byteID []byte) uint64 {
+	return binary.BigEndian.Uint64(byteID)
 }
 
 func uint64ToBytes(id uint64) []byte {
