@@ -234,9 +234,19 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 			return fmt.Errorf("error marshaling sig: %v", err)
 		}
 		log.Debugf("%s adding signature %v", gn.ID(), signature.StoredID(t.ToConflictSet().ID()))
-		gn.Add(signature.StoredID(t.ToConflictSet().ID()), encodedSig)
+		sigID := signature.StoredID(t.ToConflictSet().ID())
+		gn.Add(sigID, encodedSig)
 		log.Debugf("%s adding transaction %v", gn.ID(), msg.Key)
 		gn.Add(msg.Key, msg.Value)
+
+		sigMessage := ProvideMessage{
+			Key:   sigID,
+			Value: encodedSig,
+		}
+
+		gn.checkSignatureCounts(sigMessage)
+		// on next few syncs, use these nodes
+
 	} else {
 		log.Debugf("%s error, invalid transaction", gn.ID())
 	}
@@ -245,19 +255,13 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 }
 
 func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
-	zeroCount := 0
-	for i := len(msg.Key) - 1; i >= 0; i-- {
-		b := msg.Key[i]
-		if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-			break
-		}
-		zeroCount++
-	}
-	if zeroCount > 5 {
-		log.Errorf("%s all zero key %v", gn.ID(), msg.Key)
-		panic("we're done in handle new signature")
-		return nil
-	}
+	log.Debugf("%s adding signature: %v", gn.ID(), msg.Key)
+	gn.checkSignatureCounts(msg)
+	gn.Add(msg.Key, msg.Value)
+	return nil
+}
+
+func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 	transId := transactionIDFromSignatureKey(msg.Key)
 
 	transBytes, err := gn.Storage.Get(transId)
@@ -265,50 +269,9 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 		return fmt.Errorf("error getting transaction")
 	}
 	if len(transBytes) == 0 {
-		log.Errorf("%s signature received, but don't have transaction %s yet, msgKey: %v", gn.ID(), bytesToString(transId), msg.Key)
-		// if we don't have the transaction yet, then just put this in the back of the queue
-		//TODO: we should only process this twice... if we get a sig before a trans FINE, but
-		// we should process the trans in the same stream and if we didn't get it
-		// from this queue then we can just drop this message
-		// go func() {
-		// 	counter := 0
-		// 	for {
-		// 		select {
-		// 		case gn.newObjCh <- msg:
-		// 			return
-		// 		default:
-		// 			log.Printf("OKKKKKKK %v", counter)
-		// 			if counter > 4 {
-		// 				return
-		// 			}
-		// 			counter = counter + 1
-		// 			time.Sleep(time.Duration(counter) * time.Second)
-		// 		}
-		// 	}
-		// }()
-		// return nil
-		go func(msg ProvideMessage) {
-			if len(msg.Key) == 0 {
-				log.Errorf("%s SIGNATURE requeue provide message has no key: %v", gn.ID(), msg.Key)
-			}
-			zeroCount := 0
-			for i := len(msg.Key) - 1; i >= 0; i-- {
-				b := msg.Key[i]
-				if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-					break
-				}
-				zeroCount++
-			}
-			if zeroCount > 5 {
-				log.Errorf("%s all zero key %v", gn.ID(), msg.Key)
-				panic("we're done in requeing the sig message")
-			}
-			gn.newObjCh <- msg
-		}(msg)
+		log.Infof("%s signature received, but don't have transaction %s yet, msgKey: %v", gn.ID(), bytesToString(transId), msg.Key)
 		return nil
 	}
-	log.Debugf("%s adding signature for trans %v: %v", gn.ID(), bytesToString(transId), msg.Key)
-	gn.Add(msg.Key, msg.Value)
 
 	var t Transaction
 	_, err = t.UnmarshalMsg(transBytes)
