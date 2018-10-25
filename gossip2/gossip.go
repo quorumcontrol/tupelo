@@ -152,6 +152,7 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 	if err != nil {
 		return fmt.Errorf("error getting transaction: %v", err)
 	}
+	log.Printf("%s new transaction %s", gn.ID(), bytesToString(t.ID()))
 
 	// conflictSetDoneExists, err := gn.Storage.Exists(t.ToConflictSet().DoneID())
 	// if err != nil {
@@ -186,6 +187,8 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 		gn.Add(signature.StoredID(t.ToConflictSet().ID()), encodedSig)
 		log.Printf("%s adding transaction %v", gn.ID(), msg.Key)
 		gn.Add(msg.Key, msg.Value)
+	} else {
+		log.Printf("%s error, invalid transaction", gn.ID())
 	}
 
 	return nil
@@ -199,7 +202,7 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 		return fmt.Errorf("error getting transaction")
 	}
 	if len(transBytes) == 0 {
-		log.Printf("%s signature received, but don't have transaction yet", gn.ID())
+		log.Printf("%s signature received, but don't have transaction %s yet", bytesToString(transId), gn.ID())
 		// if we don't have the transaction yet, then just put this in the back of the queue
 		//TODO: we should only process this twice... if we get a sig before a trans FINE, but
 		// we should process the trans in the same stream and if we didn't get it
@@ -221,10 +224,12 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 		// 	}
 		// }()
 		// return nil
-		gn.newObjCh <- msg
+		go func() {
+			gn.newObjCh <- msg
+		}()
 		return nil
 	}
-	log.Printf("%s adding signature %v", gn.ID(), msg.Key)
+	log.Printf("%s adding signature for trans %v: %v", gn.ID(), bytesToString(transId), msg.Key)
 	gn.Add(msg.Key, msg.Value)
 
 	// var t Transaction
@@ -558,4 +563,8 @@ func concatBytesSlice(byteSets ...[]byte) (concat []byte) {
 		concat = append(concat, s...)
 	}
 	return concat
+}
+
+func bytesToString(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
 }
