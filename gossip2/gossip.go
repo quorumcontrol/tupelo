@@ -241,11 +241,11 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 		if err != nil {
 			return fmt.Errorf("error marshaling sig: %v", err)
 		}
+		log.Debugf("%s adding transaction %v", gn.ID(), msg.Key)
+		gn.Add(msg.Key, msg.Value)
 		log.Debugf("%s adding signature %v", gn.ID(), signature.StoredID(t.ToConflictSet().ID()))
 		sigID := signature.StoredID(t.ToConflictSet().ID())
 		gn.Add(sigID, encodedSig)
-		log.Debugf("%s adding transaction %v", gn.ID(), msg.Key)
-		gn.Add(msg.Key, msg.Value)
 
 		sigMessage := ProvideMessage{
 			Key:   sigID,
