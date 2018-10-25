@@ -232,20 +232,20 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 	log.Printf("%s adding signature for trans %v: %v", gn.ID(), bytesToString(transId), msg.Key)
 	gn.Add(msg.Key, msg.Value)
 
-	// var t Transaction
-	// _, err = t.UnmarshalMsg(transBytes)
-	// if err != nil {
-	// 	return fmt.Errorf("error unmarshaling: %v", err)
-	// }
-	// doneID := t.ToConflictSet().DoneID()
-	// doneExists, err := gn.Storage.Exists(doneID)
-	// if err != nil {
-	// 	return fmt.Errorf("error getting exists: %v", err)
-	// }
-	// if doneExists {
-	// 	log.Printf("%s already has done, stopping", gn.ID())
-	// 	return nil
-	// }
+	var t Transaction
+	_, err = t.UnmarshalMsg(transBytes)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling: %v", err)
+	}
+	doneID := t.ToConflictSet().DoneID()
+	doneExists, err := gn.Storage.Exists(doneID)
+	if err != nil {
+		return fmt.Errorf("error getting exists: %v", err)
+	}
+	if doneExists {
+		log.Printf("%s already has done, skipping", gn.ID())
+		return nil
+	}
 
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(msg.Key[0:4])
 	if err != nil {
@@ -266,58 +266,58 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 
 	if int64(len(matchedSigKeys)) >= roundInfo.SuperMajorityCount() {
 		log.Printf("%s found super majority of sigs %d", gn.ID(), len(matchedSigKeys))
-		// signatures, err := gn.Storage.GetAll(matchedSigKeys)
-		// if err != nil {
-		// 	return fmt.Errorf("error fetching signers %v", err)
-		// }
+		signatures, err := gn.Storage.GetAll(matchedSigKeys)
+		if err != nil {
+			return fmt.Errorf("error fetching signers %v", err)
+		}
 
-		// signaturesByKey := make(map[string][]byte)
+		signaturesByKey := make(map[string][]byte)
 
-		// for _, sigBytes := range signatures {
-		// 	var s Signature
-		// 	_, err = s.UnmarshalMsg(sigBytes.Value)
-		// 	if err != nil {
-		// 		log.Printf("%s error unamrshaling %v", gn.ID(), err)
-		// 		return fmt.Errorf("error unmarshaling sig: %v", err)
-		// 	}
-		// 	for k, v := range s.Signers {
-		// 		if v == true {
-		// 			signaturesByKey[k] = s.Signature
-		// 		}
-		// 	}
-		// }
+		for _, sigBytes := range signatures {
+			var s Signature
+			_, err = s.UnmarshalMsg(sigBytes.Value)
+			if err != nil {
+				log.Printf("%s error unamrshaling %v", gn.ID(), err)
+				return fmt.Errorf("error unmarshaling sig: %v", err)
+			}
+			for k, v := range s.Signers {
+				if v == true {
+					signaturesByKey[k] = s.Signature
+				}
+			}
+		}
 
-		// allSigners := make(map[string]bool)
-		// allSignatures := make([][]byte, 0)
+		allSigners := make(map[string]bool)
+		allSignatures := make([][]byte, 0)
 
-		// for _, signer := range roundInfo.Signers {
-		// 	key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
+		for _, signer := range roundInfo.Signers {
+			key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
 
-		// 	if sig, ok := signaturesByKey[key]; ok {
-		// 		allSignatures = append(allSignatures, sig)
-		// 		allSigners[key] = true
-		// 	} else {
-		// 		allSigners[key] = false
-		// 	}
-		// }
+			if sig, ok := signaturesByKey[key]; ok {
+				allSignatures = append(allSignatures, sig)
+				allSigners[key] = true
+			} else {
+				allSigners[key] = false
+			}
+		}
 
-		// combinedSignatures, err := bls.SumSignatures(allSignatures)
-		// if err != nil {
-		// 	return fmt.Errorf("error combining sigs %v", err)
-		// }
+		combinedSignatures, err := bls.SumSignatures(allSignatures)
+		if err != nil {
+			return fmt.Errorf("error combining sigs %v", err)
+		}
 
-		// commitSignature := Signature{
-		// 	TransactionID: doneID,
-		// 	Signers:       allSigners,
-		// 	Signature:     combinedSignatures,
-		// }
+		commitSignature := Signature{
+			TransactionID: doneID,
+			Signers:       allSigners,
+			Signature:     combinedSignatures,
+		}
 
-		// encodedSig, err := commitSignature.MarshalMsg(nil)
-		// if err != nil {
-		// 	return fmt.Errorf("error marshaling sig: %v", err)
-		// }
-		// log.Printf("%s adding done sig %v", gn.ID(), doneID)
-		// gn.Add(doneID, encodedSig)
+		encodedSig, err := commitSignature.MarshalMsg(nil)
+		if err != nil {
+			return fmt.Errorf("error marshaling sig: %v", err)
+		}
+		log.Printf("%s adding done sig %v", gn.ID(), doneID)
+		gn.Add(doneID, encodedSig)
 	}
 
 	//TODO: see if we have 2/3+1 of signatures
