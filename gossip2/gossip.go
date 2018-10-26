@@ -466,7 +466,7 @@ func (gn *GossipNode) Remove(key []byte) {
 	gn.ibfSyncer.Unlock()
 }
 
-func (gn *GossipNode) RandomPeer() (*consensus.RemoteNode, error) {
+func (gn *GossipNode) randomPeer() (*consensus.RemoteNode, error) {
 	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting peer: %v", err)
@@ -491,7 +491,7 @@ func (gn *GossipNode) getSyncTarget() (*consensus.RemoteNode, error) {
 	default:
 	}
 	log.Debugf("%s: getSyncTarget using random peer", gn.ID())
-	return gn.RandomPeer()
+	return gn.randomPeer()
 }
 
 func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
@@ -508,8 +508,15 @@ func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
 
 	for i := 0; i < int(numberOfTargets); i++ {
 		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
+		target := roundInfo.Signers[targetIndex]
+
+		// Make sure this node doesn't add itself as a target
+		if bytes.Equal(target.DstKey.PublicKey, crypto.FromECDSAPub(&gn.Key.PublicKey)) {
+			continue
+		}
+
 		select {
-		case gn.syncTargetsCh <- roundInfo.Signers[targetIndex]:
+		case gn.syncTargetsCh <- target:
 		default:
 			log.Debugf("%s: error pushing signer onto targets queue", gn.ID())
 		}
