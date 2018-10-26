@@ -439,8 +439,6 @@ func (gn *GossipNode) Add(key, value []byte) {
 		panic("storage failed")
 	}
 	gn.ibfSyncer.Lock()
-	defer gn.ibfSyncer.Unlock()
-
 	gn.Strata.Add(ibfObjectID)
 	for _, filter := range gn.IBFs {
 		filter.Add(ibfObjectID)
@@ -451,6 +449,7 @@ func (gn *GossipNode) Add(key, value []byte) {
 		// 	}
 		// }
 	}
+	gn.ibfSyncer.Unlock()
 }
 
 func (gn *GossipNode) Remove(key []byte) {
@@ -459,10 +458,12 @@ func (gn *GossipNode) Remove(key []byte) {
 	if err != nil {
 		panic("storage failed")
 	}
+	gn.ibfSyncer.Lock()
 	gn.Strata.Remove(ibfObjectID)
 	for _, filter := range gn.IBFs {
 		filter.Remove(ibfObjectID)
 	}
+	gn.ibfSyncer.Unlock()
 }
 
 func (gn *GossipNode) RandomPeer() (*consensus.RemoteNode, error) {
@@ -547,8 +548,9 @@ func (gn *GossipNode) DoSync() error {
 		writer.Flush()
 		stream.Close()
 	}()
-
-	err = gn.IBFs[2000].EncodeMsg(writer)
+	gn.ibfSyncer.RLock()
+	err = gn.IBFs[20000].EncodeMsg(writer)
+	gn.ibfSyncer.RUnlock()
 	if err != nil {
 		return fmt.Errorf("error writing IBF: %v", err)
 	}
@@ -558,6 +560,9 @@ func (gn *GossipNode) DoSync() error {
 	err = wants.DecodeMsg(reader)
 	if err != nil {
 		log.Errorf("%s error reading wants %v", gn.ID(), err)
+		// log.Errorf("%s ibf TO %s : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
+		// log.Errorf("%s ibf TO %s cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
+
 		return nil
 	}
 	log.Debugf("%s: got a want request for %v keys", gn.ID(), len(wants.Keys))
@@ -637,14 +642,15 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 		log.Errorf("%s error decoding message", gn.ID(), err)
 		return
 	}
-	log.Debugf("%s decoding", gn.ID())
+	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
 	gn.ibfSyncer.RLock()
-	subtracted := gn.IBFs[2000].Subtract(&remoteIBF)
+	subtracted := gn.IBFs[20000].Subtract(&remoteIBF)
 	gn.ibfSyncer.RUnlock()
 	difference, err := subtracted.Decode()
 	if err != nil {
-		// log.Println(gn.IBFs[2000].GetDebug())
-		log.Errorf("%s error getting diff: %f\n", gn.ID(), err)
+		log.Errorf("%s error getting diff): %f\n", gn.ID(), err)
+		// log.Errorf("%s (talking to %s) local ibf is : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
+		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
 		return
 	}
 	log.Debugf("%s decoded", gn.ID())
