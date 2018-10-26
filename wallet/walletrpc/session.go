@@ -31,9 +31,22 @@ func walletPath(name string) string {
 
 var StoppedError = errors.New("Session is stopped")
 
-func NewSession(creds *Credentials, group *consensus.NotaryGroup) *RPCSession {
+func RegisterWallet(creds *Credentials) error {
 	path := walletPath(creds.WalletName)
-	fileWallet := wallet.NewFileWallet(creds.PassPhrase, path)
+
+	fileWallet := wallet.NewFileWallet(path)
+
+	return fileWallet.Create(creds.PassPhrase)
+}
+
+func NewSession(creds *Credentials, group *consensus.NotaryGroup) (*RPCSession, error) {
+	path := walletPath(creds.WalletName)
+
+	fileWallet := wallet.NewFileWallet(path)
+	err := fileWallet.Unlock(creds.PassPhrase)
+	if err != nil {
+		return nil, err
+	}
 
 	gossipClient := gossipclient.NewGossipClient(group)
 	gossipClient.Start()
@@ -42,7 +55,7 @@ func NewSession(creds *Credentials, group *consensus.NotaryGroup) *RPCSession {
 		client:    gossipClient,
 		wallet:    fileWallet,
 		isStopped: false,
-	}
+	}, nil
 }
 
 func decodeDag(encodedDag []string, store nodestore.NodeStore) (*dag.Dag, error) {

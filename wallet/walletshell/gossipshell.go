@@ -30,7 +30,10 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			c.Print("Passphrase: ")
 			passphrase := c.ReadPassword()
-			currentWallet = wallet.NewFileWallet(passphrase, pathToWallet)
+
+			currentWallet = wallet.NewFileWallet(pathToWallet)
+			currentWallet.CreateIfNotExists(passphrase)
+
 			c.Println("unlocked wallet at: ", pathToWallet)
 			c.Println("starting client")
 			if currentClient != nil {

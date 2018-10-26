@@ -34,12 +34,45 @@ func newSavedChain(t *testing.T, fw *FileWallet, key ecdsa.PublicKey) *consensus
 	return signedTree
 }
 
+func TestFileWallet_Create(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+
+	fw := NewFileWallet("testtmp/filewallet")
+	err := fw.Create("password")
+	require.Nil(t, err, "Create should succeed on the first try.")
+
+	fw2 := NewFileWallet("testtmp/filewallet")
+	err2 := fw2.Create("password")
+	require.Error(t, err2, "Create should error on the second try.")
+}
+
+func TestFileWallet_Unlock(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+
+	fw := NewFileWallet("testtmp/filewallet")
+	err := fw.Unlock("password")
+	require.Error(t, err, "Unlock should fail without a previous Create.")
+
+	err = fw.Create("password")
+	require.Nil(t, err, "Create should succeed on the first try.")
+	fw.Close()
+
+	fw2 := NewFileWallet("testtmp/filewallet")
+	err2 := fw2.Unlock("password")
+	require.Nil(t, err2, "Unlock should succeed after a previous Create.")
+}
+
 func TestFileWallet_GetChain(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
 	defer os.RemoveAll("testtmp")
 
-	fw := NewFileWallet("password", "testtmp/filewallet")
+	fw := NewFileWallet("testtmp/filewallet")
+	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
 	key, err := crypto.GenerateKey()
@@ -77,7 +110,8 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	os.MkdirAll("testtmp", 0700)
 	defer os.RemoveAll("testtmp")
 
-	fw := NewFileWallet("password", "testtmp/filewallet")
+	fw := NewFileWallet("testtmp/filewallet")
+	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
 	key, err := crypto.GenerateKey()
@@ -199,7 +233,8 @@ func TestFileWallet_GetChainIds(t *testing.T) {
 	os.MkdirAll("testtmp", 0700)
 	defer os.RemoveAll("testtmp")
 
-	fw := NewFileWallet("password", "testtmp/filewallet")
+	fw := NewFileWallet("testtmp/filewallet")
+	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
 	key, err := crypto.GenerateKey()
@@ -219,7 +254,8 @@ func TestFileWallet_GetKey(t *testing.T) {
 	os.MkdirAll("testtmp", 0700)
 	defer os.RemoveAll("testtmp")
 
-	fw := NewFileWallet("password", "testtmp/filewallet")
+	fw := NewFileWallet("testtmp/filewallet")
+	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
 	key, err := fw.GenerateKey()

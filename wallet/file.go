@@ -3,6 +3,7 @@ package wallet
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"os"
 
 	"github.com/quorumcontrol/chaintree/nodestore"
 
@@ -22,24 +23,87 @@ var signaturesBucket = []byte("signatures")
 var keyBucket = []byte("keys")
 var nodeBucket = []byte("nodes")
 
+type UnlockInexistentWalletError struct {
+	path string
+}
+
+func (e *UnlockInexistentWalletError) Error() string {
+	return fmt.Sprintf("Can't unlock wallet at path '%s'. It does not exist.", e.path)
+}
+
+type CreateExistingWalletError struct {
+	path string
+}
+
+func (e *CreateExistingWalletError) Error() string {
+	return fmt.Sprintf("Can't create wallet at path '%s'. Another already exists.", e.path)
+}
+
 // just make sure that implementation conforms to the interface
 var _ consensus.Wallet = (*FileWallet)(nil)
 
 type FileWallet struct {
+	path        string
 	boltStorage storage.EncryptedStorage
 	nodeStore   nodestore.NodeStore
 }
 
-func NewFileWallet(passphrase, path string) *FileWallet {
-	boltStorage := storage.NewEncryptedBoltStorage(path)
+// isExists checks if the wallet specified by `path` already exists.
+func (fw *FileWallet) isExists() bool {
+	_, err := os.Stat(fw.path)
+
+	return !os.IsNotExist(err)
+}
+
+func NewFileWallet(path string) *FileWallet {
+	return &FileWallet{
+		path: path,
+	}
+}
+
+// CreateIfNotExists creates a new wallet at the path specified by `fw` if one
+// hasn't already been created at that path.
+func (fw *FileWallet) CreateIfNotExists(passphrase string) {
+	boltStorage := storage.NewEncryptedBoltStorage(fw.path)
 	boltStorage.Unlock(passphrase)
 	boltStorage.CreateBucketIfNotExists(chainBucket)
 	boltStorage.CreateBucketIfNotExists(keyBucket)
 	boltStorage.CreateBucketIfNotExists(nodeBucket)
 	boltStorage.CreateBucketIfNotExists(signaturesBucket)
-	return &FileWallet{
-		boltStorage: boltStorage,
+
+	fw.boltStorage = boltStorage
+}
+
+// Create creates a new wallet at the path specified by `fw`. It returns an
+// error if a wallet already exists at that path, and nil otherwise.
+func (fw *FileWallet) Create(passphrase string) error {
+	if fw.isExists() {
+		return &CreateExistingWalletError{
+			path: fw.path,
+		}
 	}
+
+	fw.CreateIfNotExists(passphrase)
+
+	return nil
+}
+
+// Unlock opens a pre-existing wallet after first validating `passphrase`
+// against that wallet. It returns an error if the passphrase is not correct or
+// the wallet doesn't already exist, and nil otherwise.
+func (fw *FileWallet) Unlock(passphrase string) error {
+	if !fw.isExists() {
+		return &UnlockInexistentWalletError{
+			path: fw.path,
+		}
+	}
+
+	boltStorage := storage.NewEncryptedBoltStorage(fw.path)
+	boltStorage.Unlock(passphrase)
+
+	fw.boltStorage = boltStorage
+
+	return nil
 }
 
 func (fw *FileWallet) Close() {
