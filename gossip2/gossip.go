@@ -41,6 +41,8 @@ const syncProtocol = "tupelo-gossip/v1"
 
 const minSyncNodesPerTransaction = 3
 
+const useDoneRemovalFilter = true
+
 type IBFMap map[int]*ibf.InvertibleBloomFilter
 
 var standardIBFSizes = []int{2000, 20000}
@@ -165,6 +167,13 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	}
 	if !exists {
 		log.Debugf("%s storage key NO EXIST %v", gn.ID(), msg.Key)
+
+		if useDoneRemovalFilter {
+			if isDone, _ := gn.isMessageDone(msg); isDone {
+				return
+			}
+		}
+
 		messageType := MessageType(msg.Key[8])
 		switch messageType {
 		case MessageTypeSignature:
@@ -182,7 +191,28 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	}
 }
 
+func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
+	return gn.isDone(msg.Key[0:4])
+}
+
+func (gn *GossipNode) isDone(conflictSetID []byte) (bool, error) {
+	doneIDPrefix := doneIDFromConflictSetID(conflictSetID)[0:8]
+
+	// TODO: This currently only checks the first 4 bytes of the conflict set,
+	// to make this more robust it should check first 4, if multiple keys are returned
+	// then it should decode the transaction from the message, and then check the appropiate key
+	conflictSetDoneKeys, err := gn.Storage.GetKeysByPrefix(doneIDPrefix)
+	if err != nil {
+		return false, err
+	}
+	if len(conflictSetDoneKeys) > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (gn *GossipNode) handleDone(msg ProvideMessage) error {
+	// TODO: This can be removed once TODO on isDone is resolved
 	conflictSetDoneExists, err := gn.Storage.Exists(msg.Key)
 	if err != nil {
 		return fmt.Errorf("error getting conflict: %v", err)
@@ -194,7 +224,16 @@ func (gn *GossipNode) handleDone(msg ProvideMessage) error {
 	log.Debugf("%s adding done message %v", gn.ID(), msg.Key)
 	gn.Add(msg.Key, msg.Value)
 
-	// TODO: cleanout old transactions
+	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(msg.Key[0:4])
+
+	for _, key := range conflictSetKeys {
+		if key[8] != byte(MessageTypeDone) {
+			gn.Remove(key)
+			if err != nil {
+				log.Errorf("%s error deleting conflict set item %v", gn.ID(), key)
+			}
+		}
+	}
 
 	return nil
 }
@@ -211,15 +250,6 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 		return fmt.Errorf("error getting transaction: %v", err)
 	}
 	log.Debugf("%s new transaction %s", gn.ID(), bytesToString(t.ID()))
-
-	// conflictSetDoneExists, err := gn.Storage.Exists(t.ToConflictSet().DoneID())
-	// if err != nil {
-	// 	return fmt.Errorf("error getting conflict: %v", err)
-	// }
-	// if conflictSetDoneExists {
-	// 	gn.Add(msg.Key, msg.Value)
-	// 	return nil
-	// }
 
 	isValid, err := gn.IsTransactionValid(t)
 	if err != nil {
@@ -263,8 +293,18 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 
 func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 	log.Debugf("%s adding signature: %v", gn.ID(), msg.Key)
-	gn.checkSignatureCounts(msg)
-	gn.Add(msg.Key, msg.Value)
+	if err := gn.checkSignatureCounts(msg); err != nil {
+		return err
+	}
+	if useDoneRemovalFilter {
+		isDone, _ := gn.isMessageDone(msg)
+		if !isDone {
+			gn.Add(msg.Key, msg.Value)
+		}
+	} else {
+		gn.Add(msg.Key, msg.Value)
+	}
+
 	return nil
 }
 
@@ -284,15 +324,6 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 	_, err = t.UnmarshalMsg(transBytes)
 	if err != nil {
 		return fmt.Errorf("error unmarshaling: %v", err)
-	}
-	doneID := t.ToConflictSet().DoneID()
-	doneExists, err := gn.Storage.Exists(doneID)
-	if err != nil {
-		return fmt.Errorf("error getting exists: %v", err)
-	}
-	if doneExists {
-		log.Debugf("%s already has done, skipping", gn.ID())
-		return nil
 	}
 
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(msg.Key[0:4])
@@ -364,8 +395,17 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 		if err != nil {
 			return fmt.Errorf("error marshaling sig: %v", err)
 		}
+		doneID := t.ToConflictSet().DoneID()
+
 		log.Debugf("%s adding done sig %v", gn.ID(), doneID)
-		gn.Add(doneID, encodedSig)
+		doneMessage := ProvideMessage{
+			Key:   doneID,
+			Value: encodedSig,
+		}
+		err = gn.handleDone(doneMessage)
+		if err != nil {
+			return fmt.Errorf("error moving to done: %v", err)
+		}
 	}
 
 	//TODO: see if we have 2/3+1 of signatures
@@ -389,9 +429,12 @@ func (c *ConflictSet) ID() []byte {
 	return crypto.Keccak256(concatBytesSlice(c.ObjectID, c.Tip))
 }
 
-func (c *ConflictSet) DoneID() []byte {
-	conflictSetID := c.ID()
+func doneIDFromConflictSetID(conflictSetID []byte) []byte {
 	return concatBytesSlice(conflictSetID[0:4], doneBytes, []byte{byte(MessageTypeDone)}, conflictSetID)
+}
+
+func (c *ConflictSet) DoneID() []byte {
+	return doneIDFromConflictSetID(c.ID())
 }
 
 // ID in storage is 32bitsConflictSetId|32bitsTransactionHash|fulltransactionHash|"-transaction" or transaction before hash
@@ -661,6 +704,7 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 		return
 	}
 	log.Debugf("%s decoded", gn.ID())
+
 	want := WantMessageFromDiff(difference.RightSet)
 	err = want.EncodeMsg(writer)
 	if err != nil {
@@ -702,7 +746,20 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 
 	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), peerID)
 
-	toProvideAsWantMessage := WantMessageFromDiff(difference.LeftSet)
+	wantedKeys := difference.LeftSet
+
+	if useDoneRemovalFilter {
+		wantedKeys = make([]ibf.ObjectId, 0)
+		for _, oid := range difference.LeftSet {
+			key := uint64ToBytes(uint64(oid))
+			done, _ := gn.isDone(key)
+			if !done {
+				wantedKeys = append(wantedKeys, oid)
+			}
+		}
+	}
+
+	toProvideAsWantMessage := WantMessageFromDiff(wantedKeys)
 	for _, key := range toProvideAsWantMessage.Keys {
 		key := uint64ToBytes(key)
 		objs, err := gn.Storage.GetPairsByPrefix(key)

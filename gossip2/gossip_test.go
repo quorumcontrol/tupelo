@@ -126,7 +126,7 @@ func TestExists(t *testing.T) {
 
 func TestGossip(t *testing.T) {
 	logging.SetLogLevel("gossip", "ERROR")
-	groupSize := 50
+	groupSize := 20
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)
 
@@ -176,7 +176,8 @@ func TestGossip(t *testing.T) {
 		defer gossipNodes[i].Stop()
 		go gossipNodes[i].Start()
 	}
-	for i := 0; i < 100; i++ {
+
+	for i := 0; i < 50; i++ {
 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
 			ObjectID:    randBytes(32),
 			PreviousTip: []byte(""),
@@ -187,10 +188,11 @@ func TestGossip(t *testing.T) {
 			t.Fatalf("error sending transaction: %v", err)
 		}
 	}
-	transaction1ID, err := gossipNodes[0].InitiateTransaction(transaction1)
-	require.Nil(t, err)
 
 	start := time.Now()
+	_, err := gossipNodes[0].InitiateTransaction(transaction1)
+	require.Nil(t, err)
+
 	var stop time.Time
 	for {
 		if (time.Now().Sub(start)) > (60 * time.Second) {
@@ -207,7 +209,9 @@ func TestGossip(t *testing.T) {
 	for i := 0; i < groupSize; i++ {
 		gossipNodes[i].Stop()
 	}
-	assert.True(t, start.Sub(stop) < 10*time.Second)
+	// fmt.Printf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
+	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
+	assert.True(t, stop.Sub(start) < 10*time.Second)
 
 	// time.Sleep(2 * time.Second)
 	// for i := 0; i < 1000; i++ {
@@ -232,12 +236,6 @@ func TestGossip(t *testing.T) {
 	// time.Sleep(3 * time.Second)
 
 	for i := 0; i < 1; i++ {
-		val, err := gossipNodes[i].Storage.Get(transaction1ID)
-		require.Nil(t, err)
-		encodedTransaction1, err := transaction1.MarshalMsg(nil)
-		require.Nil(t, err)
-		assert.Equal(t, val, encodedTransaction1)
-
 		exists, err := gossipNodes[i].Storage.Exists(transaction1.ToConflictSet().DoneID())
 		require.Nil(t, err)
 		assert.True(t, exists)
