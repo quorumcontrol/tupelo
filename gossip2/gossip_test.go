@@ -278,13 +278,14 @@ func TestGetSyncTarget(t *testing.T) {
 		os.RemoveAll(path)
 	}()
 	storage := NewBadgerStorage(path)
-	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], p2p.GetRandomUnusedPort())
-	require.Nil(t, err)
-
 	collect := make(map[string]bool)
 
+	// Ensure random ids get distributed to all nodes
 	for i := 0; i < groupSize*2; i++ {
-		node := NewGossipNode(ts.EcdsaKeys[0], host, storage)
+		randKey := ts.EcdsaKeys[rand.Intn(len(ts.EcdsaKeys))]
+		host, err := p2p.NewHost(ctx, randKey, p2p.GetRandomUnusedPort())
+		require.Nil(t, err)
+		node := NewGossipNode(randKey, host, storage)
 		node.Group = group
 		node.queueSyncTargetsByRoutingKey(randBytes(42))
 		close(node.syncTargetsCh)
@@ -295,4 +296,26 @@ func TestGetSyncTarget(t *testing.T) {
 	}
 
 	assert.Equal(t, groupSize, len(collect))
+
+	newTip := []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr")
+	var expectedIds []string
+
+	// Ensure all nodes generate the same targets
+	for i := 0; i < groupSize; i++ {
+		key := ts.EcdsaKeys[i]
+		host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
+		require.Nil(t, err)
+		node := NewGossipNode(key, host, storage)
+		node.Group = group
+		node.queueSyncTargetsByRoutingKey(newTip)
+		close(node.syncTargetsCh)
+
+		for rn := range node.syncTargetsCh {
+			if i == 0 {
+				expectedIds = append(expectedIds, rn.Id)
+			} else {
+				assert.Contains(t, expectedIds, rn.Id)
+			}
+		}
+	}
 }
