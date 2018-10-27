@@ -35,6 +35,7 @@ func RegisterWallet(creds *Credentials) error {
 	path := walletPath(creds.WalletName)
 
 	fileWallet := wallet.NewFileWallet(path)
+	defer fileWallet.Close()
 
 	return fileWallet.Create(creds.PassPhrase)
 }

@@ -107,7 +107,9 @@ func (fw *FileWallet) Unlock(passphrase string) error {
 }
 
 func (fw *FileWallet) Close() {
-	fw.boltStorage.Close()
+	if fw.boltStorage != nil {
+		fw.boltStorage.Close()
+	}
 }
 
 // NodeStore returns a NodeStore based on the underlying storage system of the wallet
