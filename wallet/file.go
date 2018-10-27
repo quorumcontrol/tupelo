@@ -28,7 +28,7 @@ type UnlockInexistentWalletError struct {
 }
 
 func (e *UnlockInexistentWalletError) Error() string {
-	return fmt.Sprintf("Can't unlock wallet at path '%s'. It does not exist.", e.path)
+	return fmt.Sprintf("Can't unlock wallet at path '%s'. It does not exist. Create it first", e.path)
 }
 
 type CreateExistingWalletError struct {
@@ -36,7 +36,7 @@ type CreateExistingWalletError struct {
 }
 
 func (e *CreateExistingWalletError) Error() string {
-	return fmt.Sprintf("Can't create wallet at path '%s'. Another already exists.", e.path)
+	return fmt.Sprintf("Can't create wallet at path '%s'. Another wallet already exists at the same path.", e.path)
 }
 
 // just make sure that implementation conforms to the interface
