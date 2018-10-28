@@ -139,3 +139,11 @@ func (h *Host) Addresses() []ma.Multiaddr {
 	}
 	return addrs
 }
+
+func (h *Host) PeerID() (peer.ID, error) {
+	return PeerIDFromPublicKey(h.publicKey)
+}
+
+func PeerIDFromPublicKey(publicKey *ecdsa.PublicKey) (peer.ID, error) {
+	return peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
+}

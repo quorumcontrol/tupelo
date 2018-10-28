@@ -1,30 +1,58 @@
 version: "3"
 services:
+  bootstrap:
+    build: .
+    volumes:
+      # - .storage:/var/lib/qc3/.storage:delegated
+      - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
+    command: ["/usr/bin/qc3", "bootstrap-node", "-p", "34001"]
+    environment:
+      NODE_BLS_KEY_HEX: "0x1ef1cf13d52b2dbf3134d7fff6aa617c5cdac42ed89bd20007bfc93d00f0d0c6"
+      NODE_ECDSA_KEY_HEX: "0xe2c0b170c56ff0bf08c7376f1ca4bd5cbe481a85f6cdb3de609863e25dce613a"
+    networks:
+      default:
+        ipv4_address: 172.16.238.10
   node0:
     build: .
-    image: qc3:latest
     volumes:
-      - .storage:/var/lib/qc3/.storage:delegated
+      # - .storage:/var/lib/qc3/.storage:delegated
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
       NODE_BLS_KEY_HEX: "0x062826fc0f8034ce63f160dfa30fca1c11cb66cdbdd0524b0a5103539c44e153"
       NODE_ECDSA_KEY_HEX: "0xa457195d256894b7a44400b2ec844a5c58ecadaea5da271abdf0abad1f30c1f0"
+      TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
+    networks:
+      - default
   node1:
     build: .
     volumes:
-      - .storage:/var/lib/qc3/.storage:delegated
+      # - .storage:/var/lib/qc3/.storage:delegated
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
       NODE_BLS_KEY_HEX: "0x047490c1cacdc0e1da3694ce4aa7610e6c094720fe245d860bc6b950fe01af64"
       NODE_ECDSA_KEY_HEX: "0x6ed4da1806f0c8587644e6a27ad11b2053d7b7e03d41ffec589a217fd839eae6"
+      TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
+    networks:
+      - default
   node2:
     build: .
     volumes:
-      - .storage:/var/lib/qc3/.storage:delegated
+      # - .storage:/var/lib/qc3/.storage:delegated
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
       NODE_BLS_KEY_HEX: "0x23d13849867754cff263189bb4b039a7f5fc6c7a63a3b95b31a807fd1a9d2a37"
       NODE_ECDSA_KEY_HEX: "0xef8d350dffaed798e846c0b84316023e28b5128cb15158aafdafc5738b6a745b"
+      TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.16.238.0/24
