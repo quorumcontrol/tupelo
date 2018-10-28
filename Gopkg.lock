@@ -891,6 +891,7 @@
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peerstore",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-swarm",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr",
     "github.com/ipsn/go-ipfs/thirdparty/math2",
