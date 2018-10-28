@@ -40,7 +40,7 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func RegisterWallet(creds *Credentials) error {
+func CreateWallet(creds *Credentials) error {
 	path := walletPath(creds.WalletName)
 
 	fileWallet := wallet.NewFileWallet(path)

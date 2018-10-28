@@ -24,7 +24,7 @@ type server struct {
 }
 
 func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
-	err := RegisterWallet(req.Creds)
+	err := CreateWallet(req.Creds)
 	if err != nil {
 		return nil, err
 	}
