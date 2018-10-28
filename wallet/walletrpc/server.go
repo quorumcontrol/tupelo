@@ -45,6 +45,8 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	key, err := session.GenerateKey()
@@ -63,6 +65,8 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	keys, err := session.ListKeys()
@@ -80,6 +84,8 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	chain, err := session.CreateChain(req.KeyAddr)
@@ -102,6 +108,8 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	serializedChain, err := session.ExportChain(req.ChainId)
@@ -119,6 +127,8 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	chain, err := session.ImportChain(req.KeyAddr, req.ChainTree)
@@ -141,6 +151,8 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	ids, err := session.GetChainIds()
@@ -158,6 +170,8 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.GetTip(req.ChainId)
@@ -175,6 +189,8 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	newTip, err := session.SetOwner(req.ChainId, req.KeyAddr, req.NewOwnerKeys)
@@ -192,6 +208,8 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.SetData(req.ChainId, req.KeyAddr, req.Path, req.Value)
@@ -209,6 +227,8 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	pathSegments := strings.Split(req.Path, "/")
@@ -235,6 +255,8 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.EstablishCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Maximum)
@@ -252,6 +274,8 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.MintCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Amount)
