@@ -1,15 +1,13 @@
 package walletshell
 
 import (
-	"path/filepath"
 	"strconv"
 
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossipclient"
-	"github.com/quorumcontrol/qc3/wallet"
+	"github.com/quorumcontrol/qc3/wallet/walletrpc"
 )
 
 func RunGossip(name string, group *consensus.NotaryGroup) {
@@ -17,47 +15,49 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 	shell := ishell.New()
 
 	// display welcome info.
-	shell.Printf("Running a wallet for: %v\n", name)
+	shell.Printf("Starting shell for wallet: %v\n", name)
 
-	pathToWallet := filepath.Join(".storage", name+"-wallet")
-
-	currentClient := gossipclient.NewGossipClient(group)
-	var currentWallet *wallet.FileWallet
+	// load the session
+	session, err := walletrpc.NewSession(name, group)
+	if err != nil {
+		shell.Printf("error starting shell: %v", err)
+		return
+	}
 
 	shell.AddCmd(&ishell.Cmd{
-		Name: "unlock",
-		Help: "unlock the current wallet",
+		Name: "create-wallet",
+		Help: "create the shell wallet",
 		Func: func(c *ishell.Context) {
 			c.Print("Passphrase: ")
 			passphrase := c.ReadPassword()
 
-			currentWallet = wallet.NewFileWallet(pathToWallet)
-			currentWallet.CreateIfNotExists(passphrase)
-
-			c.Println("unlocked wallet at: ", pathToWallet)
-			c.Println("starting client")
-			if currentClient != nil {
-				currentClient.Stop()
-				currentClient = gossipclient.NewGossipClient(group)
-			}
-			currentClient.Start()
+			c.Println("Creating wallet: ", name)
+			session.CreateWallet(passphrase)
 		},
 	})
 
 	shell.AddCmd(&ishell.Cmd{
 		Name: "start",
-		Help: "starts the client",
+		Help: "start a new session",
 		Func: func(c *ishell.Context) {
-			currentClient.Stop()
-			currentClient.Start()
+			c.Print("Passphrase: ")
+			passphrase := c.ReadPassword()
+
+			c.Println("Starting session")
+			err := session.Start(passphrase)
+			if err != nil {
+				c.Println("error starting session:", err)
+				return
+			}
 		},
 	})
 
 	shell.AddCmd(&ishell.Cmd{
 		Name: "stop",
-		Help: "stops the client",
+		Help: "stops the session",
 		Func: func(c *ishell.Context) {
-			currentClient.Stop()
+			c.Println("Stopping session")
+			session.Stop()
 		},
 	})
 
@@ -65,7 +65,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "create-key",
 		Help: "creates a new key and saves it to the wallet",
 		Func: func(c *ishell.Context) {
-			key, err := currentWallet.GenerateKey()
+			key, err := session.GenerateKey()
 			if err != nil {
 				c.Println("error generating key", err)
 				return
@@ -78,9 +78,9 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "list-keys",
 		Help: "list the keys in the wallet",
 		Func: func(c *ishell.Context) {
-			keys, err := currentWallet.ListKeys()
+			keys, err := session.ListKeys()
 			if err != nil {
-				c.Println("error generating key", err)
+				c.Printf("error listing key: %v", err)
 				return
 			}
 			for i, addr := range keys {
@@ -93,18 +93,12 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "create-chain",
 		Help: "create a new chain based on a key",
 		Func: func(c *ishell.Context) {
-			key, err := currentWallet.GetKey(c.Args[0])
+			chain, err := session.CreateChain(c.Args[0])
 			if err != nil {
-				c.Println("error getting key", err)
+				c.Printf("error creating chain tree: %v", err)
 				return
 			}
 
-			chain, err := consensus.NewSignedChainTree(key.PublicKey, currentWallet.NodeStore())
-			if err != nil {
-				c.Printf("error generating chain: %v", err)
-				return
-			}
-			currentWallet.SaveChain(chain)
 			c.Printf("chain: %v", chain)
 		},
 	})
@@ -113,7 +107,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "list-chains",
 		Help: "list the current chains",
 		Func: func(c *ishell.Context) {
-			ids, _ := currentWallet.GetChainIds()
+			ids, _ := session.GetChainIds()
 			for i, id := range ids {
 				c.Println(strconv.Itoa(i) + ": " + id)
 			}
@@ -122,11 +116,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 
 	shell.AddCmd(&ishell.Cmd{
 		Name: "print-chain",
-		Help: "set the current identity to a key address",
+		Help: "print an entire chain tree",
 		Func: func(c *ishell.Context) {
-			chain, err := currentWallet.GetChain(c.Args[0])
+			chain, err := session.GetChain(c.Args[0])
 			if err != nil {
-				c.Println("error getting chain", err)
+				c.Printf("error getting chain: %v", err)
 				return
 			}
 			c.Println(chain.ChainTree.Dag.Dump())
@@ -137,16 +131,13 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "get-tip",
 		Help: "gets the tip (as known by the notary group) for a chain id",
 		Func: func(c *ishell.Context) {
-			tipResp, err := currentClient.TipRequest(c.Args[0])
+			tip, err := session.GetTip(c.Args[0])
 			if err != nil {
-				c.Printf("error getting: %v", err)
+				c.Printf("error getting tip: %v", err)
 				return
 			}
-			if tipResp != nil {
-				c.Printf("tip: %v", tipResp.Tip)
-			} else {
-				c.Printf("err: %v", err)
-			}
+
+			c.Printf("tip: %v", tip)
 		},
 	})
 
@@ -154,40 +145,17 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "set-data",
 		Help: "set-data on a chain-tree usage: set-data chain-id key-id path value",
 		Func: func(c *ishell.Context) {
-			chain, err := currentWallet.GetChain(c.Args[0])
+			sw := &safewrap.SafeWrap{}
+			dataNode := sw.WrapObject(c.Args[3])
+			data := dataNode.RawData()
+
+			tip, err := session.SetData(c.Args[0], c.Args[1], c.Args[2], data)
 			if err != nil {
-				c.Println("error getting chain", err)
+				c.Printf("error setting data: %v", err)
 				return
 			}
 
-			key, err := currentWallet.GetKey(c.Args[1])
-			if err != nil {
-				c.Println("error getting key", err)
-				return
-			}
-
-			var remoteTip string
-			if !chain.IsGenesis() {
-				remoteTip = chain.Tip().String()
-			}
-
-			resp, err := currentClient.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{
-				{
-					Type: consensus.TransactionTypeSetData,
-					Payload: consensus.SetDataPayload{
-						Path:  c.Args[2],
-						Value: c.Args[3],
-					},
-				},
-			})
-			if err != nil {
-				c.Printf("error playing transaction: %v", err)
-			} else {
-				c.Printf("new tip: %v", resp.Tip)
-			}
-
-			currentWallet.SaveChain(chain)
-
+			c.Printf("new tip: %v", tip)
 		},
 	})
 
