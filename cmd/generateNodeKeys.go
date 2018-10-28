@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/spf13/cobra"
 )
 
@@ -29,6 +30,10 @@ func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys 
 		if err != nil {
 			return nil, nil, err
 		}
+		peerID, err := p2p.PeerIDFromPublicKey(&ecdsaKey.PublicKey)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		privateKeys = append(privateKeys, &PrivateKeySet{
 			BlsHexPrivateKey:   hexutil.Encode(blsKey.Bytes()),
@@ -38,6 +43,7 @@ func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys 
 		publicKeys = append(publicKeys, &PublicKeySet{
 			BlsHexPublicKey:   hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
 			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).PublicKey),
+			PeerIDBase58Key:   peerID.Pretty(),
 		})
 	}
 
@@ -61,11 +67,12 @@ var generateNodeKeysCmd = &cobra.Command{
 			for i := 1; i <= len(privateKeys); i++ {
 				fmt.Printf("================ Key %v ================\n", i)
 				fmt.Printf(
-					"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\n",
+					"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\npeer id: '%v'",
 					privateKeys[0].BlsHexPrivateKey,
 					publicKeys[0].BlsHexPublicKey,
 					privateKeys[0].EcdsaHexPrivateKey,
 					publicKeys[0].EcdsaHexPublicKey,
+					publicKeys[0].PeerIDBase58Key,
 				)
 			}
 		case "json-file":
