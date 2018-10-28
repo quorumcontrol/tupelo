@@ -44,31 +44,16 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func CreateWallet(creds *Credentials) error {
-	path := walletPath(creds.WalletName)
+func NewSession(walletName string, group *consensus.NotaryGroup) (*RPCSession, error) {
+	path := walletPath(walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
-	defer fileWallet.Close()
-
-	return fileWallet.Create(creds.PassPhrase)
-}
-
-func NewSession(creds *Credentials, group *consensus.NotaryGroup) (*RPCSession, error) {
-	path := walletPath(creds.WalletName)
-
-	fileWallet := wallet.NewFileWallet(path)
-	err := fileWallet.Unlock(creds.PassPhrase)
-	if err != nil {
-		return nil, err
-	}
-
 	gossipClient := gossipclient.NewGossipClient(group)
-	gossipClient.Start()
 
 	return &RPCSession{
 		client:    gossipClient,
 		wallet:    fileWallet,
-		isStopped: false,
+		isStarted: false,
 	}, nil
 }
 
@@ -134,6 +119,22 @@ func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializedSign
 	}
 
 	return serializedSigs
+}
+
+func (rpcs *RPCSession) CreateWallet(passPhrase string) error {
+	defer rpcs.wallet.Close()
+	return rpcs.wallet.Create(passPhrase)
+}
+
+func (rpcs *RPCSession) Start(passPhrase string) error {
+	rpcs.client.Start()
+
+	unlockErr := rpcs.wallet.Unlock(passPhrase)
+	if unlockErr != nil {
+		return unlockErr
+	}
+
+	return nil
 }
 
 func (rpcs *RPCSession) Stop() {
