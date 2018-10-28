@@ -30,6 +30,7 @@ var bootstrapPublicKeys []*PublicKeySet
 type PublicKeySet struct {
 	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
 	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
+	PeerIDBase58Key   string `json:"peerIDBase58Key,omitempty"`
 }
 
 type PrivateKeySet struct {
