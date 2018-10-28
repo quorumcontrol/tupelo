@@ -31,6 +31,15 @@ func walletPath(name string) string {
 
 var StoppedError = errors.New("Session is stopped")
 
+type NilTipError struct {
+	chainId     string
+	notaryGroup *consensus.NotaryGroup
+}
+
+func (e *NilTipError) Error() string {
+	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
+}
+
 func RegisterWallet(creds *Credentials) error {
 	path := walletPath(creds.WalletName)
 
@@ -248,7 +257,15 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 		return nil, err
 	}
 
-	return tipResp.Tip, nil
+	tip := tipResp.Tip
+	if tip == nil {
+		return nil, &NilTipError{
+			chainId:     id,
+			notaryGroup: rpcs.client.Group,
+		}
+	}
+
+	return tip, nil
 }
 
 func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
