@@ -80,7 +80,7 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
-		newObjCh:      make(chan ProvideMessage, 5),
+		newObjCh:      make(chan ProvideMessage, 100),
 		syncTargetsCh: make(chan *consensus.RemoteNode, 50),
 		stopChan:      make(chan struct{}, 1),
 		ibfSyncer:     &sync.RWMutex{},
