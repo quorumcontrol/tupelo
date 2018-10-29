@@ -408,7 +408,6 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 		}
 	}
 
-	//TODO: see if we have 2/3+1 of signatures
 	//TODO: check if signature hash matches signature contents
 	return nil
 }
