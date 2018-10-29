@@ -29,6 +29,18 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		rsph.writer.Flush()
 		rsph.stream.Close()
 	}()
+
+	// Step 0 (terminate if too busy)
+	// If we are already processing NumberOfSyncWorkers syncs, then send a 503
+	worker, err := rsph.Send503IfTooManyInProgress()
+	if err != nil {
+		return fmt.Errorf("error sending 503: %v", err)
+	}
+	if worker == nil {
+		return nil
+	}
+	defer func() { gn.syncPool <- *worker }()
+
 	// Step 1: wait for a bloom filter
 	remoteFilter, err := rsph.WaitForBloomFilter()
 	if err != nil {
@@ -60,7 +72,26 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	return nil
 }
 
-func (rsph ReceiveSyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) error {
+func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandlerWorker, error) {
+	gn := rsph.gossipNode
+	select {
+	case worker := <-gn.syncPool:
+		return &worker, nil
+	default:
+		writer := rsph.writer
+		want := &WantMessage{
+			Code: 503,
+		}
+		err := want.EncodeMsg(rsph.writer)
+		if err != nil {
+			log.Errorf("%s error writing wants: %v", gn.ID(), err)
+			return nil, fmt.Errorf("error writing wants: %v", err)
+		}
+		return nil, writer.Flush()
+	}
+}
+
+func (rsph *ReceiveSyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) error {
 	gn := rsph.gossipNode
 	writer := rsph.writer
 

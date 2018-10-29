@@ -797,6 +797,11 @@ func (z *WantMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 					return
 				}
 			}
+		case "Code":
+			z.Code, err = dc.ReadInt32()
+			if err != nil {
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -809,9 +814,9 @@ func (z *WantMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *WantMessage) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 1
+	// map header, size 2
 	// write "Keys"
-	err = en.Append(0x81, 0xa4, 0x4b, 0x65, 0x79, 0x73)
+	err = en.Append(0x82, 0xa4, 0x4b, 0x65, 0x79, 0x73)
 	if err != nil {
 		return
 	}
@@ -825,19 +830,31 @@ func (z *WantMessage) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	}
+	// write "Code"
+	err = en.Append(0xa4, 0x43, 0x6f, 0x64, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt32(z.Code)
+	if err != nil {
+		return
+	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
 func (z *WantMessage) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 1
+	// map header, size 2
 	// string "Keys"
-	o = append(o, 0x81, 0xa4, 0x4b, 0x65, 0x79, 0x73)
+	o = append(o, 0x82, 0xa4, 0x4b, 0x65, 0x79, 0x73)
 	o = msgp.AppendArrayHeader(o, uint32(len(z.Keys)))
 	for za0001 := range z.Keys {
 		o = msgp.AppendUint64(o, z.Keys[za0001])
 	}
+	// string "Code"
+	o = append(o, 0xa4, 0x43, 0x6f, 0x64, 0x65)
+	o = msgp.AppendInt32(o, z.Code)
 	return
 }
 
@@ -874,6 +891,11 @@ func (z *WantMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 					return
 				}
 			}
+		case "Code":
+			z.Code, bts, err = msgp.ReadInt32Bytes(bts)
+			if err != nil {
+				return
+			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -887,6 +909,6 @@ func (z *WantMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *WantMessage) Msgsize() (s int) {
-	s = 1 + 5 + msgp.ArrayHeaderSize + (len(z.Keys) * (msgp.Uint64Size))
+	s = 1 + 5 + msgp.ArrayHeaderSize + (len(z.Keys) * (msgp.Uint64Size)) + 5 + msgp.Int32Size
 	return
 }
