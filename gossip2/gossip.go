@@ -36,6 +36,7 @@ func init() {
 }
 
 const syncProtocol = "tupelo-gossip/v1"
+const isDoneProtocol = "tupelo-done/v1"
 
 const minSyncNodesPerTransaction = 3
 
@@ -97,6 +98,7 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		// node.IBFs[size].TurnOnDebug()
 	}
 	host.SetStreamHandler(syncProtocol, node.HandleSync)
+	host.SetStreamHandler(isDoneProtocol, node.HandleDoneProtocol)
 	return node
 }
 
@@ -583,6 +585,13 @@ func (gn *GossipNode) HandleSync(stream net.Stream) {
 	err := DoReceiveSyncProtocol(gn, stream)
 	if err != nil {
 		log.Errorf("error handling sync: %v", err)
+	}
+}
+
+func (gn *GossipNode) HandleDoneProtocol(stream net.Stream) {
+	err := DoDoneProtocol(gn, stream)
+	if err != nil {
+		log.Errorf("error handling done protocol: %v", err)
 	}
 }
 

@@ -239,7 +239,16 @@ func TestGossip(t *testing.T) {
 		// require.Nil(t, err)
 		// assert.Equal(t, val, encodedTransaction2)
 	}
-	assert.True(t, matchedOne)
+
+	csq := ConflictSetQuery{Key: transaction1.ToConflictSet().ID()}
+	csqBytes, err := csq.MarshalMsg(nil)
+	require.Nil(t, err)
+
+	csqrBytes, err := gossipNodes[0].Host.SendAndReceive(&gossipNodes[1].Key.PublicKey, isDoneProtocol, csqBytes)
+	csqr := ConflictSetQueryResponse{}
+	_, err = csqr.UnmarshalMsg(csqrBytes)
+	require.Nil(t, err)
+	assert.True(t, csqr.Done)
 }
 
 // func TestThing(t *testing.T) {
