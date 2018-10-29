@@ -2,7 +2,6 @@ package gossip2
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -19,7 +18,6 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
-	"github.com/tinylib/msgp/msgp"
 )
 
 var log = logging.Logger("gossip")
@@ -568,217 +566,14 @@ func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
 }
 
 func (gn *GossipNode) DoSync() error {
-	log.Debugf("%s: sync started", gn.ID())
-
-	peer, err := gn.getSyncTarget()
-	if err != nil {
-		return fmt.Errorf("error getting peer: %v", err)
-	}
-	peerPublicKey := bytesToString(peer.DstKey.PublicKey)[0:8]
-
-	log.Debugf("%s: targeting peer %v", gn.ID(), peerPublicKey)
-
-	ctx := context.Background()
-	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
-	if err != nil {
-		if err == p2p.ErrDialBackoff {
-			log.Debugf("%s: dial backoff for peer %s", gn.ID(), peerPublicKey)
-			return nil
-		}
-		return fmt.Errorf("%s: error opening new stream - %v", gn.ID(), err)
-	}
-
-	peerID := stream.Conn().RemotePeer().String()
-	log.Debugf("%s peerKey %s established as %s", gn.ID(), peerPublicKey, peerID)
-
-	writer := msgp.NewWriter(stream)
-	reader := msgp.NewReader(stream)
-	defer func() {
-		writer.Flush()
-		stream.Close()
-	}()
-	gn.ibfSyncer.RLock()
-	err = gn.IBFs[20000].EncodeMsg(writer)
-	gn.ibfSyncer.RUnlock()
-	if err != nil {
-		return fmt.Errorf("error writing IBF: %v", err)
-	}
-	log.Debugf("%s flushing", gn.ID())
-	writer.Flush()
-	var wants WantMessage
-	err = wants.DecodeMsg(reader)
-	if err != nil {
-		log.Errorf("%s error reading wants %v", gn.ID(), err)
-		// log.Errorf("%s ibf TO %s : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
-		// log.Errorf("%s ibf TO %s cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
-
-		return nil
-	}
-	log.Debugf("%s: got a want request for %v keys", gn.ID(), len(wants.Keys))
-	for _, key := range wants.Keys {
-		key := uint64ToBytes(key)
-		objs, err := gn.Storage.GetPairsByPrefix(key)
-		if err != nil {
-			return fmt.Errorf("error getting objects: %v", err)
-		}
-		for _, kv := range objs {
-			provide := ProvideMessage{
-				Key:   kv.Key,
-				Value: kv.Value,
-			}
-			log.Debugf("%s providing to %s (uint64: %d): %s %v", gn.ID(), peerID, key, bytesToString(provide.Key), provide.Key)
-			provide.EncodeMsg(writer)
-		}
-	}
-	log.Debugf("%s: sending Last message", gn.ID())
-	last := ProvideMessage{Last: true}
-	last.EncodeMsg(writer)
-	writer.Flush()
-
-	// now get the objects we need
-	var isLastMessage bool
-	for !isLastMessage {
-		var provideMsg ProvideMessage
-		err = provideMsg.DecodeMsg(reader)
-		if err != nil {
-			log.Errorf("%s error decoding message: %v", gn.ID(), err)
-			return nil
-		}
-		if len(provideMsg.Key) == 0 && !provideMsg.Last {
-			log.Errorf("%s error, got nil key, value: %v", gn.ID(), provideMsg.Key)
-			return nil
-		}
-		log.Debugf("%s new msg from %s %s %v", gn.ID(), peerID, bytesToString(provideMsg.Key), provideMsg.Key)
-		if !provideMsg.Last && len(provideMsg.Key) == 0 {
-			log.Errorf("%s provide message has no key: %v", gn.ID(), provideMsg.Key)
-		}
-
-		zeroCount := 0
-		for i := len(provideMsg.Key) - 1; i >= 0; i-- {
-			b := provideMsg.Key[i]
-			if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-				break
-			}
-			zeroCount++
-		}
-		if zeroCount > 5 {
-			log.Errorf("%s all zero key %v provideMessage.Last? %t", gn.ID(), provideMsg.Key, provideMsg.Last)
-			panic("we're done in the DoSync")
-		}
-
-		gn.newObjCh <- provideMsg
-		isLastMessage = provideMsg.Last
-	}
-	log.Debugf("%s: sync complete", gn.ID())
-
-	return nil
+	return DoSyncProtocol(gn)
 }
 
 func (gn *GossipNode) HandleSync(stream net.Stream) {
-	peerID := stream.Conn().RemotePeer().String()
-	log.Debugf("%s received sync request from %s", gn.ID(), peerID)
-
-	writer := msgp.NewWriter(stream)
-	reader := msgp.NewReader(stream)
-	defer func() {
-		writer.Flush()
-		stream.Close()
-	}()
-
-	var remoteIBF ibf.InvertibleBloomFilter
-	err := remoteIBF.DecodeMsg(reader)
+	err := DoReceiveSyncProtocol(gn, stream)
 	if err != nil {
-		log.Errorf("%s error decoding message", gn.ID(), err)
-		return
+		log.Errorf("error handling sync: %v", err)
 	}
-	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
-	gn.ibfSyncer.RLock()
-	subtracted := gn.IBFs[20000].Subtract(&remoteIBF)
-	gn.ibfSyncer.RUnlock()
-	difference, err := subtracted.Decode()
-	if err != nil {
-		log.Errorf("%s error getting diff): %f\n", gn.ID(), err)
-		// log.Errorf("%s (talking to %s) local ibf is : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
-		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
-		return
-	}
-	log.Debugf("%s decoded", gn.ID())
-
-	want := WantMessageFromDiff(difference.RightSet)
-	err = want.EncodeMsg(writer)
-	if err != nil {
-		log.Errorf("%s error writing wants: %v", gn.ID(), err)
-		return
-	}
-	writer.Flush()
-	var isLastMessage bool
-	for !isLastMessage {
-		var provideMsg ProvideMessage
-		err = provideMsg.DecodeMsg(reader)
-		if err != nil {
-			log.Errorf("%s error decoding message: %v", gn.ID(), err)
-			return
-		}
-		log.Debugf("%s HandleSync provide message from %s - last? %v", gn.ID(), peerID, provideMsg.Last)
-		if len(provideMsg.Key) == 0 && !provideMsg.Last {
-			log.Errorf("%s HandleSync error, got nil key from %s, value: %v", gn.ID(), peerID, provideMsg.Key)
-			return
-		}
-		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), peerID, bytesToString(provideMsg.Key), provideMsg.Key)
-
-		zeroCount := 0
-		for i := len(provideMsg.Key) - 1; i >= 0; i-- {
-			b := provideMsg.Key[i]
-			if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-				break
-			}
-			zeroCount++
-		}
-		if zeroCount > 5 {
-			log.Errorf("%s all zero key %v provideMessage.Last? %t", gn.ID(), provideMsg.Key, provideMsg.Last)
-			panic("we're done in HandleSync")
-		}
-
-		gn.newObjCh <- provideMsg
-		isLastMessage = provideMsg.Last
-	}
-
-	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), peerID)
-
-	wantedKeys := difference.LeftSet
-
-	if useDoneRemovalFilter {
-		wantedKeys = make([]ibf.ObjectId, 0)
-		for _, oid := range difference.LeftSet {
-			key := uint64ToBytes(uint64(oid))
-			done, _ := gn.isDone(key)
-			if !done {
-				wantedKeys = append(wantedKeys, oid)
-			}
-		}
-	}
-
-	toProvideAsWantMessage := WantMessageFromDiff(wantedKeys)
-	for _, key := range toProvideAsWantMessage.Keys {
-		key := uint64ToBytes(key)
-		objs, err := gn.Storage.GetPairsByPrefix(key)
-		if err != nil {
-			log.Errorf("error getting objects: %v", err)
-			return
-		}
-		for _, kv := range objs {
-			provide := ProvideMessage{
-				Key:   kv.Key,
-				Value: kv.Value,
-			}
-			log.Debugf("%s HandleSync providing to %s (uint64: %d): %s %v", gn.ID(), peerID, key, bytesToString(provide.Key), provide.Key)
-			provide.EncodeMsg(writer)
-			writer.Flush()
-		}
-	}
-	last := ProvideMessage{Last: true}
-	last.EncodeMsg(writer)
-	writer.Flush()
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
