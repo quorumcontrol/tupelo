@@ -53,7 +53,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 		return fmt.Errorf("error sending bloom filter: %v", err)
 	}
 
-	// Step 3: wait for wants message
+	// Step 3: wait for wants message (terminates here if receives 503)
 	wants, err := sph.WaitForWantsMessage()
 	if err != nil {
 		return fmt.Errorf("error waiting on wants message: %v", err)
@@ -169,6 +169,10 @@ func (sph *SyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
 		return nil, fmt.Errorf("error decoding wants: %v", err)
 	}
 	log.Debugf("%s: got a want request for %v keys", gn.ID(), len(wants.Keys))
+	if wants.Code == 503 {
+		log.Infof("%s remote peer %s too busy", gn.ID(), sph.peerID)
+		return nil, fmt.Errorf("peer too busy")
+	}
 	return &wants, nil
 }
 
