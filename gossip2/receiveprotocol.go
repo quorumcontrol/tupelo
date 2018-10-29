@@ -2,6 +2,7 @@ package gossip2
 
 import (
 	"fmt"
+	"sync"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
@@ -59,16 +60,28 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		return fmt.Errorf("error sending want message: %v", err)
 	}
 
-	// Step 4: handle incoming objects
-	err = rsph.WaitForProvides()
-	if err != nil {
-		return fmt.Errorf("error waiting for provides: %v", err)
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	results := make(chan error, 2)
+
+	go func() {
+		// Step 4: handle incoming objects
+		results <- rsph.WaitForProvides()
+		wg.Done()
+	}()
+
+	go func() {
+		results <- rsph.SendPeerObjects(diff)
+		wg.Done()
+	}()
+	wg.Wait()
+	close(results)
+	for res := range results {
+		if res != nil {
+			return fmt.Errorf("error sending or waiting: %v", err)
+		}
 	}
 
-	err = rsph.SendPeerObjects(diff)
-	if err != nil {
-		return fmt.Errorf("error sending peer objects: %v", err)
-	}
 	return nil
 }
 
