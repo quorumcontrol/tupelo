@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
+	"io/ioutil"
 	gonet "net"
 	"time"
 
@@ -118,7 +119,6 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	stream, err := h.NewStream(ctx, publicKey, protocol)
-	fmt.Printf("writing\n")
 
 	n, err := stream.Write(payload)
 	if err != nil {
@@ -129,6 +129,21 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 	stream.Close()
 
 	return nil
+}
+
+func (h *Host) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	stream, err := h.NewStream(ctx, publicKey, protocol)
+	defer stream.Close()
+
+	n, err := stream.Write(payload)
+	if err != nil {
+		return nil, fmt.Errorf("Error writing message: %v", err)
+	}
+	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
+
+	return ioutil.ReadAll(stream)
 }
 
 func (h *Host) Addresses() []ma.Multiaddr {
