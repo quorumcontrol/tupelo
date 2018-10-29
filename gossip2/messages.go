@@ -31,6 +31,7 @@ type Signature struct {
 
 type WantMessage struct {
 	Keys []uint64
+	Code int32
 }
 
 type CurrentState struct {

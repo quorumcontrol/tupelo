@@ -53,6 +53,8 @@ const (
 	MessageTypeDone
 )
 
+type SyncHandlerWorker struct{}
+
 type GossipNode struct {
 	Key           *ecdsa.PrivateKey
 	SignKey       *bls.SignKey
@@ -65,7 +67,10 @@ type GossipNode struct {
 	stopChan      chan struct{}
 	syncTargetsCh chan *consensus.RemoteNode
 	ibfSyncer     *sync.RWMutex
+	syncPool      chan SyncHandlerWorker
 }
+
+const NumberOfSyncWorkers = 3
 
 func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
 	node := &GossipNode{
@@ -79,7 +84,12 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		syncTargetsCh: make(chan *consensus.RemoteNode, 50),
 		stopChan:      make(chan struct{}, 1),
 		ibfSyncer:     &sync.RWMutex{},
+		syncPool:      make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 	}
+	for i := 0; i < NumberOfSyncWorkers; i++ {
+		node.syncPool <- SyncHandlerWorker{}
+	}
+
 	go node.handleNewObjCh()
 
 	for _, size := range standardIBFSizes {
