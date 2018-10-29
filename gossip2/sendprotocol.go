@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sync"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/qc3/p2p"
@@ -59,16 +60,27 @@ func DoSyncProtocol(gn *GossipNode) error {
 		return fmt.Errorf("error waiting on wants message: %v", err)
 	}
 
-	// Step 4: send wanted objects
-	err = sph.SendWantedObjects(wants)
-	if err != nil {
-		return fmt.Errorf("error sending objects: %v", err)
-	}
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	results := make(chan error, 2)
 
-	// step 5: wait for objects we wnant
-	err = sph.GetWantedObjects()
-	if err != nil {
-		return fmt.Errorf("error getting objects: %v", err)
+	go func() {
+		// Step 4: send wanted objects
+		results <- sph.SendWantedObjects(wants)
+		wg.Done()
+	}()
+
+	go func() {
+		// step 5: wait for objects we wnant
+		results <- sph.GetWantedObjects()
+		wg.Done()
+	}()
+	wg.Wait()
+	close(results)
+	for res := range results {
+		if res != nil {
+			return fmt.Errorf("error sending or receiving: %v", err)
+		}
 	}
 
 	log.Debugf("%s: sync complete to %s", gn.ID(), sph.peerID)
