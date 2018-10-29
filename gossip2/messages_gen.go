@@ -123,6 +123,216 @@ func (z *ConflictSet) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
+func (z *ConflictSetQuery) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Key":
+			z.Key, err = dc.ReadBytes(z.Key)
+			if err != nil {
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *ConflictSetQuery) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 1
+	// write "Key"
+	err = en.Append(0x81, 0xa3, 0x4b, 0x65, 0x79)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.Key)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z *ConflictSetQuery) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 1
+	// string "Key"
+	o = append(o, 0x81, 0xa3, 0x4b, 0x65, 0x79)
+	o = msgp.AppendBytes(o, z.Key)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ConflictSetQuery) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Key":
+			z.Key, bts, err = msgp.ReadBytesBytes(bts, z.Key)
+			if err != nil {
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *ConflictSetQuery) Msgsize() (s int) {
+	s = 1 + 4 + msgp.BytesPrefixSize + len(z.Key)
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *ConflictSetQueryResponse) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Key":
+			z.Key, err = dc.ReadBytes(z.Key)
+			if err != nil {
+				return
+			}
+		case "Done":
+			z.Done, err = dc.ReadBool()
+			if err != nil {
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *ConflictSetQueryResponse) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "Key"
+	err = en.Append(0x82, 0xa3, 0x4b, 0x65, 0x79)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.Key)
+	if err != nil {
+		return
+	}
+	// write "Done"
+	err = en.Append(0xa4, 0x44, 0x6f, 0x6e, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteBool(z.Done)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z *ConflictSetQueryResponse) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "Key"
+	o = append(o, 0x82, 0xa3, 0x4b, 0x65, 0x79)
+	o = msgp.AppendBytes(o, z.Key)
+	// string "Done"
+	o = append(o, 0xa4, 0x44, 0x6f, 0x6e, 0x65)
+	o = msgp.AppendBool(o, z.Done)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ConflictSetQueryResponse) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Key":
+			z.Key, bts, err = msgp.ReadBytesBytes(bts, z.Key)
+			if err != nil {
+				return
+			}
+		case "Done":
+			z.Done, bts, err = msgp.ReadBoolBytes(bts)
+			if err != nil {
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *ConflictSetQueryResponse) Msgsize() (s int) {
+	s = 1 + 4 + msgp.BytesPrefixSize + len(z.Key) + 5 + msgp.BoolSize
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *CurrentState) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field

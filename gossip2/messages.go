@@ -53,3 +53,12 @@ type ProvideMessage struct {
 	Value []byte
 	Last  bool
 }
+
+type ConflictSetQuery struct {
+	Key []byte
+}
+
+type ConflictSetQueryResponse struct {
+	Key  []byte
+	Done bool
+}
