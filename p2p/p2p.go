@@ -131,6 +131,9 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	stream, err := h.NewStream(ctx, publicKey, protocol)
+	if err != nil {
+		return fmt.Errorf("Error opening new stream: %v", err)
+	}
 
 	n, err := stream.Write(payload)
 	if err != nil {
