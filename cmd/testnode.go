@@ -135,8 +135,6 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 }
 
 func setupGossipNode(ecdsaKeyHex string, blsKeyHex string) *signer.GossipedSigner {
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")

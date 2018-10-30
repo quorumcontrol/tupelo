@@ -18,11 +18,31 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ethereum/go-ethereum/log"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+var logLevels = map[string]log.Lvl{
+	"critical": log.LvlCrit,
+	"error":    log.LvlError,
+	"warn":     log.LvlWarn,
+	"info":     log.LvlInfo,
+	"debug":    log.LvlDebug,
+	"trace":    log.LvlTrace,
+}
+
+func getLogLevel(lvlName string) (log.Lvl, error) {
+	lvl, ok := logLevels[lvlName]
+	if !ok {
+		return -1, fmt.Errorf("Invalid log level %v. Must be either `critical`, `error`, `warn`, `info`, `debug`, or `trace`.", lvlName)
+	}
+
+	return lvl, nil
+}
+
+var logLvlName string
 var cfgFile string
 var bootstrapPublicKeysFile string
 var bootstrapPublicKeys []*PublicKeySet
@@ -55,6 +75,13 @@ to quickly create a Cobra application.`,
 				panic("Error loading public keys file")
 			}
 		}
+
+		logLevel, err := getLogLevel(logLvlName)
+		if err != nil {
+			panic(err.Error())
+		}
+		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+
 	},
 
 	// Uncomment the following line if your bare application
@@ -82,6 +109,8 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "info", "Log level")
 }
 
 // initConfig reads in config file and ENV variables if set.
