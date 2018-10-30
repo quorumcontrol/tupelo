@@ -58,18 +58,20 @@ const (
 type SyncHandlerWorker struct{}
 
 type GossipNode struct {
-	Key           *ecdsa.PrivateKey
-	SignKey       *bls.SignKey
-	Host          *p2p.Host
-	Storage       *BadgerStorage
-	Strata        *ibf.DifferenceStrata
-	Group         *consensus.NotaryGroup
-	IBFs          IBFMap
-	newObjCh      chan ProvideMessage
-	stopChan      chan struct{}
-	syncTargetsCh chan *consensus.RemoteNode
-	ibfSyncer     *sync.RWMutex
-	syncPool      chan SyncHandlerWorker
+	Key              *ecdsa.PrivateKey
+	SignKey          *bls.SignKey
+	Host             *p2p.Host
+	Storage          *BadgerStorage
+	Strata           *ibf.DifferenceStrata
+	Group            *consensus.NotaryGroup
+	IBFs             IBFMap
+	newObjCh         chan ProvideMessage
+	stopChan         chan struct{}
+	syncTargetsCh    chan *consensus.RemoteNode
+	ibfSyncer        *sync.RWMutex
+	syncPool         chan SyncHandlerWorker
+	debugReceiveSync uint64
+	debugSendSync    uint64
 }
 
 const NumberOfSyncWorkers = 3
