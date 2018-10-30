@@ -118,7 +118,7 @@ var testnodeCmd = &cobra.Command{
 	Short: "Run a testnet node with hardcoded (insecure) keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		logging.SetLogLevel("gossip", "DEBUG")
+		logging.SetLogLevel("gossip", "ERROR")
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
 		signer := setupGossipNode2(ecdsaKeyHex, blsKeyHex)
@@ -190,8 +190,7 @@ func setupGossipNode2(ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode 
 	badgerStorage := gossip2.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
 	group := setupNotaryGroup2()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
 	host, err := p2p.NewHost(ctx, ecdsaKey, p2p.GetRandomUnusedPort())
 	host.Bootstrap(network.BootstrapNodes())
 
@@ -199,13 +198,14 @@ func setupGossipNode2(ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode 
 		panic(fmt.Sprintf("Error starting %v", err))
 	}
 
+	time.Sleep(3 * time.Second)
+
 	node := gossip2.NewGossipNode(ecdsaKey, host, badgerStorage)
 	node.Group = group
 	node.SignKey = blsKey
 
-	time.Sleep(5 * time.Second)
+	node.Start()
 
-	go node.Start()
 	return node
 }
 
