@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/spf13/cobra"
 )
@@ -28,6 +30,20 @@ var bootstrapNodeCmd = &cobra.Command{
 		host, err := p2p.NewRelayHost(ctx, ecdsaKey, bootstrapNodePort)
 		if err != nil {
 			panic(fmt.Errorf("Could not start bootstrap node, %v", err))
+		}
+
+		bootstrapWithoutSelf := []string{}
+		for _, nodeAddr := range network.BootstrapNodes() {
+			anAddr := host.Addresses()[0].String()
+			keySlice := strings.Split(anAddr, "/")
+			key := keySlice[len(keySlice)-1]
+
+			if !strings.Contains(nodeAddr, key) {
+				bootstrapWithoutSelf = append(bootstrapWithoutSelf, nodeAddr)
+			}
+		}
+		if len(bootstrapWithoutSelf) > 0 {
+			host.Bootstrap(bootstrapWithoutSelf)
 		}
 
 		fmt.Println("Bootstrap node running at:")
