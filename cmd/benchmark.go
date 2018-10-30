@@ -27,11 +27,13 @@ var results ResultSet
 var benchmarkConcurrency int
 var benchmarkIterations int
 var benchmarkTimeout int
+var benchmarkStrategy string
+var benchmarkSignersFanoutNumber int
 
 var conflictSets sync.Map
 var activeCounter = 0
 
-func sendBenchmark(host *p2p.Host) {
+func sendTransaction(host *p2p.Host) {
 	startTime := time.Now()
 	trans := gossip2.Transaction{
 		ObjectID:    randBytes(32),
@@ -40,22 +42,32 @@ func sendBenchmark(host *p2p.Host) {
 		Payload:     randBytes(rand.Intn(400) + 100),
 	}
 
-	targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys)-1)].EcdsaHexPublicKey
-	targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
-	if err != nil {
-		panic("can't decode public key")
-	}
-	targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+	used := map[string]bool{}
 
-	transBytes, err := trans.MarshalMsg(nil)
-	if err != nil {
-		panic("can't encode transaction")
+	for len(used) < benchmarkSignersFanoutNumber {
+		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys)-1)].EcdsaHexPublicKey
+		if used[targetPublicKeyHex] {
+			continue
+		}
+		used[targetPublicKeyHex] = true
+
+		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
+		if err != nil {
+			panic("can't decode public key")
+		}
+		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+
+		transBytes, err := trans.MarshalMsg(nil)
+		if err != nil {
+			panic("can't encode transaction")
+		}
+
+		err = host.Send(targetPublicKey, gossip2.NewTransactionProtocol, transBytes)
+		if err != nil {
+			panic(fmt.Sprintf("Couldn't add transaction, %v", err))
+		}
 	}
 
-	err = host.Send(targetPublicKey, gossip2.NewTransactionProtocol, transBytes)
-	if err != nil {
-		panic(fmt.Sprintf("Couldn't add transaction, %v", err))
-	}
 	conflictSets.Store(string(trans.ToConflictSet().ID()), startTime)
 	activeCounter++
 }
@@ -103,14 +115,47 @@ func pollForResults(host *p2p.Host) {
 	}
 }
 
+func performTpsBenchmark(host *p2p.Host, done chan bool) {
+	for benchmarkIterations > 0 {
+		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
+			go sendTransaction(host)
+		}
+		benchmarkIterations--
+		time.Sleep(1 * time.Second)
+
+		// startTime := time.Now()
+		// for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
+		// 	sendTransaction(host)
+		// }
+		// diff := (1 * time.Second) - time.Since(startTime)
+
+		// if diff < 0 {
+		// 	fmt.Printf("ERROR, sending batch of transactions took longer than one second: %d", diff)
+		// 	done <- true
+		// 	break
+		// }
+
+		// time.Sleep(diff)
+		// benchmarkIterations--
+	}
+}
+
+func performLoadBenchmark(host *p2p.Host) {
+	for benchmarkIterations > 0 {
+		if activeCounter < benchmarkConcurrency {
+			sendTransaction(host)
+			benchmarkIterations--
+		}
+		time.Sleep(30 * time.Millisecond)
+	}
+}
+
 // benchmark represents the shell command
 var benchmark = &cobra.Command{
 	Use:    "benchmark",
 	Short:  "runs a set of operations against a network at specified concurrency",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		time.Sleep(15 * time.Second)
-
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		key, err := crypto.GenerateKey()
@@ -120,26 +165,32 @@ var benchmark = &cobra.Command{
 		host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
 		host.Bootstrap(network.BootstrapNodes())
 
+		time.Sleep(5 * time.Second)
+
 		results = ResultSet{}
-
-		go pollForResults(host)
-
-		for benchmarkIterations > 0 {
-			if activeCounter < benchmarkConcurrency {
-				sendBenchmark(host)
-				benchmarkIterations--
-			}
-			time.Sleep(30 * time.Millisecond)
-		}
 
 		doneCh := make(chan bool, 1)
 		defer close(doneCh)
+
+		go pollForResults(host)
+
+		switch benchmarkStrategy {
+		case "tps":
+			go performTpsBenchmark(host, doneCh)
+		case "load":
+			go performLoadBenchmark(host)
+		default:
+			panic(fmt.Sprintf("Unknown benchmark strategy: %v", benchmarkStrategy))
+		}
+
+		// Wait to call done until all transactions have finished
 		go func() {
-			for activeCounter > 0 {
+			for benchmarkIterations > 0 || activeCounter > 0 {
 				time.Sleep(1 * time.Second)
 			}
 			doneCh <- true
 		}()
+
 		if benchmarkTimeout > 0 {
 			select {
 			case <-doneCh:
@@ -172,6 +223,8 @@ func init() {
 	benchmark.Flags().IntVarP(&benchmarkConcurrency, "concurrency", "c", 1, "how many transactions to execute at once")
 	benchmark.Flags().IntVarP(&benchmarkIterations, "iterations", "i", 10, "how many transactions to execute total")
 	benchmark.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 0, "seconds to wait before timing out")
+	benchmark.Flags().IntVarP(&benchmarkSignersFanoutNumber, "fanout", "f", 1, "how many signers to fanout to on sending a transaction")
+	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
 }
 
 func randBytes(length int) []byte {
