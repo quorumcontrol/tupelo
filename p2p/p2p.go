@@ -53,7 +53,15 @@ func PeerFromEcdsaKey(publicKey *ecdsa.PublicKey) (peer.ID, error) {
 	return peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
 }
 
+func NewRelayHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host, error) {
+	return newHost(ctx, privateKey, port, true)
+}
+
 func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host, error) {
+	return newHost(ctx, privateKey, port, false)
+}
+
+func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRelay bool) (*Host, error) {
 	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
 		return nil, err
@@ -68,8 +76,12 @@ func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host
 		libp2p.DefaultMuxers,
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
-		libp2p.EnableRelay(circuit.OptActive, circuit.OptHop),
 	}
+
+	if useRelay {
+		opts = append(opts, libp2p.EnableRelay(circuit.OptActive, circuit.OptHop))
+	}
+
 	basicHost, err := libp2p.New(ctx, opts...)
 	if err != nil {
 		return nil, err
