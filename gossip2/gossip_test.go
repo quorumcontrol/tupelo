@@ -8,6 +8,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -268,11 +269,17 @@ func TestGossip(t *testing.T) {
 
 	var totalIn int64
 	var totalOut int64
+	var totalSendSync int64
 	for _, gn := range gossipNodes {
 		totalIn += gn.Host.Reporter.GetBandwidthTotals().TotalIn
 		totalOut += gn.Host.Reporter.GetBandwidthTotals().TotalOut
+		totalSendSync += int64(atomic.LoadUint64(&gn.debugSendSync))
 	}
-	t.Logf("Bandwidth In: %d, Bandwidth Out: %d, Average In %d, Average Out %d", totalIn, totalOut, totalIn/int64(len(gossipNodes)), totalOut/int64(len(gossipNodes)))
+	t.Logf(
+		`Bandwidth In: %d, Bandwidth Out: %d,
+Average In %d, Average Out %d
+Total Syncs: %d, Average Sync: %d`,
+		totalIn, totalOut, totalIn/int64(len(gossipNodes)), totalOut/int64(len(gossipNodes)), totalSendSync, totalSendSync/int64(len(gossipNodes)))
 
 }
 
