@@ -173,7 +173,7 @@ func TestGossip(t *testing.T) {
 	}
 
 	// This bit of commented out code will run the CPU profiler
-	f, ferr := os.Create("gossip.prof")
+	f, ferr := os.Create("../gossip.prof")
 	if ferr != nil {
 		t.Fatal(ferr)
 	}
@@ -320,9 +320,12 @@ func TestGetSyncTarget(t *testing.T) {
 		node := NewGossipNode(randKey, host, storage)
 		node.Group = group
 		node.queueSyncTargetsByRoutingKey(randBytes(42))
-		close(node.syncTargetsCh)
+		num := node.syncTargets.Len()
+		targets, err := node.syncTargets.Get(num)
+		require.Nil(t, err)
 
-		for rn := range node.syncTargetsCh {
+		for _, rnInterface := range targets {
+			rn := rnInterface.(*consensus.RemoteNode)
 			collect[rn.Id] = true
 		}
 	}
@@ -340,9 +343,12 @@ func TestGetSyncTarget(t *testing.T) {
 		node := NewGossipNode(key, host, storage)
 		node.Group = group
 		node.queueSyncTargetsByRoutingKey(newTip)
-		close(node.syncTargetsCh)
+		num := node.syncTargets.Len()
+		targets, err := node.syncTargets.Get(num)
+		require.Nil(t, err)
 
-		for rn := range node.syncTargetsCh {
+		for _, rnInterface := range targets {
+			rn := rnInterface.(*consensus.RemoteNode)
 			if i == 0 {
 				expectedIds = append(expectedIds, rn.Id)
 			} else {
