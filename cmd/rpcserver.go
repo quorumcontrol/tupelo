@@ -50,24 +50,28 @@ func panicWithoutTLSOpts() {
 	}
 }
 
+func setupLocalNetwork() {
+	var err error
+	var publicKeys []*PublicKeySet
+	var privateKeys []*PrivateKeySet
+
+	privateKeys, publicKeys, err = generateKeySet(localNetworkNodeCount)
+	if err != nil {
+		panic("Can't generate node keys")
+	}
+	bootstrapPublicKeys = publicKeys
+	signers := make([]*signer.GossipedSigner, len(privateKeys))
+	for i, keys := range privateKeys {
+		signers[i] = setupGossipNode(keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey)
+	}
+}
+
 var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
 		if localNetworkNodeCount > 0 {
-			var err error
-			var publicKeys []*PublicKeySet
-			var privateKeys []*PrivateKeySet
-
-			privateKeys, publicKeys, err = generateKeySet(localNetworkNodeCount)
-			if err != nil {
-				panic("Can't generate node keys")
-			}
-			bootstrapPublicKeys = publicKeys
-			signers := make([]*signer.GossipedSigner, len(privateKeys))
-			for i, keys := range privateKeys {
-				signers[i] = setupGossipNode(keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey)
-			}
+			setupLocalNetwork()
 		}
 
 		notaryGroup := setupNotaryGroup(storage.NewMemStorage())

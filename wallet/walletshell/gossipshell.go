@@ -5,7 +5,7 @@ import (
 
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/wallet/walletrpc"
 )
@@ -145,9 +145,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "set-data",
 		Help: "set-data on a chain-tree usage: set-data chain-id key-id path value",
 		Func: func(c *ishell.Context) {
-			sw := &safewrap.SafeWrap{}
-			dataNode := sw.WrapObject(c.Args[3])
-			data := dataNode.RawData()
+			data, err := cbornode.DumpObject(c.Args[3])
+			if err != nil {
+				c.Printf("error encoding input: %v", err)
+				return
+			}
 
 			tip, err := session.SetData(c.Args[0], c.Args[1], c.Args[2], data)
 			if err != nil {
