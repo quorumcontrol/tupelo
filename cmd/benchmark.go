@@ -1,22 +1,20 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossipclient"
-	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/qc3/gossip2"
+	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/spf13/cobra"
 )
-
-var wg sync.WaitGroup
 
 type ResultSet struct {
 	Successes       int
@@ -28,59 +26,80 @@ type ResultSet struct {
 var results ResultSet
 var benchmarkConcurrency int
 var benchmarkIterations int
+var benchmarkTimeout int
 
-func runBenchmark(iterations int, client *gossipclient.GossipClient) {
-	defer wg.Done()
+var conflictSets sync.Map
+var activeCounter = 0
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+func sendBenchmark(host *p2p.Host) {
+	startTime := time.Now()
+	trans := gossip2.Transaction{
+		ObjectID:    randBytes(32),
+		PreviousTip: []byte(""),
+		NewTip:      randBytes(49),
+		Payload:     randBytes(rand.Intn(400) + 100),
+	}
 
-	for i := 1; i <= iterations; i++ {
-		key, err := crypto.GenerateKey()
+	targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys)-1)].EcdsaHexPublicKey
+	targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
+	if err != nil {
+		panic("can't decode public key")
+	}
+	targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+
+	transBytes, err := trans.MarshalMsg(nil)
+	if err != nil {
+		panic("can't encode transaction")
+	}
+
+	err = host.Send(targetPublicKey, gossip2.NewTransactionProtocol, transBytes)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't add transaction, %v", err))
+	}
+	conflictSets.Store(string(trans.ToConflictSet().ID()), startTime)
+	activeCounter++
+}
+
+func pollForResults(host *p2p.Host) {
+	for _ = range time.Tick(300 * time.Millisecond) {
+		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys)-1)].EcdsaHexPublicKey
+		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
 		if err != nil {
-			panic("could not generate key")
+			panic("can't decode public key")
 		}
+		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
 
-		chain, err := consensus.NewSignedChainTree(key.PublicKey, nodeStore)
-		if err != nil {
-			panic(fmt.Sprintf("error generating chain: %v", err))
-		}
+		conflictSets.Range(func(key, val interface{}) bool {
+			csid := key.(string)
+			startTime := val.(time.Time)
 
-		var remoteTip string
-		if !chain.IsGenesis() {
-			remoteTip = chain.Tip().String()
-		}
+			csq := gossip2.ConflictSetQuery{Key: []byte(csid)}
+			csqBytes, err := csq.MarshalMsg(nil)
+			if err != nil {
+				panic("Can't marshal csq")
+			}
+			responseBytes, err := host.SendAndReceive(targetPublicKey, gossip2.IsDoneProtocol, csqBytes)
+			if err != nil {
+				fmt.Printf("Error on send/receive of conflict set query: %v\n", err)
+				return true
+			}
 
-		chainID, _ := chain.Id()
-		log.Debug("going to send new transaction", "chain", chainID)
+			conflictSetResponse := gossip2.ConflictSetQueryResponse{}
+			_, err = conflictSetResponse.UnmarshalMsg(responseBytes)
+			if err != nil {
+				panic("Can't unmarshal csqr")
+			}
 
-		startTime := time.Now()
-
-		channel := make(chan string, 1)
-		go func() {
-			resp, _ := client.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{
-				{
-					Type: consensus.TransactionTypeSetData,
-					Payload: consensus.SetDataPayload{
-						Path:  "this/is/a/test/path",
-						Value: "somevalue",
-					},
-				},
-			})
-			channel <- resp.Tip.String()
-		}()
-
-		select {
-		case res := <-channel:
-			elapsed := time.Since(startTime)
-			duration := int(elapsed / time.Millisecond)
-			// TODO thread safety
-			results.Durations = append(results.Durations, duration)
-			results.Successes = results.Successes + 1
-			log.Debug("new tip confirmed", "chain", chainID, "tip", res, "duration", duration)
-		case <-time.After(60 * time.Second):
-			results.Failures = results.Failures + 1
-			log.Debug("transaction timed out", "chain", chainID)
-		}
+			if conflictSetResponse.Done {
+				elapsed := time.Since(startTime)
+				duration := int(elapsed / time.Millisecond)
+				results.Durations = append(results.Durations, duration)
+				results.Successes = results.Successes + 1
+				conflictSets.Delete(csid)
+				activeCounter--
+			}
+			return true
+		})
 	}
 }
 
@@ -90,30 +109,48 @@ var benchmark = &cobra.Command{
 	Short:  "runs a set of operations against a network at specified concurrency",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		groupNodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+		time.Sleep(15 * time.Second)
 
-		group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", groupNodeStore)
-		if group.IsGenesis() {
-			testNetMembers := bootstrapMembers(bootstrapPublicKeys)
-			group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			panic("error generating key")
 		}
+		host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
+		host.Bootstrap(network.BootstrapNodes())
 
-		client := gossipclient.NewGossipClient(group)
-		client.Start()
-
-		// Prime it
-		wg.Add(1)
-		runBenchmark(2, client)
-		time.Sleep(10 * time.Second)
 		results = ResultSet{}
 
-		iterationPerThread := benchmarkIterations / benchmarkConcurrency
+		go pollForResults(host)
 
-		for i := 1; i <= benchmarkConcurrency; i++ {
-			wg.Add(1)
-			go runBenchmark(iterationPerThread, client)
+		for benchmarkIterations > 0 {
+			if activeCounter < benchmarkConcurrency {
+				sendBenchmark(host)
+				benchmarkIterations--
+			}
+			time.Sleep(30 * time.Millisecond)
 		}
-		wg.Wait()
+
+		doneCh := make(chan bool, 1)
+		defer close(doneCh)
+		go func() {
+			for activeCounter > 0 {
+				time.Sleep(1 * time.Second)
+			}
+			doneCh <- true
+		}()
+		if benchmarkTimeout > 0 {
+			select {
+			case <-doneCh:
+			case <-time.After(time.Duration(benchmarkTimeout) * time.Second):
+				fmt.Println("WARNING: timeout was triggered")
+			}
+		} else {
+			select {
+			case <-doneCh:
+			}
+		}
 
 		sum := 0
 		for _, v := range results.Durations {
@@ -134,4 +171,13 @@ func init() {
 	benchmark.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 	benchmark.Flags().IntVarP(&benchmarkConcurrency, "concurrency", "c", 1, "how many transactions to execute at once")
 	benchmark.Flags().IntVarP(&benchmarkIterations, "iterations", "i", 10, "how many transactions to execute total")
+	benchmark.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 0, "seconds to wait before timing out")
+}
+
+func randBytes(length int) []byte {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		panic("couldn't generate random bytes")
+	}
+	return b
 }
