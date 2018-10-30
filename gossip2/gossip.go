@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -561,6 +562,8 @@ func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
 	indexSpacing := signerCount / numberOfTargets
 	moduloOffset := math.Mod(float64(bytesToUint64(key)), indexSpacing)
 
+	targets := make([]*consensus.RemoteNode, int(numberOfTargets))
+
 	for i := 0; i < int(numberOfTargets); i++ {
 		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
 		target := roundInfo.Signers[targetIndex]
@@ -569,10 +572,25 @@ func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
 		if bytes.Equal(target.DstKey.PublicKey, crypto.FromECDSAPub(&gn.Key.PublicKey)) {
 			continue
 		}
+		targets[i] = target
 
-		err := gn.syncTargets.Put(target)
-		if err != nil {
-			return fmt.Errorf("error putting target on syncTarget")
+	}
+
+	// shuffle the targets
+	for n := len(targets); n > 0; n-- {
+		randIndex := rand.Intn(n)
+		// We swap the value at index n-1 and the random index
+		// to move our randomly chosen value to the end of the
+		// slice, and to move the value that was at n-1 into our
+		// unshuffled portion of the slice.
+		targets[n-1], targets[randIndex] = targets[randIndex], targets[n-1]
+	}
+	for _, target := range targets {
+		if target != nil {
+			err := gn.syncTargets.Put(target)
+			if err != nil {
+				return fmt.Errorf("error putting target on syncTarget")
+			}
 		}
 	}
 
