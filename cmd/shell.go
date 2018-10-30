@@ -18,6 +18,10 @@ var shellCmd = &cobra.Command{
 			setupLocalNetwork()
 		}
 
+		if shellName == "" {
+			panic("Missing required wallet name argument. Please supply it with -n/--name")
+		}
+
 		group := setupNotaryGroup(storage.NewMemStorage())
 		walletshell.RunGossip(shellName, group)
 	},
@@ -25,7 +29,7 @@ var shellCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(shellCmd)
-	shellCmd.Flags().StringVarP(&shellName, "name", "n", "alice", "the name to use for the wallet")
+	shellCmd.Flags().StringVarP(&shellName, "name", "n", "", "the name to use for the wallet")
 	shellCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 
