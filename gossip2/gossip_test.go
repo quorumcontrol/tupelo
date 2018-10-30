@@ -244,7 +244,7 @@ func TestGossip(t *testing.T) {
 	csqBytes, err := csq.MarshalMsg(nil)
 	require.Nil(t, err)
 
-	csqrBytes, err := gossipNodes[0].Host.SendAndReceive(&gossipNodes[1].Key.PublicKey, isDoneProtocol, csqBytes)
+	csqrBytes, err := gossipNodes[0].Host.SendAndReceive(&gossipNodes[1].Key.PublicKey, IsDoneProtocol, csqBytes)
 	csqr := ConflictSetQueryResponse{}
 	_, err = csqr.UnmarshalMsg(csqrBytes)
 	require.Nil(t, err)
