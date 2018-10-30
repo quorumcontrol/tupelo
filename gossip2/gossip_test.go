@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"math/rand"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"testing"
@@ -177,6 +178,14 @@ func TestGossip(t *testing.T) {
 		go gossipNodes[i].Start()
 	}
 
+	// This bit of commented out code will run the CPU profiler
+	f, ferr := os.Create("gossip.prof")
+	if ferr != nil {
+		t.Fatal(ferr)
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+
 	for i := 0; i < 50; i++ {
 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
 			ObjectID:    randBytes(32),
@@ -256,6 +265,15 @@ func TestGossip(t *testing.T) {
 	_, err = csqr.UnmarshalMsg(csqrBytes)
 	require.Nil(t, err)
 	assert.True(t, csqr.Done)
+
+	var totalIn int64
+	var totalOut int64
+	for _, gn := range gossipNodes {
+		totalIn += gn.Host.Reporter.GetBandwidthTotals().TotalIn
+		totalOut += gn.Host.Reporter.GetBandwidthTotals().TotalOut
+	}
+	t.Logf("Bandwidth In: %d, Bandwidth Out: %d, Average In %d, Average Out %d", totalIn, totalOut, totalIn/int64(len(gossipNodes)), totalOut/int64(len(gossipNodes)))
+
 }
 
 // func TestThing(t *testing.T) {

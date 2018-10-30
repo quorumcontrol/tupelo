@@ -3,6 +3,7 @@ package gossip2
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
@@ -82,6 +83,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		}
 	}
 
+	atomic.AddUint64(&gn.debugReceiveSync, 1)
 	return nil
 }
 
