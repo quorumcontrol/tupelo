@@ -125,7 +125,6 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 		return fmt.Errorf("Error writing message: %v", err)
 	}
 	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
-	fmt.Printf("%s wrote %d bytes\n", h.host.ID().Pretty(), n)
 	stream.Close()
 
 	return nil
