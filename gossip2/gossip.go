@@ -74,6 +74,7 @@ type GossipNode struct {
 	syncPool         chan SyncHandlerWorker
 	debugReceiveSync uint64
 	debugSendSync    uint64
+	debugAttemptSync uint64
 }
 
 const NumberOfSyncWorkers = 3
