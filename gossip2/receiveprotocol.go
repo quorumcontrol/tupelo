@@ -50,9 +50,10 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	}
 
 	// step 2 estimate strata
-	estimate, _ := rsph.EstimateFromRemoteStrata(strata)
+	estimate, diff := rsph.EstimateFromRemoteStrata(strata)
 	if estimate == 0 {
-		err = rsph.Send304NotModified()
+		// Send code 304 NOT MODIFIED
+		err = rsph.SendCode(304)
 		if err != nil {
 			return fmt.Errorf("error sending 304 not modified: %v", err)
 		}
@@ -60,21 +61,39 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		return nil
 	}
 
-	// step 3 - send appropriate IBF
-	err = rsph.SendBloomFilter(estimate)
-	if err != nil {
-		return fmt.Errorf("error sending bloom filter: %v", err)
-	}
+	var remoteWants *WantMessage
 
-	// step 4 - wait for wants
-	wants, err := rsph.WaitForWantsMessage()
-	if err != nil {
-		return fmt.Errorf("error waiting on wants message: %v", err)
-	}
-	// if the wants didn't come through and there wasn't an error
-	// then the protobuf just failed to decode, and we can move on
-	if wants == nil {
-		return nil
+	if diff == nil {
+		// step 3 - send appropriate IBF
+		err = rsph.SendBloomFilter(estimate)
+		if err != nil {
+			return fmt.Errorf("error sending bloom filter: %v", err)
+		}
+
+		// step 4 - wait for wants
+		remoteWants, err = rsph.WaitForWantsMessage()
+		if err != nil {
+			return fmt.Errorf("error waiting on wants message: %v", err)
+		}
+		// if the wants didn't come through and there wasn't an error
+		// then the invertible filter just failed to decode, and we can move on
+		if remoteWants == nil {
+			return nil
+		}
+	} else {
+		// Send code 302 FOUND to indicate we can skip bloom filter exchange
+		err = rsph.SendCode(302)
+		if err != nil {
+			return fmt.Errorf("error sending 302 FOUND: %v", err)
+		}
+		log.Debugf("%s sending code 302 to %s", gn.ID(), rsph.peerID)
+		remoteWants = WantMessageFromDiff(diff.LeftSet)
+
+		myWants := WantMessageFromDiff(diff.RightSet)
+		err = rsph.SendWantMessage(myWants)
+		if err != nil {
+			return fmt.Errorf("error sending my wants: %v", err)
+		}
 	}
 
 	// step 5 - handle incoming obects and send wanted objects
@@ -91,7 +110,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 
 	wg.Add(1)
 	go func() {
-		results <- rsph.SendWantedObjects(wants)
+		results <- rsph.SendWantedObjects(remoteWants)
 		wg.Done()
 	}()
 	wg.Wait()
@@ -106,10 +125,20 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	return nil
 }
 
-func (rsph *ReceiveSyncProtocolHandler) Send304NotModified() error {
+func (rsph *ReceiveSyncProtocolHandler) SendWantMessage(want *WantMessage) error {
+	writer := rsph.writer
+	err := want.EncodeMsg(writer)
+	if err != nil {
+		return fmt.Errorf("error writing wants: %v", err)
+	}
+
+	return writer.Flush()
+}
+
+func (rsph *ReceiveSyncProtocolHandler) SendCode(code int) error {
 	writer := rsph.writer
 	pm := &ProtocolMessage{
-		Code: 304,
+		Code: code,
 	}
 	return pm.EncodeMsg(writer)
 }
@@ -143,9 +172,16 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, err
 		return nil, fmt.Errorf("error decoding protocol message: %v", err)
 	}
 
-	if pm.Code == 500 {
+	switch pm.Code {
+	case 416:
+		// 416 REQUESTED RANGE NOT SATISFIABLE
+		// just means the bloom filter didn't decode, which is expected behavior given changes
+		// on remote side during this protocol exchange
 		log.Infof("error from remote side: %d, %v", pm.Code, pm.Error)
 		return nil, nil
+	case 500:
+		log.Errorf("error from remote side: %d, %v", pm.Code, pm.Error)
+		return nil, fmt.Errorf("remote error: %v", err)
 	}
 
 	wants, err := fromProtocolMessage(&pm)
@@ -229,6 +265,7 @@ func (rsph *ReceiveSyncProtocolHandler) EstimateFromRemoteStrata(remoteStrata *i
 	gn.ibfSyncer.RLock()
 	count, result = gn.Strata.Estimate(remoteStrata)
 	gn.ibfSyncer.RUnlock()
+	log.Infof("%s estimated difference from %s is %d", gn.ID(), rsph.peerID, count)
 	return count, result
 }
 
