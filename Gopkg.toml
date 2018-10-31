@@ -82,7 +82,7 @@
   version = "v0.0.4"
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
-  revision = "19058136ba412588cdf7c612f3ab9b2e7da7fb02"
+  version = "v0.0.1"
 
 
 [[constraint]]
