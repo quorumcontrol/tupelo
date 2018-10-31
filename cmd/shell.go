@@ -11,7 +11,7 @@ var shellName string
 // shellCmd represents the shell command
 var shellCmd = &cobra.Command{
 	Use:   "shell",
-	Short: "launches a shell wallet that can only talk to the testnet",
+	Short: "Launch a Tupelo wallet shell connected to a local or remote signer network.",
 	Long:  `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if localNetworkNodeCount > 0 {

@@ -127,12 +127,13 @@ func (rpcs *RPCSession) CreateWallet(passPhrase string) error {
 }
 
 func (rpcs *RPCSession) Start(passPhrase string) error {
-	rpcs.client.Start()
-
 	unlockErr := rpcs.wallet.Unlock(passPhrase)
 	if unlockErr != nil {
 		return unlockErr
 	}
+
+	rpcs.client.Start()
+	rpcs.isStarted = true
 
 	return nil
 }

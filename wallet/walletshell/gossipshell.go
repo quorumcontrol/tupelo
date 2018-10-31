@@ -1,6 +1,7 @@
 package walletshell
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/abiosoft/ishell"
@@ -10,17 +11,36 @@ import (
 	"github.com/quorumcontrol/qc3/wallet/walletrpc"
 )
 
+func confirmPassword(c *ishell.Context) (string, error) {
+	for tries := 0; tries < 3; tries++ {
+		c.Print("Please enter a new passphrase: ")
+		passphrase := c.ReadPassword()
+		c.Print("Please confirm your passphrase by entering it again: ")
+		confirmation := c.ReadPassword()
+
+		if passphrase == confirmation {
+			c.Println("Thank you for confirming your password.")
+			return passphrase, nil
+		} else {
+			c.Println("Sorry, the passphrases you entered do not match.")
+		}
+	}
+
+	c.Println("Sorry, none of the passwords have matched.")
+	return "", errors.New("can't confirm password")
+}
+
 func RunGossip(name string, group *consensus.NotaryGroup) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
 	// display welcome info.
-	shell.Printf("Starting shell for wallet: %v\n", name)
+	shell.Printf("Loading shell for wallet: %v\n", name)
 
 	// load the session
 	session, err := walletrpc.NewSession(name, group)
 	if err != nil {
-		shell.Printf("error starting shell: %v", err)
+		shell.Printf("error loading shell: %v\n", err)
 		return
 	}
 
@@ -28,16 +48,20 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "create-wallet",
 		Help: "create the shell wallet",
 		Func: func(c *ishell.Context) {
-			c.Print("Passphrase: ")
-			passphrase := c.ReadPassword()
-
 			c.Println("Creating wallet: ", name)
-			session.CreateWallet(passphrase)
+
+			passphrase, err := confirmPassword(c)
+			if err != nil {
+				c.Printf("Error creating wallet: %v\n", err)
+				return
+			} else {
+				session.CreateWallet(passphrase)
+			}
 		},
 	})
 
 	shell.AddCmd(&ishell.Cmd{
-		Name: "start",
+		Name: "start-session",
 		Help: "start a new session",
 		Func: func(c *ishell.Context) {
 			c.Print("Passphrase: ")
@@ -53,7 +77,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 	})
 
 	shell.AddCmd(&ishell.Cmd{
-		Name: "stop",
+		Name: "stop-session",
 		Help: "stops the session",
 		Func: func(c *ishell.Context) {
 			c.Println("Stopping session")
@@ -80,7 +104,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			keys, err := session.ListKeys()
 			if err != nil {
-				c.Printf("error listing key: %v", err)
+				c.Printf("error listing key: %v\n", err)
 				return
 			}
 			for i, addr := range keys {
@@ -95,7 +119,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			chain, err := session.CreateChain(c.Args[0])
 			if err != nil {
-				c.Printf("error creating chain tree: %v", err)
+				c.Printf("error creating chain tree: %v\n", err)
 				return
 			}
 
@@ -133,7 +157,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			tip, err := session.GetTip(c.Args[0])
 			if err != nil {
-				c.Printf("error getting tip: %v", err)
+				c.Printf("error getting tip: %v\n", err)
 				return
 			}
 
@@ -153,11 +177,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 
 			tip, err := session.SetData(c.Args[0], c.Args[1], c.Args[2], data)
 			if err != nil {
-				c.Printf("error setting data: %v", err)
+				c.Printf("error setting data: %v\n", err)
 				return
 			}
 
-			c.Printf("new tip: %v", tip)
+			c.Printf("new tip: %v\n", tip)
 		},
 	})
 
