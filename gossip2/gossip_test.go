@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"runtime/pprof"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -173,12 +172,12 @@ func TestGossip(t *testing.T) {
 	}
 
 	// This bit of commented out code will run the CPU profiler
-	f, ferr := os.Create("../gossip.prof")
-	if ferr != nil {
-		t.Fatal(ferr)
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	// f, ferr := os.Create("../gossip.prof")
+	// if ferr != nil {
+	// 	t.Fatal(ferr)
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
 
 	// for i := 0; i < 50; i++ {
 	// 	_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
