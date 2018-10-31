@@ -209,9 +209,7 @@ func TestGossip(t *testing.T) {
 			break
 		}
 	}
-	for i := 0; i < groupSize; i++ {
-		gossipNodes[i].Stop()
-	}
+
 	// fmt.Printf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 10*time.Second)
@@ -262,17 +260,28 @@ func TestGossip(t *testing.T) {
 
 	var totalIn int64
 	var totalOut int64
-	var totalSendSync int64
+	var totalReceiveSync int64
+	var totalAttemptSync int64
 	for _, gn := range gossipNodes {
 		totalIn += gn.Host.Reporter.GetBandwidthTotals().TotalIn
 		totalOut += gn.Host.Reporter.GetBandwidthTotals().TotalOut
-		totalSendSync += int64(atomic.LoadUint64(&gn.debugSendSync))
+		totalReceiveSync += int64(atomic.LoadUint64(&gn.debugReceiveSync))
+		totalAttemptSync += int64(atomic.LoadUint64(&gn.debugAttemptSync))
 	}
 	t.Logf(
 		`Bandwidth In: %d, Bandwidth Out: %d,
 Average In %d, Average Out %d
-Total Syncs: %d, Average Sync: %d`,
-		totalIn, totalOut, totalIn/int64(len(gossipNodes)), totalOut/int64(len(gossipNodes)), totalSendSync, totalSendSync/int64(len(gossipNodes)))
+Total Receive Syncs: %d, Average Receive Sync: %d
+Total Attempted Syncs: %d, Average Attepted Syncs: %d`,
+		totalIn,
+		totalOut,
+		totalIn/int64(len(gossipNodes)),
+		totalOut/int64(len(gossipNodes)),
+		totalReceiveSync,
+		totalReceiveSync/int64(len(gossipNodes)),
+		totalAttemptSync,
+		totalAttemptSync/int64(len(gossipNodes)),
+	)
 
 }
 

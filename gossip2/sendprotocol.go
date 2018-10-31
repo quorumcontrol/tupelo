@@ -21,6 +21,8 @@ type SyncProtocolHandler struct {
 }
 
 func DoSyncProtocol(gn *GossipNode) error {
+	atomic.AddUint64(&gn.debugAttemptSync, 1)
+
 	sph := &SyncProtocolHandler{
 		gossipNode: gn,
 	}
