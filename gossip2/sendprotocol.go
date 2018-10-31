@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/qc3/p2p"
@@ -20,6 +21,8 @@ type SyncProtocolHandler struct {
 }
 
 func DoSyncProtocol(gn *GossipNode) error {
+	atomic.AddUint64(&gn.debugAttemptSync, 1)
+
 	sph := &SyncProtocolHandler{
 		gossipNode: gn,
 	}
@@ -84,6 +87,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	}
 
 	log.Debugf("%s: sync complete to %s", gn.ID(), sph.peerID)
+	atomic.AddUint64(&gn.debugSendSync, 1)
 
 	return nil
 }

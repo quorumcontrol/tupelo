@@ -16,6 +16,7 @@ import (
 	circuit "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-circuit"
 	libp2pcrypto "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto"
 	dht "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht"
+	metrics "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-metrics"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
@@ -32,6 +33,7 @@ type Host struct {
 	host      *rhost.RoutedHost
 	routing   *dht.IpfsDHT
 	publicKey *ecdsa.PublicKey
+	Reporter  metrics.Reporter
 }
 
 // GetRandomUnusedPort returns a random unused port
@@ -68,7 +70,7 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 	}
 	// Generate a key pair for this host. We will use it at least
 	// to obtain a valid host ID.
-
+	reporter := metrics.NewBandwidthCounter()
 	opts := []libp2p.Option{
 		libp2p.ListenAddrStrings(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port)),
 		libp2p.Identity(priv),
@@ -76,6 +78,7 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 		libp2p.DefaultMuxers,
 		libp2p.DefaultSecurity,
 		libp2p.NATPortMap(),
+		libp2p.BandwidthReporter(reporter),
 	}
 
 	if useRelay {
@@ -93,7 +96,12 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 	// Make the routed host
 	routedHost := rhost.Wrap(basicHost, dht)
 
-	return &Host{host: routedHost, routing: dht, publicKey: &privateKey.PublicKey}, nil
+	return &Host{
+		host:      routedHost,
+		routing:   dht,
+		publicKey: &privateKey.PublicKey,
+		Reporter:  reporter,
+	}, nil
 }
 
 func (h *Host) P2PIdentity() string {
@@ -149,6 +157,9 @@ func (h *Host) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	stream, err := h.NewStream(ctx, publicKey, protocol)
+	if err != nil {
+		return nil, fmt.Errorf("error creating new stream")
+	}
 	defer stream.Close()
 
 	n, err := stream.Write(payload)

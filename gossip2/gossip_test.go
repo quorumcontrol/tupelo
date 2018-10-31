@@ -5,8 +5,10 @@ import (
 	"crypto/ecdsa"
 	"math/rand"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -126,7 +128,7 @@ func TestExists(t *testing.T) {
 
 func TestGossip(t *testing.T) {
 	logging.SetLogLevel("gossip", "ERROR")
-	groupSize := 20
+	groupSize := 50
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)
 
@@ -177,17 +179,25 @@ func TestGossip(t *testing.T) {
 		go gossipNodes[i].Start()
 	}
 
-	for i := 0; i < 50; i++ {
-		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
-			ObjectID:    randBytes(32),
-			PreviousTip: []byte(""),
-			NewTip:      randBytes(49),
-			Payload:     randBytes(rand.Intn(400) + 100),
-		})
-		if err != nil {
-			t.Fatalf("error sending transaction: %v", err)
-		}
+	// This bit of commented out code will run the CPU profiler
+	f, ferr := os.Create("../gossip.prof")
+	if ferr != nil {
+		t.Fatal(ferr)
 	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
+
+	// for i := 0; i < 50; i++ {
+	// 	_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
+	// 		ObjectID:    randBytes(32),
+	// 		PreviousTip: []byte(""),
+	// 		NewTip:      randBytes(49),
+	// 		Payload:     randBytes(rand.Intn(400) + 100),
+	// 	})
+	// 	if err != nil {
+	// 		t.Fatalf("error sending transaction: %v", err)
+	// 	}
+	// }
 
 	start := time.Now()
 	_, err := gossipNodes[0].InitiateTransaction(transaction1)
@@ -206,9 +216,7 @@ func TestGossip(t *testing.T) {
 			break
 		}
 	}
-	for i := 0; i < groupSize; i++ {
-		gossipNodes[i].Stop()
-	}
+
 	// fmt.Printf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 10*time.Second)
@@ -256,6 +264,32 @@ func TestGossip(t *testing.T) {
 	_, err = csqr.UnmarshalMsg(csqrBytes)
 	require.Nil(t, err)
 	assert.True(t, csqr.Done)
+
+	var totalIn int64
+	var totalOut int64
+	var totalReceiveSync int64
+	var totalAttemptSync int64
+	for _, gn := range gossipNodes {
+		totalIn += gn.Host.Reporter.GetBandwidthTotals().TotalIn
+		totalOut += gn.Host.Reporter.GetBandwidthTotals().TotalOut
+		totalReceiveSync += int64(atomic.LoadUint64(&gn.debugReceiveSync))
+		totalAttemptSync += int64(atomic.LoadUint64(&gn.debugAttemptSync))
+	}
+	t.Logf(
+		`Bandwidth In: %d, Bandwidth Out: %d,
+Average In %d, Average Out %d
+Total Receive Syncs: %d, Average Receive Sync: %d
+Total Attempted Syncs: %d, Average Attepted Syncs: %d`,
+		totalIn,
+		totalOut,
+		totalIn/int64(len(gossipNodes)),
+		totalOut/int64(len(gossipNodes)),
+		totalReceiveSync,
+		totalReceiveSync/int64(len(gossipNodes)),
+		totalAttemptSync,
+		totalAttemptSync/int64(len(gossipNodes)),
+	)
+
 }
 
 // func TestThing(t *testing.T) {
@@ -302,9 +336,12 @@ func TestGetSyncTarget(t *testing.T) {
 		node := NewGossipNode(randKey, host, storage)
 		node.Group = group
 		node.queueSyncTargetsByRoutingKey(randBytes(42))
-		close(node.syncTargetsCh)
+		num := node.syncTargets.Len()
+		targets, err := node.syncTargets.Get(num)
+		require.Nil(t, err)
 
-		for rn := range node.syncTargetsCh {
+		for _, rnInterface := range targets {
+			rn := rnInterface.(*consensus.RemoteNode)
 			collect[rn.Id] = true
 		}
 	}
@@ -322,9 +359,12 @@ func TestGetSyncTarget(t *testing.T) {
 		node := NewGossipNode(key, host, storage)
 		node.Group = group
 		node.queueSyncTargetsByRoutingKey(newTip)
-		close(node.syncTargetsCh)
+		num := node.syncTargets.Len()
+		targets, err := node.syncTargets.Get(num)
+		require.Nil(t, err)
 
-		for rn := range node.syncTargetsCh {
+		for _, rnInterface := range targets {
+			rn := rnInterface.(*consensus.RemoteNode)
 			if i == 0 {
 				expectedIds = append(expectedIds, rn.Id)
 			} else {

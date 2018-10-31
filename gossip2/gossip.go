@@ -7,9 +7,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/Workiva/go-datastructures/queue"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
@@ -58,18 +60,21 @@ const (
 type SyncHandlerWorker struct{}
 
 type GossipNode struct {
-	Key           *ecdsa.PrivateKey
-	SignKey       *bls.SignKey
-	Host          *p2p.Host
-	Storage       *BadgerStorage
-	Strata        *ibf.DifferenceStrata
-	Group         *consensus.NotaryGroup
-	IBFs          IBFMap
-	newObjCh      chan ProvideMessage
-	stopChan      chan struct{}
-	syncTargetsCh chan *consensus.RemoteNode
-	ibfSyncer     *sync.RWMutex
-	syncPool      chan SyncHandlerWorker
+	Key              *ecdsa.PrivateKey
+	SignKey          *bls.SignKey
+	Host             *p2p.Host
+	Storage          *BadgerStorage
+	Strata           *ibf.DifferenceStrata
+	Group            *consensus.NotaryGroup
+	IBFs             IBFMap
+	newObjCh         chan ProvideMessage
+	stopChan         chan struct{}
+	syncTargets      *queue.Queue
+	ibfSyncer        *sync.RWMutex
+	syncPool         chan SyncHandlerWorker
+	debugReceiveSync uint64
+	debugSendSync    uint64
+	debugAttemptSync uint64
 }
 
 const NumberOfSyncWorkers = 3
@@ -82,11 +87,11 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
-		newObjCh:      make(chan ProvideMessage, 100),
-		syncTargetsCh: make(chan *consensus.RemoteNode, 50),
-		stopChan:      make(chan struct{}, 1),
-		ibfSyncer:     &sync.RWMutex{},
-		syncPool:      make(chan SyncHandlerWorker, NumberOfSyncWorkers),
+		newObjCh:    make(chan ProvideMessage, 5),
+		syncTargets: queue.New(50),
+		stopChan:    make(chan struct{}, 1),
+		ibfSyncer:   &sync.RWMutex{},
+		syncPool:    make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 	}
 	for i := 0; i < NumberOfSyncWorkers; i++ {
 		node.syncPool <- SyncHandlerWorker{}
@@ -536,16 +541,14 @@ func (gn *GossipNode) randomPeer() (*consensus.RemoteNode, error) {
 }
 
 func (gn *GossipNode) getSyncTarget() (*consensus.RemoteNode, error) {
-	select {
-	case peer, ok := <-gn.syncTargetsCh:
-		if ok && peer != nil {
-			log.Debugf("%s: getSyncTarget using peer from syncTargetsCh", gn.ID())
-			return peer, nil
-		}
-	default:
+	if gn.syncTargets.Empty() {
+		return gn.randomPeer()
 	}
-	log.Debugf("%s: getSyncTarget using random peer", gn.ID())
-	return gn.randomPeer()
+	item, err := gn.syncTargets.Get(1)
+	if err != nil {
+		return nil, fmt.Errorf("error getting sync target: %v", err)
+	}
+	return item[0].(*consensus.RemoteNode), nil
 }
 
 func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
@@ -560,6 +563,8 @@ func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
 	indexSpacing := signerCount / numberOfTargets
 	moduloOffset := math.Mod(float64(bytesToUint64(key)), indexSpacing)
 
+	targets := make([]*consensus.RemoteNode, int(numberOfTargets))
+
 	for i := 0; i < int(numberOfTargets); i++ {
 		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
 		target := roundInfo.Signers[targetIndex]
@@ -568,11 +573,25 @@ func (gn *GossipNode) queueSyncTargetsByRoutingKey(key []byte) error {
 		if bytes.Equal(target.DstKey.PublicKey, crypto.FromECDSAPub(&gn.Key.PublicKey)) {
 			continue
 		}
+		targets[i] = target
 
-		select {
-		case gn.syncTargetsCh <- target:
-		default:
-			log.Debugf("%s: error pushing signer onto targets queue", gn.ID())
+	}
+
+	// shuffle the targets
+	for n := len(targets); n > 0; n-- {
+		randIndex := rand.Intn(n)
+		// We swap the value at index n-1 and the random index
+		// to move our randomly chosen value to the end of the
+		// slice, and to move the value that was at n-1 into our
+		// unshuffled portion of the slice.
+		targets[n-1], targets[randIndex] = targets[randIndex], targets[n-1]
+	}
+	for _, target := range targets {
+		if target != nil {
+			err := gn.syncTargets.Put(target)
+			if err != nil {
+				return fmt.Errorf("error putting target on syncTarget")
+			}
 		}
 	}
 
