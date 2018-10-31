@@ -141,7 +141,7 @@ func (sph *SyncProtocolHandler) WaitForBloomFilter() (*ibf.InvertibleBloomFilter
 	var remoteIBF ibf.InvertibleBloomFilter
 	err := remoteIBF.DecodeMsg(reader)
 	if err != nil {
-		log.Errorf("%s error decoding message", gn.ID(), err)
+		log.Errorf("%s error decoding message: %v", gn.ID(), err)
 		return &remoteIBF, fmt.Errorf("error decoding message: %v", err)
 	}
 	return &remoteIBF, nil
