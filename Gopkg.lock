@@ -10,6 +10,14 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
+  digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
+  name = "github.com/Workiva/go-datastructures"
+  packages = ["queue"]
+  pruneopts = ""
+  revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
+  version = "v1.0.50"
+
+[[projects]]
   digest = "1:5f3619add62f3f725265be1da3c80ae1872891197fdf69c35af05268bc1afa3f"
   name = "github.com/abiosoft/ishell"
   packages = ["."]
@@ -600,15 +608,14 @@
   version = "v0.0.4"
 
 [[projects]]
-  digest = "1:2adc0764c82fbfefb841ac13acf4cf7d6ecc1c45007026f93a8c805d05f8f7f8"
+  digest = "1:d8d5898ce890bcc75eb5092d9db3f811663148dd0532d19acac08a3181c838ee"
   name = "github.com/quorumcontrol/differencedigest"
   packages = [
     "hashes",
     "ibf",
   ]
   pruneopts = ""
-  revision = "714a110afa07f72b8ec084983f9381a465532b91"
-  version = "v0.0.1"
+  revision = "5cd8764a9bb32c32a55948c939c707e01ce11f53"
 
 [[projects]]
   branch = "master"
@@ -861,6 +868,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/Workiva/go-datastructures/queue",
     "github.com/abiosoft/ishell",
     "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
@@ -889,6 +897,7 @@
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-host",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-loggables",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-metrics",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peerstore",
