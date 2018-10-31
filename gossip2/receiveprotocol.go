@@ -52,8 +52,12 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	// step 2 estimate strata
 	estimate, _ := rsph.EstimateFromRemoteStrata(strata)
 	if estimate == 0 {
+		err = rsph.Send304NotModified()
+		if err != nil {
+			return fmt.Errorf("error sending 304 not modified: %v", err)
+		}
 		log.Debugf("%s nodes are synced: %v", gn.ID(), err)
-		// 	return nil
+		return nil
 	}
 
 	// step 3 - send appropriate IBF
@@ -61,10 +65,16 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	if err != nil {
 		return fmt.Errorf("error sending bloom filter: %v", err)
 	}
+
 	// step 4 - wait for wants
 	wants, err := rsph.WaitForWantsMessage()
 	if err != nil {
 		return fmt.Errorf("error waiting on wants message: %v", err)
+	}
+	// if the wants didn't come through and there wasn't an error
+	// then the protobuf just failed to decode, and we can move on
+	if wants == nil {
+		return nil
 	}
 
 	// step 5 - handle incoming obects and send wanted objects
@@ -96,6 +106,14 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	return nil
 }
 
+func (rsph *ReceiveSyncProtocolHandler) Send304NotModified() error {
+	writer := rsph.writer
+	pm := &ProtocolMessage{
+		Code: 304,
+	}
+	return pm.EncodeMsg(writer)
+}
+
 func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandlerWorker, error) {
 	gn := rsph.gossipNode
 	select {
@@ -118,17 +136,23 @@ func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandl
 func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
 	reader := rsph.reader
 	gn := rsph.gossipNode
-	var wants WantMessage
-	err := wants.DecodeMsg(reader)
+	var pm ProtocolMessage
+	err := pm.DecodeMsg(reader)
 	if err != nil {
-		log.Errorf("%s error reading wants %v", gn.ID(), err)
-		// log.Errorf("%s ibf TO %s : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
-		// log.Errorf("%s ibf TO %s cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
-
-		return nil, fmt.Errorf("error decoding wants: %v", err)
+		log.Errorf("%s error reading protocol message %v", gn.ID(), err)
+		return nil, fmt.Errorf("error decoding protocol message: %v", err)
 	}
 
-	return &wants, nil
+	if pm.Code == 500 {
+		log.Infof("error from remote side: %d, %v", pm.Code, pm.Error)
+		return nil, nil
+	}
+
+	wants, err := fromProtocolMessage(&pm)
+	if err != nil {
+		return nil, fmt.Errorf("error converting wants: %v", err)
+	}
+	return wants.(*WantMessage), nil
 }
 
 func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
