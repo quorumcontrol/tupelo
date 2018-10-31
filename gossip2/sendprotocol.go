@@ -56,7 +56,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	if err != nil {
 		return fmt.Errorf("error sending strata: %v", err)
 	}
-	// step 2 wait for IBF
+	// step 2 wait for IBF (error if received 503)
 	remoteFilter, err := sph.WaitForBloomFilter()
 	if err != nil {
 		return fmt.Errorf("error waiting for bloom filter: %v", err)
@@ -137,14 +137,20 @@ func (sph *SyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) (
 func (sph *SyncProtocolHandler) WaitForBloomFilter() (*ibf.InvertibleBloomFilter, error) {
 	reader := sph.reader
 	gn := sph.gossipNode
-
-	var remoteIBF ibf.InvertibleBloomFilter
-	err := remoteIBF.DecodeMsg(reader)
+	var pm ProtocolMessage
+	err := pm.DecodeMsg(reader)
 	if err != nil {
 		log.Errorf("%s error decoding message: %v", gn.ID(), err)
-		return &remoteIBF, fmt.Errorf("error decoding message: %v", err)
+		return nil, fmt.Errorf("error decoding message: %v", err)
 	}
-	return &remoteIBF, nil
+	if pm.Code == 503 {
+		return nil, fmt.Errorf("error too many syncs on remote side")
+	}
+	remoteIBF, err := fromProtocolMessage(&pm)
+	if err != nil {
+		return nil, fmt.Errorf("error converting pm to remoteIBF: %v", err)
+	}
+	return remoteIBF.(*ibf.InvertibleBloomFilter), nil
 }
 
 func (sph *SyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) error {
