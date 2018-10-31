@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/abiosoft/ishell"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/consensus"
@@ -123,6 +124,36 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 			chain, err := session.CreateChain(c.Args[0])
 			if err != nil {
 				c.Printf("error creating chain tree: %v\n", err)
+				return
+			}
+
+			c.Printf("chain id: %v\n", chain.Id)
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "export-chain",
+		Help: "export an existing chain tree",
+		Func: func(c *ishell.Context) {
+			chain, err := session.ExportChain(c.Args[0])
+			if err != nil {
+				c.Printf("error exporting chain tree: %v", err)
+				return
+			}
+
+			encodedChain := base58.Encode(chain)
+			c.Printf("serialized chain tree: %v\n", encodedChain)
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "import-chain",
+		Help: "import a chain tree",
+		Func: func(c *ishell.Context) {
+			chainBytes := base58.Decode(c.Args[1])
+			chain, err := session.ImportChain(c.Args[0], chainBytes)
+			if err != nil {
+				c.Printf("error importing chain tree: %v\n", err)
 				return
 			}
 

@@ -215,12 +215,18 @@ func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
 	return serializedChain, nil
 }
 
-func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializableChainTree) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
-	dag, err := decodeDag(serializedChain.Dag, rpcs.wallet.NodeStore())
+	decodedChain := &SerializableChainTree{}
+	err := proto.Unmarshal(serializedChain, decodedChain)
+	if err != nil {
+		return nil, err
+	}
+
+	dag, err := decodeDag(decodedChain.Dag, rpcs.wallet.NodeStore())
 	if err != nil {
 		return nil, err
 	}
@@ -230,15 +236,19 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *Serializabl
 		return nil, err
 	}
 
-	sigs, err := decodeSignatures(serializedChain.Signatures)
+	sigs, err := decodeSignatures(decodedChain.Signatures)
 	if err != nil {
 		return nil, err
 	}
 
-	return &consensus.SignedChainTree{
+	signedChainTree := &consensus.SignedChainTree{
 		ChainTree:  chainTree,
 		Signatures: sigs,
-	}, nil
+	}
+
+	rpcs.wallet.SaveChain(signedChainTree)
+
+	return signedChainTree, nil
 }
 
 func (rpcs *RPCSession) GetChainIds() ([]string, error) {
