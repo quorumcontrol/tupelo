@@ -292,10 +292,6 @@ Total Attempted Syncs: %d, Average Attepted Syncs: %d`,
 
 }
 
-// func TestThing(t *testing.T) {
-// 	fmt.Printf("bytes: %v", mustStringToBytes("AAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
-// 	t.Fatal()
-// }
 func TestTransactionIDFromSignatureKey(t *testing.T) {
 	transaction := Transaction{
 		ObjectID:    []byte("himynameisalongobjectidthatwillhavemorethan64bits"),
