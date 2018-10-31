@@ -43,36 +43,41 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	}
 	defer func() { gn.syncPool <- *worker }()
 
-	// Step 1: wait for a bloom filter
-	remoteFilter, err := rsph.WaitForBloomFilter()
+	// step 1 wait for strata
+	strata, err := rsph.WaitForStrata()
 	if err != nil {
-		return fmt.Errorf("error waiting for bloom filter: %v", err)
+		return fmt.Errorf("error waiting for strata: %v", err)
 	}
 
-	// Step 2: decode remote bloom filter
-	diff, err := rsph.DifferencesFromBloomFilter(remoteFilter)
+	// step 2 estimate strata
+	estimate, _ := rsph.EstimateFromRemoteStrata(strata)
+
+	// step 3 - send appropriate IBF
+	err = rsph.SendBloomFilter(estimate)
 	if err != nil {
-		return fmt.Errorf("error getting differences from bloom: %v", err)
+		return fmt.Errorf("error sending bloom filter: %v", err)
+	}
+	// step 4 - wait for wants
+	wants, err := rsph.WaitForWantsMessage()
+	if err != nil {
+		return fmt.Errorf("error waiting on wants message: %v", err)
 	}
 
-	// Step 3: send a want message to the remote side
-	err = rsph.SendWantMessage(diff)
-	if err != nil {
-		return fmt.Errorf("error sending want message: %v", err)
-	}
+	// step 5 - handle incoming obects and send wanted objects
 
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
 	results := make(chan error, 2)
 
+	wg.Add(1)
 	go func() {
 		// Step 4: handle incoming objects
 		results <- rsph.WaitForProvides()
 		wg.Done()
 	}()
 
+	wg.Add(1)
 	go func() {
-		results <- rsph.SendPeerObjects(diff)
+		results <- rsph.SendWantedObjects(wants)
 		wg.Done()
 	}()
 	wg.Wait()
@@ -93,56 +98,49 @@ func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandl
 	case worker := <-gn.syncPool:
 		return &worker, nil
 	default:
-		writer := rsph.writer
-		want := &WantMessage{
-			Code: 503,
-		}
-		err := want.EncodeMsg(rsph.writer)
-		if err != nil {
-			log.Errorf("%s error writing wants: %v", gn.ID(), err)
-			return nil, fmt.Errorf("error writing wants: %v", err)
-		}
-		return nil, writer.Flush()
+		// TODO: for now just do nothing, but we should probably write something here
+		// writer := rsph.writer
+		// want := &WantMessage{
+		// 	Code: 503,
+		// }
+		// err := want.EncodeMsg(rsph.writer)
+		// if err != nil {
+		// 	log.Errorf("%s error writing wants: %v", gn.ID(), err)
+		// 	return nil, fmt.Errorf("error writing wants: %v", err)
+		// }
+		return nil, nil
 	}
 }
 
-func (rsph *ReceiveSyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) error {
+func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
+	reader := rsph.reader
+	gn := rsph.gossipNode
+	var wants WantMessage
+	err := wants.DecodeMsg(reader)
+	if err != nil {
+		log.Errorf("%s error reading wants %v", gn.ID(), err)
+		// log.Errorf("%s ibf TO %s : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
+		// log.Errorf("%s ibf TO %s cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
+
+		return nil, fmt.Errorf("error decoding wants: %v", err)
+	}
+
+	return &wants, nil
+}
+
+func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
+	//TODO: send *correct bloom filter
 	gn := rsph.gossipNode
 	writer := rsph.writer
 
-	wantedKeys := difference.LeftSet
-	if useDoneRemovalFilter {
-		wantedKeys = make([]ibf.ObjectId, 0)
-		for _, oid := range difference.LeftSet {
-			key := uint64ToBytes(uint64(oid))
-			done, _ := gn.isDone(key)
-			if !done {
-				wantedKeys = append(wantedKeys, oid)
-			}
-		}
+	gn.ibfSyncer.RLock()
+	err := gn.IBFs[20000].EncodeMsg(writer)
+	gn.ibfSyncer.RUnlock()
+	if err != nil {
+		return fmt.Errorf("error writing IBF: %v", err)
 	}
-
-	toProvideAsWantMessage := WantMessageFromDiff(wantedKeys)
-	for _, key := range toProvideAsWantMessage.Keys {
-		key := uint64ToBytes(key)
-		objs, err := gn.Storage.GetPairsByPrefix(key)
-		if err != nil {
-			log.Errorf("error getting objects: %v", err)
-			return fmt.Errorf("error getting objects: %v", err)
-		}
-		for _, kv := range objs {
-			provide := ProvideMessage{
-				Key:   kv.Key,
-				Value: kv.Value,
-			}
-			log.Debugf("%s HandleSync providing to %s (uint64: %d): %s %v", gn.ID(), rsph.peerID, key, bytesToString(provide.Key), provide.Key)
-			provide.EncodeMsg(writer)
-			writer.Flush()
-		}
-	}
-	last := ProvideMessage{Last: true}
-	last.EncodeMsg(writer)
-	return nil
+	log.Debugf("%s flushing", gn.ID())
+	return writer.Flush()
 }
 
 func (rsph *ReceiveSyncProtocolHandler) WaitForProvides() error {
@@ -165,46 +163,49 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides() error {
 	return nil
 }
 
-func (rsph *ReceiveSyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) error {
-	writer := rsph.writer
-	gn := rsph.gossipNode
-
-	want := WantMessageFromDiff(difference.RightSet)
-	err := want.EncodeMsg(writer)
-	if err != nil {
-		log.Errorf("%s error writing wants: %v", gn.ID(), err)
-		return fmt.Errorf("")
-	}
-	writer.Flush()
-	return nil
-}
-
-func (rsph *ReceiveSyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.InvertibleBloomFilter) (*ibf.DecodeResults, error) {
-	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
-	gn := rsph.gossipNode
-	gn.ibfSyncer.RLock()
-	subtracted := gn.IBFs[20000].Subtract(remoteIBF)
-	gn.ibfSyncer.RUnlock()
-	difference, err := subtracted.Decode()
-	if err != nil {
-		log.Errorf("%s error getting diff): %f\n", gn.ID(), err)
-		// log.Errorf("%s (talking to %s) local ibf is : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
-		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
-		return nil, err
-	}
-	log.Debugf("%s decoded", gn.ID())
-	return &difference, nil
-}
-
-func (rsph *ReceiveSyncProtocolHandler) WaitForBloomFilter() (*ibf.InvertibleBloomFilter, error) {
+func (rsph *ReceiveSyncProtocolHandler) WaitForStrata() (*ibf.DifferenceStrata, error) {
 	reader := rsph.reader
 	gn := rsph.gossipNode
 
-	var remoteIBF ibf.InvertibleBloomFilter
-	err := remoteIBF.DecodeMsg(reader)
+	var remoteStrata ibf.DifferenceStrata
+	err := remoteStrata.DecodeMsg(reader)
 	if err != nil {
 		log.Errorf("%s error decoding message", gn.ID(), err)
-		return &remoteIBF, fmt.Errorf("error decoding message: %v", err)
+		return &remoteStrata, fmt.Errorf("error decoding message: %v", err)
 	}
-	return &remoteIBF, nil
+	return &remoteStrata, nil
+}
+
+func (rsph *ReceiveSyncProtocolHandler) EstimateFromRemoteStrata(remoteStrata *ibf.DifferenceStrata) (count int, result *ibf.DecodeResults) {
+	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
+	gn := rsph.gossipNode
+	gn.ibfSyncer.RLock()
+	count, result = gn.Strata.Estimate(remoteStrata)
+	gn.ibfSyncer.RUnlock()
+	return count, result
+}
+
+func (rsph *ReceiveSyncProtocolHandler) SendWantedObjects(wants *WantMessage) error {
+	gn := rsph.gossipNode
+	writer := rsph.writer
+
+	for _, key := range wants.Keys {
+		key := uint64ToBytes(key)
+		objs, err := gn.Storage.GetPairsByPrefix(key)
+		if err != nil {
+			return fmt.Errorf("error getting objects: %v", err)
+		}
+		for _, kv := range objs {
+			provide := ProvideMessage{
+				Key:   kv.Key,
+				Value: kv.Value,
+			}
+			log.Debugf("%s providing to %s (uint64: %d): %s %v", gn.ID(), rsph.peerID, key, bytesToString(provide.Key), provide.Key)
+			provide.EncodeMsg(writer)
+		}
+	}
+	log.Debugf("%s: sending Last message", gn.ID())
+	last := ProvideMessage{Last: true}
+	last.EncodeMsg(writer)
+	return writer.Flush()
 }
