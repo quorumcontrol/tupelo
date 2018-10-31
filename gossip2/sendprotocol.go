@@ -72,8 +72,8 @@ func DoSyncProtocol(gn *GossipNode) error {
 		log.Debugf("%s full synced with %s", gn.ID(), sph.peerID)
 		return nil
 	case 302:
-		// 302 means we don't need to send the bloom filter
-		// but we should wait for a want message instead
+		// 302 means the other side decoded our strata
+		// and will instead send a wants message
 		wants, err := sph.WaitForWantsMessage()
 		if err != nil {
 			return fmt.Errorf("error waiting for wants")
@@ -144,11 +144,12 @@ func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.Invert
 	gn := sph.gossipNode
 	gn.ibfSyncer.RLock()
 	subtracted := gn.IBFs[len(remoteIBF.Cells)].Subtract(remoteIBF)
+	debug := gn.IBFs[len(remoteIBF.Cells)].GetDebug()
 	gn.ibfSyncer.RUnlock()
 	difference, err := subtracted.Decode()
 	if err != nil {
-		log.Infof("%s error getting diff (remote size: %d): %v", gn.ID(), len(remoteIBF.Cells), err)
-		// log.Errorf("%s (talking to %s) local ibf is : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
+		log.Infof("%s error getting diff from peer %s (remote size: %d): %v", gn.ID(), sph.peerID, len(remoteIBF.Cells), err)
+		log.Errorf("%s local IBF on error from %s is: %v", gn.ID(), sph.peerID, debug)
 		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
 		return nil, err
 	}
