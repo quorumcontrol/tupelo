@@ -31,7 +31,7 @@ func walletPath(name string) string {
 
 var StoppedError = errors.New("Unstarted wallet session")
 
-func (rpcs *RPCSession) isStopped() bool {
+func (rpcs *RPCSession) IsStopped() bool {
 	return !rpcs.isStarted
 }
 
@@ -127,25 +127,28 @@ func (rpcs *RPCSession) CreateWallet(passPhrase string) error {
 }
 
 func (rpcs *RPCSession) Start(passPhrase string) error {
-	unlockErr := rpcs.wallet.Unlock(passPhrase)
-	if unlockErr != nil {
-		return unlockErr
+	if !rpcs.isStarted {
+		unlockErr := rpcs.wallet.Unlock(passPhrase)
+		if unlockErr != nil {
+			return unlockErr
+		}
+
+		rpcs.client.Start()
+		rpcs.isStarted = true
 	}
-
-	rpcs.client.Start()
-	rpcs.isStarted = true
-
 	return nil
 }
 
 func (rpcs *RPCSession) Stop() {
-	rpcs.wallet.Close()
-	rpcs.client.Stop()
-	rpcs.isStarted = false
+	if !rpcs.IsStopped() {
+		rpcs.wallet.Close()
+		rpcs.client.Stop()
+		rpcs.isStarted = false
+	}
 }
 
 func (rpcs *RPCSession) GenerateKey() (*ecdsa.PrivateKey, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -153,7 +156,7 @@ func (rpcs *RPCSession) GenerateKey() (*ecdsa.PrivateKey, error) {
 }
 
 func (rpcs *RPCSession) ListKeys() ([]string, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -161,7 +164,7 @@ func (rpcs *RPCSession) ListKeys() ([]string, error) {
 }
 
 func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -169,7 +172,7 @@ func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
 }
 
 func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -188,7 +191,7 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 }
 
 func (rpcs *RPCSession) ExportChain(chainId string) (*SerializedChainTree, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -212,7 +215,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (*SerializedChainTree, error
 }
 
 func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializedChainTree) (*consensus.SignedChainTree, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -238,7 +241,7 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializedC
 }
 
 func (rpcs *RPCSession) GetChainIds() ([]string, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -246,7 +249,7 @@ func (rpcs *RPCSession) GetChainIds() ([]string, error) {
 }
 
 func (rpcs *RPCSession) GetChain(id string) (*consensus.SignedChainTree, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -254,7 +257,7 @@ func (rpcs *RPCSession) GetChain(id string) (*consensus.SignedChainTree, error) 
 }
 
 func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -275,7 +278,7 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 }
 
 func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -304,7 +307,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 }
 
 func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddrs []string) (*cid.Cid, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -334,7 +337,7 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddr
 }
 
 func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, value []byte) (*cid.Cid, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -360,7 +363,7 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 	return resp.Tip, nil
 }
 func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []string, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, nil, StoppedError
 	}
 
@@ -374,7 +377,7 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 }
 
 func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
@@ -395,7 +398,7 @@ func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName s
 }
 
 func (rpcs *RPCSession) MintCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
-	if rpcs.isStopped() {
+	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 

@@ -3,6 +3,7 @@ package walletshell
 import (
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -64,14 +65,16 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "start-session",
 		Help: "start a new session",
 		Func: func(c *ishell.Context) {
-			c.Print("Passphrase: ")
-			passphrase := c.ReadPassword()
+			if session.IsStopped() {
+				c.Print("Passphrase: ")
+				passphrase := c.ReadPassword()
 
-			c.Println("Starting session")
-			err := session.Start(passphrase)
-			if err != nil {
-				c.Println("error starting session:", err)
-				return
+				c.Println("Starting session")
+				err := session.Start(passphrase)
+				if err != nil {
+					c.Println("error starting session:", err)
+					return
+				}
 			}
 		},
 	})
@@ -123,13 +126,13 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 				return
 			}
 
-			c.Printf("chain: %v", chain)
+			c.Printf("chain id: %v\n", chain.Id)
 		},
 	})
 
 	shell.AddCmd(&ishell.Cmd{
 		Name: "list-chains",
-		Help: "list the current chains",
+		Help: "list the current chain tree ids",
 		Func: func(c *ishell.Context) {
 			ids, _ := session.GetChainIds()
 			for i, id := range ids {
@@ -182,6 +185,21 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 			}
 
 			c.Printf("new tip: %v\n", tip)
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "resolve",
+		Help: "resolve the data at a chain-tree path. usage: resolve chain-id path",
+		Func: func(c *ishell.Context) {
+			path := strings.Split(c.Args[1], "/")
+			data, remaining, err := session.Resolve(c.Args[0], path)
+			if err != nil {
+				c.Printf("error resolving data: %v", err)
+				return
+			}
+
+			c.Printf("data: %v\nremaining path: %v\n", data, remaining)
 		},
 	})
 
