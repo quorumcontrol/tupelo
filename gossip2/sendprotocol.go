@@ -1,13 +1,13 @@
 package gossip2
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/tinylib/msgp/msgp"
 )
@@ -51,31 +51,42 @@ func DoSyncProtocol(gn *GossipNode) error {
 	sph.reader = msgp.NewReader(stream)
 	sph.peerID = stream.Conn().RemotePeer().String()
 
-	// Step 2: Send bloom filter
-	err = sph.SendBloomFilter()
+	// step 1 send strata
+	err = sph.SendStrata()
 	if err != nil {
-		return fmt.Errorf("error sending bloom filter: %v", err)
+		return fmt.Errorf("error sending strata: %v", err)
+	}
+	// step 2 wait for IBF
+	remoteFilter, err := sph.WaitForBloomFilter()
+	if err != nil {
+		return fmt.Errorf("error waiting for bloom filter: %v", err)
 	}
 
-	// Step 3: wait for wants message (terminates here if receives 503)
-	wants, err := sph.WaitForWantsMessage()
+	// step 3 - decode IBF
+	diff, err := sph.DifferencesFromBloomFilter(remoteFilter)
 	if err != nil {
-		return fmt.Errorf("error waiting on wants message: %v", err)
+		return fmt.Errorf("error getting differences from bloom: %v", err)
 	}
+	// step 4 - send wants
+	_, err = sph.SendWantMessage(diff)
+	if err != nil {
+		return fmt.Errorf("error sending want message: %v", err)
+	}
+
+	// step 5 - handle incoming obects and send wanted objects
 
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
 	results := make(chan error, 2)
 
+	wg.Add(1)
 	go func() {
-		// Step 4: send wanted objects
-		results <- sph.SendWantedObjects(wants)
+		results <- sph.SendPeerObjects(diff)
 		wg.Done()
 	}()
 
+	wg.Add(1)
 	go func() {
-		// step 5: wait for objects we wnant
-		results <- sph.GetWantedObjects()
+		results <- sph.WaitForProvides()
 		wg.Done()
 	}()
 	wg.Wait()
@@ -92,53 +103,95 @@ func DoSyncProtocol(gn *GossipNode) error {
 	return nil
 }
 
-func (sph *SyncProtocolHandler) GetWantedObjects() error {
+func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.InvertibleBloomFilter) (*ibf.DecodeResults, error) {
+	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
 	gn := sph.gossipNode
+	gn.ibfSyncer.RLock()
+	subtracted := gn.IBFs[len(remoteIBF.Cells)].Subtract(remoteIBF)
+	gn.ibfSyncer.RUnlock()
+	difference, err := subtracted.Decode()
+	if err != nil {
+		log.Errorf("%s error getting diff): %f\n", gn.ID(), err)
+		// log.Errorf("%s (talking to %s) local ibf is : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
+		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
+		return nil, err
+	}
+	log.Debugf("%s decoded", gn.ID())
+	return &difference, nil
+}
+
+func (sph *SyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) (*WantMessage, error) {
+	writer := sph.writer
+	gn := sph.gossipNode
+
+	want := WantMessageFromDiff(difference.RightSet)
+	err := want.EncodeMsg(writer)
+	if err != nil {
+		log.Errorf("%s error writing wants: %v", gn.ID(), err)
+		return nil, fmt.Errorf("")
+	}
+	writer.Flush()
+	return want, nil
+}
+
+func (sph *SyncProtocolHandler) WaitForBloomFilter() (*ibf.InvertibleBloomFilter, error) {
 	reader := sph.reader
-	// now get the objects we need
-	var isLastMessage bool
-	for !isLastMessage {
-		var provideMsg ProvideMessage
-		err := provideMsg.DecodeMsg(reader)
-		if err != nil {
-			log.Errorf("%s error decoding message: %v", gn.ID(), err)
-			return nil
-		}
-		if len(provideMsg.Key) == 0 && !provideMsg.Last {
-			log.Errorf("%s error, got nil key, value: %v", gn.ID(), provideMsg.Key)
-			return nil
-		}
-		log.Debugf("%s new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
-		if !provideMsg.Last && len(provideMsg.Key) == 0 {
-			log.Errorf("%s provide message has no key: %v", gn.ID(), provideMsg.Key)
-		}
+	gn := sph.gossipNode
 
-		zeroCount := 0
-		for i := len(provideMsg.Key) - 1; i >= 0; i-- {
-			b := provideMsg.Key[i]
-			if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-				break
+	var remoteIBF ibf.InvertibleBloomFilter
+	err := remoteIBF.DecodeMsg(reader)
+	if err != nil {
+		log.Errorf("%s error decoding message", gn.ID(), err)
+		return &remoteIBF, fmt.Errorf("error decoding message: %v", err)
+	}
+	return &remoteIBF, nil
+}
+
+func (sph *SyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) error {
+	gn := sph.gossipNode
+	writer := sph.writer
+
+	wantedKeys := difference.LeftSet
+	if useDoneRemovalFilter {
+		wantedKeys = make([]ibf.ObjectId, 0)
+		for _, oid := range difference.LeftSet {
+			key := uint64ToBytes(uint64(oid))
+			done, _ := gn.isDone(key)
+			if !done {
+				wantedKeys = append(wantedKeys, oid)
 			}
-			zeroCount++
 		}
-		if zeroCount > 5 {
-			log.Errorf("%s all zero key %v provideMessage.Last? %t", gn.ID(), provideMsg.Key, provideMsg.Last)
-			panic("we're done in the DoSync")
-		}
-
-		gn.newObjCh <- provideMsg
-		isLastMessage = provideMsg.Last
 	}
 
+	toProvideAsWantMessage := WantMessageFromDiff(wantedKeys)
+	for _, key := range toProvideAsWantMessage.Keys {
+		key := uint64ToBytes(key)
+		objs, err := gn.Storage.GetPairsByPrefix(key)
+		if err != nil {
+			log.Errorf("error getting objects: %v", err)
+			return fmt.Errorf("error getting objects: %v", err)
+		}
+		for _, kv := range objs {
+			provide := ProvideMessage{
+				Key:   kv.Key,
+				Value: kv.Value,
+			}
+			log.Debugf("%s HandleSync providing to %s (uint64: %d): %s %v", gn.ID(), sph.peerID, key, bytesToString(provide.Key), provide.Key)
+			provide.EncodeMsg(writer)
+			writer.Flush()
+		}
+	}
+	last := ProvideMessage{Last: true}
+	last.EncodeMsg(writer)
 	return nil
 }
 
-func (sph *SyncProtocolHandler) SendBloomFilter() error {
+func (sph *SyncProtocolHandler) SendStrata() error {
 	gn := sph.gossipNode
 	writer := sph.writer
 
 	gn.ibfSyncer.RLock()
-	err := gn.IBFs[20000].EncodeMsg(writer)
+	err := gn.Strata.EncodeMsg(writer)
 	gn.ibfSyncer.RUnlock()
 	if err != nil {
 		return fmt.Errorf("error writing IBF: %v", err)
@@ -172,25 +225,12 @@ func (sph *SyncProtocolHandler) SendWantedObjects(wants *WantMessage) error {
 	return writer.Flush()
 }
 
-func (sph *SyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
-	reader := sph.reader
-	gn := sph.gossipNode
-	var wants WantMessage
-	err := wants.DecodeMsg(reader)
-	if err != nil {
-		log.Errorf("%s error reading wants %v", gn.ID(), err)
-		// log.Errorf("%s ibf TO %s : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
-		// log.Errorf("%s ibf TO %s cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
-
-		return nil, fmt.Errorf("error decoding wants: %v", err)
-	}
-	log.Debugf("%s: got a want request for %v keys", gn.ID(), len(wants.Keys))
-	if wants.Code == 503 {
-		log.Infof("%s remote peer %s too busy", gn.ID(), sph.peerID)
-		return nil, fmt.Errorf("peer too busy")
-	}
-	return &wants, nil
-}
+// TODO: handle 503
+// log.Debugf("%s: got a want request for %v keys", gn.ID(), len(wants.Keys))
+// if wants.Code == 503 {
+// 	log.Infof("%s remote peer %s too busy", gn.ID(), rsph.peerID)
+// 	return nil, fmt.Errorf("peer too busy")
+// }
 
 func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 	gn := sph.gossipNode
@@ -214,4 +254,24 @@ func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 	}
 	log.Debugf("%s established stream to %s", gn.ID(), sph.peerID)
 	return stream, nil
+}
+
+func (sph *SyncProtocolHandler) WaitForProvides() error {
+	gn := sph.gossipNode
+	reader := sph.reader
+	var isLastMessage bool
+	for !isLastMessage {
+		var provideMsg ProvideMessage
+		err := provideMsg.DecodeMsg(reader)
+		if err != nil {
+			log.Errorf("%s error decoding message: %v", gn.ID(), err)
+			return fmt.Errorf("error decoding message: %v", err)
+		}
+		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
+		gn.newObjCh <- provideMsg
+		isLastMessage = provideMsg.Last
+	}
+
+	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), sph.peerID)
+	return nil
 }
