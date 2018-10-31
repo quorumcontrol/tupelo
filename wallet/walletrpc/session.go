@@ -6,9 +6,9 @@ import (
 	fmt "fmt"
 	"path/filepath"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipld-cbor"
 
-	"github.com/btcsuite/btcutil/base58"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -57,13 +57,11 @@ func NewSession(walletName string, group *consensus.NotaryGroup) (*RPCSession, e
 	}, nil
 }
 
-func decodeDag(encodedDag []string, store nodestore.NodeStore) (*dag.Dag, error) {
+func decodeDag(encodedDag [][]byte, store nodestore.NodeStore) (*dag.Dag, error) {
 	dagNodes := make([]*cbornode.Node, len(encodedDag))
 
-	for i, nodeString := range encodedDag {
-		raw := base58.Decode(nodeString)
-
-		block := blocks.NewBlock(raw)
+	for i, rawNode := range encodedDag {
+		block := blocks.NewBlock(rawNode)
 		node, err := cbornode.DecodeBlock(block)
 		if err != nil {
 			return nil, err
@@ -75,31 +73,28 @@ func decodeDag(encodedDag []string, store nodestore.NodeStore) (*dag.Dag, error)
 	return dag.NewDagWithNodes(store, dagNodes...)
 }
 
-func encodeDag(dag *dag.Dag) ([]string, error) {
+func serializeDag(dag *dag.Dag) ([][]byte, error) {
 	dagNodes, err := dag.Nodes()
 	if err != nil {
 		return nil, err
 	}
 
-	encodedDag := make([]string, len(dagNodes))
+	dagBytes := make([][]byte, len(dagNodes))
 	for i, node := range dagNodes {
-		raw := node.RawData()
-		encodedDag[i] = base58.Encode(raw)
+		dagBytes[i] = node.RawData()
 	}
 
-	return encodedDag, nil
+	return dagBytes, nil
 }
 
-func decodeSignatures(encodedSigs map[string]*SerializedSignature) (consensus.SignatureMap, error) {
+func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.SignatureMap, error) {
 	signatures := make(consensus.SignatureMap)
 
 	for k, encodedSig := range encodedSigs {
-		sigBytes := base58.Decode(encodedSig.Signature)
-
 		signature := consensus.Signature{
 			Type:      encodedSig.Type,
 			Signers:   encodedSig.Signers,
-			Signature: sigBytes,
+			Signature: encodedSig.Signature,
 		}
 
 		signatures[k] = signature
@@ -108,12 +103,12 @@ func decodeSignatures(encodedSigs map[string]*SerializedSignature) (consensus.Si
 	return signatures, nil
 }
 
-func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializedSignature {
-	serializedSigs := make(map[string]*SerializedSignature)
+func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializableSignature {
+	serializedSigs := make(map[string]*SerializableSignature)
 	for k, sig := range sigs {
-		serializedSigs[k] = &SerializedSignature{
+		serializedSigs[k] = &SerializableSignature{
 			Signers:   sig.Signers,
-			Signature: base58.Encode(sig.Signature),
+			Signature: sig.Signature,
 			Type:      sig.Type,
 		}
 	}
@@ -190,7 +185,7 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 	return chain, nil
 }
 
-func (rpcs *RPCSession) ExportChain(chainId string) (*SerializedChainTree, error) {
+func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -200,21 +195,27 @@ func (rpcs *RPCSession) ExportChain(chainId string) (*SerializedChainTree, error
 		return nil, err
 	}
 
-	encodedDag, err := encodeDag(chain.ChainTree.Dag)
+	dagBytes, err := serializeDag(chain.ChainTree.Dag)
 	if err != nil {
 		return nil, err
 	}
 
 	serializedSigs := serializeSignatures(chain.Signatures)
 
-	return &SerializedChainTree{
-		Dag:        encodedDag,
+	serializableChain := SerializableChainTree{
+		Dag:        dagBytes,
 		Signatures: serializedSigs,
-	}, nil
+	}
 
+	serializedChain, err := proto.Marshal(&serializableChain)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializedChain, nil
 }
 
-func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializedChainTree) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain *SerializableChainTree) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
