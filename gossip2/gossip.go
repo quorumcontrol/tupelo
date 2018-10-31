@@ -101,7 +101,7 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 
 	for _, size := range standardIBFSizes {
 		node.IBFs[size] = ibf.NewInvertibleBloomFilter(size, 4)
-		// node.IBFs[size].TurnOnDebug()
+		node.IBFs[size].TurnOnDebug()
 	}
 	host.SetStreamHandler(syncProtocol, node.HandleSync)
 	host.SetStreamHandler(IsDoneProtocol, node.HandleDoneProtocol)
