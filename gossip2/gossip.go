@@ -47,7 +47,7 @@ const useDoneRemovalFilter = true
 
 type IBFMap map[int]*ibf.InvertibleBloomFilter
 
-var standardIBFSizes = []int{2000, 20000}
+var standardIBFSizes = []int{200, 2000, 100000}
 
 type MessageType int
 
