@@ -177,10 +177,10 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, err
 		// 416 REQUESTED RANGE NOT SATISFIABLE
 		// just means the bloom filter didn't decode, which is expected behavior given changes
 		// on remote side during this protocol exchange
-		log.Infof("error from remote side: %d, %v", pm.Code, pm.Error)
+		log.Infof("%s error decoding IBF on peer %s: %d, %v", gn.ID(), rsph.peerID, pm.Code, pm.Error)
 		return nil, nil
 	case 500:
-		log.Errorf("error from remote side: %d, %v", pm.Code, pm.Error)
+		log.Errorf("%s error from remote peer %s: %d, %v", gn.ID(), rsph.peerID, pm.Code, pm.Error)
 		return nil, fmt.Errorf("remote error: %v", err)
 	}
 
@@ -212,6 +212,7 @@ func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
 
 	log.Debugf("%s sending bloom filter of size: %d", gn.ID(), sizeToSend)
 	gn.ibfSyncer.RLock()
+	log.Debugf("%s bloom filter (sending to %s) objects: %v", gn.ID(), rsph.peerID, gn.IBFs[sizeToSend])
 	pm, err := toProtocolMessage(gn.IBFs[sizeToSend])
 	gn.ibfSyncer.RUnlock()
 	if err != nil {
