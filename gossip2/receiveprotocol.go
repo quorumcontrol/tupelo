@@ -51,6 +51,10 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 
 	// step 2 estimate strata
 	estimate, _ := rsph.EstimateFromRemoteStrata(strata)
+	if estimate == 0 {
+		log.Debugf("%s nodes are synced: %v", gn.ID(), err)
+		// 	return nil
+	}
 
 	// step 3 - send appropriate IBF
 	err = rsph.SendBloomFilter(estimate)
@@ -133,8 +137,23 @@ func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
 	gn := rsph.gossipNode
 	writer := rsph.writer
 
+	wantsToSend := estimate * 2
+	var sizeToSend int
+
+	for _, size := range standardIBFSizes {
+		if size >= wantsToSend {
+			sizeToSend = size
+			break
+		}
+	}
+	if sizeToSend == 0 {
+		log.Errorf("%s estimate too large to send an IBF: %d", gn.ID(), estimate)
+		return fmt.Errorf("error estimate is too large: %d", estimate)
+	}
+
+	log.Debugf("%s sending bloom filter of size: %d", gn.ID(), sizeToSend)
 	gn.ibfSyncer.RLock()
-	err := gn.IBFs[20000].EncodeMsg(writer)
+	err := gn.IBFs[sizeToSend].EncodeMsg(writer)
 	gn.ibfSyncer.RUnlock()
 	if err != nil {
 		return fmt.Errorf("error writing IBF: %v", err)
