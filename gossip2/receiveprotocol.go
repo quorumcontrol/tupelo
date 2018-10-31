@@ -102,16 +102,15 @@ func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandl
 	case worker := <-gn.syncPool:
 		return &worker, nil
 	default:
-		// TODO: for now just do nothing, but we should probably write something here
-		// writer := rsph.writer
-		// want := &WantMessage{
-		// 	Code: 503,
-		// }
-		// err := want.EncodeMsg(rsph.writer)
-		// if err != nil {
-		// 	log.Errorf("%s error writing wants: %v", gn.ID(), err)
-		// 	return nil, fmt.Errorf("error writing wants: %v", err)
-		// }
+		writer := rsph.writer
+		pm := &ProtocolMessage{
+			Code: 503,
+		}
+		err := pm.EncodeMsg(writer)
+		if err != nil {
+			log.Errorf("%s error writing wants: %v", gn.ID(), err)
+			return nil, fmt.Errorf("error writing wants: %v", err)
+		}
 		return nil, nil
 	}
 }
@@ -153,8 +152,13 @@ func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
 
 	log.Debugf("%s sending bloom filter of size: %d", gn.ID(), sizeToSend)
 	gn.ibfSyncer.RLock()
-	err := gn.IBFs[sizeToSend].EncodeMsg(writer)
+	pm, err := toProtocolMessage(gn.IBFs[sizeToSend])
 	gn.ibfSyncer.RUnlock()
+	if err != nil {
+		return fmt.Errorf("error turning IBF into protocol message: %v", err)
+	}
+
+	err = pm.EncodeMsg(writer)
 	if err != nil {
 		return fmt.Errorf("error writing IBF: %v", err)
 	}
