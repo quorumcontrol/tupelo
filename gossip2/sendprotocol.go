@@ -56,16 +56,22 @@ func DoSyncProtocol(gn *GossipNode) error {
 	if err != nil {
 		return fmt.Errorf("error sending strata: %v", err)
 	}
-	// step 2 wait for IBF (error if received 503)
+	// step 2 wait for IBF (error if received 503, terminate if 304)
 	remoteFilter, err := sph.WaitForBloomFilter()
 	if err != nil {
 		return fmt.Errorf("error waiting for bloom filter: %v", err)
+	}
+	if remoteFilter == nil {
+		log.Debugf("%s full synced with %s", gn.ID(), sph.peerID)
+		return nil
 	}
 
 	// step 3 - decode IBF
 	diff, err := sph.DifferencesFromBloomFilter(remoteFilter)
 	if err != nil {
-		return fmt.Errorf("error getting differences from bloom: %v", err)
+		log.Infof("sending error message: error getting differences from bloom: %v", err)
+		err = sph.SendErrorMessage(500, fmt.Sprintf("error getting differences from bloom: %v", err))
+		return err
 	}
 	// step 4 - send wants
 	_, err = sph.SendWantMessage(diff)
@@ -103,6 +109,15 @@ func DoSyncProtocol(gn *GossipNode) error {
 	return nil
 }
 
+func (sph *SyncProtocolHandler) SendErrorMessage(code int, msg string) error {
+	writer := sph.writer
+	pm := &ProtocolMessage{
+		Code:  code,
+		Error: msg,
+	}
+	return pm.EncodeMsg(writer)
+}
+
 func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.InvertibleBloomFilter) (*ibf.DecodeResults, error) {
 	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
 	gn := sph.gossipNode
@@ -111,7 +126,7 @@ func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.Invert
 	gn.ibfSyncer.RUnlock()
 	difference, err := subtracted.Decode()
 	if err != nil {
-		log.Errorf("%s error getting diff (remote size: %d): %v", gn.ID(), len(remoteIBF.Cells), err)
+		log.Infof("%s error getting diff (remote size: %d): %v", gn.ID(), len(remoteIBF.Cells), err)
 		// log.Errorf("%s (talking to %s) local ibf is : %v", gn.ID(), peerID, gn.IBFs[2000].GetDebug())
 		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
 		return nil, err
@@ -125,10 +140,14 @@ func (sph *SyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) (
 	gn := sph.gossipNode
 
 	want := WantMessageFromDiff(difference.RightSet)
-	err := want.EncodeMsg(writer)
+	pm, err := toProtocolMessage(want)
 	if err != nil {
-		log.Errorf("%s error writing wants: %v", gn.ID(), err)
-		return nil, fmt.Errorf("")
+		return nil, fmt.Errorf("error writing wants: %v", err)
+	}
+	err = pm.EncodeMsg(writer)
+	if err != nil {
+		log.Errorf("%s error writing wants protocol message: %v", gn.ID(), err)
+		return nil, fmt.Errorf("%s error writing wants protocol message: %v", gn.ID(), err)
 	}
 	writer.Flush()
 	return want, nil
@@ -143,9 +162,15 @@ func (sph *SyncProtocolHandler) WaitForBloomFilter() (*ibf.InvertibleBloomFilter
 		log.Errorf("%s error decoding message: %v", gn.ID(), err)
 		return nil, fmt.Errorf("error decoding message: %v", err)
 	}
-	if pm.Code == 503 {
-		return nil, fmt.Errorf("error too many syncs on remote side")
+
+	switch pm.Code {
+	case 503:
+		log.Debugf("error too many syncs on remote side")
+		return nil, nil
+	case 304:
+		return nil, nil
 	}
+
 	remoteIBF, err := fromProtocolMessage(&pm)
 	if err != nil {
 		return nil, fmt.Errorf("error converting pm to remoteIBF: %v", err)
