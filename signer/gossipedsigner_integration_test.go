@@ -6,17 +6,14 @@ import (
 	"crypto/ecdsa"
 	"os"
 	"testing"
-
-	"github.com/ipfs/go-ipld-cbor"
-
-	"github.com/quorumcontrol/chaintree/nodestore"
-
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossipclient"
@@ -78,11 +75,16 @@ func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip cid.Cid, tr
 		nodes[i] = node.RawData()
 	}
 
+	var btip *cid.Cid
+	if tip.Defined() {
+		btip = &tip
+	}
+
 	addBlockRequest := &consensus.AddBlockRequest{
 		ChainId:  tree.MustId(),
 		Nodes:    nodes,
 		NewBlock: signed,
-		Tip:      &tip,
+		Tip:      btip,
 	}
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)
@@ -209,13 +211,13 @@ func TestGossipedSignerIntegration(t *testing.T) {
 	for round, expected := range roundsAndExpectedCount {
 		roundInfo, err := group.MostRecentRoundInfo(round)
 		require.Nil(t, err)
-		assert.Len(t, roundInfo.Signers, expected)
+		assert.Len(t, roundInfo.Signers, expected, "round: %d", round)
 	}
 
 	// Check that the round after our last insert persists length of signers
 	roundInfo, err := group.MostRecentRoundInfo(lastRound + 1)
 	require.Nil(t, err)
-	assert.Len(t, roundInfo.Signers, roundsAndExpectedCount[lastRound])
+	assert.Len(t, roundInfo.Signers, roundsAndExpectedCount[lastRound], "lastRound: %d", lastRound)
 }
 
 func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
@@ -240,9 +242,10 @@ func TestGossipedSigner_GetDiffNodesHandler(t *testing.T) {
 	defer client.Stop()
 	time.Sleep(2 * time.Second)
 
+	groupTip := group.Tip()
 	req, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
-		PreviousTip: group.Tip(),
-		NewTip:      group.Tip(),
+		PreviousTip: &groupTip,
+		NewTip:      &groupTip,
 	})
 	require.Nil(t, err)
 

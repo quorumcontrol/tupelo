@@ -204,10 +204,11 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 		existing, ok := gs.roundBlocks[int64(round)]
 		if !ok || !existing.Defined() {
 			gs.calculateBlockForRound(int64(round))
-			existing, _ = gs.roundBlocks[int64(round)]
+			existing, ok = gs.roundBlocks[int64(round)]
 		}
 
 		if !ok || !existing.Defined() {
+			log.Error("could not calculate round info for %v", round)
 			return nil, false, &consensus.ErrorCode{Memo: fmt.Sprintf("could not calculate round info for %v", round), Code: consensus.ErrUnknown}
 		}
 
@@ -221,7 +222,11 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 			if err != nil {
 				return nil, false, fmt.Errorf("error processing block: %v", err)
 			}
-			return expected.Bytes(), true, nil
+			var bits []byte
+			if expected.Defined() {
+				bits = expected.Bytes()
+			}
+			return bits, true, nil
 		}
 		log.Error("error,existing did not match %s %s", existing.String(), node.Cid().String())
 		return nil, false, nil
@@ -304,8 +309,9 @@ func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
 		return
 	}
 
-	existing, ok := gs.roundBlocks[targetRound]
-	if !ok || !existing.Defined() {
+	_, ok = gs.roundBlocks[targetRound]
+	if ok {
+		log.Debug("existing found", "g", gs.gossiper.ID, "currRound", gs.gossiper.Group.RoundAt(time.Now()), "targetRound", round)
 		return
 	}
 
@@ -359,7 +365,7 @@ func (gs *GossipedSigner) acceptedHandler(ctx context.Context, acceptedTransacti
 	}
 
 	if trans := stakeTransactionFromBlock(addBlockrequest.NewBlock); trans != nil {
-		log.Debug("new stake", "g", gs.gossiper.ID, "staker", addBlockrequest.ChainId, "targetround", acceptedTransaction.Round+6)
+		log.Debug("new stake", "g", gs.gossiper.ID, "staker", addBlockrequest.ChainId, "currRound", gs.gossiper.Group.RoundAt(time.Now()), "targetround", acceptedTransaction.Round+6)
 
 		stakePayload := &consensus.StakePayload{}
 		err = typecaster.ToType(trans.Payload, stakePayload)
