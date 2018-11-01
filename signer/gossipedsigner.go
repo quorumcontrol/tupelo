@@ -2,26 +2,21 @@ package signer
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/quorumcontrol/chaintree/safewrap"
-
-	"github.com/quorumcontrol/chaintree/typecaster"
-
-	"github.com/quorumcontrol/qc3/bls"
-
-	"fmt"
-
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/chaintree/typecaster"
+	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip"
 	"github.com/quorumcontrol/qc3/network"
@@ -58,7 +53,7 @@ type GossipedSigner struct {
 	started             bool
 	responses           responseHolder
 	respLock            *sync.RWMutex
-	roundBlocks         map[int64]*cid.Cid
+	roundBlocks         map[int64]cid.Cid
 	pendingGroupChanges map[int64][]*PendingGroupChange
 }
 
@@ -75,7 +70,7 @@ func NewGossipedSigner(node *network.Node, group *consensus.NotaryGroup, store s
 	gossipSigner := &GossipedSigner{
 		responses:           make(responseHolder),
 		respLock:            &sync.RWMutex{},
-		roundBlocks:         make(map[int64]*cid.Cid),
+		roundBlocks:         make(map[int64]cid.Cid),
 		pendingGroupChanges: make(map[int64][]*PendingGroupChange),
 	}
 
@@ -121,8 +116,8 @@ func (gs *GossipedSigner) GroupStateChangeHandler(ctx context.Context, req netwo
 	if !existingTip.Equals(newTip) {
 		// TODO: this isn't very safe, we should fetch the nodes from other signers, not just the signer that published the update
 		newReq, err := network.BuildRequest(consensus.MessageType_GetDiffNodes, &consensus.GetDiffNodesRequest{
-			PreviousTip: existingTip,
-			NewTip:      newTip,
+			PreviousTip: &existingTip,
+			NewTip:      &newTip,
 		})
 
 		if err != nil {
@@ -176,7 +171,7 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 		return nil, false, fmt.Errorf("error getting payload: %v", err)
 	}
 
-	var storedTip *cid.Cid
+	var storedTip cid.Cid
 
 	if len(stateTrans.State) > 1 {
 		storedTip, err = cid.Cast(stateTrans.State)
@@ -206,13 +201,13 @@ func (gs *GossipedSigner) stateHandler(ctx context.Context, stateTrans gossip.St
 
 		sw := &safewrap.SafeWrap{}
 
-		existing, _ := gs.roundBlocks[int64(round)]
-		if existing == nil {
+		existing, ok := gs.roundBlocks[int64(round)]
+		if !ok || !existing.Defined() {
 			gs.calculateBlockForRound(int64(round))
 			existing, _ = gs.roundBlocks[int64(round)]
 		}
 
-		if existing == nil {
+		if !ok || !existing.Defined() {
 			return nil, false, &consensus.ErrorCode{Memo: fmt.Sprintf("could not calculate round info for %v", round), Code: consensus.ErrUnknown}
 		}
 
@@ -280,10 +275,12 @@ func (gs *GossipedSigner) calculateBlockForRound(round int64) (*consensus.AddBlo
 		panic(fmt.Sprintf("error creating round block: %v", err))
 	}
 
+	groupTip := gs.gossiper.Group.Tip()
+
 	addBlockRequest := &consensus.AddBlockRequest{
 		ChainId:  gs.gossiper.Group.ID,
 		NewBlock: block,
-		Tip:      gs.gossiper.Group.Tip(),
+		Tip:      &groupTip,
 	}
 
 	sw := &safewrap.SafeWrap{}
@@ -307,8 +304,8 @@ func (gs *GossipedSigner) roundHandler(ctx context.Context, round int64) {
 		return
 	}
 
-	existing, _ := gs.roundBlocks[targetRound]
-	if existing != nil {
+	existing, ok := gs.roundBlocks[targetRound]
+	if !ok || !existing.Defined() {
 		return
 	}
 
@@ -391,22 +388,22 @@ func (gs *GossipedSigner) GetDiffNodes(ctx context.Context, networkReq network.R
 		return fmt.Errorf("error getting request: %v", err)
 	}
 
-	newNodes, err := gs.gossiper.Group.NodesAt(diffRequest.NewTip)
+	newNodes, err := gs.gossiper.Group.NodesAt(*diffRequest.NewTip)
 	if err != nil {
 		return fmt.Errorf("error getting current nodes: %v", err)
 	}
 
 	previousNodes := make([]*cbornode.Node, 0)
 
-	previousTipNode, err := gs.gossiper.Group.GetNode(diffRequest.PreviousTip)
+	previousTipNode, err := gs.gossiper.Group.GetNode(*diffRequest.PreviousTip)
 	if previousTipNode != nil {
-		previousNodes, err = gs.gossiper.Group.NodesAt(diffRequest.PreviousTip)
+		previousNodes, err = gs.gossiper.Group.NodesAt(*diffRequest.PreviousTip)
 		if err != nil {
 			return fmt.Errorf("error getting previous nodes: %v", err)
 		}
 	}
 
-	previousNodedsByCid := make(map[*cid.Cid]*cbornode.Node)
+	previousNodedsByCid := make(map[cid.Cid]*cbornode.Node)
 
 	for _, node := range previousNodes {
 		previousNodedsByCid[node.Cid()] = node
@@ -523,7 +520,7 @@ func (gs *GossipedSigner) tipForObject(objectId []byte) (*consensus.TipResponse,
 		return nil, fmt.Errorf("error getting state: %v", err)
 	}
 
-	var tip *cid.Cid
+	var tip cid.Cid
 
 	if len(currState.Tip) > 0 {
 		tip, err = cid.Cast(currState.Tip)
@@ -534,7 +531,7 @@ func (gs *GossipedSigner) tipForObject(objectId []byte) (*consensus.TipResponse,
 
 	return &consensus.TipResponse{
 		ChainId:   string(objectId),
-		Tip:       tip,
+		Tip:       &tip,
 		Signature: currState.Signature,
 	}, nil
 }

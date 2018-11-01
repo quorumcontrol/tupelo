@@ -70,7 +70,7 @@ func newTestSet(t *testing.T, size int) *testSet {
 	}
 }
 
-func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, tree *consensus.SignedChainTree, client *network.MessageHandler, dst *ecdsa.PublicKey) network.ResponseChan {
+func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip cid.Cid, tree *consensus.SignedChainTree, client *network.MessageHandler, dst *ecdsa.PublicKey) network.ResponseChan {
 	cborNodes, err := tree.ChainTree.Dag.Nodes()
 	require.Nil(t, err)
 	nodes := make([][]byte, len(cborNodes))
@@ -82,7 +82,7 @@ func sendBlock(t *testing.T, signed *chaintree.BlockWithHeaders, tip *cid.Cid, t
 		ChainId:  tree.MustId(),
 		Nodes:    nodes,
 		NewBlock: signed,
-		Tip:      tip,
+		Tip:      &tip,
 	}
 
 	req, err := network.BuildRequest(consensus.MessageType_AddBlock, addBlockRequest)

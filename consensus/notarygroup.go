@@ -143,13 +143,13 @@ func (ng *NotaryGroup) RoundInfoFor(round int64) (roundInfo *RoundInfo, err erro
 }
 
 // FastForward takes the notary group up to a known tip
-func (ng *NotaryGroup) FastForward(tip *cid.Cid) error {
+func (ng *NotaryGroup) FastForward(tip cid.Cid) error {
 	ng.signedTree.ChainTree.Dag = ng.signedTree.ChainTree.Dag.WithNewTip(tip)
 	return nil
 }
 
 // Tip returns the current tip of the notary group ChainTree
-func (ng *NotaryGroup) Tip() *cid.Cid {
+func (ng *NotaryGroup) Tip() cid.Cid {
 	return ng.signedTree.Tip()
 }
 
@@ -237,7 +237,7 @@ func (ng *NotaryGroup) verifyThresholdSignatures(roundInfo *RoundInfo, msg []byt
 	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
-func (ng *NotaryGroup) GetNode(cid *cid.Cid) (*cbornode.Node, error) {
+func (ng *NotaryGroup) GetNode(cid cid.Cid) (*cbornode.Node, error) {
 	return ng.signedTree.ChainTree.Dag.Get(cid)
 }
 
@@ -245,21 +245,21 @@ func (ng *NotaryGroup) Nodes() ([]*cbornode.Node, error) {
 	return ng.signedTree.ChainTree.Dag.Nodes()
 }
 
-func (ng *NotaryGroup) NodesAt(tip *cid.Cid) ([]*cbornode.Node, error) {
+func (ng *NotaryGroup) NodesAt(tip cid.Cid) ([]*cbornode.Node, error) {
 	dag := ng.signedTree.ChainTree.Dag.WithNewTip(tip)
 	return dag.Nodes()
 }
 
 // ExpectedTipWithBlock returns what a notary group tip would be if it had the block
 // without actually changing the notary group.
-func (ng *NotaryGroup) ExpectedTipWithBlock(block *chaintree.BlockWithHeaders) (*cid.Cid, error) {
+func (ng *NotaryGroup) ExpectedTipWithBlock(block *chaintree.BlockWithHeaders) (cid.Cid, error) {
 	newTree, err := chaintree.NewChainTree(ng.signedTree.ChainTree.Dag, ng.signedTree.ChainTree.BlockValidators, ng.signedTree.ChainTree.Transactors)
 	if err != nil {
-		return nil, fmt.Errorf("error creating new tree: %v", err)
+		return cid.Undef, fmt.Errorf("error creating new tree: %v", err)
 	}
 	valid, err := newTree.ProcessBlock(block)
 	if !valid || err != nil {
-		return nil, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
+		return cid.Undef, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
 	}
 	return newTree.Dag.Tip, nil
 }

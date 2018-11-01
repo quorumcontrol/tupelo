@@ -2,9 +2,8 @@ package gossipclient
 
 import (
 	"crypto/ecdsa"
-	"time"
-
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -119,10 +118,11 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		nodes[i] = node.RawData()
 	}
 
+	tip := tree.Tip()
 	addBlockRequest := &consensus.AddBlockRequest{
 		Nodes:    nodes,
 		NewBlock: blockWithHeaders,
-		Tip:      tree.Tip(),
+		Tip:      &tip,
 		ChainId:  tree.MustId(),
 	}
 

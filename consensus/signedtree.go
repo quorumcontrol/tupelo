@@ -47,7 +47,7 @@ func (sct *SignedChainTree) MustId() string {
 	return id
 }
 
-func (sct *SignedChainTree) Tip() *cid.Cid {
+func (sct *SignedChainTree) Tip() cid.Cid {
 	return sct.ChainTree.Dag.Tip
 }
 

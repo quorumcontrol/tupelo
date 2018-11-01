@@ -204,7 +204,7 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 		var currentMintedTotal uint64
 
 		for _, c := range mintCids {
-			node, err := tree.Get(&c)
+			node, err := tree.Get(c)
 
 			if err != nil {
 				return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching node %v: %v", c, err)}
@@ -231,7 +231,7 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("could not create new node: %v", err)}
 	}
 
-	mintCids = append(mintCids, *newMint.Cid())
+	mintCids = append(mintCids, newMint.Cid())
 
 	newTree, err = tree.SetAsLink(append(coinPath, "mints"), mintCids)
 	if err != nil {
