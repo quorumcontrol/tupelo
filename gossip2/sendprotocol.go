@@ -219,16 +219,6 @@ func (sph *SyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) e
 	writer := sph.writer
 
 	wantedKeys := difference.LeftSet
-	if useDoneRemovalFilter {
-		wantedKeys = make([]ibf.ObjectId, 0)
-		for _, oid := range difference.LeftSet {
-			key := uint64ToBytes(uint64(oid))
-			done, _ := isDone(gn.Storage, key)
-			if !done {
-				wantedKeys = append(wantedKeys, oid)
-			}
-		}
-	}
 
 	toProvideAsWantMessage := WantMessageFromDiff(wantedKeys)
 	for _, key := range toProvideAsWantMessage.Keys {
