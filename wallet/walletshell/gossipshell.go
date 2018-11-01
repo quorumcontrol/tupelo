@@ -132,6 +132,21 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 	})
 
 	shell.AddCmd(&ishell.Cmd{
+		Name: "set-owner",
+		Help: "transfer ownership of a chain tree",
+		Func: func(c *ishell.Context) {
+			newOwnerKeys := strings.Split(c.Args[2], ",")
+			tip, err := session.SetOwner(c.Args[0], c.Args[1], newOwnerKeys)
+			if err != nil {
+				c.Printf("error setting owners: %v", err)
+				return
+			}
+
+			c.Printf("new tip: %v\n", tip)
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
 		Name: "export-chain",
 		Help: "export an existing chain tree",
 		Func: func(c *ishell.Context) {
