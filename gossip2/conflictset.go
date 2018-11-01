@@ -1,6 +1,10 @@
 package gossip2
 
-import "github.com/ethereum/go-ethereum/crypto"
+import (
+	"bytes"
+
+	"github.com/ethereum/go-ethereum/crypto"
+)
 
 var doneBytes = []byte("done")
 
@@ -23,17 +27,18 @@ func (c *ConflictSet) DoneID() []byte {
 }
 
 func isDone(storage *BadgerStorage, conflictSetID []byte) (bool, error) {
-	doneIDPrefix := doneIDFromConflictSetID(conflictSetID)[0:8]
+	doneID := doneIDFromConflictSetID(conflictSetID)
+	doneIDPrefix := doneID[0:8]
 
-	// TODO: This currently only checks the first 4 bytes of the conflict set,
-	// to make this more robust it should check first 4, if multiple keys are returned
-	// then it should decode the transaction from the message, and then check the appropiate key
 	conflictSetDoneKeys, err := storage.GetKeysByPrefix(doneIDPrefix)
 	if err != nil {
 		return false, err
 	}
-	if len(conflictSetDoneKeys) > 0 {
-		return true, nil
+	for _, key := range conflictSetDoneKeys {
+		if bytes.Equal(key, doneID) {
+			return true, nil
+		}
 	}
+
 	return false, nil
 }
