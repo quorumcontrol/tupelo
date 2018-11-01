@@ -56,12 +56,12 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:56c130d885a4aacae1dd9c7b71cfe39912c7ebc1ff7d2b46083c8812996dc43b"
+  digest = "1:0deddd908b6b4b768cfc272c16ee61e7088a60f7fe2f06c547bd3d8e1f8b8e77"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = ""
-  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
-  version = "v1.1.0"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
 
 [[projects]]
   digest = "1:81d49e94365e7f1ed77edddf9a5482ab4ced461dab56fbf8fc2834da6c295de5"
@@ -255,20 +255,20 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:cc50e25ca33a4e5f4e8810e4a0df33b595993e4fe23982618e490ddaeb03d62e"
+  digest = "1:b8d2c49bda797e13e2d6b169032efccc6f16209650f34979177823d2fbde16f5"
   name = "github.com/ipfs/go-block-format"
   packages = ["."]
   pruneopts = ""
-  revision = "6dead782393dde60414a65a32eb4fcc238db8e8c"
-  version = "v0.1.8"
+  revision = "071a086542e0c24bfd773f68aead14ceb77bc817"
+  version = "v0.2.0"
 
 [[projects]]
-  digest = "1:7a9a32514e977a29f508cf56397f28818015af60340e3dbbac8ba39fafebe957"
+  digest = "1:b7c957d6872ac6d8e007846236f0761b65eed1b4af840a57372e76d4a6987a09"
   name = "github.com/ipfs/go-cid"
   packages = ["."]
   pruneopts = ""
-  revision = "5b04f3043387b02aeeee6a35899f0e767bae3b33"
-  version = "v0.7.21"
+  revision = "6e296c5c49ad84dc6a44af69fa1fe4e1245cd0cf"
+  version = "v0.9.0"
 
 [[projects]]
   digest = "1:15ddaf5e5342274e6b8ac9061c2eed96f46373c747060c01d4bc1f9d186f5810"
@@ -279,19 +279,21 @@
   version = "v1.2.8"
 
 [[projects]]
-  digest = "1:8e5c84ed3786865c04c554a00deea1cc52d218dea8da596223bea99cd0727526"
+  digest = "1:c12bcfe74d279b2b602cf6fe7bdea2a862e99b8868fdd53a45664206c6405122"
   name = "github.com/ipfs/go-ipld-cbor"
-  packages = ["."]
+  packages = [
+    ".",
+    "encoding",
+  ]
   pruneopts = ""
-  revision = "8b666bca090899848849a507a008080db0fcfe21"
+  revision = "4f6fa492b20fed2df7d3453912c61730d3618ef3"
 
 [[projects]]
-  digest = "1:2d7613236d574251f739f34e51e5f280d6aa45243b5c2128f86adc3afbc2a2b8"
+  digest = "1:5c1f3385a9e68652f75f2dd17640a1a4b76e5c960c28fc1548ec4326808638c9"
   name = "github.com/ipfs/go-ipld-format"
   packages = ["."]
   pruneopts = ""
-  revision = "6b4c9ea0f786788f3ee4e458ca39bb3f4da2ee71"
-  version = "v0.5.4"
+  revision = "b2d848bada9dbd11ec27b9a38e8726555e249fd4"
 
 [[projects]]
   digest = "1:76f836364ae83ed811c415aa92e1209ce49de9f62aad85b85fca749a8b96a110"
@@ -366,20 +368,20 @@
   revision = "4df4dc6e86a912614d09719d10cad427b087cbfb"
 
 [[projects]]
-  digest = "1:e1a09476c997d66ec3adb690be3682024e31eeaccfbb81b6b3e6f3790887a069"
+  digest = "1:579a93dea7f9a930f1c1288a4e9691b43047cb09e1176dc20919de9724fc079a"
   name = "github.com/multiformats/go-multibase"
   packages = ["."]
   pruneopts = ""
-  revision = "dfd5076869faca5aed2886dcba60b44a0d0e9c01"
-  version = "v0.2.6"
+  revision = "bb91b53e5695e699a86654d77d03db7bc7506d12"
+  version = "v0.3.0"
 
 [[projects]]
-  branch = "master"
   digest = "1:1fbc8667f8f706bcaf982c2b094906484fac38704400b95a2dc75e4ca2b25279"
   name = "github.com/multiformats/go-multihash"
   packages = ["."]
   pruneopts = ""
   revision = "8be2a682ab9f254311de1375145a2f78a809b07d"
+  version = "v1.0.8"
 
 [[projects]]
   digest = "1:894aef961c056b6d85d12bac890bf60c44e99b46292888bfa66caf529f804457"
@@ -410,7 +412,9 @@
   digest = "1:be09c15c4f244ae1404d45ea6e3e2520537485c7d3a8e623d30e071cb4a439b8"
   name = "github.com/polydawn/refmt"
   packages = [
+    ".",
     "cbor",
+    "json",
     "obj",
     "obj/atlas",
     "shared",
@@ -420,7 +424,7 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:3c7a5dd665059ebb9e66087c562e802362c1c5d209398f31f74196c91bfbfdd6"
+  digest = "1:d289a3aeed3aa0696d58c7107af0c02952d60d9c3af58bc866c4f548b9e762f3"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -430,8 +434,8 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "5e4a09b95c6aebd15c92fd8134452e4d960f8987"
-  version = "v0.0.4"
+  revision = "2af22b6f921d45059e336eca21b0af13651400d4"
+  version = "v1.0.0-rc1"
 
 [[projects]]
   branch = "master"
