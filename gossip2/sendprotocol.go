@@ -144,12 +144,12 @@ func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.Invert
 	gn := sph.gossipNode
 	gn.ibfSyncer.RLock()
 	subtracted := gn.IBFs[len(remoteIBF.Cells)].Subtract(remoteIBF)
-	debug := gn.IBFs[len(remoteIBF.Cells)].GetDebug()
+	// debug := gn.IBFs[len(remoteIBF.Cells)].GetDebug()
 	gn.ibfSyncer.RUnlock()
 	difference, err := subtracted.Decode()
 	if err != nil {
 		log.Infof("%s error getting diff from peer %s (remote size: %d): %v", gn.ID(), sph.peerID, len(remoteIBF.Cells), err)
-		log.Errorf("%s local IBF on error from %s is: %v", gn.ID(), sph.peerID, debug)
+		// log.Errorf("%s local IBF on error from %s is: %v", gn.ID(), sph.peerID, debug)
 		// log.Errorf("%s (talking to %s) local ibf cells : %v", gn.ID(), peerID, ibf.HumanizeIBF(gn.IBFs[2000]))
 		return nil, err
 	}
