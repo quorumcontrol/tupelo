@@ -199,15 +199,6 @@ func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
 }
 
 func (gn *GossipNode) handleDone(msg ProvideMessage) error {
-	// TODO: This can be removed once TODO on isDone is resolved
-	conflictSetDoneExists, err := gn.Storage.Exists(msg.Key)
-	if err != nil {
-		return fmt.Errorf("error getting conflict: %v", err)
-	}
-	if conflictSetDoneExists {
-		return nil
-	}
-
 	log.Debugf("%s adding done message %v", gn.ID(), msg.Key)
 	gn.Add(msg.Key, msg.Value)
 
