@@ -291,20 +291,6 @@ Total Attempted Syncs: %d, Average Attepted Syncs: %d`,
 
 }
 
-func TestTransactionIDFromSignatureKey(t *testing.T) {
-	transaction := Transaction{
-		ObjectID:    []byte("himynameisalongobjectidthatwillhavemorethan64bits"),
-		PreviousTip: []byte(""),
-		NewTip:      []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr"),
-		Payload:     []byte("thisisthepayload"),
-	}
-	signature := Signature{
-		TransactionID: transaction.ID(),
-	}
-
-	assert.Equal(t, transaction.StoredID(), transactionIDFromSignatureKey(signature.StoredID(transaction.ToConflictSet().ID())))
-}
-
 func TestGetSyncTarget(t *testing.T) {
 	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 103

@@ -56,7 +56,7 @@ func (dph *DoneProtocolHandler) SendResponse(csq ConflictSetQuery) error {
 		Key: csq.Key,
 	}
 
-	done, err := dph.gossipNode.isDone(csq.Key)
+	done, err := isDone(dph.gossipNode.Storage, csq.Key)
 	if err != nil {
 		return err
 	}

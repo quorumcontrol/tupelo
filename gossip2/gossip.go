@@ -13,7 +13,6 @@ import (
 
 	"github.com/Workiva/go-datastructures/queue"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
@@ -23,19 +22,6 @@ import (
 )
 
 var log = logging.Logger("gossip")
-
-var doneBytes = []byte("done")
-var trueByte = []byte{byte(1)}
-
-func init() {
-	if len(doneBytes) != 4 {
-		panic("doneBytes must be 4 bytes!")
-	}
-	cbornode.RegisterCborType(WantMessage{})
-	cbornode.RegisterCborType(ProvideMessage{})
-	cbornode.RegisterCborType(ibf.InvertibleBloomFilter{})
-	cbornode.RegisterCborType(ibf.DifferenceStrata{})
-}
 
 const syncProtocol = "tupelo-gossip/v1"
 const IsDoneProtocol = "tupelo-done/v1"
@@ -209,23 +195,7 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 }
 
 func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
-	return gn.isDone(msg.Key[0:4])
-}
-
-func (gn *GossipNode) isDone(conflictSetID []byte) (bool, error) {
-	doneIDPrefix := doneIDFromConflictSetID(conflictSetID)[0:8]
-
-	// TODO: This currently only checks the first 4 bytes of the conflict set,
-	// to make this more robust it should check first 4, if multiple keys are returned
-	// then it should decode the transaction from the message, and then check the appropiate key
-	conflictSetDoneKeys, err := gn.Storage.GetKeysByPrefix(doneIDPrefix)
-	if err != nil {
-		return false, err
-	}
-	if len(conflictSetDoneKeys) > 0 {
-		return true, nil
-	}
-	return false, nil
+	return isDone(gn.Storage, msg.Key[:32])
 }
 
 func (gn *GossipNode) handleDone(msg ProvideMessage) error {
@@ -427,57 +397,6 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 
 	//TODO: check if signature hash matches signature contents
 	return nil
-}
-
-func (t *Transaction) ID() []byte {
-	encoded, err := t.MarshalMsg(nil)
-	if err != nil {
-		panic("error marshaling transaction")
-	}
-	return crypto.Keccak256(encoded)
-}
-
-func (t *Transaction) ToConflictSet() *ConflictSet {
-	return &ConflictSet{ObjectID: t.ObjectID, Tip: t.PreviousTip}
-}
-
-func (c *ConflictSet) ID() []byte {
-	return crypto.Keccak256(concatBytesSlice(c.ObjectID, c.Tip))
-}
-
-func doneIDFromConflictSetID(conflictSetID []byte) []byte {
-	return concatBytesSlice(conflictSetID[0:4], doneBytes, []byte{byte(MessageTypeDone)}, conflictSetID)
-}
-
-func (c *ConflictSet) DoneID() []byte {
-	return doneIDFromConflictSetID(c.ID())
-}
-
-// ID in storage is 32bitsConflictSetId|32bitsTransactionHash|fulltransactionHash|"-transaction" or transaction before hash
-func (t *Transaction) StoredID() []byte {
-	conflictSetID := t.ToConflictSet().ID()
-	id := t.ID()
-	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeTransaction)}, id)
-}
-
-// transactionID conflictSet[0-3],transactionID[4-7],transactionByte[8],FulltransactionID[9-41]
-
-// ID in storage is 32bitsConflictSetId|32bitssignaturehash|transactionid|signaturehash|"-signature" OR signature before transactionid or before signaturehash
-func (s *Signature) StoredID(conflictSetID []byte) []byte {
-	encodedSig, err := s.MarshalMsg(nil)
-	if err != nil {
-		panic("Could not marshal signature")
-	}
-	id := crypto.Keccak256(encodedSig)
-	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeSignature)}, s.TransactionID, id)
-}
-
-// [254 216 115 227 ///// 35 11 251 183 //// 0 //// 57 79 66 166 142 30 188 4 223 174 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
-
-//signatureID conflictSet[0-3],signatureHash[4-7],sigantureByte[8],transactionId[9-41],fullSignatureId[42-74]
-
-func transactionIDFromSignatureKey(key []byte) []byte {
-	return concatBytesSlice(key[0:4], key[9:13], []byte{byte(MessageTypeTransaction)}, key[9:41])
 }
 
 func (gn *GossipNode) IsTransactionValid(t Transaction) (bool, error) {

@@ -223,7 +223,7 @@ func (sph *SyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) e
 		wantedKeys = make([]ibf.ObjectId, 0)
 		for _, oid := range difference.LeftSet {
 			key := uint64ToBytes(uint64(oid))
-			done, _ := gn.isDone(key)
+			done, _ := isDone(gn.Storage, key)
 			if !done {
 				wantedKeys = append(wantedKeys, oid)
 			}
