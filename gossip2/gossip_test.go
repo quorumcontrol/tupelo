@@ -126,7 +126,7 @@ func TestExists(t *testing.T) {
 }
 
 func TestGossip(t *testing.T) {
-	logging.SetLogLevel("gossip", "DEBUG")
+	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 20
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)

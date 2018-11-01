@@ -210,9 +210,8 @@ func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
 		return fmt.Errorf("error estimate is too large: %d", estimate)
 	}
 
-	log.Debugf("%s sending bloom filter of size: %d", gn.ID(), sizeToSend)
+	log.Debugf("%s sending bloom filter to %s of size: %d", gn.ID(), rsph.peerID, sizeToSend)
 	gn.ibfSyncer.RLock()
-	log.Debugf("%s bloom filter (sending to %s) objects: %v", gn.ID(), rsph.peerID, gn.IBFs[sizeToSend])
 	pm, err := toProtocolMessage(gn.IBFs[sizeToSend])
 	gn.ibfSyncer.RUnlock()
 	if err != nil {
