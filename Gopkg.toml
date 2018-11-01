@@ -25,36 +25,8 @@
   name = "github.com/btcsuite/btcutil"
 
 [[constraint]]
-  name = "github.com/fatih/structs"
-  version = "1.0.0"
-
-[[constraint]]
-  name = "github.com/kazarena/json-gold"
-  version = "0.3.0"
-
-[[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.2.0"
-
-[[constraint]]
-  name = "golang.org/x/crypto"
-  branch = "master"
-
-[[constraint]]
-  name = "github.com/attic-labs/noms"
-  source = "https://github.com/QuorumControl/noms.git"
-  revision = "668071ffaa75082e6de3e5540c69b15ba123fdfb"
-
-[[constraint]]
-  name = "github.com/sirupsen/logrus"
-
-[[constraint]]
-  name = "github.com/tendermint/iavl"
-  version = "0.2.0"
-
-[[constraint]]
-  name = "github.com/tendermint/tmlibs"
-  revision = "d4c6a68e5871be2d3091f12627eaf3ee15b42ed2"
 
 # v1.4 (the latest tagged) does not work with ishell
 [[override]]
@@ -64,14 +36,6 @@
 [[constraint]]
   name = "github.com/abiosoft/ishell"
   revision = "a1085105335bd19f4101afe99e02948a0b41bf15"
-
-[[override]]
-  name = "github.com/attic-labs/graphql"
-  revision = "917f92ca24a759a0e3bfd1b135850f9b0c04682e"
-
-[[constraint]]
-  name = "github.com/multiformats/go-multihash"
-  branch = "master"
 
 [[constraint]]
   name = "github.com/ethereum/go-ethereum"
