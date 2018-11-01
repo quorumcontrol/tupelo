@@ -7,14 +7,11 @@ import (
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
 
-// ID is just hash of object
 type ConflictSet struct {
 	ObjectID []byte
 	Tip      []byte
 }
 
-// ID in storage is 32bitsConflictSetId|32bitsTransactionHash|fulltransactionHash|"-transaction" or transaction before hash
-// ID on wire is 32bitsConflictSetId|32bitsTransactionHash
 type Transaction struct {
 	ObjectID    []byte
 	PreviousTip []byte
@@ -22,9 +19,6 @@ type Transaction struct {
 	Payload     []byte
 }
 
-// ID in storage is 32bitsConflictSetId|32bitssignaturehash|transactionid|signaturehash|"-signature" OR signature before transactionid or before signaturehash
-// ID on wire is 32bitsConflictSetId|32bitssignaturehash
-// a completed signature looks like 32bitsConflictSetId|"done00000000" (padded done message)
 type Signature struct {
 	TransactionID []byte
 	Signers       map[string]bool
