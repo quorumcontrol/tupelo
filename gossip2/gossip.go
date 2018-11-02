@@ -175,7 +175,7 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 }
 
 func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
-	return isDone(gn.Storage, msg.Key[:32])
+	return isDone(gn.Storage, msg.Key[len(msg.Key)-32:])
 }
 
 func (gn *GossipNode) handleDone(msg ProvideMessage) error {
