@@ -203,7 +203,29 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetStat.IsDone = true
 			}
 			conflictSetStat.InProgress = false
-			// If signature count > 2/3 then do a check
+
+			roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+			if err != nil {
+				log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
+			}
+
+			if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
+				signatureMessage, err := gn.checkSignatures(resp.ConflictSetID)
+
+				if err != nil {
+					log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
+				}
+
+				if signatureMessage != nil {
+					go func() {
+						toProcessChan <- handlerRequest{
+							responseChan:  responseChan,
+							msg:           *signatureMessage,
+							conflictSetID: resp.ConflictSetID,
+						}
+					}()
+				}
+			}
 
 			if len(conflictSetStat.PendingMessages) > 0 {
 				msg, remainingMessages := conflictSetStat.PendingMessages[0:1], conflictSetStat.PendingMessages[1:]
@@ -241,11 +263,10 @@ func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
 	return isDone(gn.Storage, msg.Key[len(msg.Key)-32:])
 }
 
-func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
-	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
+func (gn *GossipNode) checkSignatures(conflictSetID []byte) (*ProvideMessage, error) {
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
 	if err != nil {
-		return fmt.Errorf("error fetching keys %v", err)
+		return nil, fmt.Errorf("error fetching keys %v", err)
 	}
 	var matchedSigKeys [][]byte
 
@@ -257,76 +278,89 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 
 	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 	if err != nil {
-		return fmt.Errorf("error fetching roundinfo %v", err)
+		return nil, fmt.Errorf("error fetching roundinfo %v", err)
 	}
 
-	if int64(len(matchedSigKeys)) >= roundInfo.SuperMajorityCount() {
-		log.Infof("%s found super majority of sigs %d", gn.ID(), len(matchedSigKeys))
-		signatures, err := gn.Storage.GetAll(matchedSigKeys)
+	if int64(len(matchedSigKeys)) < roundInfo.SuperMajorityCount() {
+		return nil, nil
+	}
+
+	signatures, err := gn.Storage.GetAll(matchedSigKeys)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching signers %v", err)
+	}
+
+	signersByTransactionID := make(map[string]map[string][]byte)
+
+	for _, sigBytes := range signatures {
+		var s Signature
+		_, err = s.UnmarshalMsg(sigBytes.Value)
 		if err != nil {
-			return fmt.Errorf("error fetching signers %v", err)
+			return nil, fmt.Errorf("error unmarshaling sig: %v", err)
 		}
-
-		signaturesByKey := make(map[string][]byte)
-
-		for _, sigBytes := range signatures {
-			var s Signature
-			_, err = s.UnmarshalMsg(sigBytes.Value)
-			if err != nil {
-				log.Errorf("%s error unamrshaling %v", gn.ID(), err)
-				return fmt.Errorf("error unmarshaling sig: %v", err)
-			}
-			for k, v := range s.Signers {
-				if v == true {
-					signaturesByKey[k] = s.Signature
+		for k, v := range s.Signers {
+			if v == true {
+				if _, ok := signersByTransactionID[string(s.TransactionID)]; !ok {
+					signersByTransactionID[string(s.TransactionID)] = make(map[string][]byte)
 				}
+				signersByTransactionID[string(s.TransactionID)][k] = s.Signature
 			}
-		}
-
-		allSigners := make(map[string]bool)
-		allSignatures := make([][]byte, 0)
-
-		for _, signer := range roundInfo.Signers {
-			key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
-
-			if sig, ok := signaturesByKey[key]; ok {
-				allSignatures = append(allSignatures, sig)
-				allSigners[key] = true
-			} else {
-				allSigners[key] = false
-			}
-		}
-
-		combinedSignatures, err := bls.SumSignatures(allSignatures)
-		if err != nil {
-			return fmt.Errorf("error combining sigs %v", err)
-		}
-
-		commitSignature := Signature{
-			TransactionID: transactionIDFromSignatureKey(msg.Key),
-			Signers:       allSigners,
-			Signature:     combinedSignatures,
-		}
-
-		encodedSig, err := commitSignature.MarshalMsg(nil)
-		if err != nil {
-			return fmt.Errorf("error marshaling sig: %v", err)
-		}
-		doneID := doneIDFromConflictSetID(conflictSetID)
-
-		log.Debugf("%s adding done sig %v", gn.ID(), doneID)
-		doneMessage := ProvideMessage{
-			Key:   doneID,
-			Value: encodedSig,
-		}
-		err = gn.handleDone(doneMessage)
-		if err != nil {
-			return fmt.Errorf("error moving to done: %v", err)
 		}
 	}
 
-	//TODO: check if signature hash matches signature contents
-	return nil
+	var majorityTransactionID []byte
+	var majoritySigners map[string][]byte
+
+	for transactionID, signers := range signersByTransactionID {
+		if int64(len(signers)) >= roundInfo.SuperMajorityCount() {
+			majorityTransactionID = []byte(transactionID)
+			majoritySigners = signers
+			break
+		}
+	}
+
+	if len(majoritySigners) == 0 {
+		return nil, nil
+	}
+
+	allSigners := make(map[string]bool)
+	allSignatures := make([][]byte, 0)
+
+	for _, signer := range roundInfo.Signers {
+		key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
+
+		if sig, ok := majoritySigners[key]; ok {
+			allSignatures = append(allSignatures, sig)
+			allSigners[key] = true
+		} else {
+			allSigners[key] = false
+		}
+	}
+
+	combinedSignatures, err := bls.SumSignatures(allSignatures)
+	if err != nil {
+		return nil, fmt.Errorf("error combining sigs %v", err)
+	}
+
+	commitSignature := Signature{
+		TransactionID: majorityTransactionID,
+		Signers:       allSigners,
+		Signature:     combinedSignatures,
+	}
+
+	encodedSig, err := commitSignature.MarshalMsg(nil)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling sig: %v", err)
+	}
+	doneID := doneIDFromConflictSetID(conflictSetID)
+
+	log.Debugf("%s adding done sig %v", gn.ID(), doneID)
+	doneMessage := ProvideMessage{
+		Key:   doneID,
+		Value: encodedSig,
+	}
+
+	return &doneMessage, nil
 }
 
 func (gn *GossipNode) Add(key, value []byte) {
