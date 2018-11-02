@@ -162,6 +162,7 @@ func (gn *GossipNode) handleNewObjCh() {
 			conflictSetStat, ok := inProgressConflictSets[string(conflictSetID)]
 			if !ok {
 				conflictSetStat = new(conflictSetStats)
+				inProgressConflictSets[string(conflictSetID)] = conflictSetStat
 			}
 			if conflictSetStat.IsDone {
 				// we can just stop here
