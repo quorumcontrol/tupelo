@@ -129,6 +129,7 @@ type processorResponse struct {
 	IsDone         bool
 	NewSignature   bool
 	NewTransaction bool
+	Error          error
 }
 
 type handlerRequest struct {
@@ -141,7 +142,6 @@ func (gn *GossipNode) handleToProcessChan(ch chan handlerRequest) {
 	for {
 		select {
 		case req := <-ch:
-			gn.processNewProvideMessage(req.msg)
 			(&conflictSetWorker{gn: gn}).HandleRequest(req.msg, req.responseChan)
 		case <-gn.stopChan:
 			return
@@ -152,18 +152,18 @@ func (gn *GossipNode) handleToProcessChan(ch chan handlerRequest) {
 func (gn *GossipNode) handleNewObjCh() {
 	inProgressConflictSets := make(map[string]*conflictSetStats)
 	workerCount := 10
-	responseChan := make(chan processorResponse, workerCount)
+	responseChan := make(chan processorResponse, workerCount+1)
 	toProcessChan := make(chan handlerRequest, workerCount)
 	go gn.handleToProcessChan(toProcessChan)
 	for {
 		select {
 		case msg := <-gn.newObjCh:
 			conflictSetID := conflictSetIDFromMessageKey(msg.Key)
-			conflictSet, ok := inProgressConflictSets[string(conflictSetID)]
+			conflictSetStat, ok := inProgressConflictSets[string(conflictSetID)]
 			if !ok {
-				conflictSet = new(conflictSetStats)
+				conflictSetStat = new(conflictSetStats)
 			}
-			if conflictSet.IsDone {
+			if conflictSetStat.IsDone {
 				// we can just stop here
 				continue
 			}
@@ -171,9 +171,11 @@ func (gn *GossipNode) handleNewObjCh() {
 			// and then queue up a worker
 			gn.Storage.SetIfNotExists(msg.Key, msg.Value)
 
-			if conflictSet.InProgress {
-				conflictSet.PendingMessages = append(conflictSet.PendingMessages, msg)
+			if conflictSetStat.InProgress {
+				conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
 			} else {
+				conflictSetStat.InProgress = true
+
 				toProcessChan <- handlerRequest{
 					responseChan:  responseChan,
 					msg:           msg,
@@ -182,7 +184,34 @@ func (gn *GossipNode) handleNewObjCh() {
 			}
 
 		case resp := <-responseChan:
-			log.Debugf("response: %v", resp)
+			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
+			if !ok {
+				panic("this should never happen")
+			}
+			if resp.Error != nil {
+				// at minimum delete it out of storage
+				panic("TODO: handle this gracefully")
+			}
+			if resp.NewTransaction {
+				conflictSetStat.HasTransaction = true
+			}
+			if resp.NewSignature {
+				conflictSetStat.SignatureCount++
+			}
+			if resp.IsDone {
+				conflictSetStat.IsDone = true
+			}
+			conflictSetStat.InProgress = false
+			// If signature count > 2/3 then do a check
+
+			if len(conflictSetStat.PendingMessages) > 0 {
+				msg, remainingMessages := conflictSetStat.PendingMessages[0:1], conflictSetStat.PendingMessages[1:]
+				conflictSetStat.PendingMessages = remainingMessages
+				go func() {
+					gn.newObjCh <- msg[0]
+				}()
+			}
+
 		case <-gn.stopChan:
 			return
 		}
@@ -195,7 +224,8 @@ func (gn *GossipNode) InitiateTransaction(t Transaction) ([]byte, error) {
 		return nil, fmt.Errorf("error encoding: %v", err)
 	}
 	log.Debugf("%s initiating transaction %v", gn.ID(), t.StoredID())
-	return t.StoredID(), gn.handleNewTransaction(ProvideMessage{Key: t.StoredID(), Value: encodedTrans})
+	gn.newObjCh <- ProvideMessage{Key: t.StoredID(), Value: encodedTrans}
+	return t.ID(), nil
 }
 
 func (gn *GossipNode) ID() string {
