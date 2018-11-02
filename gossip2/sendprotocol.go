@@ -325,8 +325,10 @@ func (sph *SyncProtocolHandler) WaitForProvides() error {
 			return fmt.Errorf("error decoding message: %v", err)
 		}
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
-		gn.newObjCh <- provideMsg
 		isLastMessage = provideMsg.Last
+		if !isLastMessage {
+			gn.newObjCh <- provideMsg
+		}
 	}
 
 	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), sph.peerID)

@@ -19,7 +19,3 @@ func (s *Signature) StoredID(conflictSetID []byte) []byte {
 func transactionIDFromSignatureKey(key []byte) []byte {
 	return concatBytesSlice(key[0:4], key[9:13], []byte{byte(MessageTypeTransaction)}, key[9:41], key[73:105])
 }
-
-func conflictSetIDFromSignatureKey(key []byte) []byte {
-	return key[len(key)-32:]
-}

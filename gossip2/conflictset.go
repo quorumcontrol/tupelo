@@ -25,7 +25,9 @@ func doneIDFromConflictSetID(conflictSetID []byte) []byte {
 func (c *ConflictSet) DoneID() []byte {
 	return doneIDFromConflictSetID(c.ID())
 }
-
+func conflictSetIDFromMessageKey(key []byte) []byte {
+	return key[len(key)-32:]
+}
 func isDone(storage *BadgerStorage, conflictSetID []byte) (bool, error) {
 	doneID := doneIDFromConflictSetID(conflictSetID)
 	doneIDPrefix := doneID[0:8]

@@ -74,7 +74,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
 		newObjCh:  make(chan ProvideMessage, 5),
-		stopChan:  make(chan struct{}, 1),
+		stopChan:  make(chan struct{}, 3),
 		ibfSyncer: &sync.RWMutex{},
 		syncPool:  make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 	}
@@ -112,11 +112,80 @@ func (gn *GossipNode) Start() {
 
 func (gn *GossipNode) Stop() {
 	gn.stopChan <- struct{}{}
+	gn.stopChan <- struct{}{}
+	gn.stopChan <- struct{}{}
+}
+
+type conflictSetStats struct {
+	SignatureCount  uint32
+	IsDone          bool
+	HasTransaction  bool
+	InProgress      bool
+	PendingMessages []ProvideMessage
+}
+
+type processorResponse struct {
+	ConflictSetID  []byte
+	IsDone         bool
+	NewSignature   bool
+	NewTransaction bool
+}
+
+type handlerRequest struct {
+	responseChan  chan processorResponse
+	msg           ProvideMessage
+	conflictSetID []byte
+}
+
+func (gn *GossipNode) handleToProcessChan(ch chan handlerRequest) {
+	for {
+		select {
+		case req := <-ch:
+			gn.processNewProvideMessage(req.msg)
+			(&conflictSetWorker{gn: gn}).HandleRequest(req.msg, req.responseChan)
+		case <-gn.stopChan:
+			return
+		}
+	}
 }
 
 func (gn *GossipNode) handleNewObjCh() {
-	for msg := range gn.newObjCh {
-		gn.processNewProvideMessage(msg)
+	inProgressConflictSets := make(map[string]*conflictSetStats)
+	workerCount := 10
+	responseChan := make(chan processorResponse, workerCount)
+	toProcessChan := make(chan handlerRequest, workerCount)
+	go gn.handleToProcessChan(toProcessChan)
+	for {
+		select {
+		case msg := <-gn.newObjCh:
+			conflictSetID := conflictSetIDFromMessageKey(msg.Key)
+			conflictSet, ok := inProgressConflictSets[string(conflictSetID)]
+			if !ok {
+				conflictSet = new(conflictSetStats)
+			}
+			if conflictSet.IsDone {
+				// we can just stop here
+				continue
+			}
+			// otherwise we can save to storage
+			// and then queue up a worker
+			gn.Storage.SetIfNotExists(msg.Key, msg.Value)
+
+			if conflictSet.InProgress {
+				conflictSet.PendingMessages = append(conflictSet.PendingMessages, msg)
+			} else {
+				toProcessChan <- handlerRequest{
+					responseChan:  responseChan,
+					msg:           msg,
+					conflictSetID: conflictSetID,
+				}
+			}
+
+		case resp := <-responseChan:
+			log.Debugf("response: %v", resp)
+		case <-gn.stopChan:
+			return
+		}
 	}
 }
 
@@ -137,136 +206,12 @@ func (gn *GossipNode) ID() string {
 	return gn.id
 }
 
-func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
-	if msg.Last {
-		log.Debugf("%s: handling a new EndOfStream message", gn.ID())
-		return
-	}
-
-	exists, err := gn.Storage.Exists(msg.Key)
-	if err != nil {
-		log.Errorf("%s error seeing if element exists: %v, key: %v", gn.ID(), err, msg.Key)
-		panic(fmt.Sprintf("error seeing if element exists: %v", err))
-	}
-	if !exists {
-		log.Debugf("%s storage key NO EXIST %v", gn.ID(), msg.Key)
-
-		if useDoneRemovalFilter {
-			if isDone, _ := gn.isMessageDone(msg); isDone {
-				return
-			}
-		}
-
-		messageType := MessageType(msg.Key[8])
-		switch messageType {
-		case MessageTypeSignature:
-			log.Debugf("%v: handling a new Signature message", gn.ID())
-			gn.handleNewSignature(msg)
-		case MessageTypeTransaction:
-			log.Debugf("%v: handling a new Transaction message", gn.ID())
-			gn.handleNewTransaction(msg)
-		case MessageTypeDone:
-			log.Debugf("%v: handling a new Done message", gn.ID())
-			gn.handleDone(msg)
-		default:
-			log.Errorf("%v: unknown message %v", gn.ID(), msg.Key)
-		}
-	}
-}
-
 func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
 	return isDone(gn.Storage, msg.Key[len(msg.Key)-32:])
 }
 
-func (gn *GossipNode) handleDone(msg ProvideMessage) error {
-	log.Debugf("%s adding done message %v", gn.ID(), msg.Key)
-	gn.Add(msg.Key, msg.Value)
-
-	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(msg.Key[0:4])
-
-	for _, key := range conflictSetKeys {
-		if key[8] != byte(MessageTypeDone) {
-			gn.Remove(key)
-			if err != nil {
-				log.Errorf("%s error deleting conflict set item %v", gn.ID(), key)
-			}
-		}
-	}
-
-	return nil
-}
-
-func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
-	//TODO: check if transaction hash matches key hash
-	//TODO: check if the conflict set is done
-	//TODO: sign this transaction if it's valid and new
-
-	var t Transaction
-	_, err := t.UnmarshalMsg(msg.Value)
-
-	if err != nil {
-		return fmt.Errorf("error getting transaction: %v", err)
-	}
-	log.Debugf("%s new transaction %s", gn.ID(), bytesToString(t.ID()))
-
-	isValid, err := gn.IsTransactionValid(t)
-	if err != nil {
-		return fmt.Errorf("error validating transaction: %v", err)
-	}
-
-	if isValid {
-		//TODO: sign the right thing
-		sig, err := gn.SignKey.Sign(msg.Value)
-		if err != nil {
-			return fmt.Errorf("error signing key: %v", err)
-		}
-		signature := Signature{
-			TransactionID: t.ID(),
-			Signers:       map[string]bool{gn.address: true},
-			Signature:     sig,
-		}
-		encodedSig, err := signature.MarshalMsg(nil)
-		if err != nil {
-			return fmt.Errorf("error marshaling sig: %v", err)
-		}
-		log.Debugf("%s adding transaction %v", gn.ID(), msg.Key)
-		gn.Add(msg.Key, msg.Value)
-		log.Debugf("%s adding signature %v", gn.ID(), signature.StoredID(t.ToConflictSet().ID()))
-		sigID := signature.StoredID(t.ToConflictSet().ID())
-		gn.Add(sigID, encodedSig)
-
-		sigMessage := ProvideMessage{
-			Key:   sigID,
-			Value: encodedSig,
-		}
-
-		gn.checkSignatureCounts(sigMessage)
-	} else {
-		log.Debugf("%s error, invalid transaction", gn.ID())
-	}
-
-	return nil
-}
-
-func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
-	log.Debugf("%s adding signature: %v", gn.ID(), msg.Key)
-	if err := gn.checkSignatureCounts(msg); err != nil {
-		return err
-	}
-	if useDoneRemovalFilter {
-		isDone, _ := gn.isMessageDone(msg)
-		if !isDone {
-			gn.Add(msg.Key, msg.Value)
-		}
-	} else {
-		gn.Add(msg.Key, msg.Value)
-	}
-
-	return nil
-}
-
 func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
-	conflictSetID := conflictSetIDFromSignatureKey(msg.Key)
+	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
 	if err != nil {
 		return fmt.Errorf("error fetching keys %v", err)
@@ -274,9 +219,7 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 	var matchedSigKeys [][]byte
 
 	for _, k := range conflictSetKeys {
-		log.Debugf("%s testing key: %v == %v", gn.ID(), conflictSetIDFromSignatureKey(k), conflictSetID)
-		if k[8] == byte(MessageTypeSignature) && bytes.Equal(conflictSetIDFromSignatureKey(k), conflictSetID) {
-			log.Debugf("%s keys equal, appending key %v", gn.ID(), k)
+		if k[8] == byte(MessageTypeSignature) && bytes.Equal(conflictSetIDFromMessageKey(k), conflictSetID) {
 			matchedSigKeys = append(matchedSigKeys, k)
 		}
 	}
@@ -353,16 +296,6 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 
 	//TODO: check if signature hash matches signature contents
 	return nil
-}
-
-func (gn *GossipNode) IsTransactionValid(t Transaction) (bool, error) {
-	// state, err := gn.Storage.Get(t.ObjectID)
-	// if err != nil {
-	// 	return false, fmt.Errorf("error getting state: %v", err)
-	// }
-
-	// here we would send transaction and state to a handler
-	return true, nil
 }
 
 func (gn *GossipNode) Add(key, value []byte) {
