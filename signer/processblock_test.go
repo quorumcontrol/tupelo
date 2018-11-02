@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
-
 	"github.com/ethereum/go-ethereum/crypto"
+	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -57,11 +57,11 @@ func TestprocessAddBlock(t *testing.T) {
 
 	req := &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      &emptyTree.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := processAddBlock(nil, req)
+	resp, err := processAddBlock(cid.Undef, req)
 
 	assert.Nil(t, err)
 
@@ -71,7 +71,7 @@ func TestprocessAddBlock(t *testing.T) {
 	testTree.ProcessBlock(blockWithHeaders)
 	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
 
-	resp, err = processAddBlock(resp.Tip, req)
+	resp, err = processAddBlock(*resp.Tip, req)
 	assert.NotNil(t, err)
 
 	// playing a new transaction should work when there are no auths
@@ -97,7 +97,7 @@ func TestprocessAddBlock(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -134,7 +134,7 @@ func TestprocessAddBlock(t *testing.T) {
 	nodes = dagToByteNodes(t, testTree.Dag)
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -171,7 +171,7 @@ func TestprocessAddBlock(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -184,7 +184,7 @@ func TestprocessAddBlock(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -224,7 +224,7 @@ func TestprocessAddBlock(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -264,11 +264,11 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	req := &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      emptyTree.Tip,
+		Tip:      &emptyTree.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
-	resp, err := processAddBlock(nil, req)
+	resp, err := processAddBlock(cid.Undef, req)
 
 	assert.Nil(t, err)
 
@@ -276,9 +276,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
-	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
+	assert.True(t, resp.Tip.Equals(testTree.Dag.Tip))
 
-	resp, err = processAddBlock(resp.Tip, req)
+	resp, err = processAddBlock(*resp.Tip, req)
 	assert.NotNil(t, err)
 
 	// Can mint from established coin
@@ -305,7 +305,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 		req = &consensus.AddBlockRequest{
 			Nodes:    nodes,
-			Tip:      testTree.Dag.Tip,
+			Tip:      &testTree.Dag.Tip,
 			NewBlock: blockWithHeaders,
 		}
 
@@ -314,7 +314,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 		testTree.ProcessBlock(blockWithHeaders)
 
-		assert.Equal(t, resp.Tip, testTree.Dag.Tip)
+		assert.True(t, resp.Tip.Equals(testTree.Dag.Tip))
 
 		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "mints", fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
@@ -344,7 +344,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -374,7 +374,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	req = &consensus.AddBlockRequest{
 		Nodes:    nodes,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -390,7 +390,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
 
-	savedcid := *emptyTree.Tip
+	savedcid := emptyTree.Tip
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -414,7 +414,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	req := &consensus.AddBlockRequest{
 		Nodes:    nodes1,
-		Tip:      testTree.Dag.Tip,
+		Tip:      &testTree.Dag.Tip,
 		NewBlock: blockWithHeaders,
 	}
 
@@ -422,7 +422,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
-	assert.Equal(t, resp.Tip, testTree.Dag.Tip)
+	assert.True(t, resp.Tip.Equals(testTree.Dag.Tip))
 
 	unsignedBlock2 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -454,7 +454,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders2)
-	assert.Equal(t, resp2.Tip, testTree.Dag.Tip)
+	assert.True(t, resp2.Tip.Equals(testTree.Dag.Tip))
 
 	// test that a nil PreviousTip fails
 	nodes3 := dagToByteNodes(t, testTree.Dag)
