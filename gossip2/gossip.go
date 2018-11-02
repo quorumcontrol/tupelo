@@ -266,31 +266,17 @@ func (gn *GossipNode) handleNewSignature(msg ProvideMessage) error {
 }
 
 func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
-	transId := transactionIDFromSignatureKey(msg.Key)
-
-	transBytes, err := gn.Storage.Get(transId)
-	if err != nil {
-		return fmt.Errorf("error getting transaction")
-	}
-	if len(transBytes) == 0 {
-		log.Infof("%s signature received, but don't have transaction %s yet, msgKey: %v", gn.ID(), bytesToString(transId), msg.Key)
-		return nil
-	}
-
-	var t Transaction
-	_, err = t.UnmarshalMsg(transBytes)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling: %v", err)
-	}
-
-	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(msg.Key[0:4])
+	conflictSetID := conflictSetIDFromSignatureKey(msg.Key)
+	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
 	if err != nil {
 		return fmt.Errorf("error fetching keys %v", err)
 	}
 	var matchedSigKeys [][]byte
 
 	for _, k := range conflictSetKeys {
-		if k[8] == byte(MessageTypeSignature) && bytes.Equal(transactionIDFromSignatureKey(k), transId) {
+		log.Debugf("%s testing key: %v == %v", gn.ID(), conflictSetIDFromSignatureKey(k), conflictSetID)
+		if k[8] == byte(MessageTypeSignature) && bytes.Equal(conflictSetIDFromSignatureKey(k), conflictSetID) {
+			log.Debugf("%s keys equal, appending key %v", gn.ID(), k)
 			matchedSigKeys = append(matchedSigKeys, k)
 		}
 	}
@@ -343,7 +329,7 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 		}
 
 		commitSignature := Signature{
-			TransactionID: t.ID(),
+			TransactionID: transactionIDFromSignatureKey(msg.Key),
 			Signers:       allSigners,
 			Signature:     combinedSignatures,
 		}
@@ -352,7 +338,7 @@ func (gn *GossipNode) checkSignatureCounts(msg ProvideMessage) error {
 		if err != nil {
 			return fmt.Errorf("error marshaling sig: %v", err)
 		}
-		doneID := t.ToConflictSet().DoneID()
+		doneID := doneIDFromConflictSetID(conflictSetID)
 
 		log.Debugf("%s adding done sig %v", gn.ID(), doneID)
 		doneMessage := ProvideMessage{
