@@ -47,7 +47,7 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
-  version = "v0.0.1"
+  version = "v0.0.2"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
