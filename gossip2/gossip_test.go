@@ -161,18 +161,6 @@ func TestGossip(t *testing.T) {
 	}
 	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
 
-	// transaction2 := Transaction{
-	// 	ObjectID:    []byte("DIFFERENTOBJhimynameisalongobjectidthatwillhavemorethan64bits"),
-	// 	PreviousTip: []byte(""),
-	// 	NewTip:      []byte("zdpuAx6tV9jpLEwhvGB8bdYjUvkomzdHf7ze6ckdNqJur7JBr"),
-	// 	Payload:     []byte("thisisthepayload"),
-	// }
-	// var transaction2ID []byte
-	// for i := 1; i < len(gossipNodes)-1; i++ {
-	// 	transaction2ID, err := gossipNodes[i].InitiateTransaction(transaction2)
-	// 	require.Nil(t, err)
-	// }
-
 	for i := 0; i < groupSize; i++ {
 		defer gossipNodes[i].Stop()
 		go gossipNodes[i].Start()
@@ -216,49 +204,21 @@ func TestGossip(t *testing.T) {
 		}
 	}
 
-	// fmt.Printf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 10*time.Second)
-
-	// time.Sleep(2 * time.Second)
-	// for i := 0; i < 1000; i++ {
-	// 	if (i%10) == 0 && i < 950 {
-	// 		log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
-	// 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
-	// 			ObjectID:    randBytes(32),
-	// 			PreviousTip: []byte(""),
-	// 			NewTip:      randBytes(49),
-	// 			Payload:     randBytes(rand.Intn(400) + 100),
-	// 		})
-	// 		require.Nil(t, err)
-	// 	}
-
-	// 	err = gossipNodes[rand.Intn(len(gossipNodes))].DoSync()
-	// 	require.Nil(t, err)
-	// 	log.Debugf("")
-	// 	log.Debugf("+++++++++++++++++++++++++++")
-	// 	log.Debugf("ITEREATION %v done", i)
-	// 	log.Debugf("+++++++++++++++++++++++++++")
-	// }
-	// time.Sleep(3 * time.Second)
 
 	for i := 0; i < 1; i++ {
 		exists, err := gossipNodes[i].Storage.Exists(transaction1.ToConflictSet().DoneID())
 		require.Nil(t, err)
 		assert.True(t, exists)
-
-		// val, err = gossipNodes[i].Storage.Get(transaction2ID)
-		// require.Nil(t, err)
-		// encodedTransaction2, err := transaction2.MarshalMsg(nil)
-		// require.Nil(t, err)
-		// assert.Equal(t, val, encodedTransaction2)
 	}
 
 	csq := ConflictSetQuery{Key: transaction1.ToConflictSet().ID()}
 	csqBytes, err := csq.MarshalMsg(nil)
 	require.Nil(t, err)
 
-	csqrBytes, err := gossipNodes[0].Host.SendAndReceive(&gossipNodes[1].Key.PublicKey, IsDoneProtocol, csqBytes)
+	csqrBytes, err := gossipNodes[1].Host.SendAndReceive(&gossipNodes[0].Key.PublicKey, IsDoneProtocol, csqBytes)
+	require.Nil(t, err)
 	csqr := ConflictSetQueryResponse{}
 	_, err = csqr.UnmarshalMsg(csqrBytes)
 	require.Nil(t, err)
