@@ -33,6 +33,26 @@ func (bs *BadgerStorage) Close() {
 	bs.db.Close()
 }
 
+// SetIfNotExists sets a key,value pair if it's not already in the database and returns if the item
+// was set or not. That is, it returns true if the item did not previously exist.
+func (bs *BadgerStorage) SetIfNotExists(key []byte, value []byte) (bool, error) {
+	didSet := false
+	err := bs.db.Update(func(txn *badger.Txn) error {
+		_, err := txn.Get(key)
+		switch err {
+		case badger.ErrKeyNotFound:
+			err := txn.Set(key, value)
+			if err != nil {
+				didSet = true
+			}
+			return err
+		default:
+			return err
+		}
+	})
+	return didSet, err
+}
+
 func (bs *BadgerStorage) Set(key []byte, value []byte) error {
 	return bs.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, value)
