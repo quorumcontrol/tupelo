@@ -10,6 +10,14 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
+  digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
+  name = "github.com/Workiva/go-datastructures"
+  packages = ["queue"]
+  pruneopts = ""
+  revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
+  version = "v1.0.50"
+
+[[projects]]
   digest = "1:5f3619add62f3f725265be1da3c80ae1872891197fdf69c35af05268bc1afa3f"
   name = "github.com/abiosoft/ishell"
   packages = ["."]
@@ -864,6 +872,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/Workiva/go-datastructures/queue",
     "github.com/abiosoft/ishell",
     "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
@@ -892,6 +901,7 @@
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-host",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-loggables",
+    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-metrics",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peerstore",
