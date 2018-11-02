@@ -110,19 +110,6 @@ func (gn *GossipNode) Stop() {
 
 func (gn *GossipNode) handleNewObjCh() {
 	for msg := range gn.newObjCh {
-		zeroCount := 0
-		for i := len(msg.Key) - 1; i >= 0; i-- {
-			b := msg.Key[i]
-			if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-				break
-			}
-			zeroCount++
-		}
-		if zeroCount > 5 {
-			log.Errorf("%s all zero key %v", gn.ID(), msg.Key)
-			panic("we're done in handleNewObjCh")
-		}
-
 		gn.processNewProvideMessage(msg)
 	}
 }
@@ -144,18 +131,6 @@ func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
 	if msg.Last {
 		log.Debugf("%s: handling a new EndOfStream message", gn.ID())
 		return
-	}
-	zeroCount := 0
-	for i := len(msg.Key) - 1; i >= 0; i-- {
-		b := msg.Key[i]
-		if !bytes.Equal([]byte{b}, []byte{byte(0)}) {
-			break
-		}
-		zeroCount++
-	}
-	if zeroCount > 5 {
-		log.Errorf("%s all zero key %v", gn.ID(), msg.Key)
-		panic("we're done in processNewProvideMessage")
 	}
 
 	exists, err := gn.Storage.Exists(msg.Key)
