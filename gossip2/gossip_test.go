@@ -3,7 +3,6 @@ package gossip2
 import (
 	"context"
 	"crypto/ecdsa"
-	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -101,6 +100,14 @@ func blsKeys(size int) []*bls.SignKey {
 		keys[i] = bls.MustNewSignKey()
 	}
 	return keys
+}
+
+func randBytes(length int) []byte {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		panic("couldn't generate random bytes")
+	}
+	return b
 }
 
 func TestExists(t *testing.T) {
