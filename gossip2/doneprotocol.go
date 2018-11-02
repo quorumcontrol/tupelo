@@ -27,7 +27,7 @@ func DoDoneProtocol(gn *GossipNode, stream net.Stream) error {
 		dph.stream.Close()
 	}()
 
-	csq, err := dph.ReceiveTransaction()
+	csq, err := dph.ReceiveDoneQuery()
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func DoDoneProtocol(gn *GossipNode, stream net.Stream) error {
 	return nil
 }
 
-func (dph *DoneProtocolHandler) ReceiveTransaction() (ConflictSetQuery, error) {
+func (dph *DoneProtocolHandler) ReceiveDoneQuery() (ConflictSetQuery, error) {
 	var csq ConflictSetQuery
 	err := csq.DecodeMsg(dph.reader)
 
