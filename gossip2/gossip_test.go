@@ -148,9 +148,8 @@ func TestGossip(t *testing.T) {
 			os.RemoveAll(path)
 		}()
 		storage := NewBadgerStorage(path)
-		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], host, storage)
+		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
-		gossipNodes[i].SignKey = ts.SignKeys[i]
 	}
 
 	transaction1 := Transaction{

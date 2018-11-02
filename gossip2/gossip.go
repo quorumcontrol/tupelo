@@ -45,6 +45,9 @@ type SyncHandlerWorker struct{}
 type GossipNode struct {
 	Key              *ecdsa.PrivateKey
 	SignKey          *bls.SignKey
+	verKey           *bls.VerKey
+	address          string
+	id               string
 	Host             *p2p.Host
 	Storage          *BadgerStorage
 	Strata           *ibf.DifferenceStrata
@@ -61,9 +64,10 @@ type GossipNode struct {
 
 const NumberOfSyncWorkers = 3
 
-func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
+func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
 	node := &GossipNode{
-		Key:     key,
+		Key:     dstKey,
+		SignKey: signKey,
 		Host:    host,
 		Storage: storage,
 		Strata:  ibf.NewDifferenceStrata(),
@@ -74,6 +78,8 @@ func NewGossipNode(key *ecdsa.PrivateKey, host *p2p.Host, storage *BadgerStorage
 		ibfSyncer: &sync.RWMutex{},
 		syncPool:  make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 	}
+	node.verKey = node.SignKey.MustVerKey()
+	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()
 	for i := 0; i < NumberOfSyncWorkers; i++ {
 		node.syncPool <- SyncHandlerWorker{}
 	}
@@ -124,7 +130,11 @@ func (gn *GossipNode) InitiateTransaction(t Transaction) ([]byte, error) {
 }
 
 func (gn *GossipNode) ID() string {
-	return gn.Host.P2PIdentity()
+	if gn.id != "" {
+		return gn.id
+	}
+	gn.id = gn.Host.P2PIdentity()
+	return gn.id
 }
 
 func (gn *GossipNode) processNewProvideMessage(msg ProvideMessage) {
@@ -212,7 +222,7 @@ func (gn *GossipNode) handleNewTransaction(msg ProvideMessage) error {
 		}
 		signature := Signature{
 			TransactionID: t.ID(),
-			Signers:       map[string]bool{consensus.BlsVerKeyToAddress(gn.SignKey.MustVerKey().Bytes()).String(): true},
+			Signers:       map[string]bool{gn.address: true},
 			Signature:     sig,
 		}
 		encodedSig, err := signature.MarshalMsg(nil)
