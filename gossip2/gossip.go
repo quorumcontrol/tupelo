@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -23,8 +24,10 @@ var log = logging.Logger("gossip")
 const syncProtocol = "tupelo-gossip/v1"
 const IsDoneProtocol = "tupelo-done/v1"
 const NewTransactionProtocol = "tupelo-new-transaction/v1"
+const NewSignatureProtocol = "tupelo-new-signature/v1"
 
 const minSyncNodesPerTransaction = 3
+const workerCount = 100
 
 const useDoneRemovalFilter = true
 
@@ -57,6 +60,7 @@ type GossipNode struct {
 	stopChan         chan struct{}
 	ibfSyncer        *sync.RWMutex
 	syncPool         chan SyncHandlerWorker
+	sigSendingCh     chan envelope
 	debugReceiveSync uint64
 	debugSendSync    uint64
 	debugAttemptSync uint64
@@ -73,10 +77,11 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
-		newObjCh:  make(chan ProvideMessage, 5),
-		stopChan:  make(chan struct{}, 3),
-		ibfSyncer: &sync.RWMutex{},
-		syncPool:  make(chan SyncHandlerWorker, NumberOfSyncWorkers),
+		newObjCh:     make(chan ProvideMessage, 5),
+		stopChan:     make(chan struct{}, 3),
+		ibfSyncer:    &sync.RWMutex{},
+		syncPool:     make(chan SyncHandlerWorker, NumberOfSyncWorkers),
+		sigSendingCh: make(chan envelope, workerCount+1),
 	}
 	node.verKey = node.SignKey.MustVerKey()
 	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()
@@ -85,6 +90,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 	}
 
 	go node.handleNewObjCh()
+	go node.handleSigSendingCh()
 
 	for _, size := range standardIBFSizes {
 		node.IBFs[size] = ibf.NewInvertibleBloomFilter(size, 4)
@@ -93,19 +99,23 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 	host.SetStreamHandler(syncProtocol, node.HandleSync)
 	host.SetStreamHandler(IsDoneProtocol, node.HandleDoneProtocol)
 	host.SetStreamHandler(NewTransactionProtocol, node.HandleNewTransactionProtocol)
+	host.SetStreamHandler(NewSignatureProtocol, node.HandleNewSignatureProtocol)
 	return node
 }
 
 func (gn *GossipNode) Start() {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-gn.stopChan:
 			return
-		default:
+		case <-ticker.C:
 			err := gn.DoSync()
 			if err != nil {
 				log.Errorf("%s error doing sync %v", gn.ID(), err)
 			}
+
 		}
 	}
 }
@@ -151,7 +161,6 @@ func (gn *GossipNode) handleToProcessChan(ch chan handlerRequest) {
 
 func (gn *GossipNode) handleNewObjCh() {
 	inProgressConflictSets := make(map[string]*conflictSetStats)
-	workerCount := 100
 	responseChan := make(chan processorResponse, workerCount+1)
 	toProcessChan := make(chan handlerRequest, workerCount)
 	for i := 0; i < workerCount; i++ {
@@ -250,6 +259,21 @@ func (gn *GossipNode) handleNewObjCh() {
 		case <-gn.stopChan:
 			return
 		}
+	}
+}
+
+type envelope struct {
+	Destination ecdsa.PublicKey
+	Msg         ProvideMessage
+}
+
+func (gn *GossipNode) handleSigSendingCh() {
+	for env := range gn.sigSendingCh {
+		bits, err := env.Msg.MarshalMsg(nil)
+		if err != nil {
+			log.Errorf("error marshaling message: %v", err)
+		}
+		gn.Host.Send(&env.Destination, NewSignatureProtocol, bits)
 	}
 }
 
@@ -437,6 +461,13 @@ func (gn *GossipNode) DoSync() error {
 	return DoSyncProtocol(gn)
 }
 
+func (gn *GossipNode) HandleNewSignatureProtocol(stream net.Stream) {
+	err := DoNewSignatureProtocol(gn, stream)
+	if err != nil {
+		log.Errorf("%s error handling new sig: %v", gn.ID(), err)
+	}
+}
+
 func (gn *GossipNode) HandleSync(stream net.Stream) {
 	err := DoReceiveSyncProtocol(gn, stream)
 	if err != nil {
@@ -491,4 +522,32 @@ func mustStringToBytes(str string) []byte {
 		panic(fmt.Sprintf("error: %v", err))
 	}
 	return data
+}
+
+func (gn *GossipNode) syncTargetsByRoutingKey(key []byte) ([]*consensus.RemoteNode, error) {
+	roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+	if err != nil {
+		return nil, fmt.Errorf("error fetching roundinfo %v", err)
+	}
+
+	signerCount := float64(len(roundInfo.Signers))
+	logOfSigners := math.Log(signerCount)
+	numberOfTargets := math.Floor(math.Max(logOfSigners, float64(minSyncNodesPerTransaction)))
+	indexSpacing := signerCount / numberOfTargets
+	moduloOffset := math.Mod(float64(bytesToUint64(key)), indexSpacing)
+
+	targets := make([]*consensus.RemoteNode, int(numberOfTargets))
+
+	for i := 0; i < int(numberOfTargets); i++ {
+		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
+		target := roundInfo.Signers[targetIndex]
+
+		// Make sure this node doesn't add itself as a target
+		if bytes.Equal(target.DstKey.PublicKey, crypto.FromECDSAPub(&gn.Key.PublicKey)) {
+			continue
+		}
+		targets[i] = target
+
+	}
+	return targets, nil
 }
