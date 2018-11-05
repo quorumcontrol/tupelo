@@ -151,10 +151,12 @@ func (gn *GossipNode) handleToProcessChan(ch chan handlerRequest) {
 
 func (gn *GossipNode) handleNewObjCh() {
 	inProgressConflictSets := make(map[string]*conflictSetStats)
-	workerCount := 10
+	workerCount := 100
 	responseChan := make(chan processorResponse, workerCount+1)
 	toProcessChan := make(chan handlerRequest, workerCount)
-	go gn.handleToProcessChan(toProcessChan)
+	for i := 0; i < workerCount; i++ {
+		go gn.handleToProcessChan(toProcessChan)
+	}
 	for {
 		select {
 		case msg := <-gn.newObjCh:
@@ -176,7 +178,13 @@ func (gn *GossipNode) handleNewObjCh() {
 			if didSet {
 				log.Debugf("%s did set", gn.ID())
 				if conflictSetStat.InProgress {
+					// messageType := MessageType(msg.Key[8])
+					// switch messageType {
+					// case MessageTypeTransaction, MessageTypeDone:
+					// 	conflictSetStat.PendingMessages = append([]ProvideMessage{msg}, conflictSetStat.PendingMessages...)
+					// default:
 					conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
+					// }
 				} else {
 					conflictSetStat.InProgress = true
 					log.Debugf("%s sending to process chan: %s", gn.ID(), msg.Key)
