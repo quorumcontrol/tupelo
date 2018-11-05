@@ -4,15 +4,13 @@ package gossipclient
 
 import (
 	"crypto/ecdsa"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-
-	"strings"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/network"
@@ -105,7 +103,7 @@ func TestIntegrationGossipClient(t *testing.T) {
 	require.Nil(t, err)
 
 	// test that the remote tip matches the local tip
-	assert.True(t, tree.Tip().Equals(resp.Tip), "local: %s, remote: %s", tree.Tip(), resp.Tip)
+	assert.True(t, tree.Tip().Equals(*resp.Tip), "local: %s, remote: %s", tree.Tip(), resp.Tip)
 
 	// test it modifies the local tree
 	val, _, err := tree.ChainTree.Dag.Resolve(strings.Split("tree/down/in/the/thing", "/"))
@@ -120,6 +118,6 @@ func TestIntegrationGossipClient(t *testing.T) {
 	require.Nil(t, err)
 	t.Logf("tipResp: %v", tipResp)
 
-	assert.True(t, tree.Tip().Equals(tipResp.Tip), "local: %s, remote: %s", tree.Tip(), resp.Tip)
+	assert.True(t, tree.Tip().Equals(*tipResp.Tip), "local: %s, remote: %s", tree.Tip(), resp.Tip)
 
 }

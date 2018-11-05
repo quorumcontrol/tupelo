@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/hashicorp/golang-lru"
+	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/bls"
-
-	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
 )
 
 func init() {
@@ -27,6 +27,7 @@ func init() {
 
 const (
 	defaultRoundLength = 30 // round length in seconds
+	roundCacheSize     = 20
 )
 
 // NotaryGroup is a wrapper around a Chain Tree specifically used
@@ -35,6 +36,7 @@ type NotaryGroup struct {
 	signedTree  *SignedChainTree
 	ID          string
 	RoundLength int // round length in seconds
+	roundCache  *lru.Cache
 }
 
 // RoundInfo is a struct that holds information about the round.
@@ -55,6 +57,10 @@ func NewNotaryGroup(id string, nodeStore nodestore.NodeStore) *NotaryGroup {
 	if err != nil {
 		panic("error creating new tree")
 	}
+	roundCache, err := lru.New(roundCacheSize)
+	if err != nil {
+		panic("error creating lru round cache")
+	}
 	return &NotaryGroup{
 		signedTree: &SignedChainTree{
 			ChainTree:  tree,
@@ -62,6 +68,7 @@ func NewNotaryGroup(id string, nodeStore nodestore.NodeStore) *NotaryGroup {
 		},
 		RoundLength: defaultRoundLength,
 		ID:          id,
+		roundCache:  roundCache,
 	}
 }
 
@@ -77,6 +84,10 @@ func (ng *NotaryGroup) CreateGenesisState(startRound int64, signers ...*RemoteNo
 
 // MostRecentRound returns the roundinfo that is most recent to the requested round.
 func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, err error) {
+	if cachedRoundInfo, ok := ng.roundCache.Get(round); ok {
+		return cachedRoundInfo.(*RoundInfo), nil
+	}
+
 	allRoundsUntyped, _, err := ng.signedTree.ChainTree.Dag.Resolve([]string{"tree", "rounds"})
 
 	if err != nil {
@@ -96,6 +107,11 @@ func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, e
 				return nil, err
 			}
 			if roundInfo != nil {
+				// Only cache current or past rounds
+				if round <= ng.RoundAt(time.Now()) {
+					ng.roundCache.ContainsOrAdd(r, roundInfo)
+				}
+
 				return
 			}
 		}
@@ -127,13 +143,13 @@ func (ng *NotaryGroup) RoundInfoFor(round int64) (roundInfo *RoundInfo, err erro
 }
 
 // FastForward takes the notary group up to a known tip
-func (ng *NotaryGroup) FastForward(tip *cid.Cid) error {
+func (ng *NotaryGroup) FastForward(tip cid.Cid) error {
 	ng.signedTree.ChainTree.Dag = ng.signedTree.ChainTree.Dag.WithNewTip(tip)
 	return nil
 }
 
 // Tip returns the current tip of the notary group ChainTree
-func (ng *NotaryGroup) Tip() *cid.Cid {
+func (ng *NotaryGroup) Tip() cid.Cid {
 	return ng.signedTree.Tip()
 }
 
@@ -221,7 +237,7 @@ func (ng *NotaryGroup) verifyThresholdSignatures(roundInfo *RoundInfo, msg []byt
 	return bls.VerifyMultiSig(sig.Signature, msg, expectedKeyBytes)
 }
 
-func (ng *NotaryGroup) GetNode(cid *cid.Cid) (*cbornode.Node, error) {
+func (ng *NotaryGroup) GetNode(cid cid.Cid) (*cbornode.Node, error) {
 	return ng.signedTree.ChainTree.Dag.Get(cid)
 }
 
@@ -229,21 +245,21 @@ func (ng *NotaryGroup) Nodes() ([]*cbornode.Node, error) {
 	return ng.signedTree.ChainTree.Dag.Nodes()
 }
 
-func (ng *NotaryGroup) NodesAt(tip *cid.Cid) ([]*cbornode.Node, error) {
+func (ng *NotaryGroup) NodesAt(tip cid.Cid) ([]*cbornode.Node, error) {
 	dag := ng.signedTree.ChainTree.Dag.WithNewTip(tip)
 	return dag.Nodes()
 }
 
 // ExpectedTipWithBlock returns what a notary group tip would be if it had the block
 // without actually changing the notary group.
-func (ng *NotaryGroup) ExpectedTipWithBlock(block *chaintree.BlockWithHeaders) (*cid.Cid, error) {
+func (ng *NotaryGroup) ExpectedTipWithBlock(block *chaintree.BlockWithHeaders) (cid.Cid, error) {
 	newTree, err := chaintree.NewChainTree(ng.signedTree.ChainTree.Dag, ng.signedTree.ChainTree.BlockValidators, ng.signedTree.ChainTree.Transactors)
 	if err != nil {
-		return nil, fmt.Errorf("error creating new tree: %v", err)
+		return cid.Undef, fmt.Errorf("error creating new tree: %v", err)
 	}
 	valid, err := newTree.ProcessBlock(block)
 	if !valid || err != nil {
-		return nil, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
+		return cid.Undef, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
 	}
 	return newTree.Dag.Tip, nil
 }

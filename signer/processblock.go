@@ -3,17 +3,16 @@ package signer
 import (
 	"fmt"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
-
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/storage"
 )
 
 func init() {
@@ -21,16 +20,16 @@ func init() {
 	typecaster.AddType(consensus.AddBlockRequest{})
 }
 
-func processAddBlock(currentTip *cid.Cid, req *consensus.AddBlockRequest) (*consensus.AddBlockResponse, error) {
+func processAddBlock(currentTip cid.Cid, req *consensus.AddBlockRequest) (*consensus.AddBlockResponse, error) {
 	log.Debug("process add block", "storedTip", currentTip)
-	if currentTip == nil {
+	if !currentTip.Defined() {
 		if req.NewBlock.PreviousTip != "" {
 			log.Error("unmatching tips", "currentTip", "nil", "sent", req.Tip.String())
 			return nil, &consensus.ErrorCode{Memo: "invalid tip", Code: consensus.ErrInvalidTip}
 		}
-		currentTip = req.Tip
+		currentTip = *req.Tip
 	} else {
-		if !currentTip.Equals(req.Tip) {
+		if !currentTip.Equals(*req.Tip) {
 			log.Error("unmatching tips", "currentTip", currentTip.String(), "sent", req.Tip.String())
 			return nil, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
@@ -80,7 +79,7 @@ func processAddBlock(currentTip *cid.Cid, req *consensus.AddBlockRequest) (*cons
 	log.Debug("signer stating new tip", "tip", tip.String())
 
 	return &consensus.AddBlockResponse{
-		Tip:     tip,
+		Tip:     &tip,
 		ChainId: id.(string),
 	}, nil
 }

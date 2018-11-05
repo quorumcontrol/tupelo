@@ -1,23 +1,20 @@
 package wallet
 
 import (
+	"crypto/ecdsa"
 	"os"
 	"sort"
-	"testing"
-
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
-
-	"crypto/ecdsa"
-
 	"strings"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -187,12 +184,12 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	require.NotNil(t, root.Tree)
 
-	newTree.Tip = root.Tree
+	newTree.Tip = *root.Tree
 
 	newTree.Set(strings.Split("something", "/"), "hi")
 	signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
 
-	chainNode, err := signedTree.ChainTree.Dag.Get(root.Chain)
+	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
 	require.Nil(t, err)
 	chainMap, err := nodestore.CborNodeToObj(chainNode)
 	require.Nil(t, err)
@@ -204,7 +201,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	lastEntry := &chaintree.ChainEntry{
 		PreviousTip:       "",
-		BlocksWithHeaders: []*cid.Cid{wrappedBlock.Cid()},
+		BlocksWithHeaders: []cid.Cid{wrappedBlock.Cid()},
 	}
 	entryNode := sw.WrapObject(lastEntry)
 	chainMap["end"] = entryNode.Cid()
