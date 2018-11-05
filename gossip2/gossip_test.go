@@ -111,7 +111,7 @@ func randBytes(length int) []byte {
 }
 
 func TestGossip(t *testing.T) {
-	logging.SetLogLevel("gossip", "DEBUG")
+	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 20
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)
@@ -158,7 +158,7 @@ func TestGossip(t *testing.T) {
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 100; i++ {
 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
 			ObjectID:    randBytes(32),
 			PreviousTip: []byte(""),
