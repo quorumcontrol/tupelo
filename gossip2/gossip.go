@@ -182,6 +182,7 @@ func (gn *GossipNode) handleNewObjCh() {
 				continue
 			}
 
+			// If another worker is processing this conflict set, queue up this message for later processing
 			if conflictSetStat.InProgress {
 				conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
 				continue
@@ -192,13 +193,24 @@ func (gn *GossipNode) handleNewObjCh() {
 				log.Errorf("%s error adding: %v", gn.ID(), err)
 			}
 
-			if didSet {
-				conflictSetStat.InProgress = true
-				toProcessChan <- handlerRequest{
-					responseChan:  responseChan,
-					msg:           msg,
-					conflictSetID: conflictSetID,
-				}
+			// This message already existed, skip further processing
+			if !didSet {
+				continue
+			}
+
+			messageType := MessageType(msg.Key[8])
+
+			// Skip processing if message is a transaction and this signer has already
+			// added its signature to a previously received transaction
+			if messageType == MessageTypeTransaction && conflictSetStat.HasTransaction {
+				continue
+			}
+
+			conflictSetStat.InProgress = true
+			toProcessChan <- handlerRequest{
+				responseChan:  responseChan,
+				msg:           msg,
+				conflictSetID: conflictSetID,
 			}
 		case resp := <-responseChan:
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
