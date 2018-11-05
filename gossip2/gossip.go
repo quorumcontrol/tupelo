@@ -176,36 +176,30 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetStat = new(conflictSetStats)
 				inProgressConflictSets[string(conflictSetID)] = conflictSetStat
 			}
+
 			if conflictSetStat.IsDone {
 				// we can just stop here
 				continue
 			}
+
+			if conflictSetStat.InProgress {
+				conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
+				continue
+			}
+
 			didSet, err := gn.Add(msg.Key, msg.Value)
 			if err != nil {
 				log.Errorf("%s error adding: %v", gn.ID(), err)
 			}
-			if didSet {
-				log.Debugf("%s did set", gn.ID())
-				if conflictSetStat.InProgress {
-					// messageType := MessageType(msg.Key[8])
-					// switch messageType {
-					// case MessageTypeTransaction, MessageTypeDone:
-					// 	conflictSetStat.PendingMessages = append([]ProvideMessage{msg}, conflictSetStat.PendingMessages...)
-					// default:
-					conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
-					// }
-				} else {
-					conflictSetStat.InProgress = true
-					log.Debugf("%s sending to process chan: %s", gn.ID(), msg.Key)
-					toProcessChan <- handlerRequest{
-						responseChan:  responseChan,
-						msg:           msg,
-						conflictSetID: conflictSetID,
-					}
 
+			if didSet {
+				conflictSetStat.InProgress = true
+				toProcessChan <- handlerRequest{
+					responseChan:  responseChan,
+					msg:           msg,
+					conflictSetID: conflictSetID,
 				}
 			}
-
 		case resp := <-responseChan:
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
 			conflictSetStat.InProgress = false
