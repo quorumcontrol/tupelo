@@ -13,6 +13,8 @@ func (csw *conflictSetWorker) HandleRequest(msg ProvideMessage, respCh chan proc
 	gn := csw.gn
 	messageType := MessageType(msg.Key[8])
 	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
+
+	log.Debugf("%s conflict set worker %s", gn.ID(), msg.Key)
 	switch messageType {
 	case MessageTypeSignature:
 		log.Debugf("%v: handling a new Signature message", gn.ID())

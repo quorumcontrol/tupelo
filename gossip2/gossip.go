@@ -158,6 +158,7 @@ func (gn *GossipNode) handleNewObjCh() {
 	for {
 		select {
 		case msg := <-gn.newObjCh:
+			log.Debugf("%s new object chan length: %d", gn.ID(), len(gn.newObjCh))
 			conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 			conflictSetStat, ok := inProgressConflictSets[string(conflictSetID)]
 			if !ok {
@@ -168,24 +169,29 @@ func (gn *GossipNode) handleNewObjCh() {
 				// we can just stop here
 				continue
 			}
-			// otherwise we can save to storage
-			// and then queue up a worker
-			gn.Storage.SetIfNotExists(msg.Key, msg.Value)
+			didSet, err := gn.Add(msg.Key, msg.Value)
+			if err != nil {
+				log.Errorf("%s error adding: %v", gn.ID(), err)
+			}
+			if didSet {
+				log.Debugf("%s did set", gn.ID())
+				if conflictSetStat.InProgress {
+					conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
+				} else {
+					conflictSetStat.InProgress = true
+					log.Debugf("%s sending to process chan: %s", gn.ID(), msg.Key)
+					toProcessChan <- handlerRequest{
+						responseChan:  responseChan,
+						msg:           msg,
+						conflictSetID: conflictSetID,
+					}
 
-			if conflictSetStat.InProgress {
-				conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
-			} else {
-				conflictSetStat.InProgress = true
-
-				toProcessChan <- handlerRequest{
-					responseChan:  responseChan,
-					msg:           msg,
-					conflictSetID: conflictSetID,
 				}
 			}
 
 		case resp := <-responseChan:
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
+			conflictSetStat.InProgress = false
 			if !ok {
 				panic("this should never happen")
 			}
@@ -197,12 +203,12 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetStat.HasTransaction = true
 			}
 			if resp.NewSignature {
+				log.Debugf("%s sig count: %d", gn.ID(), conflictSetStat.SignatureCount)
 				conflictSetStat.SignatureCount++
 			}
 			if resp.IsDone {
 				conflictSetStat.IsDone = true
 			}
-			conflictSetStat.InProgress = false
 
 			roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 			if err != nil {
@@ -210,29 +216,27 @@ func (gn *GossipNode) handleNewObjCh() {
 			}
 
 			if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
+				log.Debugf("%s reached super majority", gn.ID())
 				signatureMessage, err := gn.checkSignatures(resp.ConflictSetID)
 
 				if err != nil {
 					log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
 				}
 
+				log.Debugf("queueing up done message")
 				if signatureMessage != nil {
-					go func() {
-						toProcessChan <- handlerRequest{
-							responseChan:  responseChan,
-							msg:           *signatureMessage,
-							conflictSetID: resp.ConflictSetID,
-						}
-					}()
+					conflictSetStat.PendingMessages = append([]ProvideMessage{*signatureMessage}, conflictSetStat.PendingMessages...)
 				}
 			}
 
 			if len(conflictSetStat.PendingMessages) > 0 {
+				log.Debugf("%s pending messages, queuing one", gn.ID())
 				msg, remainingMessages := conflictSetStat.PendingMessages[0:1], conflictSetStat.PendingMessages[1:]
 				conflictSetStat.PendingMessages = remainingMessages
-				go func() {
-					gn.newObjCh <- msg[0]
-				}()
+				go func(msg ProvideMessage) {
+					log.Debugf("%s queuing popped message: %s", gn.ID(), msg.Key)
+					gn.newObjCh <- msg
+				}(msg[0])
 			}
 
 		case <-gn.stopChan:
@@ -363,25 +367,29 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte) (*ProvideMessage, er
 	return &doneMessage, nil
 }
 
-func (gn *GossipNode) Add(key, value []byte) {
-	ibfObjectID := byteToIBFsObjectId(key[0:8])
-	log.Debugf("%s adding %v with uint64 %d", gn.ID(), key, ibfObjectID)
-	err := gn.Storage.Set(key, value)
+func (gn *GossipNode) Add(key, value []byte) (bool, error) {
+	log.Debugf("%s adding %v", gn.ID(), key)
+	didSet, err := gn.Storage.SetIfNotExists(key, value)
 	if err != nil {
-		panic("storage failed")
+		log.Errorf("%s error setting: %v", gn.ID(), err)
+		return false, fmt.Errorf("error setting storage: %v", err)
 	}
-	gn.ibfSyncer.Lock()
-	gn.Strata.Add(ibfObjectID)
-	for _, filter := range gn.IBFs {
-		filter.Add(ibfObjectID)
-		// debugger := filter.GetDebug()
-		// for k, cnt := range debugger {
-		// 	if cnt > 1 {
-		// 		panic(fmt.Sprintf("%s added a duplicate key: %v with uint64 %d", gn.ID(), key, k))
-		// 	}
-		// }
+	if didSet {
+		ibfObjectID := byteToIBFsObjectId(key[0:8])
+		gn.ibfSyncer.Lock()
+		gn.Strata.Add(ibfObjectID)
+		for _, filter := range gn.IBFs {
+			filter.Add(ibfObjectID)
+			// debugger := filter.GetDebug()
+			// for k, cnt := range debugger {
+			// 	if cnt > 1 {
+			// 		panic(fmt.Sprintf("%s added a duplicate key: %v with uint64 %d", gn.ID(), key, k))
+			// 	}
+			// }
+		}
+		gn.ibfSyncer.Unlock()
 	}
-	gn.ibfSyncer.Unlock()
+	return didSet, nil
 }
 
 func (gn *GossipNode) Remove(key []byte) {

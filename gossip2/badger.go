@@ -42,7 +42,7 @@ func (bs *BadgerStorage) SetIfNotExists(key []byte, value []byte) (bool, error) 
 		switch err {
 		case badger.ErrKeyNotFound:
 			err := txn.Set(key, value)
-			if err != nil {
+			if err == nil {
 				didSet = true
 			}
 			return err
