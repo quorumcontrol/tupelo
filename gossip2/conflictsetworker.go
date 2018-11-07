@@ -129,19 +129,19 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 			Value: encodedSig,
 		}
 		gn.newObjCh <- sigMessage
-		targets, err := gn.syncTargetsByRoutingKey(t.NewTip)
-		if err != nil {
-			log.Errorf("%s error getting routes: %v", gn.ID(), err)
-		}
+		// targets, err := gn.syncTargetsByRoutingKey(t.NewTip)
+		// if err != nil {
+		// 	log.Errorf("%s error getting routes: %v", gn.ID(), err)
+		// }
 
-		for _, target := range targets {
-			if target != nil {
-				gn.sigSendingCh <- envelope{
-					Msg:         sigMessage,
-					Destination: *(target.DstKey.ToEcdsaPub()),
-				}
-			}
-		}
+		// for _, target := range targets {
+		// 	if target != nil {
+		// 		gn.sigSendingCh <- envelope{
+		// 			Msg:         sigMessage,
+		// 			Destination: *(target.DstKey.ToEcdsaPub()),
+		// 		}
+		// 	}
+		// }
 
 		return true, nil
 	}

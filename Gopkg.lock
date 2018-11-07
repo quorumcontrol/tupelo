@@ -10,12 +10,12 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
-  digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
-  name = "github.com/Workiva/go-datastructures"
-  packages = ["queue"]
+  digest = "1:67c191c2a2661cb4cab99f0d81e8954427e27038e7e9ae3384bd4482280af8fa"
+  name = "github.com/VividCortex/gohistogram"
+  packages = ["."]
   pruneopts = ""
-  revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
-  version = "v1.0.50"
+  revision = "51564d9861991fb0ad0f531c99ef602d0f9866e6"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:5f3619add62f3f725265be1da3c80ae1872891197fdf69c35af05268bc1afa3f"
@@ -58,6 +58,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "f6d7a1f6fbf35bbf9beb80dc63c56a29dcfb759f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c46fd324e7902268373e1b337436a6377c196e2dbd7b35624c6256d29d494e78"
+  name = "github.com/codahale/hdrhistogram"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
   digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
@@ -153,6 +161,19 @@
   pruneopts = ""
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
   version = "v1.4.7"
+
+[[projects]]
+  digest = "1:97c6de000f6d18225598887636f61eed1b4044c25739bb13256beae25823bfb1"
+  name = "github.com/go-kit/kit"
+  packages = [
+    "metrics",
+    "metrics/expvar",
+    "metrics/generic",
+    "metrics/internal/lv",
+  ]
+  pruneopts = ""
+  revision = "a9ca6725cbbea455e61c6bc8a1ed28e81eb3493b"
+  version = "v0.5.0"
 
 [[projects]]
   digest = "1:9ca737b471693542351e112c9e86be9bf7385e42256893a09ecb2a98e2036f74"
@@ -442,6 +463,17 @@
   version = "v1.0.1"
 
 [[projects]]
+  digest = "1:fd5d05aca7cad62ae5f724646d5b8310e22c296e7b2b05cbf024e2201398ff79"
+  name = "github.com/jaegertracing/jaeger"
+  packages = [
+    "examples/hotrod/pkg/log",
+    "examples/hotrod/pkg/tracing",
+  ]
+  pruneopts = ""
+  revision = "4bbf7c277feaac37a3b1c1e4da9b49c60c2740cc"
+  version = "v1.7.0"
+
+[[projects]]
   branch = "master"
   digest = "1:95abc4eba158a39873bd4fabdee576d0ae13826b550f8b710881d80ae4093a0f"
   name = "github.com/jbenet/go-context"
@@ -536,6 +568,14 @@
   pruneopts = ""
   revision = "8be2a682ab9f254311de1375145a2f78a809b07d"
   version = "v1.0.8"
+
+[[projects]]
+  branch = "master"
+  digest = "1:eb6933cc50725dd65b007db35109dccb7ca2541a0060ba30a620dd2581d98ab9"
+  name = "github.com/opentracing-contrib/go-stdlib"
+  packages = ["nethttp"]
+  pruneopts = ""
+  revision = "c9628a4f0148d7e441a4af66dc0b1653cd941c20"
 
 [[projects]]
   digest = "1:78fb99d6011c2ae6c72f3293a83951311147b12b06a5ffa43abf750c4fab6ac5"
@@ -716,6 +756,46 @@
   version = "1.0.2"
 
 [[projects]]
+  digest = "1:941ab4973b3218a9a6d02d31734f5c762239eb538c0d702fff62d4037af8ab0a"
+  name = "github.com/uber/jaeger-client-go"
+  packages = [
+    ".",
+    "config",
+    "internal/baggage",
+    "internal/baggage/remote",
+    "internal/spanlog",
+    "internal/throttler",
+    "internal/throttler/remote",
+    "log",
+    "rpcmetrics",
+    "thrift",
+    "thrift-gen/agent",
+    "thrift-gen/baggage",
+    "thrift-gen/jaeger",
+    "thrift-gen/sampling",
+    "thrift-gen/zipkincore",
+    "transport",
+    "utils",
+  ]
+  pruneopts = ""
+  revision = "1a782e2da844727691fef1757c72eb190c2909f0"
+  version = "v2.15.0"
+
+[[projects]]
+  digest = "1:aa1598d34009b45ce74fdabdd25e4258d7923d1e1b418d4c98482e79607cb9b0"
+  name = "github.com/uber/jaeger-lib"
+  packages = [
+    "metrics",
+    "metrics/adapters",
+    "metrics/expvar",
+    "metrics/go-kit",
+    "metrics/go-kit/expvar",
+  ]
+  pruneopts = ""
+  revision = "ed3a127ec5fef7ae9ea95b01b542c47fbd999ce5"
+  version = "v1.5.0"
+
+[[projects]]
   branch = "master"
   digest = "1:1e10b6e24ab9cbfafc7db7985cc43f01624a5a82d188572baf2ab2257b4427e2"
   name = "github.com/whyrusleeping/base32"
@@ -730,6 +810,37 @@
   packages = ["."]
   pruneopts = ""
   revision = "0457bb6b88fc1973573aaf6b5145d8d3ae972390"
+
+[[projects]]
+  digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
+  name = "go.uber.org/atomic"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
+  version = "v1.3.2"
+
+[[projects]]
+  digest = "1:22c7effcb4da0eacb2bb1940ee173fac010e9ef3c691f5de4b524d538bd980f5"
+  name = "go.uber.org/multierr"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3c4937480c32f4c13a875a1829af76c98ca3d40a"
+  version = "v1.1.0"
+
+[[projects]]
+  digest = "1:246f378f80fba6fcf0f191c486b6613265abd2bc0f2fa55a36b928c67352021e"
+  name = "go.uber.org/zap"
+  packages = [
+    ".",
+    "buffer",
+    "internal/bufferpool",
+    "internal/color",
+    "internal/exit",
+    "zapcore",
+  ]
+  pruneopts = ""
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
 
 [[projects]]
   branch = "master"
@@ -872,7 +983,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Workiva/go-datastructures/queue",
     "github.com/abiosoft/ishell",
     "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
@@ -910,6 +1020,7 @@
     "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr",
     "github.com/ipsn/go-ipfs/thirdparty/math2",
+    "github.com/jaegertracing/jaeger/examples/hotrod/pkg/tracing",
     "github.com/mitchellh/go-homedir",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
@@ -923,6 +1034,8 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
+    "github.com/uber/jaeger-lib/metrics",
+    "github.com/uber/jaeger-lib/metrics/expvar",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",

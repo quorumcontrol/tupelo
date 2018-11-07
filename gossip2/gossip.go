@@ -13,11 +13,21 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	"github.com/jaegertracing/jaeger/examples/hotrod/pkg/tracing"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/uber/jaeger-lib/metrics"
+	jexpvar "github.com/uber/jaeger-lib/metrics/expvar"
 )
+
+var metricsFactory metrics.Factory
+
+func init() {
+	metricsFactory = jexpvar.NewFactory(10) // 10 buckets for histograms
+	tracing.Init("gossip", metricsFactory, log)
+}
 
 var log = logging.Logger("gossip")
 
