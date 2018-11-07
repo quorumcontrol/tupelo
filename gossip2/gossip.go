@@ -13,12 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	tracelog "github.com/quorumcontrol/qc3/log"
 	"github.com/quorumcontrol/qc3/p2p"
-	"github.com/quorumcontrol/qc3/tracing"
 	"github.com/uber/jaeger-lib/metrics"
 	jexpvar "github.com/uber/jaeger-lib/metrics/expvar"
 	"go.uber.org/zap"
@@ -38,9 +38,6 @@ var (
 func init() {
 	metricsFactory = jexpvar.NewFactory(10) // 10 buckets for histograms
 	logger, _ = zap.NewDevelopment(zap.AddStacktrace(zapcore.FatalLevel))
-	zapLogger := logger.With(zap.String("service", "gossip"))
-	tracingLogger := tracelog.NewFactory(zapLogger)
-	tracing.Init("gossip", metricsFactory, tracingLogger)
 }
 
 var log = logging.Logger("gossip")
@@ -88,11 +85,13 @@ type GossipNode struct {
 	debugReceiveSync uint64
 	debugSendSync    uint64
 	debugAttemptSync uint64
+	tracer           opentracing.Tracer
+	logger           tracelog.Factory
 }
 
 const NumberOfSyncWorkers = 3
 
-func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
+func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Host, storage *BadgerStorage, tracer opentracing.Tracer, logger tracelog.Factory) *GossipNode {
 	node := &GossipNode{
 		Key:     dstKey,
 		SignKey: signKey,
@@ -106,6 +105,8 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		ibfSyncer:    &sync.RWMutex{},
 		syncPool:     make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 		sigSendingCh: make(chan envelope, workerCount+1),
+		tracer:       tracer,
+		logger:       logger,
 	}
 	node.verKey = node.SignKey.MustVerKey()
 	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()

@@ -3,6 +3,7 @@ package gossip2
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/rand"
 	"os"
 	"runtime/pprof"
@@ -17,10 +18,13 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
+	tracelog "github.com/quorumcontrol/qc3/log"
 	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/qc3/tracing"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
@@ -134,7 +138,10 @@ func TestGossip(t *testing.T) {
 			os.RemoveAll(path)
 		}()
 		storage := NewBadgerStorage(path)
-		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
+		zapLogger := logger.With(zap.String("service", fmt.Sprintf("gossip-%d", i)))
+		tracingLogger := tracelog.NewFactory(zapLogger)
+		tracer := tracing.Init("gossip", metricsFactory, tracingLogger)
+		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage, tracer, tracingLogger)
 		gossipNodes[i].Group = group
 	}
 

@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/tinylib/msgp/msgp"
@@ -301,6 +302,12 @@ func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 	log.Debugf("%s: targeting peer %v", gn.ID(), peerPublicKey)
 
 	ctx := context.Background()
+	span := gn.tracer.StartSpan("PEER CONNECT")
+	defer span.Finish()
+	ctx = opentracing.ContextWithSpan(ctx, span)
+
+	gn.logger.For(ctx).Info("hello world")
+
 	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
 	if err != nil {
 		if err == p2p.ErrDialBackoff {
