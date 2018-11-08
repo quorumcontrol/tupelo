@@ -9,7 +9,7 @@ import (
 )
 
 func TestSetIfExists(t *testing.T) {
-	path := "setIfExistsTest"
+	path := testStoragePath + "setIfExistsTest"
 	os.RemoveAll(path)
 	os.MkdirAll(path, 0755)
 	defer os.RemoveAll(path)
@@ -25,7 +25,7 @@ func TestSetIfExists(t *testing.T) {
 }
 
 func TestExists(t *testing.T) {
-	path := "existsTest"
+	path := testStoragePath + "existsTest"
 	os.RemoveAll(path)
 	os.MkdirAll(path, 0755)
 	defer os.RemoveAll(path)
