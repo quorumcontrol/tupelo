@@ -1,6 +1,8 @@
 vendor
 .storage/*
 !.storage/.gitkeep
+.tmp/*
+!.tmp/.gitkeep
 _old
 /qc3
 /release/

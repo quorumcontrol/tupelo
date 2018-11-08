@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testStoragePath = "../.tmp/test/"
+
 func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -126,7 +128,7 @@ func TestGossip(t *testing.T) {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
-		path := "test/badger/" + strconv.Itoa(i)
+		path := testStoragePath + "badger/" + strconv.Itoa(i)
 		os.RemoveAll(path)
 		os.MkdirAll(path, 0755)
 		defer func() {
