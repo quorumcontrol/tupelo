@@ -120,15 +120,18 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 		if err != nil {
 			return false, fmt.Errorf("error marshaling sig: %v", err)
 		}
-		log.Debugf("%s signing %v", gn.ID(), signature.StoredID(t.ToConflictSet().ID()))
 		sigID := signature.StoredID(t.ToConflictSet().ID())
-		gn.Add(sigID, encodedSig)
+		log.Debugf("%s signing transaction %v, signature id %v", gn.ID(), msg.Key, sigID)
 
 		sigMessage := ProvideMessage{
 			Key:   sigID,
 			Value: encodedSig,
 		}
-		gn.newObjCh <- sigMessage
+
+		go func(aMsg ProvideMessage) {
+			gn.newObjCh <- aMsg
+		}(sigMessage)
+
 		targets, err := gn.syncTargetsByRoutingKey(t.NewTip)
 		if err != nil {
 			log.Errorf("%s error getting routes: %v", gn.ID(), err)
