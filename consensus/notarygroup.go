@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"math"
 	"math/big"
 	"strconv"
 	"time"
@@ -310,7 +311,7 @@ func (ri *RoundInfo) RandomMember() *RemoteNode {
 
 // SuperMajorityCount returns the number needed for a consensus
 func (ri *RoundInfo) SuperMajorityCount() int64 {
-	required := int64((2.0 * float64(len(ri.Signers))) / 3.0)
+	required := int64(math.Ceil((2.0 * float64(len(ri.Signers))) / 3.0))
 	if required == 0 {
 		return 1
 	}
