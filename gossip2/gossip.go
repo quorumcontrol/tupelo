@@ -171,6 +171,7 @@ func (gn *GossipNode) handleNewObjCh() {
 
 			if conflictSetStat.IsDone {
 				// we can just stop here
+				log.Debugf("%s ignore message because conflict set is done %v", gn.ID(), msg.Key)
 				continue
 			}
 
@@ -217,7 +218,7 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetStat.HasTransaction = true
 			}
 			if resp.NewSignature {
-				log.Debugf("%s sig count: %d", gn.ID(), conflictSetStat.SignatureCount)
+				log.Debugf("%s sig count: %d, conflict set id", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
 				conflictSetStat.SignatureCount++
 			}
 			if resp.IsDone {
@@ -494,13 +495,13 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 }
 
 func (gn *GossipNode) Add(key, value []byte) (bool, error) {
-	log.Debugf("%s adding %v", gn.ID(), key)
 	didSet, err := gn.Storage.SetIfNotExists(key, value)
 	if err != nil {
 		log.Errorf("%s error setting: %v", gn.ID(), err)
 		return false, fmt.Errorf("error setting storage: %v", err)
 	}
 	if didSet {
+		log.Debugf("%s adding %v", gn.ID(), key)
 		ibfObjectID := byteToIBFsObjectId(key[0:8])
 		gn.ibfSyncer.Lock()
 		gn.Strata.Add(ibfObjectID)
@@ -514,6 +515,8 @@ func (gn *GossipNode) Add(key, value []byte) (bool, error) {
 			// }
 		}
 		gn.ibfSyncer.Unlock()
+	} else {
+		log.Debugf("%s skipped adding, already exists %v", gn.ID(), key)
 	}
 	return didSet, nil
 }
@@ -530,6 +533,7 @@ func (gn *GossipNode) Remove(key []byte) {
 		filter.Remove(ibfObjectID)
 	}
 	gn.ibfSyncer.Unlock()
+	log.Debugf("%s removed key %v", gn.ID(), key)
 }
 
 func (gn *GossipNode) randomPeer() (*consensus.RemoteNode, error) {
