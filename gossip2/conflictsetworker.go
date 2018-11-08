@@ -69,7 +69,7 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
 
 	for _, key := range conflictSetKeys {
-		if key[8] != byte(MessageTypeDone) && bytes.Equal(conflictSetIDFromMessageKey(key), conflictSetID) {
+		if messageTypeFromKey(key) != MessageTypeDone && bytes.Equal(conflictSetIDFromMessageKey(key), conflictSetID) {
 			gn.Remove(key)
 			if err != nil {
 				log.Errorf("%s error deleting conflict set item %v", gn.ID(), key)

@@ -35,14 +35,6 @@ type IBFMap map[int]*ibf.InvertibleBloomFilter
 
 var standardIBFSizes = []int{500, 2000, 100000}
 
-type MessageType int
-
-const (
-	MessageTypeSignature MessageType = iota + 1
-	MessageTypeTransaction
-	MessageTypeDone
-)
-
 type SyncHandlerWorker struct{}
 
 type GossipNode struct {
@@ -313,7 +305,7 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte) (*ProvideMessage, er
 	var matchedSigKeys [][]byte
 
 	for _, k := range conflictSetKeys {
-		if k[8] == byte(MessageTypeSignature) && bytes.Equal(conflictSetIDFromMessageKey(k), conflictSetID) {
+		if messageTypeFromKey(k) == MessageTypeSignature && bytes.Equal(conflictSetIDFromMessageKey(k), conflictSetID) {
 			matchedSigKeys = append(matchedSigKeys, k)
 		}
 	}
