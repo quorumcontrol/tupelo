@@ -187,14 +187,14 @@ func (gn *GossipNode) handleNewObjCh() {
 
 			// This message already existed, skip further processing
 			if !didSet {
+				gn.popPendingMessage(conflictSetStat)
 				continue
 			}
 
-			messageType := MessageType(msg.Key[8])
+			messageType := msg.Type()
 
-			// Skip processing if message is a transaction and this signer has already
-			// added its signature to a previously received transaction
 			if messageType == MessageTypeTransaction && conflictSetStat.HasTransaction {
+				gn.popPendingMessage(conflictSetStat)
 				continue
 			}
 
@@ -206,7 +206,6 @@ func (gn *GossipNode) handleNewObjCh() {
 			}
 		case resp := <-responseChan:
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
-			conflictSetStat.InProgress = false
 			if !ok {
 				panic("this should never happen")
 			}
@@ -244,20 +243,27 @@ func (gn *GossipNode) handleNewObjCh() {
 				}
 			}
 
-			if len(conflictSetStat.PendingMessages) > 0 {
-				log.Debugf("%s pending messages, queuing one", gn.ID())
-				msg, remainingMessages := conflictSetStat.PendingMessages[0:1], conflictSetStat.PendingMessages[1:]
-				conflictSetStat.PendingMessages = remainingMessages
-				go func(msg ProvideMessage) {
-					log.Debugf("%s queuing popped message: %s", gn.ID(), msg.Key)
-					gn.newObjCh <- msg
-				}(msg[0])
-			}
+			conflictSetStat.InProgress = false
 
+			gn.popPendingMessage(conflictSetStat)
 		case <-gn.stopChan:
 			return
 		}
 	}
+}
+
+func (gn *GossipNode) popPendingMessage(conflictSetStat *conflictSetStats) bool {
+	if len(conflictSetStat.PendingMessages) > 0 {
+		log.Debugf("%s pending messages, queuing one", gn.ID())
+		nextMessage, remainingMessages := conflictSetStat.PendingMessages[0], conflictSetStat.PendingMessages[1:]
+		conflictSetStat.PendingMessages = remainingMessages
+		go func(msg ProvideMessage) {
+			log.Debugf("%s queuing popped message: %v", gn.ID(), msg.Key)
+			gn.newObjCh <- msg
+		}(nextMessage)
+		return true
+	}
+	return false
 }
 
 type envelope struct {
