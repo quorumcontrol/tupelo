@@ -231,15 +231,15 @@ func (gn *GossipNode) handleNewObjCh() {
 
 			if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
 				log.Debugf("%s reached super majority", gn.ID())
-				signatureMessage, err := gn.checkSignatures(resp.ConflictSetID)
+				provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
 
 				if err != nil {
 					log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
 				}
 
-				log.Debugf("queueing up done message")
-				if signatureMessage != nil {
-					conflictSetStat.PendingMessages = append([]ProvideMessage{*signatureMessage}, conflictSetStat.PendingMessages...)
+				if provideMessage != nil {
+					log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
+					conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, *provideMessage)
 				}
 			}
 
@@ -303,7 +303,7 @@ func (gn *GossipNode) isMessageDone(msg ProvideMessage) (bool, error) {
 	return isDone(gn.Storage, msg.Key[len(msg.Key)-32:])
 }
 
-func (gn *GossipNode) checkSignatures(conflictSetID []byte) (*ProvideMessage, error) {
+func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *conflictSetStats) (*ProvideMessage, error) {
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
 	if err != nil {
 		return nil, fmt.Errorf("error fetching keys %v", err)
@@ -320,39 +320,49 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte) (*ProvideMessage, er
 	if err != nil {
 		return nil, fmt.Errorf("error fetching roundinfo %v", err)
 	}
+	superMajorityCount := roundInfo.SuperMajorityCount()
 
-	if int64(len(matchedSigKeys)) < roundInfo.SuperMajorityCount() {
+	if int64(len(matchedSigKeys)) < superMajorityCount {
 		return nil, nil
 	}
 
-	signatures, err := gn.Storage.GetAll(matchedSigKeys)
+	rawSignatures, err := gn.Storage.GetAll(matchedSigKeys)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching signers %v", err)
 	}
 
-	signersByTransactionID := make(map[string]map[string][]byte)
+	storedSignatures := make(map[string]Signature)
 
-	for _, sigBytes := range signatures {
+	for _, rawSig := range rawSignatures {
 		var s Signature
-		_, err = s.UnmarshalMsg(sigBytes.Value)
+		_, err = s.UnmarshalMsg(rawSig.Value)
 		if err != nil {
 			return nil, fmt.Errorf("error unmarshaling sig: %v", err)
 		}
-		for k, v := range s.Signers {
+		storedSignatures[string(rawSig.Key)] = s
+	}
+
+	signersByTransactionID := make(map[string]map[string][]byte)
+	for _, signature := range storedSignatures {
+		transID := string(signature.TransactionID)
+
+		for k, v := range signature.Signers {
 			if v == true {
-				if _, ok := signersByTransactionID[string(s.TransactionID)]; !ok {
-					signersByTransactionID[string(s.TransactionID)] = make(map[string][]byte)
+				if _, ok := signersByTransactionID[transID]; !ok {
+					signersByTransactionID[transID] = make(map[string][]byte)
 				}
-				signersByTransactionID[string(s.TransactionID)][k] = s.Signature
+				signersByTransactionID[transID][k] = signature.Signature
 			}
 		}
 	}
 
 	var majorityTransactionID []byte
 	var majoritySigners map[string][]byte
+	var totalNumberOfSignatures int
 
 	for transactionID, signers := range signersByTransactionID {
-		if int64(len(signers)) >= roundInfo.SuperMajorityCount() {
+		totalNumberOfSignatures = totalNumberOfSignatures + len(signers)
+		if int64(len(signers)) >= superMajorityCount {
 			majorityTransactionID = []byte(transactionID)
 			majoritySigners = signers
 			break
@@ -360,6 +370,86 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte) (*ProvideMessage, er
 	}
 
 	if len(majoritySigners) == 0 {
+		// Deadlock detection
+		numberOfRemainingSigners := len(roundInfo.Signers) - totalNumberOfSignatures
+		foundSignableTransaction := false
+
+		for _, signers := range signersByTransactionID {
+			if int64(len(signers)+numberOfRemainingSigners) >= superMajorityCount {
+				foundSignableTransaction = true
+			}
+		}
+
+		// Its deadlocked
+		// For now, given the lack of slashing, just
+		// remove conflicting transactions
+		if !foundSignableTransaction {
+			var lowestTransactionID string
+			for transactionID, _ := range signersByTransactionID {
+				if lowestTransactionID == "" || transactionID < lowestTransactionID {
+					lowestTransactionID = transactionID
+				}
+			}
+			lowestTransactionStoredID := storedIDForTransactionIDAndConflictSetID([]byte(lowestTransactionID), conflictSetID)
+			log.Debugf("%s detected deadlock for conflict set %v, selecting transaction %v", gn.ID(), conflictSetID, lowestTransactionStoredID)
+
+			hasSigned := false
+			conflictSetStat.SignatureCount = 0
+
+			for storedKey, signature := range storedSignatures {
+				if lowestTransactionID == string(signature.TransactionID) {
+					conflictSetStat.SignatureCount = conflictSetStat.SignatureCount + uint32(len(signature.Signers))
+					if _, ok := signature.Signers[gn.address]; ok {
+						hasSigned = true
+					}
+				} else {
+					gn.Remove([]byte(storedKey))
+				}
+			}
+
+			conflictSetStat.HasTransaction = false
+			for _, k := range conflictSetKeys {
+				if messageTypeFromKey(k) == MessageTypeTransaction && bytes.Equal(conflictSetIDFromMessageKey(k), conflictSetID) {
+					if bytes.Equal(k, lowestTransactionStoredID) {
+						conflictSetStat.HasTransaction = true
+					} else {
+						gn.Remove(k)
+					}
+				}
+			}
+
+			if !hasSigned {
+				transactionBytes, err := gn.Storage.Get(lowestTransactionStoredID)
+				if err != nil {
+					return nil, fmt.Errorf("error fetching trans: %v", err)
+				}
+
+				if len(transactionBytes) > 0 {
+					sig, err := gn.SignKey.Sign(transactionBytes)
+					if err != nil {
+						return nil, fmt.Errorf("error signing key: %v", err)
+					}
+					signature := Signature{
+						TransactionID: []byte(lowestTransactionID),
+						Signers:       map[string]bool{gn.address: true},
+						Signature:     sig,
+					}
+					encodedSig, err := signature.MarshalMsg(nil)
+
+					log.Debugf("%s add signature to remove deadlock %v", gn.ID(), signature.StoredID(conflictSetID))
+
+					return &ProvideMessage{
+						Key:   signature.StoredID(conflictSetID),
+						Value: encodedSig,
+					}, nil
+				} else {
+					log.Debugf("%s attempted to add signature to remove deadlock, but transaction does not exist yet %v", gn.ID(), lowestTransactionStoredID)
+				}
+			} else {
+				log.Debugf("%s has already signed deadlocked transaction %v", gn.ID(), lowestTransactionStoredID)
+			}
+		}
+
 		return nil, nil
 	}
 
