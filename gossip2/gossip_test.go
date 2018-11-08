@@ -236,3 +236,80 @@ Total Attempted Syncs: %d, Average Attepted Syncs: %d`,
 	)
 
 }
+
+func TestDeadlockTransactionGossip(t *testing.T) {
+	logging.SetLogLevel("gossip", "DEBUG")
+	groupSize := 2
+	ts := newTestSet(t, groupSize)
+	group := groupFromTestSet(t, ts)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	bootstrap := newBootstrapHost(ctx, t)
+
+	gossipNodes := make([]*GossipNode, groupSize)
+
+	for i := 0; i < groupSize; i++ {
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		require.Nil(t, err)
+		host.Bootstrap(bootstrapAddresses(bootstrap))
+		path := testStoragePath + "badger/" + strconv.Itoa(i)
+		os.RemoveAll(path)
+		os.MkdirAll(path, 0755)
+		defer func() {
+			os.RemoveAll(path)
+		}()
+		storage := NewBadgerStorage(path)
+		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
+		gossipNodes[i].Group = group
+	}
+
+	objectID := randBytes(32)
+
+	transaction1 := Transaction{
+		ObjectID:    objectID,
+		PreviousTip: []byte(""),
+		NewTip:      randBytes(49),
+		Payload:     randBytes(rand.Intn(400) + 100),
+	}
+
+	_, err := gossipNodes[0].InitiateTransaction(transaction1)
+	require.Nil(t, err)
+
+	transaction2 := Transaction{
+		ObjectID:    objectID,
+		PreviousTip: []byte(""),
+		NewTip:      randBytes(49),
+		Payload:     randBytes(rand.Intn(400) + 100),
+	}
+	_, err = gossipNodes[1].InitiateTransaction(transaction2)
+	require.Nil(t, err)
+
+	for i := 0; i < groupSize; i++ {
+		defer gossipNodes[i].Stop()
+		go gossipNodes[i].Start()
+	}
+
+	var exists1 bool
+	var exists2 bool
+
+	start := time.Now()
+	for {
+		if (time.Now().Sub(start)) > (60 * time.Second) {
+			t.Fatal("timed out looking for done function")
+			break
+		}
+		exists1, err = gossipNodes[0].Storage.Exists(transaction2.ToConflictSet().DoneID())
+		require.Nil(t, err)
+		exists2, err = gossipNodes[1].Storage.Exists(transaction1.ToConflictSet().DoneID())
+		require.Nil(t, err)
+		time.Sleep(1 * time.Second)
+		if exists1 && exists2 {
+			break
+		}
+	}
+
+	// TODO actually check tips match here once we store tips
+	assert.True(t, exists1)
+	assert.True(t, exists2)
+}

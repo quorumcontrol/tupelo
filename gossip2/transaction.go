@@ -10,7 +10,11 @@ func (t *Transaction) ToConflictSet() *ConflictSet {
 func (t *Transaction) StoredID() []byte {
 	conflictSetID := t.ToConflictSet().ID()
 	id := t.ID()
-	return concatBytesSlice(conflictSetID[0:4], id[0:4], []byte{byte(MessageTypeTransaction)}, id, conflictSetID)
+	return storedIDForTransactionIDAndConflictSetID(id, conflictSetID)
+}
+
+func storedIDForTransactionIDAndConflictSetID(transactionID []byte, conflictSetID []byte) []byte {
+	return concatBytesSlice(conflictSetID[0:4], transactionID[0:4], []byte{byte(MessageTypeTransaction)}, transactionID, conflictSetID)
 }
 
 func (t *Transaction) ID() []byte {
