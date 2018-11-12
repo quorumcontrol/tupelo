@@ -65,6 +65,17 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 	gn := csw.gn
 	log.Debugf("%s handling done message %v", gn.ID(), msg.Key)
 
+	var state CurrentState
+	_, err := state.UnmarshalMsg(msg.Value)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling msg: %v", err)
+	}
+	//TODO: actually check the sig here
+
+	err = gn.Storage.Set(state.ObjectID, msg.Value)
+	if err != nil {
+		return fmt.Errorf("error setting current state: %v", err)
+	}
 	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
@@ -83,7 +94,7 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 
 func (csw *conflictSetWorker) HandleNewSignature(msg ProvideMessage) (accepted bool, err error) {
 	log.Debugf("%s handling sig message %v", csw.gn.ID(), msg.Key)
-	// TOOD: actually check to see if we accept this sig
+	// TOOD: actually check to see if we accept this sig (although, only maybe... we can check it when we actually care, that is when we are summing up)
 	return true, nil
 }
 
