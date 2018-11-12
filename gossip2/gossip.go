@@ -230,7 +230,7 @@ func (gn *GossipNode) handleNewObjCh() {
 			}
 			if resp.Error != nil {
 				// at minimum delete it out of storage
-				panic("TODO: handle this gracefully")
+				panic(fmt.Sprintf("TODO: handle this gracefully: %v", resp.Error))
 			}
 			if resp.NewTransaction {
 				conflictSetStat.HasTransaction = true

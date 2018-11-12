@@ -13,7 +13,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
@@ -112,6 +114,53 @@ func randBytes(length int) []byte {
 	return b
 }
 
+func newValidTransaction(t *testing.T) Transaction {
+	sw := safewrap.SafeWrap{}
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": "hi",
+					},
+				},
+			},
+		},
+	}
+
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTip := emptyTree.Tip
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+	nodes := dagToByteNodes(t, emptyTree)
+
+	req := &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      &emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+	return Transaction{
+		PreviousTip: emptyTip.Bytes(),
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(req).RawData(),
+		ObjectID:    []byte(treeDID),
+	}
+}
+
 func TestGossip(t *testing.T) {
 	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 40
@@ -139,12 +188,7 @@ func TestGossip(t *testing.T) {
 		gossipNodes[i].Group = group
 	}
 
-	transaction1 := Transaction{
-		ObjectID:    []byte("himynameisalongobjectidthatwillhavemorethan64bits"),
-		PreviousTip: []byte(""),
-		NewTip:      []byte("zdpuAs5LQAGsXbGTF3DbfGVkRw4sWJd4MzbbigtJ4zE6NNJrr"),
-		Payload:     []byte("thisisthepayload"),
-	}
+	transaction1 := newValidTransaction(t)
 	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
 
 	for i := 0; i < groupSize; i++ {
@@ -160,7 +204,7 @@ func TestGossip(t *testing.T) {
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
 
-	for i := 0; i < 300; i++ {
+	for i := 0; i < 100; i++ {
 		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
 			ObjectID:    randBytes(32),
 			PreviousTip: []byte(""),
