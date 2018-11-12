@@ -205,12 +205,7 @@ func TestGossip(t *testing.T) {
 	// defer pprof.StopCPUProfile()
 
 	for i := 0; i < 100; i++ {
-		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
-			ObjectID:    randBytes(32),
-			PreviousTip: []byte(""),
-			NewTip:      randBytes(49),
-			Payload:     randBytes(rand.Intn(400) + 100),
-		})
+		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(newValidTransaction(t))
 		if err != nil {
 			t.Fatalf("error sending transaction: %v", err)
 		}
