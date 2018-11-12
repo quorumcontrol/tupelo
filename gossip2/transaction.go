@@ -32,5 +32,5 @@ func (t *Transaction) ID() []byte {
 // 		probably also "view" to comply with the whitepaper
 // 		maybe transaction ID?
 func (t *Transaction) Sign(signKey *bls.SignKey) ([]byte, error) {
-	return signKey.Sign(append(t.ObjectID, t.NewTip...))
+	return signKey.Sign(crypto.Keccak256(append(t.ObjectID, t.NewTip...)))
 }

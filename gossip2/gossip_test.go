@@ -226,6 +226,7 @@ func TestGossip(t *testing.T) {
 			stop = time.Now()
 			break
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())

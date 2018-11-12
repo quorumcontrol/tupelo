@@ -365,8 +365,9 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 	for _, signature := range storedSignatures {
 		transID := string(signature.TransactionID)
 
-		for k, v := range signature.Signers {
-			if v == true {
+		for i, didSign := range signature.Signers {
+			if didSign {
+				k := roundInfo.Signers[i].Id
 				if _, ok := signersByTransactionID[transID]; !ok {
 					signersByTransactionID[transID] = make(map[string]Signature)
 				}
@@ -418,9 +419,8 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 			for storedKey, signature := range storedSignatures {
 				if lowestTransactionID == string(signature.TransactionID) {
 					conflictSetStat.SignatureCount = conflictSetStat.SignatureCount + uint32(len(signature.Signers))
-					if _, ok := signature.Signers[gn.address]; ok {
-						hasSigned = true
-					}
+					idx := indexOfAddr(roundInfo.Signers, gn.address)
+					hasSigned = signature.Signers[idx]
 				} else {
 					gn.Remove([]byte(storedKey))
 				}
@@ -453,11 +453,13 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 					if err != nil {
 						return nil, fmt.Errorf("error signing key: %v", err)
 					}
+					signers := make([]bool, len(roundInfo.Signers))
+					signers[indexOfAddr(roundInfo.Signers, gn.address)] = true
 					signature := Signature{
 						TransactionID: []byte(lowestTransactionID),
 						ObjectID:      lowestTrans.ObjectID,
 						Tip:           lowestTrans.NewTip,
-						Signers:       map[string]bool{gn.address: true},
+						Signers:       signers,
 						Signature:     sig,
 					}
 					encodedSig, err := signature.MarshalMsg(nil)
@@ -479,20 +481,18 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 		return nil, nil
 	}
 
-	allSigners := make(map[string]bool)
+	allSigners := make([]bool, len(roundInfo.Signers))
 	var signatureBytes [][]byte
 	var majorityObjectID []byte
 	var majorityNewTip []byte
-	for _, signer := range roundInfo.Signers {
+	for i, signer := range roundInfo.Signers {
 		key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
 
 		if sig, ok := majoritySigners[key]; ok {
 			signatureBytes = append(signatureBytes, sig.Signature)
 			majorityObjectID = sig.ObjectID
 			majorityNewTip = sig.Tip
-			allSigners[key] = true
-		} else {
-			allSigners[key] = false
+			allSigners[i] = true
 		}
 	}
 
@@ -681,4 +681,13 @@ func (gn *GossipNode) syncTargetsByRoutingKey(key []byte) ([]*consensus.RemoteNo
 
 	}
 	return targets, nil
+}
+
+func indexOfAddr(signers []*consensus.RemoteNode, addr string) int {
+	for i, s := range signers {
+		if s.Id == addr {
+			return i
+		}
+	}
+	return -1
 }
