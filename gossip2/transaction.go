@@ -1,6 +1,9 @@
 package gossip2
 
-import "github.com/ethereum/go-ethereum/crypto"
+import (
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/qc3/bls"
+)
 
 func (t *Transaction) ToConflictSet() *ConflictSet {
 	return &ConflictSet{ObjectID: t.ObjectID, Tip: t.PreviousTip}
@@ -23,4 +26,11 @@ func (t *Transaction) ID() []byte {
 		panic("error marshaling transaction")
 	}
 	return crypto.Keccak256(encoded)
+}
+
+//TODO: we should add height/cycle, something here
+// 		probably also "view" to comply with the whitepaper
+// 		maybe transaction ID?
+func (t *Transaction) Sign(signKey *bls.SignKey) ([]byte, error) {
+	return signKey.Sign(append(t.ObjectID, t.NewTip...))
 }

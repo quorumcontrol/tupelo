@@ -444,12 +444,19 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 				}
 
 				if len(transactionBytes) > 0 {
-					sig, err := gn.SignKey.Sign(transactionBytes)
+					var lowestTrans Transaction
+					_, err := lowestTrans.UnmarshalMsg(transactionBytes)
+					if err != nil {
+						return nil, fmt.Errorf("error unmarshaling lowest trans: %v", err)
+					}
+					sig, err := lowestTrans.Sign(gn.SignKey)
 					if err != nil {
 						return nil, fmt.Errorf("error signing key: %v", err)
 					}
 					signature := Signature{
 						TransactionID: []byte(lowestTransactionID),
+						ObjectID:      lowestTrans.ObjectID,
+						Tip:           lowestTrans.NewTip,
 						Signers:       map[string]bool{gn.address: true},
 						Signature:     sig,
 					}
