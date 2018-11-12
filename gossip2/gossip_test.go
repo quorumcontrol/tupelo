@@ -195,7 +195,6 @@ func TestGossip(t *testing.T) {
 		defer gossipNodes[i].Stop()
 		go gossipNodes[i].Start()
 	}
-
 	// This bit of commented out code will run the CPU profiler
 	// f, ferr := os.Create("../gossip.prof")
 	// if ferr != nil {
