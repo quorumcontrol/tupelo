@@ -2,6 +2,7 @@ package gossip2
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 )
 
@@ -155,10 +156,35 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 }
 
 func (csw *conflictSetWorker) IsTransactionValid(t Transaction) (bool, error) {
-	// state, err := gn.Storage.Get(t.ObjectID)
-	// if err != nil {
-	// 	return false, fmt.Errorf("error getting state: %v", err)
-	// }
+	gn := csw.gn
+	stateBytes, err := gn.Storage.Get(t.ObjectID)
+	if err != nil {
+		return false, fmt.Errorf("error getting state: %v", err)
+	}
+	if len(stateBytes) > 0 {
+		var state CurrentState
+		_, err := state.UnmarshalMsg(stateBytes)
+		if err != nil {
+			return false, fmt.Errorf("error unmarshaling state: %v", err)
+		}
+		stateBytes = state.Tip
+	}
+
+	stateTransition := StateTransaction{
+		CurrentState: stateBytes,
+		Transaction:  t.Payload,
+		ObjectID:     t.ObjectID,
+	}
+
+	newState, isAccepted, err := chainTreeStateHandler(context.TODO(), stateTransition)
+	if err != nil || !isAccepted {
+		return false, err
+	}
+
+	if !bytes.Equal(newState, t.NewTip) {
+		log.Errorf("%s tips did not match: %v : %v", gn.ID(), newState, t.NewTip)
+		return false, nil
+	}
 
 	// here we would send transaction and state to a handler
 	return true, nil
