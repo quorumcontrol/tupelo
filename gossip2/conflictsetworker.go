@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"time"
 )
 
 type conflictSetWorker struct {
@@ -70,7 +71,10 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 	if err != nil {
 		return fmt.Errorf("error unmarshaling msg: %v", err)
 	}
-	//TODO: actually check the sig here
+	verified, err := state.Verify(gn.Group)
+	if (err != nil) || !verified {
+		return fmt.Errorf("invalid done message: %v", err)
+	}
 
 	err = gn.Storage.Set(state.ObjectID, msg.Value)
 	if err != nil {
@@ -126,15 +130,21 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 	}
 
 	if isValid {
+		roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+		if err != nil {
+			return false, fmt.Errorf("error getting round info: %v", err)
+		}
 		sig, err := t.Sign(gn.SignKey)
 		if err != nil {
 			return false, fmt.Errorf("error signing key: %v", err)
 		}
+		signers := make([]bool, len(roundInfo.Signers))
+		signers[indexOfAddr(roundInfo.Signers, gn.address)] = true
 		signature := Signature{
 			TransactionID: t.ID(),
 			ObjectID:      t.ObjectID,
 			Tip:           t.NewTip,
-			Signers:       map[string]bool{gn.address: true},
+			Signers:       signers,
 			Signature:     sig,
 		}
 		encodedSig, err := signature.MarshalMsg(nil)
