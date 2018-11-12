@@ -16,7 +16,7 @@ import (
 
 func chainTreeStateHandler(ctx context.Context, stateTrans StateTransaction) (nextState []byte, accepted bool, err error) {
 	var currentTip cid.Cid
-	if len(stateTrans.CurrentState) > 0 {
+	if len(stateTrans.CurrentState) > 1 {
 		currentTip, err = cid.Cast(stateTrans.CurrentState)
 		if err != nil {
 			return nil, false, fmt.Errorf("error casting CID: %v", err)
@@ -34,6 +34,8 @@ func chainTreeStateHandler(ctx context.Context, stateTrans StateTransaction) (ne
 			log.Errorf("unmatching tips %s, %s", currentTip.String(), addBlockrequest.Tip.String())
 			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
+	} else {
+		currentTip = *addBlockrequest.Tip
 	}
 
 	cborNodes := make([]*cbornode.Node, len(addBlockrequest.Nodes))
