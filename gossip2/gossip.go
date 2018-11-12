@@ -191,7 +191,15 @@ func (gn *GossipNode) handleNewObjCh() {
 				continue
 			}
 
-			didSet, err := gn.Add(msg.Key, msg.Value)
+			var didSet bool
+			var err error
+			switch msg.Type() {
+			case MessageTypeSignature:
+				didSet, err = gn.Storage.SetIfNotExists(msg.Key, msg.Value)
+			default:
+				didSet, err = gn.Add(msg.Key, msg.Value)
+			}
+
 			if err != nil {
 				log.Errorf("%s error adding: %v", gn.ID(), err)
 			}
