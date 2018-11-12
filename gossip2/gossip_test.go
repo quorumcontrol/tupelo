@@ -191,11 +191,6 @@ func TestGossip(t *testing.T) {
 	transaction1 := newValidTransaction(t)
 	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
 
-	for i := 0; i < groupSize; i++ {
-		defer gossipNodes[i].Stop()
-		go gossipNodes[i].Start()
-	}
-
 	// This bit of commented out code will run the CPU profiler
 	// f, ferr := os.Create("../gossip.prof")
 	// if ferr != nil {
@@ -204,17 +199,17 @@ func TestGossip(t *testing.T) {
 	// pprof.StartCPUProfile(f)
 	// defer pprof.StopCPUProfile()
 
-	// for i := 0; i < 100; i++ {
-	// 	_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(Transaction{
-	// 		ObjectID:    randBytes(32),
-	// 		PreviousTip: []byte(""),
-	// 		NewTip:      randBytes(49),
-	// 		Payload:     randBytes(rand.Intn(400) + 100),
-	// 	})
-	// 	if err != nil {
-	// 		t.Fatalf("error sending transaction: %v", err)
-	// 	}
-	// }
+	for i := 0; i < 100; i++ {
+		_, err := gossipNodes[rand.Intn(len(gossipNodes))].InitiateTransaction(newValidTransaction(t))
+		if err != nil {
+			t.Fatalf("error sending transaction: %v", err)
+		}
+	}
+
+	for i := 0; i < groupSize; i++ {
+		defer gossipNodes[i].Stop()
+		go gossipNodes[i].Start()
+	}
 
 	start := time.Now()
 	_, err := gossipNodes[0].InitiateTransaction(transaction1)
