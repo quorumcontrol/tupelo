@@ -236,11 +236,12 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetStat.HasTransaction = true
 			}
 			if resp.NewSignature {
-				log.Debugf("%s sig count: %d, conflict set id", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
+				log.Debugf("%s sig count: %d, conflict set id %v", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
 				conflictSetStat.SignatureCount++
 			}
 			if resp.IsDone {
 				conflictSetStat.IsDone = true
+				conflictSetStat.PendingMessages = make([]ProvideMessage, 0)
 			}
 
 			roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
