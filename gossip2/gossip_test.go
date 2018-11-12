@@ -163,7 +163,7 @@ func newValidTransaction(t *testing.T) Transaction {
 
 func TestGossip(t *testing.T) {
 	logging.SetLogLevel("gossip", "ERROR")
-	groupSize := 40
+	groupSize := 20
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)
 
