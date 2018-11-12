@@ -107,8 +107,10 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 	}
 
 	if isValid {
-		//TODO: sign the right thing
-		sig, err := gn.SignKey.Sign(msg.Value)
+		//TODO: we should add height/cycle, something here
+		// 		probably also "view" to comply with the whitepaper
+		// 		maybe transaction ID?
+		sig, err := gn.SignKey.Sign(append(t.ObjectID, t.NewTip...))
 		if err != nil {
 			return false, fmt.Errorf("error signing key: %v", err)
 		}
