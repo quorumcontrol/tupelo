@@ -74,6 +74,10 @@ type ConflictSetQueryResponse struct {
 	Done bool
 }
 
+type TipQuery struct {
+	ObjectID []byte
+}
+
 type msgPackObject interface {
 	MarshalMsg([]byte) ([]byte, error)
 	UnmarshalMsg([]byte) ([]byte, error)

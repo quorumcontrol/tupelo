@@ -24,6 +24,7 @@ var log = logging.Logger("gossip")
 
 const syncProtocol = "tupelo-gossip/v1"
 const IsDoneProtocol = "tupelo-done/v1"
+const TipProtocol = "tupelo-tip/v1"
 const NewTransactionProtocol = "tupelo-new-transaction/v1"
 const NewSignatureProtocol = "tupelo-new-signature/v1"
 
@@ -100,6 +101,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 	}
 	host.SetStreamHandler(syncProtocol, node.HandleSync)
 	host.SetStreamHandler(IsDoneProtocol, node.HandleDoneProtocol)
+	host.SetStreamHandler(TipProtocol, node.HandleTipProtocol)
 	host.SetStreamHandler(NewTransactionProtocol, node.HandleNewTransactionProtocol)
 	host.SetStreamHandler(NewSignatureProtocol, node.HandleNewSignatureProtocol)
 	return node
@@ -611,6 +613,13 @@ func (gn *GossipNode) HandleDoneProtocol(stream net.Stream) {
 	err := DoDoneProtocol(gn, stream)
 	if err != nil {
 		log.Errorf("error handling done protocol: %v", err)
+	}
+}
+
+func (gn *GossipNode) HandleTipProtocol(stream net.Stream) {
+	err := DoTipProtocol(gn, stream)
+	if err != nil {
+		log.Errorf("error handling tip protocol: %v", err)
 	}
 }
 
