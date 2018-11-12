@@ -2,6 +2,7 @@ package gossip2
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"encoding/base64"
 	"encoding/binary"
@@ -36,6 +37,15 @@ type IBFMap map[int]*ibf.InvertibleBloomFilter
 var standardIBFSizes = []int{500, 2000, 100000}
 
 type SyncHandlerWorker struct{}
+
+type StateTransaction struct {
+	ObjectID     []byte
+	Transaction  []byte
+	CurrentState []byte
+}
+
+// StateHandler is the function that takes a stateTransition object and returns the nextState, whether it's accepted or not or an error
+type StateHandler func(ctx context.Context, stateTrans StateTransaction) (nextState []byte, accepted bool, err error)
 
 type GossipNode struct {
 	Key              *ecdsa.PrivateKey
