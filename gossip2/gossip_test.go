@@ -249,6 +249,19 @@ func TestGossip(t *testing.T) {
 	require.Nil(t, err)
 	assert.True(t, csqr.Done)
 
+	// The done could still be processing, so need to wait before we actually get a tip
+
+	// tipQuery := TipQuery{ObjectID: transaction1.ObjectID}
+	// tipQueryBytes, err := tipQuery.MarshalMsg(nil)
+	// require.Nil(t, err)
+
+	// stateBytes, err := gossipNodes[1].Host.SendAndReceive(&gossipNodes[0].Key.PublicKey, TipProtocol, tipQueryBytes)
+	// require.Nil(t, err)
+	// var currState CurrentState
+	// _, err = currState.UnmarshalMsg(stateBytes)
+	// require.Nil(t, err)
+	// assert.Equal(t, transaction1.NewTip, currState.Tip)
+
 	var totalIn int64
 	var totalOut int64
 	var totalReceiveSync int64
@@ -277,7 +290,7 @@ Total Attempted Syncs: %d, Average Attepted Syncs: %d`,
 }
 
 func TestDeadlockTransactionGossip(t *testing.T) {
-	logging.SetLogLevel("gossip", "DEBUG")
+	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 2
 	ts := newTestSet(t, groupSize)
 	group := groupFromTestSet(t, ts)
@@ -303,24 +316,90 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 		gossipNodes[i].Group = group
 	}
 
-	objectID := randBytes(32)
-
-	transaction1 := Transaction{
-		ObjectID:    objectID,
-		PreviousTip: []byte(""),
-		NewTip:      randBytes(49),
-		Payload:     randBytes(rand.Intn(400) + 100),
-	}
-
-	_, err := gossipNodes[0].InitiateTransaction(transaction1)
+	sw := safewrap.SafeWrap{}
+	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	transaction2 := Transaction{
-		ObjectID:    objectID,
-		PreviousTip: []byte(""),
-		NewTip:      randBytes(49),
-		Payload:     randBytes(rand.Intn(400) + 100),
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": "hi",
+					},
+				},
+			},
+		},
 	}
+
+	conflictingBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": "DIFFERENTDIFFERENT",
+					},
+				},
+			},
+		},
+	}
+
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTip := emptyTree.Tip
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+
+	conflictingTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	conflictingBlockWithHeaders, err := consensus.SignBlock(conflictingBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+	nodes := dagToByteNodes(t, emptyTree)
+
+	req := &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      &emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+	transaction1 := Transaction{
+		PreviousTip: emptyTip.Bytes(),
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(req).RawData(),
+		ObjectID:    []byte(treeDID),
+	}
+
+	conflictingTree.ProcessBlock(conflictingBlockWithHeaders)
+	nodes = dagToByteNodes(t, emptyTree)
+
+	req2 := &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      &emptyTree.Tip,
+		NewBlock: conflictingBlockWithHeaders,
+	}
+	transaction2 := Transaction{
+		PreviousTip: emptyTip.Bytes(),
+		NewTip:      conflictingTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(req2).RawData(),
+		ObjectID:    []byte(treeDID),
+	}
+
+	_, err = gossipNodes[0].InitiateTransaction(transaction1)
+	require.Nil(t, err)
+
 	_, err = gossipNodes[1].InitiateTransaction(transaction2)
 	require.Nil(t, err)
 
@@ -351,4 +430,13 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 	// TODO actually check tips match here once we store tips
 	assert.True(t, exists1)
 	assert.True(t, exists2)
+
+	time.Sleep(500 * time.Millisecond)
+
+	stateBytes, err := gossipNodes[0].Storage.Get(transaction1.ObjectID)
+	require.Nil(t, err)
+	var currState CurrentState
+	_, err = currState.UnmarshalMsg(stateBytes)
+	require.Nil(t, err)
+	assert.Equal(t, transaction1.NewTip, currState.Tip)
 }

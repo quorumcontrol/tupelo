@@ -14,6 +14,7 @@ func (cs CurrentState) Signable() []byte {
 }
 
 func (cs CurrentState) Verify(group *consensus.NotaryGroup) (bool, error) {
+	log.Debug("verifying current state")
 	roundInfo, err := group.MostRecentRoundInfo(group.RoundAt(time.Now()))
 	if err != nil {
 		return false, fmt.Errorf("error getting round info: %v", err)
