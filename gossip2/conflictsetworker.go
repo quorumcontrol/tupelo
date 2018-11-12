@@ -126,15 +126,14 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 	}
 
 	if isValid {
-		//TODO: we should add height/cycle, something here
-		// 		probably also "view" to comply with the whitepaper
-		// 		maybe transaction ID?
-		sig, err := gn.SignKey.Sign(append(t.ObjectID, t.NewTip...))
+		sig, err := t.Sign(gn.SignKey)
 		if err != nil {
 			return false, fmt.Errorf("error signing key: %v", err)
 		}
 		signature := Signature{
 			TransactionID: t.ID(),
+			ObjectID:      t.ObjectID,
+			Tip:           t.NewTip,
 			Signers:       map[string]bool{gn.address: true},
 			Signature:     sig,
 		}
