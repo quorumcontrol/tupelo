@@ -361,22 +361,22 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 		storedSignatures[string(rawSig.Key)] = s
 	}
 
-	signersByTransactionID := make(map[string]map[string][]byte)
+	signersByTransactionID := make(map[string]map[string]Signature)
 	for _, signature := range storedSignatures {
 		transID := string(signature.TransactionID)
 
 		for k, v := range signature.Signers {
 			if v == true {
 				if _, ok := signersByTransactionID[transID]; !ok {
-					signersByTransactionID[transID] = make(map[string][]byte)
+					signersByTransactionID[transID] = make(map[string]Signature)
 				}
-				signersByTransactionID[transID][k] = signature.Signature
+				signersByTransactionID[transID][k] = signature
 			}
 		}
 	}
 
 	var majorityTransactionID []byte
-	var majoritySigners map[string][]byte
+	var majoritySigners map[string]Signature
 	var totalNumberOfSignatures int
 
 	for transactionID, signers := range signersByTransactionID {
@@ -473,20 +473,23 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 	}
 
 	allSigners := make(map[string]bool)
-	allSignatures := make([][]byte, 0)
-
+	var signatureBytes [][]byte
+	var majorityObjectID []byte
+	var majorityNewTip []byte
 	for _, signer := range roundInfo.Signers {
 		key := consensus.BlsVerKeyToAddress(signer.VerKey.PublicKey).String()
 
 		if sig, ok := majoritySigners[key]; ok {
-			allSignatures = append(allSignatures, sig)
+			signatureBytes = append(signatureBytes, sig.Signature)
+			majorityObjectID = sig.ObjectID
+			majorityNewTip = sig.Tip
 			allSigners[key] = true
 		} else {
 			allSigners[key] = false
 		}
 	}
 
-	combinedSignatures, err := bls.SumSignatures(allSignatures)
+	combinedSignatures, err := bls.SumSignatures(signatureBytes)
 	if err != nil {
 		return nil, fmt.Errorf("error combining sigs %v", err)
 	}
@@ -496,17 +499,22 @@ func (gn *GossipNode) checkSignatures(conflictSetID []byte, conflictSetStat *con
 		Signers:       allSigners,
 		Signature:     combinedSignatures,
 	}
+	currentState := CurrentState{
+		Tip:       majorityNewTip,
+		ObjectID:  majorityObjectID,
+		Signature: commitSignature,
+	}
 
-	encodedSig, err := commitSignature.MarshalMsg(nil)
+	encodedState, err := currentState.MarshalMsg(nil)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling sig: %v", err)
 	}
 	doneID := doneIDFromConflictSetID(conflictSetID)
 
-	log.Debugf("%s adding done sig %v", gn.ID(), doneID)
+	log.Debugf("%s adding done state %v", gn.ID(), doneID)
 	doneMessage := ProvideMessage{
 		Key:   doneID,
-		Value: encodedSig,
+		Value: encodedState,
 	}
 
 	return &doneMessage, nil

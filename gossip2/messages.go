@@ -21,6 +21,8 @@ type Transaction struct {
 
 type Signature struct {
 	TransactionID []byte
+	ObjectID      []byte
+	Tip           []byte
 	Signers       map[string]bool
 	Signature     []byte
 }

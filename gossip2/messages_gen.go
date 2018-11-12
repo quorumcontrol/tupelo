@@ -792,6 +792,16 @@ func (z *Signature) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
+		case "ObjectID":
+			z.ObjectID, err = dc.ReadBytes(z.ObjectID)
+			if err != nil {
+				return
+			}
+		case "Tip":
+			z.Tip, err = dc.ReadBytes(z.Tip)
+			if err != nil {
+				return
+			}
 		case "Signers":
 			var zb0002 uint32
 			zb0002, err = dc.ReadMapHeader()
@@ -836,13 +846,31 @@ func (z *Signature) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Signature) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 3
+	// map header, size 5
 	// write "TransactionID"
-	err = en.Append(0x83, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
+	err = en.Append(0x85, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
 	if err != nil {
 		return
 	}
 	err = en.WriteBytes(z.TransactionID)
+	if err != nil {
+		return
+	}
+	// write "ObjectID"
+	err = en.Append(0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.ObjectID)
+	if err != nil {
+		return
+	}
+	// write "Tip"
+	err = en.Append(0xa3, 0x54, 0x69, 0x70)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.Tip)
 	if err != nil {
 		return
 	}
@@ -880,10 +908,16 @@ func (z *Signature) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Signature) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 3
+	// map header, size 5
 	// string "TransactionID"
-	o = append(o, 0x83, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
+	o = append(o, 0x85, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
 	o = msgp.AppendBytes(o, z.TransactionID)
+	// string "ObjectID"
+	o = append(o, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
+	o = msgp.AppendBytes(o, z.ObjectID)
+	// string "Tip"
+	o = append(o, 0xa3, 0x54, 0x69, 0x70)
+	o = msgp.AppendBytes(o, z.Tip)
 	// string "Signers"
 	o = append(o, 0xa7, 0x53, 0x69, 0x67, 0x6e, 0x65, 0x72, 0x73)
 	o = msgp.AppendMapHeader(o, uint32(len(z.Signers)))
@@ -915,6 +949,16 @@ func (z *Signature) UnmarshalMsg(bts []byte) (o []byte, err error) {
 		switch msgp.UnsafeString(field) {
 		case "TransactionID":
 			z.TransactionID, bts, err = msgp.ReadBytesBytes(bts, z.TransactionID)
+			if err != nil {
+				return
+			}
+		case "ObjectID":
+			z.ObjectID, bts, err = msgp.ReadBytesBytes(bts, z.ObjectID)
+			if err != nil {
+				return
+			}
+		case "Tip":
+			z.Tip, bts, err = msgp.ReadBytesBytes(bts, z.Tip)
 			if err != nil {
 				return
 			}
@@ -963,7 +1007,7 @@ func (z *Signature) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Signature) Msgsize() (s int) {
-	s = 1 + 14 + msgp.BytesPrefixSize + len(z.TransactionID) + 8 + msgp.MapHeaderSize
+	s = 1 + 14 + msgp.BytesPrefixSize + len(z.TransactionID) + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 4 + msgp.BytesPrefixSize + len(z.Tip) + 8 + msgp.MapHeaderSize
 	if z.Signers != nil {
 		for za0001, za0002 := range z.Signers {
 			_ = za0002
