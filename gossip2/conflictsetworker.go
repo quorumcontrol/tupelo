@@ -73,6 +73,9 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 	}
 	verified, err := state.Verify(gn.Group)
 	if (err != nil) || !verified {
+		if !verified {
+			gn.Remove(msg.Key)
+		}
 		return fmt.Errorf("invalid done message: %v", err)
 	}
 
