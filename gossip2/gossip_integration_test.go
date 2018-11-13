@@ -27,8 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testStoragePath = "../.tmp/test/"
-
 func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
