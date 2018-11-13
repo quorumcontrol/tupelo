@@ -202,9 +202,8 @@ func setupGossipNode2(ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode 
 
 	time.Sleep(3 * time.Second)
 
-	node := gossip2.NewGossipNode(ecdsaKey, host, badgerStorage)
+	node := gossip2.NewGossipNode(ecdsaKey, blsKey, host, badgerStorage)
 	node.Group = group
-	node.SignKey = blsKey
 
 	node.Start()
 
