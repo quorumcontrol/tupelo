@@ -138,7 +138,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 			newOwnerKeys := strings.Split(c.Args[2], ",")
 			tip, err := session.SetOwner(c.Args[0], c.Args[1], newOwnerKeys)
 			if err != nil {
-				c.Printf("error setting owners: %v", err)
+				c.Printf("error setting owners: %v\n", err)
 				return
 			}
 
@@ -152,7 +152,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			chain, err := session.ExportChain(c.Args[0])
 			if err != nil {
-				c.Printf("error exporting chain tree: %v", err)
+				c.Printf("error exporting chain tree: %v\n", err)
 				return
 			}
 
@@ -193,7 +193,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			chain, err := session.GetChain(c.Args[0])
 			if err != nil {
-				c.Printf("error getting chain: %v", err)
+				c.Printf("error getting chain: %v\n", err)
 				return
 			}
 			c.Println(chain.ChainTree.Dag.Dump())
@@ -210,7 +210,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 				return
 			}
 
-			c.Printf("tip: %v", tip)
+			c.Printf("tip: %v\n", tip)
 		},
 	})
 
@@ -220,7 +220,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			data, err := cbornode.DumpObject(c.Args[3])
 			if err != nil {
-				c.Printf("error encoding input: %v", err)
+				c.Printf("error encoding input: %v\n", err)
 				return
 			}
 
@@ -241,7 +241,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 			path := strings.Split(c.Args[1], "/")
 			data, remaining, err := session.Resolve(c.Args[0], path)
 			if err != nil {
-				c.Printf("error resolving data: %v", err)
+				c.Printf("error resolving data: %v\n", err)
 				return
 			}
 
