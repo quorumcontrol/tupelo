@@ -27,6 +27,7 @@ const IsDoneProtocol = "tupelo-done/v1"
 const TipProtocol = "tupelo-tip/v1"
 const NewTransactionProtocol = "tupelo-new-transaction/v1"
 const NewSignatureProtocol = "tupelo-new-signature/v1"
+const ChainTreeChangeProtocol = "tupelo-chain-change/v1"
 
 const minSyncNodesPerTransaction = 3
 const workerCount = 100
@@ -67,6 +68,7 @@ type GossipNode struct {
 	debugReceiveSync uint64
 	debugSendSync    uint64
 	debugAttemptSync uint64
+	subscriptions    map[string]*ChainTreeSubscription
 }
 
 const NumberOfSyncWorkers = 3
@@ -80,11 +82,12 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		Strata:  ibf.NewDifferenceStrata(),
 		IBFs:    make(IBFMap),
 		//TODO: examine the 5 here?
-		newObjCh:     make(chan ProvideMessage, 5),
-		stopChan:     make(chan struct{}, 3),
-		ibfSyncer:    &sync.RWMutex{},
-		syncPool:     make(chan SyncHandlerWorker, NumberOfSyncWorkers),
-		sigSendingCh: make(chan envelope, workerCount+1),
+		newObjCh:      make(chan ProvideMessage, 5),
+		stopChan:      make(chan struct{}, 3),
+		ibfSyncer:     &sync.RWMutex{},
+		syncPool:      make(chan SyncHandlerWorker, NumberOfSyncWorkers),
+		sigSendingCh:  make(chan envelope, workerCount+1),
+		subscriptions: make(map[string]*ChainTreeSubscription),
 	}
 	node.verKey = node.SignKey.MustVerKey()
 	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()
@@ -104,6 +107,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 	host.SetStreamHandler(TipProtocol, node.HandleTipProtocol)
 	host.SetStreamHandler(NewTransactionProtocol, node.HandleNewTransactionProtocol)
 	host.SetStreamHandler(NewSignatureProtocol, node.HandleNewSignatureProtocol)
+	host.SetStreamHandler(ChainTreeChangeProtocol, node.HandleChainTreeChangeProtocol)
 	return node
 }
 
@@ -628,6 +632,14 @@ func (gn *GossipNode) HandleNewTransactionProtocol(stream net.Stream) {
 	if err != nil {
 		log.Errorf("error handling new transaction protocol: %v", err)
 	}
+}
+
+func (gn *GossipNode) HandleChainTreeChangeProtocol(stream net.Stream) {
+	subscription, err := DoChainTreeChangeProtocol(gn, stream)
+	if err != nil {
+		log.Errorf("error handling chaintree change protocol: %v", err)
+	}
+	gn.subscriptions[string(subscription.objectID)] = subscription
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {

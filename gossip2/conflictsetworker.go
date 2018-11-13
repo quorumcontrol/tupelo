@@ -83,8 +83,13 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 	if err != nil {
 		return fmt.Errorf("error setting current state: %v", err)
 	}
-	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 
+	if sub, ok := gn.subscriptions[string(state.ObjectID)]; ok {
+		sub.Finish()
+		delete(gn.subscriptions, string(state.ObjectID))
+	}
+
+	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
 	if err != nil {
 		return err
