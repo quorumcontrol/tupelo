@@ -78,6 +78,10 @@ type TipQuery struct {
 	ObjectID []byte
 }
 
+type ChainTreeSubscriptionRequest struct {
+	ObjectID []byte
+}
+
 type msgPackObject interface {
 	MarshalMsg([]byte) ([]byte, error)
 	UnmarshalMsg([]byte) ([]byte, error)
