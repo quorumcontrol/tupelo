@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -317,7 +318,12 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 	}
 
 	sw := safewrap.SafeWrap{}
-	treeKey, err := crypto.GenerateKey()
+	// NOTE: must use this key to make this test deterministic
+	// because the ObjectID changing, changes the transaction hashes
+	// and so it's non deterministic which is lower
+	keyBytes, err := hexutil.Decode("0xf9c0b741e7c065ea4fe4fde335c4ee575141db93236e3d86bb1c9ae6ccddf6f1")
+	require.Nil(t, err)
+	treeKey, err := crypto.ToECDSA(keyBytes)
 	require.Nil(t, err)
 
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
@@ -397,7 +403,15 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 		ObjectID:    []byte(treeDID),
 	}
 
+	require.True(t, string(transaction2.ID()) < string(transaction1.ID()))
+
+	_, err = gossipNodes[0].InitiateTransaction(transaction2)
+	require.Nil(t, err)
+
 	_, err = gossipNodes[0].InitiateTransaction(transaction1)
+	require.Nil(t, err)
+
+	_, err = gossipNodes[1].InitiateTransaction(transaction1)
 	require.Nil(t, err)
 
 	_, err = gossipNodes[1].InitiateTransaction(transaction2)
@@ -417,19 +431,15 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 			t.Fatal("timed out looking for done function")
 			break
 		}
-		exists1, err = gossipNodes[0].Storage.Exists(transaction2.ToConflictSet().DoneID())
+		exists1, err = gossipNodes[1].Storage.Exists(transaction1.ToConflictSet().DoneID())
 		require.Nil(t, err)
-		exists2, err = gossipNodes[1].Storage.Exists(transaction1.ToConflictSet().DoneID())
+		exists2, err = gossipNodes[0].Storage.Exists(transaction2.ToConflictSet().DoneID())
 		require.Nil(t, err)
-		time.Sleep(1 * time.Second)
+		time.Sleep(200 * time.Millisecond)
 		if exists1 && exists2 {
 			break
 		}
 	}
-
-	// TODO actually check tips match here once we store tips
-	assert.True(t, exists1)
-	assert.True(t, exists2)
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -438,5 +448,5 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 	var currState CurrentState
 	_, err = currState.UnmarshalMsg(stateBytes)
 	require.Nil(t, err)
-	assert.Equal(t, transaction1.NewTip, currState.Tip)
+	assert.Equal(t, transaction2.NewTip, currState.Tip)
 }
