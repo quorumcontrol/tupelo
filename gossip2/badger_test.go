@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testStoragePath = "../.tmp/test/"
+
 func TestSetIfExists(t *testing.T) {
 	path := testStoragePath + "setIfExistsTest"
 	os.RemoveAll(path)
