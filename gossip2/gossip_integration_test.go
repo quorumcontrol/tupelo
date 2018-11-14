@@ -23,6 +23,7 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/qc3/testnotarygroup"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -164,17 +165,13 @@ func newValidTransaction(t *testing.T) Transaction {
 	}
 }
 
-func TestGossip(t *testing.T) {
-	logging.SetLogLevel("gossip", "ERROR")
-	groupSize := 20
-	ts := newTestSet(t, groupSize)
-	group := groupFromTestSet(t, ts)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	bootstrap := newBootstrapHost(ctx, t)
-
+func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*GossipNode {
 	gossipNodes := make([]*GossipNode, groupSize)
+	ts := testnotarygroup.NewTestSet(t, groupSize)
+	group := testnotarygroup.GroupFromTestSet(t, ts)
+	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+
+	pathsToCleanup := make([]string, groupSize, groupSize)
 
 	for i := 0; i < groupSize; i++ {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
@@ -183,13 +180,30 @@ func TestGossip(t *testing.T) {
 		path := testStoragePath + "badger/" + strconv.Itoa(i)
 		os.RemoveAll(path)
 		os.MkdirAll(path, 0755)
-		defer func() {
-			os.RemoveAll(path)
-		}()
+		pathsToCleanup[i] = path
 		storage := NewBadgerStorage(path)
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
 	}
+
+	go func(ctx context.Context, pathsToCleanup []string) {
+		<-ctx.Done()
+		for _, path := range pathsToCleanup {
+			os.RemoveAll(path)
+		}
+	}(ctx, pathsToCleanup)
+
+	return gossipNodes
+}
+
+func TestGossip(t *testing.T) {
+	logging.SetLogLevel("gossip", "ERROR")
+	groupSize := 20
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gossipNodes := NewTestCluster(t, groupSize, ctx)
 
 	transaction1 := newValidTransaction(t)
 	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
