@@ -32,6 +32,7 @@ const (
 	ProtocolTypeError
 	ProtocolTypeIBF
 	ProtocolTypeStrata
+	ProtocolTypeCurrentState
 )
 
 type ProtocolMessage struct {
@@ -78,6 +79,10 @@ type TipQuery struct {
 	ObjectID []byte
 }
 
+type ChainTreeSubscriptionRequest struct {
+	ObjectID []byte
+}
+
 type msgPackObject interface {
 	MarshalMsg([]byte) ([]byte, error)
 	UnmarshalMsg([]byte) ([]byte, error)
@@ -99,7 +104,9 @@ func toProtocolMessage(msg msgPackObject) (ProtocolMessage, error) {
 	case *ibf.InvertibleBloomFilter:
 		pm.MessageType = ProtocolTypeIBF
 	case *ibf.DifferenceStrata:
-		pm.MessageType = ProtocolTypeIBF
+		pm.MessageType = ProtocolTypeStrata
+	case *CurrentState:
+		pm.MessageType = ProtocolTypeCurrentState
 	default:
 		return ProtocolMessage{}, fmt.Errorf("unknown type: %v", t)
 	}

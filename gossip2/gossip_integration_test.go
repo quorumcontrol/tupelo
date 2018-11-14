@@ -5,6 +5,7 @@ package gossip2
 import (
 	"context"
 	"crypto/ecdsa"
+	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -25,6 +26,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
@@ -449,4 +451,114 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 	_, err = currState.UnmarshalMsg(stateBytes)
 	require.Nil(t, err)
 	assert.Equal(t, transaction2.NewTip, currState.Tip)
+}
+
+func TestSubscription(t *testing.T) {
+	logging.SetLogLevel("gossip", "ERROR")
+	groupSize := 3
+	ts := newTestSet(t, groupSize)
+	group := groupFromTestSet(t, ts)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	bootstrap := newBootstrapHost(ctx, t)
+
+	gossipNodes := make([]*GossipNode, groupSize)
+
+	for i := 0; i < groupSize; i++ {
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		require.Nil(t, err)
+		host.Bootstrap(bootstrapAddresses(bootstrap))
+		path := testStoragePath + "badger/" + strconv.Itoa(i)
+		os.RemoveAll(path)
+		os.MkdirAll(path, 0755)
+		defer func() {
+			os.RemoveAll(path)
+		}()
+		storage := NewBadgerStorage(path)
+		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
+		gossipNodes[i].Group = group
+		defer gossipNodes[i].Stop()
+		go gossipNodes[i].Start()
+	}
+
+	sw := safewrap.SafeWrap{}
+	// NOTE: must use this key to make this test deterministic
+	// because the ObjectID changing, changes the transaction hashes
+	// and so it's non deterministic which is lower
+	keyBytes, err := hexutil.Decode("0xf9c0b741e7c065ea4fe4fde335c4ee575141db93236e3d86bb1c9ae6ccddf6f1")
+	require.Nil(t, err)
+	treeKey, err := crypto.ToECDSA(keyBytes)
+	require.Nil(t, err)
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": "hi",
+					},
+				},
+			},
+		},
+	}
+
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTip := emptyTree.Tip
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+	testTree.ProcessBlock(blockWithHeaders)
+	nodes := dagToByteNodes(t, emptyTree)
+
+	req := &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      &emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+	transaction := Transaction{
+		PreviousTip: emptyTip.Bytes(),
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(req).RawData(),
+		ObjectID:    []byte(treeDID),
+	}
+
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	_, err = gossipNodes[0].InitiateTransaction(transaction)
+	require.Nil(t, err)
+
+	subscriptionReq := &ChainTreeSubscriptionRequest{ObjectID: transaction.ObjectID}
+	msg, err := subscriptionReq.MarshalMsg(nil)
+	client, err := p2p.NewHost(context.Background(), key, p2p.GetRandomUnusedPort())
+	client.Bootstrap(bootstrapAddresses(bootstrap))
+	require.Nil(t, err)
+
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	stream, err := client.NewStream(ctx, &gossipNodes[0].Key.PublicKey, ChainTreeChangeProtocol)
+	require.Nil(t, err)
+	defer stream.Close()
+	_, err = stream.Write(msg)
+	require.Nil(t, err)
+	reader := msgp.NewReader(stream)
+	var last CurrentState
+
+	for {
+		var resp CurrentState
+		err = resp.DecodeMsg(reader)
+		if err == io.EOF {
+			break
+		}
+		last = resp
+	}
+	assert.Equal(t, transaction.NewTip, last.Tip)
 }
