@@ -10,14 +10,6 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
-  digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
-  name = "github.com/Workiva/go-datastructures"
-  packages = ["queue"]
-  pruneopts = ""
-  revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
-  version = "v1.0.50"
-
-[[projects]]
   digest = "1:5f3619add62f3f725265be1da3c80ae1872891197fdf69c35af05268bc1afa3f"
   name = "github.com/abiosoft/ishell"
   packages = ["."]
@@ -273,6 +265,17 @@
   ]
   pruneopts = ""
   revision = "1395d1447324cbea88d249fbfcfd70ea878fdfca"
+
+[[projects]]
+  branch = "master"
+  digest = "1:4541e42276bc135b5045482aba225d9cfcbbabd9451967685977607e436d7233"
+  name = "github.com/hyperledger/fabric-amcl"
+  packages = [
+    "amcl",
+    "amcl/FP256BN",
+  ]
+  pruneopts = ""
+  revision = "6b78f7a22d950103fb2669aabb969f56d42d283b"
 
 [[projects]]
   digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
@@ -872,7 +875,6 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Workiva/go-datastructures/queue",
     "github.com/abiosoft/ishell",
     "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
@@ -885,6 +887,7 @@
     "github.com/google/uuid",
     "github.com/gorilla/mux",
     "github.com/hashicorp/golang-lru",
+    "github.com/hyperledger/fabric-amcl/amcl/FP256BN",
     "github.com/ipfs/go-block-format",
     "github.com/ipfs/go-cid",
     "github.com/ipfs/go-ipld-cbor",
