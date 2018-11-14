@@ -32,6 +32,7 @@ const (
 	ProtocolTypeError
 	ProtocolTypeIBF
 	ProtocolTypeStrata
+	ProtocolTypeCurrentState
 )
 
 type ProtocolMessage struct {
@@ -103,7 +104,9 @@ func toProtocolMessage(msg msgPackObject) (ProtocolMessage, error) {
 	case *ibf.InvertibleBloomFilter:
 		pm.MessageType = ProtocolTypeIBF
 	case *ibf.DifferenceStrata:
-		pm.MessageType = ProtocolTypeIBF
+		pm.MessageType = ProtocolTypeStrata
+	case *CurrentState:
+		pm.MessageType = ProtocolTypeCurrentState
 	default:
 		return ProtocolMessage{}, fmt.Errorf("unknown type: %v", t)
 	}

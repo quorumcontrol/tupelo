@@ -68,7 +68,7 @@ type GossipNode struct {
 	debugReceiveSync uint64
 	debugSendSync    uint64
 	debugAttemptSync uint64
-	subscriptions    map[string]*ChainTreeSubscription
+	subscriptions    *subscriptionHolder
 }
 
 const NumberOfSyncWorkers = 3
@@ -87,7 +87,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		ibfSyncer:     &sync.RWMutex{},
 		syncPool:      make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 		sigSendingCh:  make(chan envelope, workerCount+1),
-		subscriptions: make(map[string]*ChainTreeSubscription),
+		subscriptions: newSubscriptionHolder(),
 	}
 	node.verKey = node.SignKey.MustVerKey()
 	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()
@@ -635,11 +635,10 @@ func (gn *GossipNode) HandleNewTransactionProtocol(stream net.Stream) {
 }
 
 func (gn *GossipNode) HandleChainTreeChangeProtocol(stream net.Stream) {
-	subscription, err := DoChainTreeChangeProtocol(gn, stream)
+	err := DoChainTreeChangeProtocol(gn, stream)
 	if err != nil {
 		log.Errorf("error handling chaintree change protocol: %v", err)
 	}
-	gn.subscriptions[string(subscription.objectID)] = subscription
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
