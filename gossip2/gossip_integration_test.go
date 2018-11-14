@@ -5,7 +5,6 @@ package gossip2
 import (
 	"context"
 	"crypto/ecdsa"
-	"io"
 	"math/rand"
 	"os"
 	"strconv"
@@ -549,16 +548,22 @@ func TestSubscription(t *testing.T) {
 	defer stream.Close()
 	_, err = stream.Write(msg)
 	require.Nil(t, err)
-	reader := msgp.NewReader(stream)
-	var last CurrentState
 
-	for {
-		var resp CurrentState
-		err = resp.DecodeMsg(reader)
-		if err == io.EOF {
-			break
-		}
-		last = resp
-	}
-	assert.Equal(t, transaction.NewTip, last.Tip)
+	reader := msgp.NewReader(stream)
+
+	var resp ProtocolMessage
+	err = resp.DecodeMsg(reader)
+	require.Nil(t, err)
+
+	_, err = FromProtocolMessage(&resp)
+	require.Nil(t, err)
+
+	var resp2 ProtocolMessage
+	err = resp2.DecodeMsg(reader)
+	require.Nil(t, err)
+
+	currentState, err := FromProtocolMessage(&resp2)
+	require.Nil(t, err)
+
+	assert.Equal(t, transaction.NewTip, currentState.(*CurrentState).Tip)
 }

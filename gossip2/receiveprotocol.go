@@ -184,7 +184,7 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, err
 		return nil, fmt.Errorf("remote error: %v", err)
 	}
 
-	wants, err := fromProtocolMessage(&pm)
+	wants, err := FromProtocolMessage(&pm)
 	if err != nil {
 		return nil, fmt.Errorf("error converting wants: %v", err)
 	}
@@ -212,7 +212,7 @@ func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
 
 	log.Debugf("%s sending bloom filter to %s of size: %d", gn.ID(), rsph.peerID, sizeToSend)
 	gn.ibfSyncer.RLock()
-	pm, err := toProtocolMessage(gn.IBFs[sizeToSend])
+	pm, err := ToProtocolMessage(gn.IBFs[sizeToSend])
 	gn.ibfSyncer.RUnlock()
 	if err != nil {
 		return fmt.Errorf("error turning IBF into protocol message: %v", err)
