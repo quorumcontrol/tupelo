@@ -92,7 +92,7 @@ func DoChainTreeChangeProtocol(gn *GossipNode, stream net.Stream) error {
 	case currentState := <-ch:
 		err = ctcp.sendCurrentState(currentState)
 		if err != nil {
-			return fmt.Errorf("error getting current state from storage")
+			return fmt.Errorf("error sending current state: %v", err)
 		}
 	case <-timer.C:
 		return fmt.Errorf("timeout")

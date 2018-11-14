@@ -307,7 +307,7 @@ func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 			log.Debugf("%s: dial backoff for peer %s", gn.ID(), peerPublicKey)
 			return nil, nil
 		}
-		return nil, fmt.Errorf("%s: error opening new stream - %v", gn.ID(), err)
+		return nil, fmt.Errorf("error opening new stream to %s - %v", peerPublicKey, err)
 	}
 	log.Debugf("%s established stream to %s", gn.ID(), sph.peerID)
 	return stream, nil
