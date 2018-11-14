@@ -313,7 +313,11 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 		return nil, err
 	}
 
-	rpcs.wallet.SaveChain(chain)
+	err = rpcs.wallet.SaveChain(chain)
+	if err != nil {
+		return nil, fmt.Errorf("Error saving chain: %v", err)
+	}
+
 	return resp, nil
 }
 
