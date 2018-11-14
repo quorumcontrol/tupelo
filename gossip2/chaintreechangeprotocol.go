@@ -141,5 +141,10 @@ func (ctcp *ChainTreeChangeProtocolHandler) currentStateFromStorage(objectID []b
 }
 
 func (ctcp *ChainTreeChangeProtocolHandler) sendCurrentState(currentState CurrentState) error {
-	return currentState.EncodeMsg(ctcp.writer)
+	pm, err := ToProtocolMessage(&currentState)
+	if err != nil {
+		return err
+	}
+	pm.Code = 200
+	return pm.EncodeMsg(ctcp.writer)
 }

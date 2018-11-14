@@ -88,7 +88,7 @@ type msgPackObject interface {
 	UnmarshalMsg([]byte) ([]byte, error)
 }
 
-func toProtocolMessage(msg msgPackObject) (ProtocolMessage, error) {
+func ToProtocolMessage(msg msgPackObject) (ProtocolMessage, error) {
 
 	oBytes, err := msg.MarshalMsg(nil)
 	if err != nil {
@@ -114,7 +114,7 @@ func toProtocolMessage(msg msgPackObject) (ProtocolMessage, error) {
 	return pm, nil
 }
 
-func fromProtocolMessage(pm *ProtocolMessage) (msgPackObject, error) {
+func FromProtocolMessage(pm *ProtocolMessage) (msgPackObject, error) {
 	var out msgPackObject
 	switch pm.MessageType {
 	case ProtocolTypeWants:
@@ -123,6 +123,8 @@ func fromProtocolMessage(pm *ProtocolMessage) (msgPackObject, error) {
 		out = &ibf.InvertibleBloomFilter{}
 	case ProtocolTypeStrata:
 		out = &ibf.DifferenceStrata{}
+	case ProtocolTypeCurrentState:
+		out = &CurrentState{}
 	default:
 		return nil, fmt.Errorf("unknown type code: %v", pm.MessageType)
 	}
