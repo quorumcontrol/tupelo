@@ -52,7 +52,7 @@ type ChainTreeChangeProtocolHandler struct {
 	peerID     string
 }
 
-const MaxSubscriberCount = 200
+const MaxSubscriberCount = 1000
 
 func DoChainTreeChangeProtocol(gn *GossipNode, stream net.Stream) error {
 	ctcp := &ChainTreeChangeProtocolHandler{
