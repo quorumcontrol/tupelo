@@ -146,5 +146,11 @@ func (ctcp *ChainTreeChangeProtocolHandler) sendCurrentState(currentState Curren
 		return err
 	}
 	pm.Code = 200
-	return pm.EncodeMsg(ctcp.writer)
+	err = pm.EncodeMsg(ctcp.writer)
+	if err != nil {
+		return err
+	}
+
+	err = ctcp.writer.Flush()
+	return err
 }
