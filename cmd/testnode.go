@@ -43,8 +43,9 @@ import (
 )
 
 var (
-	BlsSignKeys []*bls.SignKey
-	EcdsaKeys   []*ecdsa.PrivateKey
+	BlsSignKeys  []*bls.SignKey
+	EcdsaKeys    []*ecdsa.PrivateKey
+	testnodePort int
 )
 
 func expandHomePath(path string) (string, error) {
@@ -191,7 +192,7 @@ func setupGossipNode2(ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode 
 	group := setupNotaryGroup2()
 
 	ctx := context.Background()
-	host, err := p2p.NewHost(ctx, ecdsaKey, p2p.GetRandomUnusedPort())
+	host, err := p2p.NewHost(ctx, ecdsaKey, testnodePort)
 	host.Bootstrap(network.BootstrapNodes())
 
 	if err != nil {
@@ -228,4 +229,5 @@ func stopOnSignal(signers ...*gossip2.GossipNode) {
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
 	testnodeCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
+	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", p2p.GetRandomUnusedPort(), "what port will the node listen on")
 }
