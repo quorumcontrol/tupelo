@@ -162,7 +162,7 @@ func (sph *SyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) (
 	gn := sph.gossipNode
 
 	want := WantMessageFromDiff(difference.RightSet)
-	pm, err := toProtocolMessage(want)
+	pm, err := ToProtocolMessage(want)
 	if err != nil {
 		return nil, fmt.Errorf("error writing wants: %v", err)
 	}
@@ -206,7 +206,7 @@ func (sph *SyncProtocolHandler) WaitForBloomFilter() (int, *ibf.InvertibleBloomF
 	case 302:
 		return 302, nil, nil
 	default:
-		remoteIBF, err := fromProtocolMessage(&pm)
+		remoteIBF, err := FromProtocolMessage(&pm)
 		if err != nil {
 			return 500, nil, fmt.Errorf("error converting pm to remoteIBF: %v", err)
 		}
@@ -307,7 +307,7 @@ func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 			log.Debugf("%s: dial backoff for peer %s", gn.ID(), peerPublicKey)
 			return nil, nil
 		}
-		return nil, fmt.Errorf("%s: error opening new stream - %v", gn.ID(), err)
+		return nil, fmt.Errorf("error opening new stream to %s - %v", peerPublicKey, err)
 	}
 	log.Debugf("%s established stream to %s", gn.ID(), sph.peerID)
 	return stream, nil

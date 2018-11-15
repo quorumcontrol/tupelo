@@ -52,7 +52,7 @@ type ChainTreeChangeProtocolHandler struct {
 	peerID     string
 }
 
-const MaxSubscriberCount = 200
+const MaxSubscriberCount = 1000
 
 func DoChainTreeChangeProtocol(gn *GossipNode, stream net.Stream) error {
 	ctcp := &ChainTreeChangeProtocolHandler{
@@ -92,7 +92,7 @@ func DoChainTreeChangeProtocol(gn *GossipNode, stream net.Stream) error {
 	case currentState := <-ch:
 		err = ctcp.sendCurrentState(currentState)
 		if err != nil {
-			return fmt.Errorf("error getting current state from storage")
+			return fmt.Errorf("error sending current state: %v", err)
 		}
 	case <-timer.C:
 		return fmt.Errorf("timeout")
@@ -141,5 +141,16 @@ func (ctcp *ChainTreeChangeProtocolHandler) currentStateFromStorage(objectID []b
 }
 
 func (ctcp *ChainTreeChangeProtocolHandler) sendCurrentState(currentState CurrentState) error {
-	return currentState.EncodeMsg(ctcp.writer)
+	pm, err := ToProtocolMessage(&currentState)
+	if err != nil {
+		return err
+	}
+	pm.Code = 200
+	err = pm.EncodeMsg(ctcp.writer)
+	if err != nil {
+		return err
+	}
+
+	err = ctcp.writer.Flush()
+	return err
 }
