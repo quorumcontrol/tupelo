@@ -10,14 +10,6 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
-  digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
-  name = "github.com/Workiva/go-datastructures"
-  packages = ["queue"]
-  pruneopts = ""
-  revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
-  version = "v1.0.50"
-
-[[projects]]
   digest = "1:5f3619add62f3f725265be1da3c80ae1872891197fdf69c35af05268bc1afa3f"
   name = "github.com/abiosoft/ishell"
   packages = ["."]
@@ -82,6 +74,14 @@
   pruneopts = ""
   revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
   version = "v1.1.1"
+
+[[projects]]
+  digest = "1:97437121c6e6df638b20aeb82cc743577676146adf3d2f55a5260556bb650f01"
+  name = "github.com/dedis/kyber"
+  packages = ["."]
+  pruneopts = ""
+  revision = "2618429f2dcb08ad862f9f11e56adab2de58c228"
+  source = "https://github.com/QuorumControl/kyber.git"
 
 [[projects]]
   digest = "1:81d49e94365e7f1ed77edddf9a5482ab4ced461dab56fbf8fc2834da6c295de5"
@@ -872,10 +872,10 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Workiva/go-datastructures/queue",
     "github.com/abiosoft/ishell",
     "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
+    "github.com/dedis/kyber",
     "github.com/dgraph-io/badger",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
