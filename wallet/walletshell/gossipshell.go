@@ -186,7 +186,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "list-chains",
 		Help: "list the current chain tree ids",
 		Func: func(c *ishell.Context) {
-			ids, _ := session.GetChainIds()
+			ids, err := session.GetChainIds()
+			if err != nil {
+				c.Printf("error listing chain: %v\n", err)
+				return
+			}
 			for i, id := range ids {
 				c.Println(strconv.Itoa(i) + ": " + id)
 			}
