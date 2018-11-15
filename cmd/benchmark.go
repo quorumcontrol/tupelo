@@ -89,16 +89,18 @@ func sendTransaction(client *gossip2client.GossipClient) {
 		ObjectID:    []byte(treeDID),
 	}
 
-	startTime := time.Now()
 	used := map[string]bool{}
 
-	go func(client *gossip2client.GossipClient, did string, startTime time.Time) {
+	go func(client *gossip2client.GossipClient, did string) {
 		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
 		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
 		if err != nil {
 			panic("can't decode public key")
 		}
 		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+
+		startTime := time.Now()
+
 		_, err = client.Subscribe(targetPublicKey, did, 30*time.Second)
 		if err != nil {
 			panic(fmt.Sprintf("subscription failed %v", err))
@@ -109,7 +111,7 @@ func sendTransaction(client *gossip2client.GossipClient) {
 		results.Durations = append(results.Durations, duration)
 		results.Successes = results.Successes + 1
 		activeCounter--
-	}(client, treeDID, startTime)
+	}(client, treeDID)
 
 	for len(used) < benchmarkSignersFanoutNumber {
 		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
