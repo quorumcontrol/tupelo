@@ -1,18 +1,23 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
+	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip2"
+	"github.com/quorumcontrol/qc3/gossip2client"
 	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -30,22 +35,84 @@ var benchmarkTimeout int
 var benchmarkStrategy string
 var benchmarkSignersFanoutNumber int
 
-var conflictSets sync.Map
 var activeCounter = 0
 
-func sendTransaction(host *p2p.Host) {
-	startTime := time.Now()
-	trans := gossip2.Transaction{
-		ObjectID:    randBytes(32),
-		PreviousTip: []byte(""),
-		NewTip:      randBytes(49),
-		Payload:     randBytes(rand.Intn(400) + 100),
+func sendTransaction(client *gossip2client.GossipClient) {
+	blsKey, _ := bls.NewSignKey()
+	treeKey, _ := crypto.ToECDSA(blsKey.Bytes())
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": string(randBytes(rand.Intn(400) + 100)),
+					},
+				},
+			},
+		},
 	}
 
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTip := emptyTree.Tip
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+
+	if err != nil {
+		panic("could not create test tree")
+	}
+
+	blockWithHeaders, _ := consensus.SignBlock(unsignedBlock, treeKey)
+	testTree.ProcessBlock(blockWithHeaders)
+
+	cborNodes, _ := emptyTree.Nodes()
+	nodes := make([][]byte, len(cborNodes))
+	for i, node := range cborNodes {
+		nodes[i] = node.RawData()
+	}
+
+	req := &consensus.AddBlockRequest{
+		Nodes:    nodes,
+		Tip:      &emptyTree.Tip,
+		NewBlock: blockWithHeaders,
+	}
+	sw := safewrap.SafeWrap{}
+
+	trans := gossip2.Transaction{
+		PreviousTip: emptyTip.Bytes(),
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(req).RawData(),
+		ObjectID:    []byte(treeDID),
+	}
+
+	startTime := time.Now()
 	used := map[string]bool{}
 
+	go func(client *gossip2client.GossipClient, did string, startTime time.Time) {
+		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
+		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
+		if err != nil {
+			panic("can't decode public key")
+		}
+		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+		_, err = client.Subscribe(targetPublicKey, did, 30*time.Second)
+		if err != nil {
+			panic(fmt.Sprintf("subscription failed %v", err))
+		}
+
+		elapsed := time.Since(startTime)
+		duration := int(elapsed / time.Millisecond)
+		results.Durations = append(results.Durations, duration)
+		results.Successes = results.Successes + 1
+		activeCounter--
+	}(client, treeDID, startTime)
+
 	for len(used) < benchmarkSignersFanoutNumber {
-		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys)-1)].EcdsaHexPublicKey
+		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
 		if used[targetPublicKeyHex] {
 			continue
 		}
@@ -62,88 +129,29 @@ func sendTransaction(host *p2p.Host) {
 			panic("can't encode transaction")
 		}
 
-		err = host.Send(targetPublicKey, gossip2.NewTransactionProtocol, transBytes)
+		err = client.Send(targetPublicKey, protocol.ID(gossip2.NewTransactionProtocol), transBytes, 30*time.Second)
 		if err != nil {
 			panic(fmt.Sprintf("Couldn't add transaction, %v", err))
 		}
 	}
 
-	conflictSets.Store(string(trans.ToConflictSet().ID()), startTime)
 	activeCounter++
 }
 
-func pollForResults(host *p2p.Host) {
-	for _ = range time.Tick(300 * time.Millisecond) {
-		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys)-1)].EcdsaHexPublicKey
-		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
-		if err != nil {
-			panic("can't decode public key")
-		}
-		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
-
-		conflictSets.Range(func(key, val interface{}) bool {
-			csid := key.(string)
-			startTime := val.(time.Time)
-
-			csq := gossip2.ConflictSetQuery{Key: []byte(csid)}
-			csqBytes, err := csq.MarshalMsg(nil)
-			if err != nil {
-				panic("Can't marshal csq")
-			}
-			responseBytes, err := host.SendAndReceive(targetPublicKey, gossip2.IsDoneProtocol, csqBytes)
-			if err != nil {
-				fmt.Printf("Error on send/receive of conflict set query: %v\n", err)
-				return true
-			}
-
-			conflictSetResponse := gossip2.ConflictSetQueryResponse{}
-			_, err = conflictSetResponse.UnmarshalMsg(responseBytes)
-			if err != nil {
-				panic("Can't unmarshal csqr")
-			}
-
-			if conflictSetResponse.Done {
-				elapsed := time.Since(startTime)
-				duration := int(elapsed / time.Millisecond)
-				results.Durations = append(results.Durations, duration)
-				results.Successes = results.Successes + 1
-				conflictSets.Delete(csid)
-				activeCounter--
-			}
-			return true
-		})
-	}
-}
-
-func performTpsBenchmark(host *p2p.Host, done chan bool) {
+func performTpsBenchmark(client *gossip2client.GossipClient) {
 	for benchmarkIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-			go sendTransaction(host)
+			go sendTransaction(client)
 		}
 		benchmarkIterations--
 		time.Sleep(1 * time.Second)
-
-		// startTime := time.Now()
-		// for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-		// 	sendTransaction(host)
-		// }
-		// diff := (1 * time.Second) - time.Since(startTime)
-
-		// if diff < 0 {
-		// 	fmt.Printf("ERROR, sending batch of transactions took longer than one second: %d", diff)
-		// 	done <- true
-		// 	break
-		// }
-
-		// time.Sleep(diff)
-		// benchmarkIterations--
 	}
 }
 
-func performLoadBenchmark(host *p2p.Host) {
+func performLoadBenchmark(client *gossip2client.GossipClient) {
 	for benchmarkIterations > 0 {
 		if activeCounter < benchmarkConcurrency {
-			sendTransaction(host)
+			sendTransaction(client)
 			benchmarkIterations--
 		}
 		time.Sleep(30 * time.Millisecond)
@@ -156,14 +164,13 @@ var benchmark = &cobra.Command{
 	Short:  "runs a set of operations against a network at specified concurrency",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		key, err := crypto.GenerateKey()
-		if err != nil {
-			panic("error generating key")
+		groupNodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+		group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", groupNodeStore)
+		if group.IsGenesis() {
+			testNetMembers := bootstrapMembers(bootstrapPublicKeys)
+			group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
 		}
-		host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
-		host.Bootstrap(network.BootstrapNodes())
+		client := gossip2client.NewGossipClient(group, network.BootstrapNodes())
 
 		time.Sleep(5 * time.Second)
 
@@ -172,13 +179,11 @@ var benchmark = &cobra.Command{
 		doneCh := make(chan bool, 1)
 		defer close(doneCh)
 
-		go pollForResults(host)
-
 		switch benchmarkStrategy {
 		case "tps":
-			go performTpsBenchmark(host, doneCh)
+			go performTpsBenchmark(client)
 		case "load":
-			go performLoadBenchmark(host)
+			go performLoadBenchmark(client)
 		default:
 			panic(fmt.Sprintf("Unknown benchmark strategy: %v", benchmarkStrategy))
 		}
