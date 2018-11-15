@@ -127,7 +127,13 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 				return
 			}
 
-			c.Printf("chain id: %v\n", chain.Id)
+			chainId, err := chain.Id()
+			if err != nil {
+				c.Printf("error fetching chain id: %v\n", err)
+				return
+			}
+
+			c.Printf("chain-id: %v\n", chainId)
 		},
 	})
 
