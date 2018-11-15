@@ -9,15 +9,15 @@ message Credentials {
   string pass_phrase = 2;
 }
 
-message SerializedSignature {
+message SerializableSignature {
   repeated bool signers = 1;
-  string signature = 2;
+  bytes signature = 2;
   string type = 3;
 }
 
-message SerializedChainTree {
-  repeated string dag = 1;
-  map<string, SerializedSignature> signatures = 2;
+message SerializableChainTree {
+  repeated bytes dag = 1;
+  map<string, SerializableSignature> signatures = 2;
 }
 
 message RegisterWalletRequest {
@@ -43,13 +43,13 @@ message ExportChainRequest {
 }
 
 message ExportChainResponse {
-  SerializedChainTree chain_tree = 1;
+  bytes chain_tree = 1;
 }
 
 message ImportChainRequest {
   Credentials creds = 1;
   string key_addr = 2;
-  SerializedChainTree chain_tree = 3;
+  bytes chain_tree = 3;
 }
 
 message ImportChainResponse {

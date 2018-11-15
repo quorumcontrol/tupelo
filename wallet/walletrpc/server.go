@@ -24,7 +24,13 @@ type server struct {
 }
 
 func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
-	err := CreateWallet(req.Creds)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
+	if err != nil {
+		return nil, err
+	}
+	defer session.Stop()
+
+	err = session.CreateWallet(req.Creds.PassPhrase)
 	if err != nil {
 		return nil, err
 	}
@@ -35,10 +41,12 @@ func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*Reg
 }
 
 func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	key, err := session.GenerateKey()
@@ -53,10 +61,12 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 }
 
 func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	keys, err := session.ListKeys()
@@ -70,10 +80,12 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 }
 
 func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	chain, err := session.CreateChain(req.KeyAddr)
@@ -92,10 +104,12 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 }
 
 func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	serializedChain, err := session.ExportChain(req.ChainId)
@@ -109,10 +123,12 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 }
 
 func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	chain, err := session.ImportChain(req.KeyAddr, req.ChainTree)
@@ -131,10 +147,12 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 }
 
 func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	ids, err := session.GetChainIds()
@@ -148,10 +166,12 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 }
 
 func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.GetTip(req.ChainId)
@@ -165,10 +185,12 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 }
 
 func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	newTip, err := session.SetOwner(req.ChainId, req.KeyAddr, req.NewOwnerKeys)
@@ -182,10 +204,12 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 }
 
 func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.SetData(req.ChainId, req.KeyAddr, req.Path, req.Value)
@@ -199,10 +223,12 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 }
 
 func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	pathSegments := strings.Split(req.Path, "/")
@@ -225,10 +251,12 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 }
 
 func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.EstablishCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Maximum)
@@ -242,10 +270,12 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 }
 
 func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
-	session, err := NewSession(req.Creds, s.NotaryGroup)
+	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	session.Start(req.Creds.PassPhrase)
 	defer session.Stop()
 
 	tipCid, err := session.MintCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Amount)

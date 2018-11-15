@@ -11,9 +11,17 @@ var shellName string
 // shellCmd represents the shell command
 var shellCmd = &cobra.Command{
 	Use:   "shell",
-	Short: "launches a shell wallet that can only talk to the testnet",
+	Short: "Launch a Tupelo wallet shell connected to a local or remote signer network.",
 	Long:  `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if localNetworkNodeCount > 0 {
+			setupLocalNetwork()
+		}
+
+		if shellName == "" {
+			panic("Missing required wallet name argument. Please supply it with -n/--name")
+		}
+
 		group := setupNotaryGroup(storage.NewMemStorage())
 		walletshell.RunGossip(shellName, group)
 	},
@@ -21,8 +29,9 @@ var shellCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(shellCmd)
-	shellCmd.Flags().StringVarP(&shellName, "name", "n", "alice", "the name to use for the wallet")
+	shellCmd.Flags().StringVarP(&shellName, "name", "n", "", "the name to use for the wallet")
 	shellCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
+	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 
 	// Here you will define your flags and configuration settings.
 
