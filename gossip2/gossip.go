@@ -102,6 +102,12 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		node.IBFs[size] = ibf.NewInvertibleBloomFilter(size, 4)
 		// node.IBFs[size].TurnOnDebug()
 	}
+
+	storage.ForEach([]byte{}, func(key, val []byte) error {
+		node.addKeyToIBFs(key)
+		return nil
+	})
+
 	host.SetStreamHandler(syncProtocol, node.HandleSync)
 	host.SetStreamHandler(IsDoneProtocol, node.HandleDoneProtocol)
 	host.SetStreamHandler(TipProtocol, node.HandleTipProtocol)
@@ -197,14 +203,7 @@ func (gn *GossipNode) handleNewObjCh() {
 				continue
 			}
 
-			var didSet bool
-			var err error
-			switch msg.Type() {
-			case MessageTypeSignature:
-				didSet, err = gn.Storage.SetIfNotExists(msg.Key, msg.Value)
-			default:
-				didSet, err = gn.Add(msg.Key, msg.Value)
-			}
+			didSet, err := gn.Add(msg.Key, msg.Value)
 
 			if err != nil {
 				log.Errorf("%s error adding: %v", gn.ID(), err)
@@ -541,20 +540,7 @@ func (gn *GossipNode) Add(key, value []byte) (bool, error) {
 		return false, fmt.Errorf("error setting storage: %v", err)
 	}
 	if didSet {
-		log.Debugf("%s adding %v", gn.ID(), key)
-		ibfObjectID := byteToIBFsObjectId(key[0:8])
-		gn.ibfSyncer.Lock()
-		gn.Strata.Add(ibfObjectID)
-		for _, filter := range gn.IBFs {
-			filter.Add(ibfObjectID)
-			// debugger := filter.GetDebug()
-			// for k, cnt := range debugger {
-			// 	if cnt > 1 {
-			// 		panic(fmt.Sprintf("%s added a duplicate key: %v with uint64 %d", gn.ID(), key, k))
-			// 	}
-			// }
-		}
-		gn.ibfSyncer.Unlock()
+		gn.addKeyToIBFs(key)
 	} else {
 		log.Debugf("%s skipped adding, already exists %v", gn.ID(), key)
 	}
@@ -711,4 +697,30 @@ func indexOfAddr(signers []*consensus.RemoteNode, addr string) int {
 		}
 	}
 	return -1
+}
+
+func (gn *GossipNode) addKeyToIBFs(key []byte) {
+	msgType := messageTypeFromKey(key)
+	// This allows only Transaction / Done to be synced via IBF
+	switch msgType {
+	case MessageTypeTransaction:
+	case MessageTypeDone:
+	default:
+		return
+	}
+
+	log.Debugf("%s adding %v", gn.ID(), key)
+	ibfObjectID := byteToIBFsObjectId(key[0:8])
+	gn.ibfSyncer.Lock()
+	gn.Strata.Add(ibfObjectID)
+	for _, filter := range gn.IBFs {
+		filter.Add(ibfObjectID)
+		// debugger := filter.GetDebug()
+		// for k, cnt := range debugger {
+		// 	if cnt > 1 {
+		// 		panic(fmt.Sprintf("%s added a duplicate key: %v with uint64 %d", gn.ID(), key, k))
+		// 	}
+		// }
+	}
+	gn.ibfSyncer.Unlock()
 }
