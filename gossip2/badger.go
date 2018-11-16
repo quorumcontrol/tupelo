@@ -190,6 +190,18 @@ func (bs *BadgerStorage) ForEach(prefix []byte, iterator func(k, v []byte) error
 	})
 }
 
+// ForEachKey executes a callback over every key inside a bucket
+// allocations are only valid in the scope of the callback
+func (bs *BadgerStorage) ForEachKey(prefix []byte, iterator func(k []byte) error) error {
+	return bs.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		return bucketIterator(txn, opts, prefix, func(key []byte, item *badger.Item) error {
+			return iterator(key)
+		})
+	})
+}
+
 func bucketIterator(txn *badger.Txn, options badger.IteratorOptions, prefix []byte, iterator func([]byte, *badger.Item) error) error {
 	it := txn.NewIterator(options)
 	defer it.Close()

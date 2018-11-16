@@ -22,6 +22,8 @@ import (
 
 var log = logging.Logger("gossip")
 
+var objectPrefix = []byte("O-")
+
 const syncProtocol = "tupelo-gossip/v1"
 const IsDoneProtocol = "tupelo-done/v1"
 const TipProtocol = "tupelo-tip/v1"
@@ -103,7 +105,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Hos
 		// node.IBFs[size].TurnOnDebug()
 	}
 
-	storage.ForEach([]byte{}, func(key, val []byte) error {
+	storage.ForEachKey([]byte{}, func(key []byte) error {
 		node.addKeyToIBFs(key)
 		return nil
 	})
@@ -715,12 +717,26 @@ func (gn *GossipNode) addKeyToIBFs(key []byte) {
 	gn.Strata.Add(ibfObjectID)
 	for _, filter := range gn.IBFs {
 		filter.Add(ibfObjectID)
-		// debugger := filter.GetDebug()
-		// for k, cnt := range debugger {
-		// 	if cnt > 1 {
-		// 		panic(fmt.Sprintf("%s added a duplicate key: %v with uint64 %d", gn.ID(), key, k))
-		// 	}
-		// }
 	}
 	gn.ibfSyncer.Unlock()
+}
+
+func (gn *GossipNode) getCurrentState(objID []byte) (*CurrentState, error) {
+	stateBytes, err := gn.Storage.Get(objectIdWithPrefix(objID))
+	if err != nil {
+		return nil, fmt.Errorf("error getting bytes: %v", err)
+	}
+	if len(stateBytes) > 0 {
+		var state CurrentState
+		_, err := state.UnmarshalMsg(stateBytes)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarshaling: %v", err)
+		}
+		return &state, nil
+	}
+	return nil, nil
+}
+
+func objectIdWithPrefix(objId []byte) []byte {
+	return append(objectPrefix, objId...)
 }

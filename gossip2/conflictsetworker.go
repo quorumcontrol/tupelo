@@ -79,7 +79,7 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 		return fmt.Errorf("invalid done message: %v", err)
 	}
 
-	err = gn.Storage.Set(state.ObjectID, msg.Value)
+	err = gn.Storage.Set(objectIdWithPrefix(state.ObjectID), msg.Value)
 	if err != nil {
 		return fmt.Errorf("error setting current state: %v", err)
 	}
@@ -192,21 +192,17 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 
 func (csw *conflictSetWorker) IsTransactionValid(t Transaction) (bool, error) {
 	gn := csw.gn
-	stateBytes, err := gn.Storage.Get(t.ObjectID)
+	state, err := gn.getCurrentState(t.ObjectID)
 	if err != nil {
-		return false, fmt.Errorf("error getting state: %v", err)
+		return false, fmt.Errorf("error getting current state: %v", err)
 	}
-	if len(stateBytes) > 0 {
-		var state CurrentState
-		_, err := state.UnmarshalMsg(stateBytes)
-		if err != nil {
-			return false, fmt.Errorf("error unmarshaling state: %v", err)
-		}
-		stateBytes = state.Tip
+	var currentTip []byte
+	if state != nil {
+		currentTip = state.Tip
 	}
 
 	stateTransition := StateTransaction{
-		CurrentState: stateBytes,
+		CurrentState: currentTip,
 		Transaction:  t.Payload,
 		ObjectID:     t.ObjectID,
 	}
