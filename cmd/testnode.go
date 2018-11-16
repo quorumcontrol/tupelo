@@ -35,9 +35,7 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip2"
-	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/p2p"
-	"github.com/quorumcontrol/qc3/signer"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )
@@ -119,10 +117,12 @@ var testnodeCmd = &cobra.Command{
 	Short: "Run a testnet node with hardcoded (insecure) keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		logging.SetLogLevel("gossip", "ERROR")
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
-		signer := setupGossipNode2(ecdsaKeyHex, blsKeyHex)
+		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex)
 		stopOnSignal(signer)
 	},
 }
@@ -139,7 +139,7 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 	return group
 }
 
-func setupGossipNode(ecdsaKeyHex string, blsKeyHex string) *signer.GossipedSigner {
+func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
@@ -148,65 +148,20 @@ func setupGossipNode(ecdsaKeyHex string, blsKeyHex string) *signer.GossipedSigne
 	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
 
 	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
-	log.Info("starting up a test GOSSIP node", "id", id)
-
-	os.MkdirAll(".storage", 0700)
-	badgerStorage := storage.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
-	node := network.NewNode(ecdsaKey)
-
-	group := setupNotaryGroup(badgerStorage)
-
-	gossipedSigner := signer.NewGossipedSigner(node, group, badgerStorage, blsKey)
-	gossipedSigner.Start()
-
-	return gossipedSigner
-}
-
-func setupNotaryGroup2() *consensus.NotaryGroup {
-	storageAdapter := storage.NewMemStorage()
-	nodeStore := nodestore.NewStorageBasedStore(storageAdapter)
-	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
-	if group.IsGenesis() {
-		testNetMembers := bootstrapMembers(bootstrapPublicKeys)
-		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
-		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
-	}
-
-	return group
-}
-
-func setupGossipNode2(ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode {
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(log.LvlDebug), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-
-	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
-	if err != nil {
-		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
-	}
-	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
-
-	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
-	log.Info("starting up a test GOSSIP node", "id", id)
+	log.Info("starting up a test node", "id", id)
 
 	os.MkdirAll(".storage", 0700)
 	badgerStorage := gossip2.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
-	group := setupNotaryGroup2()
-
-	ctx := context.Background()
-	host, err := p2p.NewHost(ctx, ecdsaKey, testnodePort)
-	host.Bootstrap(network.BootstrapNodes())
-
+	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, p2p.GetRandomUnusedPort())
 	if err != nil {
-		panic(fmt.Sprintf("Error starting %v", err))
+		panic("error setting up p2p host")
 	}
+	group := setupNotaryGroup(storage.NewMemStorage())
 
-	time.Sleep(3 * time.Second)
+	gossipedSigner := gossip2.NewGossipNode(ecdsaKey, blsKey, p2pHost, badgerStorage)
+	gossipedSigner.Group = group
 
-	node := gossip2.NewGossipNode(ecdsaKey, blsKey, host, badgerStorage)
-	node.Group = group
-
-	node.Start()
-
-	return node
+	return gossipedSigner
 }
 
 func stopOnSignal(signers ...*gossip2.GossipNode) {

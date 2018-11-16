@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
-	"github.com/quorumcontrol/qc3/signer"
+	"github.com/quorumcontrol/qc3/gossip2"
+	"github.com/quorumcontrol/qc3/gossip2client"
+	"github.com/quorumcontrol/qc3/network"
+	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/quorumcontrol/qc3/wallet/walletrpc"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
@@ -50,7 +54,7 @@ func panicWithoutTLSOpts() {
 	}
 }
 
-func setupLocalNetwork() {
+func setupLocalNetwork(ctx context.Context) (bootstrapAddrs []string) {
 	var err error
 	var publicKeys []*PublicKeySet
 	var privateKeys []*PrivateKeySet
@@ -60,26 +64,47 @@ func setupLocalNetwork() {
 		panic("Can't generate node keys")
 	}
 	bootstrapPublicKeys = publicKeys
-	signers := make([]*signer.GossipedSigner, len(privateKeys))
+	signers := make([]*gossip2.GossipNode, len(privateKeys))
 	for i, keys := range privateKeys {
-		signers[i] = setupGossipNode(keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey)
+		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey)
 	}
+	bootstrapAddrs = bootstrapAddresses(signers[0].Host)
+	for i := 1; i < len(signers); i++ {
+		signers[i].Host.Bootstrap(bootstrapAddrs)
+		go signers[i].Start()
+	}
+	return bootstrapAddrs
+}
+
+func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
+	addresses := bootstrapHost.Addresses()
+	for _, addr := range addresses {
+		addrStr := addr.String()
+		if strings.Contains(addrStr, "127.0.0.1") {
+			return []string{addrStr}
+		}
+	}
+	return nil
 }
 
 var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
+		bootstrapAddrs := network.BootstrapNodes()
 		if localNetworkNodeCount > 0 {
-			setupLocalNetwork()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			bootstrapAddrs = setupLocalNetwork(ctx)
 		}
 
 		notaryGroup := setupNotaryGroup(storage.NewMemStorage())
+		client := gossip2client.NewGossipClient(notaryGroup, bootstrapAddrs)
 		if tls {
 			panicWithoutTLSOpts()
-			walletrpc.ServeTLS(notaryGroup, certFile, keyFile)
+			walletrpc.ServeTLS(notaryGroup, client, certFile, keyFile)
 		} else {
-			walletrpc.ServeInsecure(notaryGroup)
+			walletrpc.ServeInsecure(notaryGroup, client)
 		}
 	},
 }

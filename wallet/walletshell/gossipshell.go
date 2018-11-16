@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/qc3/gossip2client"
 	"github.com/quorumcontrol/qc3/wallet/walletrpc"
 )
 
@@ -32,7 +33,7 @@ func confirmPassword(c *ishell.Context) (string, error) {
 	return "", errors.New("can't confirm password")
 }
 
-func RunGossip(name string, group *consensus.NotaryGroup) {
+func RunGossip(name string, group *consensus.NotaryGroup, client *gossip2client.GossipClient) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
@@ -40,7 +41,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 	shell.Printf("Loading shell for wallet: %v\n", name)
 
 	// load the session
-	session, err := walletrpc.NewSession(name, group)
+	session, err := walletrpc.NewSession(name, group, client)
 	if err != nil {
 		shell.Printf("error loading shell: %v\n", err)
 		return
@@ -126,8 +127,12 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 				c.Printf("error creating chain tree: %v\n", err)
 				return
 			}
-
-			c.Printf("chain id: %v\n", chain.Id)
+			id, err := chain.Id()
+			if err != nil {
+				c.Printf("error getting chain id: %v\n", err)
+				return
+			}
+			c.Printf("chain id: %s\n", id)
 		},
 	})
 
