@@ -1,14 +1,20 @@
 package gossip2
 
+import "bytes"
+
 type MessageType int
 
 const (
 	MessageTypeSignature MessageType = iota + 1
 	MessageTypeTransaction
 	MessageTypeDone
+	MessageTypeCurrentState
 )
 
 func messageTypeFromKey(key []byte) MessageType {
+	if bytes.Equal(key[0:len(objectPrefix)], objectPrefix) {
+		return MessageTypeCurrentState
+	}
 	return MessageType(key[8])
 }
 

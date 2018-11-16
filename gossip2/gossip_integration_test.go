@@ -581,3 +581,32 @@ func TestSubscription(t *testing.T) {
 
 	assert.Equal(t, transaction.NewTip, currentState.(*CurrentState).Tip)
 }
+
+func TestNodeRestartMaintainsIBF(t *testing.T) {
+	logging.SetLogLevel("gossip", "ERROR")
+	groupSize := 1
+	ts := newTestSet(t, groupSize)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], p2p.GetRandomUnusedPort())
+	require.Nil(t, err)
+	path := testStoragePath + "badger/node1"
+	os.RemoveAll(path)
+	os.MkdirAll(path, 0755)
+	defer os.RemoveAll(path)
+	storage := NewBadgerStorage(path)
+	node1 := NewGossipNode(ts.EcdsaKeys[0], ts.SignKeys[0], host, storage)
+	node1.Add((&Signature{}).StoredID(randBytes(20)), randBytes(20))
+	node1.Add((&Transaction{}).StoredID(), randBytes(20))
+	node1.Add((&ConflictSet{}).DoneID(), randBytes(20))
+	node2 := NewGossipNode(ts.EcdsaKeys[0], ts.SignKeys[0], host, storage)
+
+	ibfSize := standardIBFSizes[0]
+	newIBF := node1.IBFs[ibfSize].Subtract(node2.IBFs[ibfSize])
+	results, err := newIBF.Decode()
+
+	assert.Equal(t, len(results.LeftSet), 0)
+	assert.Equal(t, len(results.RightSet), 0)
+}

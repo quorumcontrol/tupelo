@@ -79,12 +79,15 @@ func DoChainTreeChangeProtocol(gn *GossipNode, stream net.Stream) error {
 
 	ch := gn.subscriptions.Subscribe(objID)
 
-	state, err := ctcp.currentStateFromStorage(objID)
+	state, err := gn.getCurrentState(objID)
 	if err != nil {
 		return fmt.Errorf("error getting current state from storage: %v", err)
 	}
+	if state == nil {
+		state = &CurrentState{}
+	}
 
-	err = ctcp.sendCurrentState(state)
+	err = ctcp.sendCurrentState(*state)
 	if err != nil {
 		return fmt.Errorf("error receiving objectID: %v", err)
 	}
@@ -122,22 +125,6 @@ func (ctcp *ChainTreeChangeProtocolHandler) ReceiveObjectID() ([]byte, error) {
 	}
 
 	return req.ObjectID, nil
-}
-
-func (ctcp *ChainTreeChangeProtocolHandler) currentStateFromStorage(objectID []byte) (CurrentState, error) {
-	var currentState CurrentState
-	objBytes, err := ctcp.gossipNode.Storage.Get(objectID)
-
-	if err != nil {
-		return CurrentState{}, fmt.Errorf("error getting ObjectID (%s): %v", objectID, err)
-	}
-	if len(objBytes) > 0 {
-		_, err = currentState.UnmarshalMsg(objBytes)
-		if err != nil {
-			return CurrentState{}, fmt.Errorf("error unmarshaling: %v", err)
-		}
-	}
-	return currentState, nil
 }
 
 func (ctcp *ChainTreeChangeProtocolHandler) sendCurrentState(currentState CurrentState) error {
