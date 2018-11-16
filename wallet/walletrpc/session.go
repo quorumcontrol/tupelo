@@ -14,13 +14,13 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossipclient"
+	"github.com/quorumcontrol/qc3/gossip2client"
 	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
 type RPCSession struct {
-	client    *gossipclient.GossipClient
+	client    *gossip2client.GossipClient
 	wallet    *wallet.FileWallet
 	isStarted bool
 }
@@ -48,7 +48,7 @@ func NewSession(walletName string, group *consensus.NotaryGroup) (*RPCSession, e
 	path := walletPath(walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
-	gossipClient := gossipclient.NewGossipClient(group, network.BootstrapNodes())
+	gossipClient := gossip2client.NewGossipClient(group, network.BootstrapNodes())
 
 	return &RPCSession{
 		client:    gossipClient,
@@ -127,8 +127,6 @@ func (rpcs *RPCSession) Start(passPhrase string) error {
 		if unlockErr != nil {
 			return unlockErr
 		}
-
-		rpcs.client.Start()
 		rpcs.isStarted = true
 	}
 	return nil
@@ -277,15 +275,19 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 		return nil, err
 	}
 
-	tip := tipResp.Tip
-	if tip == nil {
+	if len(tipResp.Tip) == 0 {
 		return nil, &NilTipError{
 			chainId:     id,
 			notaryGroup: rpcs.client.Group,
 		}
 	}
 
-	return tip, nil
+	tip, err := cid.Cast(tipResp.Tip)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tip, nil
 }
 
 func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {

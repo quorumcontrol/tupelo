@@ -144,13 +144,8 @@ func TestSubscribe(t *testing.T) {
 
 	client := NewGossipClient(nil, bootstrapAddresses(bootstrap))
 
-	resp := make(chan *gossip2.CurrentState)
-
-	go func() {
-		state, err := client.Subscribe(&ts.EcdsaKeys[0].PublicKey, treeDID, 5*time.Second)
-		require.Nil(t, err)
-		resp <- state
-	}()
+	stateCh, err := client.Subscribe(&ts.EcdsaKeys[0].PublicKey, treeDID, 5*time.Second)
+	require.Nil(t, err)
 
 	encodedTrans, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
@@ -158,5 +153,60 @@ func TestSubscribe(t *testing.T) {
 	err = client.Send(&ts.EcdsaKeys[1].PublicKey, protocol.ID(gossip2.NewTransactionProtocol), encodedTrans, 5*time.Second)
 	require.Nil(t, err)
 
-	require.Equal(t, (<-resp).Tip, testTree.Dag.Tip.Bytes())
+	subscribeResp := <-stateCh
+
+	require.Nil(t, subscribeResp.Error)
+	require.Equal(t, subscribeResp.State.Tip, testTree.Dag.Tip.Bytes())
+}
+
+func TestPlayTransactionAndTip(t *testing.T) {
+	logging.SetLogLevel("gossip2client", "DEBUG")
+	logging.SetLogLevel("gossip", "ERROR")
+
+	groupSize := 3
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gossipNodes := make([]*gossip2.GossipNode, groupSize)
+	ts := testnotarygroup.NewTestSet(t, groupSize)
+	group := testnotarygroup.GroupFromTestSet(t, ts)
+	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+
+	for i := 0; i < groupSize; i++ {
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		require.Nil(t, err)
+		host.Bootstrap(bootstrapAddresses(bootstrap))
+		path := testStoragePath + "badger/" + strconv.Itoa(i)
+		os.RemoveAll(path)
+		os.MkdirAll(path, 0755)
+		defer os.RemoveAll(path)
+		storage := gossip2.NewBadgerStorage(path)
+		gossipNodes[i] = gossip2.NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
+		gossipNodes[i].Group = group
+		go gossipNodes[i].Start()
+		defer gossipNodes[i].Stop()
+	}
+
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	chain, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
+	client := NewGossipClient(group, bootstrapAddresses(bootstrap))
+
+	var remoteTip string
+	if !chain.IsGenesis() {
+		remoteTip = chain.Tip().String()
+	}
+
+	resp, err := client.PlayTransactions(chain, treeKey, remoteTip, []*chaintree.Transaction{
+		{
+			Type: "SET_DATA",
+			Payload: map[string]string{
+				"path":  "down/in/the/thing",
+				"value": "sometestvalue",
+			},
+		},
+	})
+	require.Nil(t, err)
+	assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 }
