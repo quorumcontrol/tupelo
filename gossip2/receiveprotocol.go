@@ -267,7 +267,7 @@ func (rsph *ReceiveSyncProtocolHandler) EstimateFromRemoteStrata(remoteStrata *i
 	gn.ibfSyncer.RLock()
 	count, result = gn.Strata.Estimate(remoteStrata)
 	gn.ibfSyncer.RUnlock()
-	log.Infof("%s estimated difference from %s is %d", gn.ID(), rsph.peerID, count)
+	log.Debugf("%s estimated difference from %s is %d", gn.ID(), rsph.peerID, count)
 	return count, result
 }
 

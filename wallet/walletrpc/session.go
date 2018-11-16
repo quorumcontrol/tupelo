@@ -15,7 +15,6 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip2client"
-	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
@@ -44,11 +43,10 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func NewSession(walletName string, group *consensus.NotaryGroup) (*RPCSession, error) {
+func NewSession(walletName string, group *consensus.NotaryGroup, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
 	path := walletPath(walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
-	gossipClient := gossip2client.NewGossipClient(group, network.BootstrapNodes())
 
 	return &RPCSession{
 		client:    gossipClient,

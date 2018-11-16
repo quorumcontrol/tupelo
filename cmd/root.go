@@ -17,8 +17,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
+	ipfslogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -82,6 +84,10 @@ to quickly create a Cobra application.`,
 			panic(err.Error())
 		}
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
+		if err != nil {
+			fmt.Println("unkown ipfs log level")
+		}
 
 	},
 
