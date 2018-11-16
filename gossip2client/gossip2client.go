@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip2"
@@ -60,15 +61,21 @@ func (gc *GossipClient) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, p
 	return nil
 }
 
-func (gc *GossipClient) Subscribe(publicKey *ecdsa.PublicKey, treeDid string, timeout time.Duration) (*gossip2.CurrentState, error) {
+type SubscribeResponse struct {
+	State *gossip2.CurrentState
+	Error error
+}
+
+func (gc *GossipClient) Subscribe(publicKey *ecdsa.PublicKey, treeDid string, timeout time.Duration) (chan *SubscribeResponse, error) {
+	ch := make(chan *SubscribeResponse, 1)
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	stream, err := gc.Host.NewStream(ctx, publicKey, gossip2.ChainTreeChangeProtocol)
 	if err != nil {
-		return nil, err
+		cancel()
+		return ch, err
 	}
-	defer stream.Close()
 
 	reader := msgp.NewReader(stream)
 	writer := msgp.NewWriter(stream)
@@ -76,33 +83,49 @@ func (gc *GossipClient) Subscribe(publicKey *ecdsa.PublicKey, treeDid string, ti
 	subscriptionReq := &gossip2.ChainTreeSubscriptionRequest{ObjectID: []byte(treeDid)}
 	err = subscriptionReq.EncodeMsg(writer)
 	if err != nil {
-		return nil, err
+		cancel()
+		return ch, err
 	}
 	err = writer.Flush()
 	if err != nil {
-		return nil, err
+		cancel()
+		return ch, err
 	}
 
-	var resp gossip2.ProtocolMessage
-	err = resp.DecodeMsg(reader)
+	var initialResp gossip2.ProtocolMessage
+	err = initialResp.DecodeMsg(reader)
 
 	if err != nil {
-		return nil, err
+		cancel()
+		return ch, err
 	}
 
-	if resp.Code == 503 {
-		return nil, fmt.Errorf("Could not bind subscription for %s, host is busy", treeDid)
+	if initialResp.Code == 503 {
+		cancel()
+		return ch, err
 	}
 
-	var newResp gossip2.ProtocolMessage
-	err = newResp.DecodeMsg(reader)
-	if err != nil {
-		return nil, err
-	}
-	currentState, err := gossip2.FromProtocolMessage(&newResp)
-	if err != nil {
-		return nil, err
-	}
+	go func(ch chan *SubscribeResponse, reader *msgp.Reader, stream net.Stream, cancel context.CancelFunc) {
+		defer stream.Close()
+		defer cancel()
 
-	return currentState.(*gossip2.CurrentState), nil
+		var resp SubscribeResponse
+		var msg gossip2.ProtocolMessage
+		err = msg.DecodeMsg(reader)
+		if err != nil {
+			resp.Error = err
+		}
+		currentState, err := gossip2.FromProtocolMessage(&msg)
+		if err != nil {
+			resp.Error = err
+		}
+
+		if err == nil {
+			resp.State = currentState.(*gossip2.CurrentState)
+		}
+
+		ch <- &resp
+	}(ch, reader, stream, cancel)
+
+	return ch, err
 }

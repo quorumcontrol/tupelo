@@ -144,13 +144,8 @@ func TestSubscribe(t *testing.T) {
 
 	client := NewGossipClient(nil, bootstrapAddresses(bootstrap))
 
-	resp := make(chan *gossip2.CurrentState)
-
-	go func() {
-		state, err := client.Subscribe(&ts.EcdsaKeys[0].PublicKey, treeDID, 5*time.Second)
-		require.Nil(t, err)
-		resp <- state
-	}()
+	stateCh, err := client.Subscribe(&ts.EcdsaKeys[0].PublicKey, treeDID, 5*time.Second)
+	require.Nil(t, err)
 
 	encodedTrans, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
@@ -158,5 +153,8 @@ func TestSubscribe(t *testing.T) {
 	err = client.Send(&ts.EcdsaKeys[1].PublicKey, protocol.ID(gossip2.NewTransactionProtocol), encodedTrans, 5*time.Second)
 	require.Nil(t, err)
 
-	require.Equal(t, (<-resp).Tip, testTree.Dag.Tip.Bytes())
+	subscribeResp := <-stateCh
+
+	require.Nil(t, subscribeResp.Error)
+	require.Equal(t, subscribeResp.State.Tip, testTree.Dag.Tip.Bytes())
 }
