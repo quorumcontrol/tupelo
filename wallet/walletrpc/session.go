@@ -6,6 +6,7 @@ import (
 	fmt "fmt"
 	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipld-cbor"
 
@@ -23,6 +24,15 @@ type RPCSession struct {
 	client    *gossipclient.GossipClient
 	wallet    *wallet.FileWallet
 	isStarted bool
+}
+
+type ExistingChainError struct {
+	publicKey *ecdsa.PublicKey
+}
+
+func (e ExistingChainError) Error() string {
+	keyAddr := crypto.PubkeyToAddress(*e.publicKey).String()
+	return fmt.Sprintf("A chain tree for public key %v has already been created.", keyAddr)
 }
 
 func walletPath(name string) string {
@@ -166,6 +176,13 @@ func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
 	return rpcs.wallet.GetKey(keyAddr)
 }
 
+func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
+	chainId := consensus.EcdsaPubkeyToDid(key)
+	tip, _ := rpcs.wallet.GetTip(chainId)
+
+	return tip != nil && len(tip) > 0
+}
+
 func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
@@ -173,7 +190,11 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 
 	key, err := rpcs.getKey(keyAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error getting key: %v", err)
+	}
+
+	if rpcs.chainExists(key.PublicKey) {
+		return nil, ExistingChainError{publicKey: &key.PublicKey}
 	}
 
 	chain, err := consensus.NewSignedChainTree(key.PublicKey, rpcs.wallet.NodeStore())
