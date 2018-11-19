@@ -16,7 +16,10 @@ import (
 
 const ProtocolID = "tupelo/0.1"
 
-var defaultBootstrapNodes = []string{}
+var defaultBootstrapNodes = []string{
+	"/ip4/18.196.112.81/tcp/34001/ipfs/16Uiu2HAmJXuoQMRqg4bShcBTczUMn8zMyCvXAPuefCtqZb21iih8",
+	"/ip4/34.231.17.217/tcp/34001/ipfs/16Uiu2HAmLos2gmQLkVkiYF3JJBDW2WqZxCHoMb2fLmo77a2tqExF",
+}
 
 type MessageParams struct {
 	Source      *ecdsa.PrivateKey
