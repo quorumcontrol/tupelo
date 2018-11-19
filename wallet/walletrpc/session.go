@@ -25,6 +25,14 @@ type RPCSession struct {
 	isStarted bool
 }
 
+type ExistingChainError struct {
+	publicKey *ecdsa.PublicKey
+}
+
+func (e ExistingChainError) Error() string {
+	return fmt.Sprintf("A chain tree for public key %v has already been created.", e.publicKey)
+}
+
 func walletPath(name string) string {
 	return filepath.Join(".storage", name+"-wallet")
 }
@@ -166,6 +174,13 @@ func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
 	return rpcs.wallet.GetKey(keyAddr)
 }
 
+func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
+	chainId := consensus.PubkeyToDid(key)
+	tip, _ := rpcs.wallet.GetTip(chainId)
+
+	return tip != nil && len(tip) > 0
+}
+
 func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
@@ -173,7 +188,11 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 
 	key, err := rpcs.getKey(keyAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error getting key: %v", err)
+	}
+
+	if rpcs.chainExists(key.PublicKey) {
+		return nil, ExistingChainError{publicKey: &key.PublicKey}
 	}
 
 	chain, err := consensus.NewSignedChainTree(key.PublicKey, rpcs.wallet.NodeStore())

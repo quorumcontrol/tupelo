@@ -8,7 +8,6 @@ import (
 
 	"github.com/quorumcontrol/chaintree/nodestore"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -59,7 +58,7 @@ func (sct *SignedChainTree) IsGenesis() bool {
 
 func NewSignedChainTree(key ecdsa.PublicKey, nodeStore nodestore.NodeStore) (*SignedChainTree, error) {
 	tree, err := chaintree.NewChainTree(
-		NewEmptyTree(AddrToDid(crypto.PubkeyToAddress(key).String()), nodeStore),
+		NewEmptyTree(PubkeyToDid(key), nodeStore),
 		nil,
 		DefaultTransactors,
 	)

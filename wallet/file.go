@@ -150,8 +150,17 @@ func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
 	return nodes, nil
 }
 
+func (fw *FileWallet) GetTip(chainId string) ([]byte, error) {
+	tip, err := fw.boltStorage.Get(chainBucket, []byte(chainId))
+	if err != nil {
+		return nil, fmt.Errorf("error getting tip for chain id %v: %v", chainId, err)
+	}
+
+	return tip, nil
+}
+
 func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
-	tip, err := fw.boltStorage.Get(chainBucket, []byte(id))
+	tip, err := fw.GetTip(id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chain: %v", err)
 	}
