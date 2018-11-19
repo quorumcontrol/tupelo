@@ -121,6 +121,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "create-chain",
 		Help: "create a new chain based on a key",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 1 {
+				c.Println("not enough arguments passed to create-chain")
+				return
+			}
+
 			chain, err := session.CreateChain(c.Args[0])
 			if err != nil {
 				c.Printf("error creating chain tree: %v\n", err)
@@ -141,6 +146,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "set-owner",
 		Help: "transfer ownership of a chain tree",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 3 {
+				c.Println("not enough arguments passed to set-owner")
+				return
+			}
+
 			newOwnerKeys := strings.Split(c.Args[2], ",")
 			tip, err := session.SetOwner(c.Args[0], c.Args[1], newOwnerKeys)
 			if err != nil {
@@ -156,6 +166,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "export-chain",
 		Help: "export an existing chain tree",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 1 {
+				c.Println("not enough arguments passed to export-chain")
+				return
+			}
+
 			chain, err := session.ExportChain(c.Args[0])
 			if err != nil {
 				c.Printf("error exporting chain tree: %v\n", err)
@@ -171,6 +186,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "import-chain",
 		Help: "import a chain tree",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 2 {
+				c.Println("not enough arguments passed to import-chain")
+				return
+			}
+
 			chainBytes := base58.Decode(c.Args[1])
 			chain, err := session.ImportChain(c.Args[0], chainBytes)
 			if err != nil {
@@ -201,6 +221,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "print-chain",
 		Help: "print an entire chain tree",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 1 {
+				c.Println("not enough arguments passed to print-chain")
+				return
+			}
+
 			chain, err := session.GetChain(c.Args[0])
 			if err != nil {
 				c.Printf("error getting chain: %v\n", err)
@@ -214,6 +239,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "get-tip",
 		Help: "gets the tip (as known by the notary group) for a chain id",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 1 {
+				c.Println("not enough arguments passed to get-tip")
+				return
+			}
+
 			tip, err := session.GetTip(c.Args[0])
 			if err != nil {
 				c.Printf("error getting tip: %v\n", err)
@@ -228,6 +258,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "set-data",
 		Help: "set-data on a chain-tree usage: set-data chain-id key-id path value",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 4 {
+				c.Println("not enough arguments passed to set-data")
+				return
+			}
+
 			data, err := cbornode.DumpObject(c.Args[3])
 			if err != nil {
 				c.Printf("error encoding input: %v\n", err)
@@ -248,6 +283,11 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Name: "resolve",
 		Help: "resolve the data at a chain-tree path. usage: resolve chain-id path",
 		Func: func(c *ishell.Context) {
+			if len(c.Args) < 2 {
+				c.Println("not enough arguments passed to resolve")
+				return
+			}
+
 			path := strings.Split(c.Args[1], "/")
 			data, remaining, err := session.Resolve(c.Args[0], path)
 			if err != nil {
