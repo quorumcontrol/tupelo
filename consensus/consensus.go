@@ -93,7 +93,7 @@ func AddrToDid(addr string) string {
 	return fmt.Sprintf("did:tupelo:%s", addr)
 }
 
-func PubkeyToDid(key ecdsa.PublicKey) string {
+func EcdsaPubkeyToDid(key ecdsa.PublicKey) string {
 	keyAddr := crypto.PubkeyToAddress(key).String()
 
 	return AddrToDid(keyAddr)

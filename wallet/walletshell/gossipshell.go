@@ -95,7 +95,7 @@ func RunGossip(name string, group *consensus.NotaryGroup) {
 		Func: func(c *ishell.Context) {
 			key, err := session.GenerateKey()
 			if err != nil {
-				c.Println("error generating key", err)
+				c.Println("error generating key:", err)
 				return
 			}
 			c.Println(crypto.PubkeyToAddress(key.PublicKey).String())

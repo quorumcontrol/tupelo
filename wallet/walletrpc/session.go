@@ -6,6 +6,7 @@ import (
 	fmt "fmt"
 	"path/filepath"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipld-cbor"
 
@@ -30,7 +31,8 @@ type ExistingChainError struct {
 }
 
 func (e ExistingChainError) Error() string {
-	return fmt.Sprintf("A chain tree for public key %v has already been created.", e.publicKey)
+	keyAddr := crypto.PubkeyToAddress(*e.publicKey).String()
+	return fmt.Sprintf("A chain tree for public key %v has already been created.", keyAddr)
 }
 
 func walletPath(name string) string {
@@ -175,7 +177,7 @@ func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
 }
 
 func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
-	chainId := consensus.PubkeyToDid(key)
+	chainId := consensus.EcdsaPubkeyToDid(key)
 	tip, _ := rpcs.wallet.GetTip(chainId)
 
 	return tip != nil && len(tip) > 0

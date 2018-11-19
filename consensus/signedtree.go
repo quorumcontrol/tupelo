@@ -57,8 +57,10 @@ func (sct *SignedChainTree) IsGenesis() bool {
 }
 
 func NewSignedChainTree(key ecdsa.PublicKey, nodeStore nodestore.NodeStore) (*SignedChainTree, error) {
+	did := EcdsaPubkeyToDid(key)
+
 	tree, err := chaintree.NewChainTree(
-		NewEmptyTree(PubkeyToDid(key), nodeStore),
+		NewEmptyTree(did, nodeStore),
 		nil,
 		DefaultTransactors,
 	)
