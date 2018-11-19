@@ -217,12 +217,16 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 		ChainId:  tree.MustId(),
 	}
 
-	// TODO: don't modify the tree state until after confirmation?
-	_, err = tree.ChainTree.ProcessBlock(blockWithHeaders)
+	newTree, err := chaintree.NewChainTree(tree.ChainTree.Dag, tree.ChainTree.BlockValidators, tree.ChainTree.Transactors)
 	if err != nil {
-		return nil, fmt.Errorf("error, invalid transactions: %v", err)
+		return nil, fmt.Errorf("error creating new tree: %v", err)
 	}
-	expectedTip := tree.Tip()
+	valid, err := newTree.ProcessBlock(blockWithHeaders)
+	if !valid || err != nil {
+		return nil, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
+	}
+
+	expectedTip := newTree.Dag.Tip
 
 	transaction := gossip2.Transaction{
 		PreviousTip: []byte(remoteTip),
@@ -261,6 +265,11 @@ func (gc *GossipClient) PlayTransactions(tree *consensus.SignedChainTree, treeKe
 	if !bytes.Equal(resp.State.Tip, expectedTip.Bytes()) {
 		respCid, _ := cid.Cast(resp.State.Tip)
 		return nil, fmt.Errorf("error, tree updated to different tip - expected: %v - received: %v", respCid.String(), expectedTip.String())
+	}
+
+	success, err := tree.ChainTree.ProcessBlock(blockWithHeaders)
+	if !success || err != nil {
+		return nil, fmt.Errorf("error processing block (valid: %t): %v", valid, err)
 	}
 
 	tree.Signatures[gc.Group.ID] = consensus.Signature{
