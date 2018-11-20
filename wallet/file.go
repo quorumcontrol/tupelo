@@ -150,8 +150,17 @@ func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
 	return nodes, nil
 }
 
+func (fw *FileWallet) GetTip(chainId string) ([]byte, error) {
+	tip, err := fw.boltStorage.Get(chainBucket, []byte(chainId))
+	if err != nil {
+		return nil, fmt.Errorf("error getting tip for chain id %v: %v", chainId, err)
+	}
+
+	return tip, nil
+}
+
 func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
-	tip, err := fw.boltStorage.Get(chainBucket, []byte(id))
+	tip, err := fw.GetTip(id)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chain: %v", err)
 	}
@@ -222,15 +231,17 @@ func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 }
 
 func (fw *FileWallet) GetChainIds() ([]string, error) {
-	keys, err := fw.boltStorage.GetKeys(chainBucket)
+	chainIds, err := fw.boltStorage.GetKeys(chainBucket)
 	if err != nil {
-		return nil, fmt.Errorf("error getting keys; %v", err)
+		return nil, fmt.Errorf("error getting saved chain tree ids; %v", err)
 	}
-	ids := make([]string, len(keys))
-	for i, k := range keys {
-		ids[i] = string(k)
+
+	stringIds := make([]string, len(chainIds))
+	for i, k := range chainIds {
+		stringIds[i] = string(k)
 	}
-	return ids, nil
+
+	return stringIds, nil
 }
 
 func (fw *FileWallet) GetKey(addr string) (*ecdsa.PrivateKey, error) {

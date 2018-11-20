@@ -117,7 +117,7 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "info", "Log level")
+	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
 }
 
 // initConfig reads in config file and ENV variables if set.

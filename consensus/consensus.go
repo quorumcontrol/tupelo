@@ -92,6 +92,12 @@ func AddrToDid(addr string) string {
 	return fmt.Sprintf("did:tupelo:%s", addr)
 }
 
+func EcdsaPubkeyToDid(key ecdsa.PublicKey) string {
+	keyAddr := crypto.PubkeyToAddress(key).String()
+
+	return AddrToDid(keyAddr)
+}
+
 func DidToAddr(did string) string {
 	segs := strings.Split(did, ":")
 	return segs[len(segs)-1]
