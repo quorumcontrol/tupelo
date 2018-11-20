@@ -6,7 +6,7 @@ WORKDIR /go/src/github.com/quorumcontrol/qc3
 
 COPY . .
 
-RUN go install -v -a -ldflags '-extldflags "-static"'
+RUN go install -v -a -ldflags '-extldflags "-static"' -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH
 
 FROM debian:stretch-slim
 RUN mkdir -p /var/lib/qc3
