@@ -43,7 +43,7 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  version = "v1.0.0-rc1"
+  version = "v1.0.0"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"

@@ -76,9 +76,26 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:c594f17a44dc0df66ef67ae61b126fc51c84b826af250493f2e37c2ac4389bbe"
+  name = "github.com/dedis/fixbuf"
+  packages = ["."]
+  pruneopts = ""
+  revision = "290118f838f79dd2f76edf7a98cccf989eaf3310"
+  version = "v1.0.2"
+
+[[projects]]
   digest = "1:97437121c6e6df638b20aeb82cc743577676146adf3d2f55a5260556bb650f01"
   name = "github.com/dedis/kyber"
-  packages = ["."]
+  packages = [
+    ".",
+    "group/internal/marshalling",
+    "group/mod",
+    "pairing",
+    "pairing/bn256",
+    "sign/bls",
+    "util/random",
+    "xof/blake2xb",
+  ]
   pruneopts = ""
   revision = "2618429f2dcb08ad862f9f11e56adab2de58c228"
   source = "https://github.com/QuorumControl/kyber.git"
@@ -598,7 +615,7 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:d289a3aeed3aa0696d58c7107af0c02952d60d9c3af58bc866c4f548b9e762f3"
+  digest = "1:38c9bb0ee8326a404427910ba8eb82bb9ad95a116c04e2948a8a056a88747dda"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -608,8 +625,8 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "2af22b6f921d45059e336eca21b0af13651400d4"
-  version = "v1.0.0-rc1"
+  revision = "42c075173a07a59fbfde972e19dabce1723db8b4"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:befcb1d98850f051869db42d12ae1ec72bb1cb7cd605ada8aa4ea3f84981bd8a"
@@ -736,6 +753,7 @@
   digest = "1:cae234a803b78380e4d769db6036b9fcc8c08ed4ff862571ffc1a958edc1f629"
   name = "golang.org/x/crypto"
   packages = [
+    "blake2b",
     "blake2s",
     "blowfish",
     "internal/subtle",
@@ -876,11 +894,15 @@
     "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
     "github.com/dedis/kyber",
+    "github.com/dedis/kyber/pairing/bn256",
+    "github.com/dedis/kyber/sign/bls",
+    "github.com/dedis/kyber/util/random",
     "github.com/dgraph-io/badger",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/crypto",
     "github.com/ethereum/go-ethereum/log",
+    "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/google/uuid",
     "github.com/gorilla/mux",

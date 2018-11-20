@@ -458,7 +458,8 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	stateBytes, err := gossipNodes[0].Storage.Get(transaction1.ObjectID)
+	stateBytes, err := gossipNodes[0].Storage.Get(transaction1.ToConflictSet().DoneID())
+
 	require.Nil(t, err)
 	var currState CurrentState
 	_, err = currState.UnmarshalMsg(stateBytes)
