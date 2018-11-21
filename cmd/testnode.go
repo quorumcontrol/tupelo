@@ -122,7 +122,7 @@ var testnodeCmd = &cobra.Command{
 		logging.SetLogLevel("gossip", "ERROR")
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
-		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex)
+		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, testnodePort)
 		stopOnSignal(signer)
 	},
 }
@@ -139,7 +139,7 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 	return group
 }
 
-func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string) *gossip2.GossipNode {
+func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, port int) *gossip2.GossipNode {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
@@ -152,7 +152,12 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string) 
 
 	os.MkdirAll(".storage", 0700)
 	badgerStorage := gossip2.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
-	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, testnodePort)
+
+	if port == 0 {
+		port = p2p.GetRandomUnusedPort()
+	}
+
+	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, port)
 	if err != nil {
 		panic("error setting up p2p host")
 	}
