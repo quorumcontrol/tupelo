@@ -26,6 +26,7 @@ func (csw *conflictSetWorker) HandleRequest(msg ProvideMessage, respCh chan proc
 				ConflictSetID: conflictSetID,
 				Error:         err,
 			}
+			return
 		}
 		respCh <- processorResponse{
 			ConflictSetID: conflictSetID,
@@ -39,6 +40,7 @@ func (csw *conflictSetWorker) HandleRequest(msg ProvideMessage, respCh chan proc
 				ConflictSetID: conflictSetID,
 				Error:         err,
 			}
+			return
 		}
 		respCh <- processorResponse{
 			ConflictSetID:  conflictSetID,
@@ -52,6 +54,7 @@ func (csw *conflictSetWorker) HandleRequest(msg ProvideMessage, respCh chan proc
 				ConflictSetID: conflictSetID,
 				Error:         err,
 			}
+			return
 		}
 		respCh <- processorResponse{
 			ConflictSetID: conflictSetID,
