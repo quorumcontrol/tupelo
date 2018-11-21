@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/quorumcontrol/qc3/gossip2"
 	"github.com/quorumcontrol/qc3/gossip2client"
@@ -68,11 +69,18 @@ func setupLocalNetwork(ctx context.Context) (bootstrapAddrs []string) {
 	for i, keys := range privateKeys {
 		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, 0)
 	}
+	// Use first signer as bootstrap node
 	bootstrapAddrs = bootstrapAddresses(signers[0].Host)
+	// Have rest of signers bootstrap to node 0
 	for i := 1; i < len(signers); i++ {
 		signers[i].Host.Bootstrap(bootstrapAddrs)
+	}
+	// Give a chance for everything to bootstrap, then start
+	time.Sleep(100 * time.Millisecond)
+	for i := 0; i < len(signers); i++ {
 		go signers[i].Start()
 	}
+
 	return bootstrapAddrs
 }
 
