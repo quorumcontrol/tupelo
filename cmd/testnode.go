@@ -152,7 +152,7 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string) 
 
 	os.MkdirAll(".storage", 0700)
 	badgerStorage := gossip2.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
-	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, p2p.GetRandomUnusedPort())
+	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, testnodePort)
 	if err != nil {
 		panic("error setting up p2p host")
 	}
