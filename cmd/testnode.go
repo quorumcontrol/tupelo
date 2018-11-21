@@ -35,6 +35,7 @@ import (
 	"github.com/quorumcontrol/qc3/bls"
 	"github.com/quorumcontrol/qc3/consensus"
 	"github.com/quorumcontrol/qc3/gossip2"
+	"github.com/quorumcontrol/qc3/network"
 	"github.com/quorumcontrol/qc3/p2p"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
@@ -123,6 +124,8 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, testnodePort)
+		signer.Host.Bootstrap(network.BootstrapNodes())
+		go signer.Start()
 		stopOnSignal(signer)
 	},
 }
