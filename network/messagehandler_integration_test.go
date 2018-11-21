@@ -68,46 +68,6 @@ func TestClient_DoRequest(t *testing.T) {
 	assert.Equal(t, []byte("PONG"), resp.Payload)
 }
 
-// func TestClient_Broadcast(t *testing.T) {
-// 	serverKey, err := crypto.GenerateKey()
-// 	assert.Nil(t, err)
-
-// 	clientKey, err := crypto.GenerateKey()
-// 	assert.Nil(t, err)
-
-// 	serverNode := NewNode(serverKey)
-// 	serverNode.Start()
-// 	defer serverNode.Stop()
-
-// 	clientNode := NewNode(clientKey)
-// 	clientNode.Start()
-// 	defer serverNode.Stop()
-
-// 	reqHandler := func(_ context.Context, req Request, respChan ResponseChan) error {
-// 		assert.Equal(t, req.Payload, []byte("PONG"))
-// 		return nil
-// 	}
-
-// 	server := NewMessageHandler(serverNode, TestTopic)
-// 	server.AssignHandler("PING", reqHandler)
-// 	server.HandleTopic(TestTopic, TestKey)
-// 	server.Start()
-// 	defer server.Stop()
-
-// 	client := NewMessageHandler(clientNode, TestTopic)
-// 	client.Start()
-// 	defer client.Stop()
-
-// 	time.Sleep(1 * time.Second)
-
-// 	err = client.Broadcast(TestTopic, TestKey, &Request{
-// 		Type:    "PING",
-// 		Id:      uuid.New().String(),
-// 		Payload: []byte("PONG"),
-// 	})
-// 	assert.Nil(t, err)
-// }
-
 func TestClient_Push(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
