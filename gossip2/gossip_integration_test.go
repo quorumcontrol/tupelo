@@ -458,12 +458,9 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	stateBytes, err := gossipNodes[0].Storage.Get(transaction1.ToConflictSet().DoneID())
+	currState, err := gossipNodes[0].getCurrentState(transaction1.ObjectID)
+	require.Nil(t, err)
 
-	require.Nil(t, err)
-	var currState CurrentState
-	_, err = currState.UnmarshalMsg(stateBytes)
-	require.Nil(t, err)
 	assert.Equal(t, transaction2.NewTip, currState.Tip)
 }
 
