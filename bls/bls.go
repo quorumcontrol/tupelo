@@ -23,7 +23,6 @@ type VerKey struct {
 	public kyber.Point
 }
 
-//TODO: encode the VerKey into these bytes
 func BytesToSignKey(keyBytes []byte) *SignKey {
 	scalar := suite.G2().Scalar()
 	err := scalar.UnmarshalBinary(keyBytes)
@@ -129,7 +128,8 @@ func VerifyMultiSig(sig, msg []byte, verKeys [][]byte) (bool, error) {
 		}
 		points[i] = p
 	}
-	err := dedisbls.VerifyMultiSignature(suite, points, msg, sig)
+	aggregatedPublic := dedisbls.AggregatePublicKeys(suite, points...)
+	err := dedisbls.Verify(suite, aggregatedPublic, msg, sig)
 	if err != nil {
 		return false, nil
 	}
