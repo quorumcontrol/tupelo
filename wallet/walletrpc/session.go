@@ -143,7 +143,6 @@ func (rpcs *RPCSession) Start(passPhrase string) error {
 func (rpcs *RPCSession) Stop() {
 	if !rpcs.IsStopped() {
 		rpcs.wallet.Close()
-		rpcs.client.Stop()
 		rpcs.isStarted = false
 	}
 }
