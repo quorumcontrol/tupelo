@@ -191,7 +191,8 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
 	require.Nil(t, err)
-	chainMap, err := nodestore.CborNodeToObj(chainNode)
+	chainData, err := nodestore.CborNodeToObj(chainNode)
+	chainMap := chainData.(map[string]interface{})
 	require.Nil(t, err)
 
 	sw := &safewrap.SafeWrap{}

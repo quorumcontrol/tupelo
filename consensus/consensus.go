@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/qc3/bls"
@@ -236,7 +235,6 @@ func IsBlockSignedBy(blockWithHeaders *chaintree.BlockWithHeaders, addr string) 
 
 	switch sig.Type {
 	case KeyTypeSecp256k1:
-		log.Debug("sig to pub")
 		ecdsaPubKey, err := crypto.SigToPub(hsh, sig.Signature)
 		if err != nil {
 			return false, fmt.Errorf("error getting public key: %v", err)
@@ -244,8 +242,6 @@ func IsBlockSignedBy(blockWithHeaders *chaintree.BlockWithHeaders, addr string) 
 		if crypto.PubkeyToAddress(*ecdsaPubKey).String() != addr {
 			return false, fmt.Errorf("unsigned by genesis address %s != %s", crypto.PubkeyToAddress(*ecdsaPubKey).Hex(), addr)
 		}
-
-		log.Debug("testing signature")
 		return crypto.VerifySignature(crypto.FromECDSAPub(ecdsaPubKey), hsh, sig.Signature[:len(sig.Signature)-1]), nil
 	}
 

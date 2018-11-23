@@ -22,7 +22,6 @@ func init() {
 const MessageType_AddBlock = "ADD_BLOCK"
 const MessageType_Feedback = "FEEDBACK"
 const MessageType_TipRequest = "TIP_REQUEST"
-const MessageType_StateChange = "STATE_CHANGE"
 const MessageType_GetDiffNodes = "GET_DIFF_NODES"
 
 type Wallet interface {

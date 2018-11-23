@@ -15,7 +15,7 @@ fi
 if ! [ "$(uname)" == "Darwin" ]; then
   echo "detected non mac os, skipping mac build"
 else
-  go build -o release/qc3-${version}-darwin-amd64 .
+  go build -o release/qc3-${version}-darwin-amd64 -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
 fi
 
 if ! [ -x "$(command -v docker)" ]; then

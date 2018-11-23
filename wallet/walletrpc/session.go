@@ -8,20 +8,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
-	"github.com/ipfs/go-ipld-cbor"
-
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossipclient"
+	"github.com/quorumcontrol/qc3/gossip2client"
 	"github.com/quorumcontrol/qc3/wallet"
 )
 
 type RPCSession struct {
-	client    *gossipclient.GossipClient
+	client    *gossip2client.GossipClient
 	wallet    *wallet.FileWallet
 	isStarted bool
 }
@@ -54,11 +53,10 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func NewSession(walletName string, group *consensus.NotaryGroup) (*RPCSession, error) {
+func NewSession(walletName string, group *consensus.NotaryGroup, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
 	path := walletPath(walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
-	gossipClient := gossipclient.NewGossipClient(group)
 
 	return &RPCSession{
 		client:    gossipClient,
@@ -137,8 +135,6 @@ func (rpcs *RPCSession) Start(passPhrase string) error {
 		if unlockErr != nil {
 			return unlockErr
 		}
-
-		rpcs.client.Start()
 		rpcs.isStarted = true
 	}
 	return nil
@@ -147,7 +143,6 @@ func (rpcs *RPCSession) Start(passPhrase string) error {
 func (rpcs *RPCSession) Stop() {
 	if !rpcs.IsStopped() {
 		rpcs.wallet.Close()
-		rpcs.client.Stop()
 		rpcs.isStarted = false
 	}
 }
@@ -298,15 +293,19 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 		return nil, err
 	}
 
-	tip := tipResp.Tip
-	if tip == nil {
+	if len(tipResp.Tip) == 0 {
 		return nil, &NilTipError{
 			chainId:     id,
 			notaryGroup: rpcs.client.Group,
 		}
 	}
 
-	return tip, nil
+	tip, err := cid.Cast(tipResp.Tip)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tip, nil
 }
 
 func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {

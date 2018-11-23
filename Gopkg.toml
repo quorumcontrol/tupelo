@@ -43,8 +43,17 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  version = "v1.0.0-rc1"
+  version = "v1.0.0"
+
+[[constraint]]
+  name = "github.com/quorumcontrol/differencedigest"
+  version = "v0.0.2"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
   version = "1.6.2"
+
+[[constraint]]
+  name = "github.com/dedis/kyber"
+  source = "https://github.com/QuorumControl/kyber.git"
+  revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
