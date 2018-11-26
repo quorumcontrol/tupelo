@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/stretchr/testify/require"
 )
 

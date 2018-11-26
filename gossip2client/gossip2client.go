@@ -15,9 +15,9 @@ import (
 	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossip2"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/gossip2"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/tinylib/msgp/msgp"
 )
 

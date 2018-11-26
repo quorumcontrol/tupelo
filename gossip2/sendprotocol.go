@@ -8,7 +8,7 @@ import (
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/tinylib/msgp/msgp"
 )
 

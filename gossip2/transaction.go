@@ -2,7 +2,7 @@ package gossip2
 
 import (
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/tupelo/bls"
 )
 
 func (t *Transaction) ToConflictSet() *ConflictSet {

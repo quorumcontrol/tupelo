@@ -11,7 +11,7 @@ import (
 	"github.com/btcsuite/btcd/btcec"
 	crypto "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/tupelo/p2p"
 )
 
 const ProtocolID = "tupelo/0.1"

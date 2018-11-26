@@ -615,7 +615,7 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:38c9bb0ee8326a404427910ba8eb82bb9ad95a116c04e2948a8a056a88747dda"
+  digest = "1:22a518615676e6c926c11e376d1c0b917900987949c9bbc8e9c9729a528bc6d6"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -625,8 +625,8 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "42c075173a07a59fbfde972e19dabce1723db8b4"
-  version = "v1.0.0"
+  revision = "d6ff484253054192bee14fb8f8ca6cd215c4d9db"
+  version = "v1.0.1"
 
 [[projects]]
   digest = "1:befcb1d98850f051869db42d12ae1ec72bb1cb7cd605ada8aa4ea3f84981bd8a"
@@ -648,11 +648,12 @@
   revision = "3f797c8b12b141e1e252cc202f43c27fce58ec9e"
 
 [[projects]]
-  digest = "1:a952ea4a35d5d306e4becd50d956241d37020a1f4ddecb3c6ba41219f17d0432"
+  digest = "1:e6c6e4a90752f647c54c4d09d4cf9df0f9af97a0acf45221b9d9ca224d95e333"
   name = "github.com/quorumcontrol/storage"
   packages = ["."]
   pruneopts = ""
-  revision = "64192a5e84b28206ee33c6502170d68edeb32c67"
+  revision = "ef2e4b7fe9df1595d34838f830d9798da33392be"
+  version = "v0.0.1"
 
 [[projects]]
   digest = "1:633b5b39909d9d794f5543baee4971890e1866f5c082cdf4694954c1ff489a18"

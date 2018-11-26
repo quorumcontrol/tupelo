@@ -8,9 +8,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/bls"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/tupelo/bls"
+	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/spf13/cobra"
 )
 

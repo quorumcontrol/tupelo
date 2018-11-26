@@ -4,5 +4,5 @@ vendor
 .tmp/*
 !.tmp/.gitkeep
 _old
-/qc3
+/tupelo
 /release/

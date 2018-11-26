@@ -9,9 +9,9 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossip2client"
-	"github.com/quorumcontrol/qc3/wallet/walletrpc"
+	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 
 func confirmPassword(c *ishell.Context) (string, error) {

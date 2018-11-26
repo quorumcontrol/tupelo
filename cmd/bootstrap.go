@@ -8,8 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/p2p"
+	"github.com/quorumcontrol/tupelo/network"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/spf13/cobra"
 )
 

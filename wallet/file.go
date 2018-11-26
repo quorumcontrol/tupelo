@@ -14,7 +14,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/storage"
 )
 

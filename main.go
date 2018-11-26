@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/quorumcontrol/qc3/cmd"
+	"github.com/quorumcontrol/tupelo/cmd"
 )
 
 func main() {

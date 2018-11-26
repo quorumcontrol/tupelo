@@ -1,34 +1,34 @@
 version: "3"
 services:
   node0:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
+    image: tupelo:latest
+    command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
-      - node0:/var/lib/qc3
+      - node0:/var/lib/tupelo
       - ./bootstrap-keys.json:/bootstrap-keys.json
     environment:
       NODE_BLS_KEY_HEX: $NODE_0_BLS_KEY_HEX
       NODE_ECDSA_KEY_HEX: $NODE_0_ECDSA_KEY_HEX
   node1:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
+    image: tupelo:latest
+    command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
-      - node1:/var/lib/qc3
+      - node1:/var/lib/tupelo
       - ./bootstrap-keys.json:/bootstrap-keys.json
     environment:
       NODE_BLS_KEY_HEX: $NODE_1_BLS_KEY_HEX
       NODE_ECDSA_KEY_HEX: $NODE_1_ECDSA_KEY_HEX
   node2:
-    image: qc3:latest
-    command: ["/usr/bin/qc3", "test-node", "-k", "/bootstrap-keys.json"]
+    image: tupelo:latest
+    command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     volumes:
-      - node2:/var/lib/qc3
+      - node2:/var/lib/tupelo
       - ./bootstrap-keys.json:/bootstrap-keys.json
     environment:
       NODE_BLS_KEY_HEX: $NODE_2_BLS_KEY_HEX
       NODE_ECDSA_KEY_HEX: $NODE_2_ECDSA_KEY_HEX
   whisper:
-    image: qc3:latest
+    image: tupelo:latest
     command:
       - "/usr/bin/wnode"
       - "-standalone"

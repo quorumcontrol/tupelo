@@ -15,14 +15,14 @@ fi
 if ! [ "$(uname)" == "Darwin" ]; then
   echo "detected non mac os, skipping mac build"
 else
-  go build -o release/qc3-${version}-darwin-amd64 -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
+  go build -o release/tupelo-${version}-darwin-amd64 -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
 fi
 
 if ! [ -x "$(command -v docker)" ]; then
   echo "docker is not installed, skipping linux build"
 else
   container_id=$(docker run -d --entrypoint=tail $(docker build -q .) -f /dev/null)
-  docker cp ${container_id}:/usr/bin/qc3 release/qc3-${version}-linux-amd64
+  docker cp ${container_id}:/usr/bin/tupelo release/tupelo-${version}-linux-amd64
   docker rm -fv ${container_id}
 fi
 

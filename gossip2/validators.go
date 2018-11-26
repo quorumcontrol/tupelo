@@ -7,7 +7,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/typecaster"
-	"github.com/quorumcontrol/qc3/consensus"
+	"github.com/quorumcontrol/tupelo/consensus"
 )
 
 func isOwner(tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
