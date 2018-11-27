@@ -1,0 +1,19 @@
+version: 0.2
+
+env:
+  parameter-store:
+    SSH_KEY: "/codebuild/qc-build-bot-rsa"
+
+phases:
+  install:
+    commands:
+      - mkdir -p ~/.ssh
+      - echo "$SSH_KEY\n" > ~/.ssh/id_rsa
+      - chmod 600 ~/.ssh/id_rsa
+      - eval `ssh-agent`
+      - ssh-add ~/.ssh/id_rsa
+      - bin/install-dep.sh
+      - /go/bin/dep ensure
+  build:
+    commands:
+      - go test ./... -tags=integration
