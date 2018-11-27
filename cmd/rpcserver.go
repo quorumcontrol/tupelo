@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/quorumcontrol/qc3/gossip2"
-	"github.com/quorumcontrol/qc3/gossip2client"
-	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/p2p"
-	"github.com/quorumcontrol/qc3/wallet/walletrpc"
+	"github.com/quorumcontrol/tupelo/gossip2"
+	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/network"
+	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )

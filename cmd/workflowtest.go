@@ -8,10 +8,10 @@ import (
 
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/qc3/consensus"
-	"github.com/quorumcontrol/qc3/gossip2client"
-	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/wallet"
+	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/network"
+	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )

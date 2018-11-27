@@ -16,7 +16,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/typecaster"
-	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/tupelo/bls"
 )
 
 func init() {

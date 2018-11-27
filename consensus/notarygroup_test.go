@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/qc3/bls"
+	"github.com/quorumcontrol/tupelo/bls"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

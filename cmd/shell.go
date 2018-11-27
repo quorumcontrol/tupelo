@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 
-	"github.com/quorumcontrol/qc3/gossip2client"
-	"github.com/quorumcontrol/qc3/network"
-	"github.com/quorumcontrol/qc3/wallet/walletshell"
+	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/network"
+	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )

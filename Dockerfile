@@ -1,16 +1,16 @@
 FROM golang:1.10.1 AS build
 
-WORKDIR /go/src/github.com/quorumcontrol/qc3
+WORKDIR /go/src/github.com/quorumcontrol/tupelo
 
 COPY . .
 
 RUN go install -v -a -ldflags '-extldflags "-static"' -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH
 
 FROM debian:stretch-slim
-RUN mkdir -p /var/lib/qc3
+RUN mkdir -p /var/lib/tupelo
 
-WORKDIR /var/lib/qc3
+WORKDIR /var/lib/tupelo
 
-COPY --from=build /go/bin/qc3 /usr/bin/qc3
+COPY --from=build /go/bin/tupelo /usr/bin/tupelo
 
 CMD ["bash"]
