@@ -549,12 +549,12 @@ func TestSubscription(t *testing.T) {
 
 	subscriptionReq := &ChainTreeSubscriptionRequest{ObjectID: transaction.ObjectID}
 	msg, err := subscriptionReq.MarshalMsg(nil)
-	client, err := p2p.NewHost(context.Background(), key, 0)
+	client, err := p2p.NewHost(ctx, key, 0)
 	client.Bootstrap(bootstrapAddresses(bootstrap))
 	require.Nil(t, err)
 
-	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	ctx, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel2()
 	stream, err := client.NewStream(ctx, &gossipNodes[0].Key.PublicKey, ChainTreeChangeProtocol)
 	require.Nil(t, err)
 	defer stream.Close()
