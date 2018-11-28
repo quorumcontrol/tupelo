@@ -98,7 +98,7 @@
   ]
   pruneopts = ""
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
-  source = "https://github.com/QuorumControl/kyber.git"
+  source = "https://github.com/quorumcontrol/kyber.git"
 
 [[projects]]
   digest = "1:81d49e94365e7f1ed77edddf9a5482ab4ced461dab56fbf8fc2834da6c295de5"
