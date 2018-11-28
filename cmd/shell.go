@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 
-	"github.com/quorumcontrol/tupelo/gossip2client"
-	"github.com/quorumcontrol/tupelo/network"
-	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +18,7 @@ var shellCmd = &cobra.Command{
 	Short: "Launch a Tupelo wallet shell connected to a local or remote signer network.",
 	Long:  `Do not use this for anything real as it will use hard coded signing keys for the nodes`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var bootstrapAddrs []string = network.BootstrapNodes()
+		var bootstrapAddrs []string = p2p.BootstrapNodes()
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
