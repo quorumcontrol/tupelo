@@ -61,6 +61,9 @@ func TestSend(t *testing.T) {
 	})
 
 	client := NewGossipClient(nil, bootstrapAddresses(target))
+	// Give the bootstrap 0.01 seconds to get the bootstrap actually figured out
+	time.Sleep(100 * time.Millisecond)
+
 	err = client.Send(&sessionKey.PublicKey, protocolToTest, bytesToTest, 30)
 	require.Nil(t, err)
 
@@ -143,6 +146,9 @@ func TestSubscribe(t *testing.T) {
 	}
 
 	client := NewGossipClient(nil, bootstrapAddresses(bootstrap))
+
+	// Give the bootstrap 0.01 seconds to get the bootstrap actually figured out
+	time.Sleep(100 * time.Millisecond)
 
 	stateCh, err := client.Subscribe(&ts.EcdsaKeys[0].PublicKey, treeDID, 5*time.Second)
 	require.Nil(t, err)
