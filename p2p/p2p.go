@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	gonet "net"
 	"time"
 
 	ds "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore"
@@ -34,13 +33,6 @@ type Host struct {
 	routing   *dht.IpfsDHT
 	publicKey *ecdsa.PublicKey
 	Reporter  metrics.Reporter
-}
-
-// GetRandomUnusedPort returns a random unused port
-func GetRandomUnusedPort() int {
-	listener, _ := gonet.Listen("tcp", ":0")
-	defer listener.Close()
-	return listener.Addr().(*gonet.TCPAddr).Port
 }
 
 func p2pPrivateFromEcdsaPrivate(key *ecdsa.PrivateKey) (libp2pcrypto.PrivKey, error) {

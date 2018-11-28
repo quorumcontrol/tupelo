@@ -17,7 +17,7 @@ func NewTestHost(ctx context.Context, t *testing.T) *Host {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	host, err := NewHost(ctx, key, GetRandomUnusedPort())
+	host, err := NewHost(ctx, key, 0)
 
 	require.Nil(t, err)
 	require.NotNil(t, host)

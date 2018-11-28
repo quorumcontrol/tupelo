@@ -155,10 +155,6 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	os.MkdirAll(".storage", 0700)
 	badgerStorage := gossip2.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
 
-	if port == 0 {
-		port = p2p.GetRandomUnusedPort()
-	}
-
 	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, port)
 	if err != nil {
 		panic("error setting up p2p host")
@@ -191,5 +187,5 @@ func stopOnSignal(signers ...*gossip2.GossipNode) {
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
 	testnodeCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
-	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", p2p.GetRandomUnusedPort(), "what port will the node listen on")
+	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
 }

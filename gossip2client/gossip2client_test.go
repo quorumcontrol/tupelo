@@ -47,7 +47,7 @@ func TestSend(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	target, err := p2p.NewHost(ctx, sessionKey, p2p.GetRandomUnusedPort())
+	target, err := p2p.NewHost(ctx, sessionKey, 0)
 
 	protocolToTest := protocol.ID("tupelo-test/v1")
 	bytesToTest := []byte("thesearebytestotest")
@@ -81,7 +81,7 @@ func TestSubscribe(t *testing.T) {
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		path := testStoragePath + "badger/" + strconv.Itoa(i)
@@ -173,7 +173,7 @@ func TestPlayTransactionAndTip(t *testing.T) {
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		path := testStoragePath + "badger/" + strconv.Itoa(i)
