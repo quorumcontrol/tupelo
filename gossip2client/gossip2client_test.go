@@ -16,12 +16,12 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip2"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
-	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -192,6 +192,9 @@ func TestPlayTransactionAndTip(t *testing.T) {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	chain, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
 	client := NewGossipClient(group, bootstrapAddresses(bootstrap))
+
+	// Give the bootstrap 0.01 seconds to get the bootstrap actually figured out
+	time.Sleep(100 * time.Millisecond)
 
 	var remoteTip string
 	if !chain.IsGenesis() {
