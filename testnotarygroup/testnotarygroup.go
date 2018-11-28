@@ -33,7 +33,7 @@ func NewBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
+	host, err := p2p.NewHost(ctx, key, 0)
 
 	require.Nil(t, err)
 	require.NotNil(t, host)

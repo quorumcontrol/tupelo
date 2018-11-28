@@ -36,7 +36,7 @@ func NewGossipClient(group *consensus.NotaryGroup, boostrapNodes []string) *Goss
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	host, err := p2p.NewHost(ctx, sessionKey, p2p.GetRandomUnusedPort())
+	host, err := p2p.NewHost(ctx, sessionKey, 0)
 	host.Bootstrap(boostrapNodes)
 
 	return &GossipClient{

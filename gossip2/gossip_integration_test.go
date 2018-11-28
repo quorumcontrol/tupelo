@@ -19,11 +19,11 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
-	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tinylib/msgp/msgp"
@@ -33,7 +33,7 @@ func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	host, err := p2p.NewHost(ctx, key, p2p.GetRandomUnusedPort())
+	host, err := p2p.NewHost(ctx, key, 0)
 
 	require.Nil(t, err)
 	require.NotNil(t, host)
@@ -173,7 +173,7 @@ func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*GossipN
 	pathsToCleanup := make([]string, groupSize, groupSize)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		path := testStoragePath + "badger/" + strconv.Itoa(i)
@@ -318,7 +318,7 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 	gossipNodes := make([]*GossipNode, groupSize)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		path := testStoragePath + "badger/" + strconv.Itoa(i)
@@ -477,7 +477,7 @@ func TestSubscription(t *testing.T) {
 	gossipNodes := make([]*GossipNode, groupSize)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], p2p.GetRandomUnusedPort())
+		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		path := testStoragePath + "badger/" + strconv.Itoa(i)
@@ -549,7 +549,7 @@ func TestSubscription(t *testing.T) {
 
 	subscriptionReq := &ChainTreeSubscriptionRequest{ObjectID: transaction.ObjectID}
 	msg, err := subscriptionReq.MarshalMsg(nil)
-	client, err := p2p.NewHost(context.Background(), key, p2p.GetRandomUnusedPort())
+	client, err := p2p.NewHost(context.Background(), key, 0)
 	client.Bootstrap(bootstrapAddresses(bootstrap))
 	require.Nil(t, err)
 
@@ -588,7 +588,7 @@ func TestNodeRestartMaintainsIBF(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], p2p.GetRandomUnusedPort())
+	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], 0)
 	require.Nil(t, err)
 	path := testStoragePath + "badger/node1"
 	os.RemoveAll(path)
