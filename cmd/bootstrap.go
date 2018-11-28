@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo/network"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +32,7 @@ var bootstrapNodeCmd = &cobra.Command{
 		}
 
 		bootstrapWithoutSelf := []string{}
-		for _, nodeAddr := range network.BootstrapNodes() {
+		for _, nodeAddr := range p2p.BootstrapNodes() {
 			anAddr := host.Addresses()[0].String()
 			keySlice := strings.Split(anAddr, "/")
 			key := keySlice[len(keySlice)-1]

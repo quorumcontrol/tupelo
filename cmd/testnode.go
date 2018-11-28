@@ -32,12 +32,11 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip2"
-	"github.com/quorumcontrol/tupelo/network"
 	"github.com/quorumcontrol/tupelo/p2p"
-	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -124,7 +123,7 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, testnodePort)
-		signer.Host.Bootstrap(network.BootstrapNodes())
+		signer.Host.Bootstrap(p2p.BootstrapNodes())
 		go signer.Start()
 		stopOnSignal(signer)
 	},

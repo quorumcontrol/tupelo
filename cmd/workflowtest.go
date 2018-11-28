@@ -8,11 +8,11 @@ import (
 
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip2client"
-	"github.com/quorumcontrol/tupelo/network"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/quorumcontrol/tupelo/wallet"
-	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +32,7 @@ func smokeTestNetwork() (bool, string) {
 
 	wallet := wallet.NewFileWallet(file.Name())
 	wallet.CreateIfNotExists("thisisaninsecuretestnetwallet")
-	client := gossip2client.NewGossipClient(group, network.BootstrapNodes())
+	client := gossip2client.NewGossipClient(group, p2p.BootstrapNodes())
 
 	key, err := wallet.GenerateKey()
 	if err != nil {

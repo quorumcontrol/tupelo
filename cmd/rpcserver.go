@@ -6,12 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip2"
 	"github.com/quorumcontrol/tupelo/gossip2client"
-	"github.com/quorumcontrol/tupelo/network"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
-	"github.com/quorumcontrol/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -99,7 +98,7 @@ var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
-		bootstrapAddrs := network.BootstrapNodes()
+		bootstrapAddrs := p2p.BootstrapNodes()
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()

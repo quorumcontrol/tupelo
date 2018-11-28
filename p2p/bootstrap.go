@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,7 +30,21 @@ var (
 	LocalBootstrap = []string{
 		"/ip4/127.0.0.1/tcp/10000/ipfs/16Uiu2HAmTfa6xM13GKVrx6J6WkXxV26CmifQyJVwJZTDHSmMgBu3",
 	}
+	defaultBootstrapNodes = []string{
+		"/ip4/18.196.112.81/tcp/34001/ipfs/16Uiu2HAmJXuoQMRqg4bShcBTczUMn8zMyCvXAPuefCtqZb21iih8",
+		"/ip4/34.231.17.217/tcp/34001/ipfs/16Uiu2HAmLos2gmQLkVkiYF3JJBDW2WqZxCHoMb2fLmo77a2tqExF",
+	}
 )
+
+// BootstrapNodes returns a slice of comma-saparated values from environment variable TUPELO_BOOTSTRAP_NODES
+// or the default bootstrapNodes if the environment variable is not set.
+func BootstrapNodes() []string {
+	if envSpecifiedNodes, ok := os.LookupEnv("TUPELO_BOOTSTRAP_NODES"); ok {
+		return strings.Split(envSpecifiedNodes, ",")
+	}
+
+	return defaultBootstrapNodes
+}
 
 func convertPeers(peers []string) []pstore.PeerInfo {
 	pinfos := make([]pstore.PeerInfo, len(peers))
