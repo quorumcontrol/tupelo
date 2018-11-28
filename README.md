@@ -1,3 +1,5 @@
+![build status](https://codebuild.eu-central-1.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiNzNEYm4vWFlsRmQrdHNWajZjNW1aVEZTZWVUNkVodXFxbmJQdEJ6N2RZVVZhY2lKbXFyWEV6azBvTGpWRXRNempRbUxCYWJjL0g5S29RVG1kTDVrK3NzPSIsIml2UGFyYW1ldGVyU3BlYyI6Ii9KOTZXT2xFdk90SlJnTE0iLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=master)
+
 ## Dependencies
 
 * [dep](https://github.com/golang/dep) installed (go dependency tool).

@@ -55,5 +55,5 @@
 
 [[constraint]]
   name = "github.com/dedis/kyber"
-  source = "https://github.com/QuorumControl/kyber.git"
+  source = "https://github.com/quorumcontrol/kyber.git"
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
