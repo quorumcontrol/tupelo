@@ -1,12 +1,5 @@
 version: "3"
 services:
-  test:
-    image: aws/go:1.10
-    command: ["/usr/local/go/bin/go", "test", "./..."]
-    volumes:
-      - .:/go/src/github.com/quorumcontrol/qc3
-    working_dir: /go/src/github.com/quorumcontrol/qc3
-
   bootstrap:
     build: .
     volumes:
