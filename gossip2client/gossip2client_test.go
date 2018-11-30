@@ -3,8 +3,6 @@ package gossip2client
 import (
 	"context"
 	"io/ioutil"
-	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -87,11 +85,7 @@ func TestSubscribe(t *testing.T) {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
-		path := testStoragePath + "badger/" + strconv.Itoa(i)
-		os.RemoveAll(path)
-		os.MkdirAll(path, 0755)
-		defer os.RemoveAll(path)
-		storage := gossip2.NewBadgerStorage(path)
+		storage := storage.NewMemStorage()
 		gossipNodes[i] = gossip2.NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
 		go gossipNodes[i].Start()
@@ -182,11 +176,7 @@ func TestPlayTransactionAndTip(t *testing.T) {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
-		path := testStoragePath + "badger/" + strconv.Itoa(i)
-		os.RemoveAll(path)
-		os.MkdirAll(path, 0755)
-		defer os.RemoveAll(path)
-		storage := gossip2.NewBadgerStorage(path)
+		storage := storage.NewMemStorage()
 		gossipNodes[i] = gossip2.NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
 		go gossipNodes[i].Start()
