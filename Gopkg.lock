@@ -52,14 +52,6 @@
   revision = "f6d7a1f6fbf35bbf9beb80dc63c56a29dcfb759f"
 
 [[projects]]
-  digest = "1:6150d0a72956eb2e50226e13ce59ef2a9636c0e8e1ac900d72f9b2097121cdf9"
-  name = "github.com/coreos/bbolt"
-  packages = ["."]
-  pruneopts = ""
-  revision = "583e8937c61f1af6513608ccc75c97b6abdf4ff9"
-  version = "v1.3.0"
-
-[[projects]]
   digest = "1:3c3f68ebab415344aef64363d23471e953a4715645115604aaf57923ae904f5e"
   name = "github.com/coreos/go-semver"
   packages = ["semver"]
@@ -615,7 +607,7 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  digest = "1:22a518615676e6c926c11e376d1c0b917900987949c9bbc8e9c9729a528bc6d6"
+  digest = "1:743a09785319b876f13423bc7ebfd2dc451fde5370ccf7cf57c19875b5276edb"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -625,8 +617,9 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "d6ff484253054192bee14fb8f8ca6cd215c4d9db"
-  version = "v1.0.1"
+  revision = "8f5b497f39f6dc9276d622ecb81a376a4aee24a3"
+  source = "git@github.com:quorumcontrol/chaintree.git"
+  version = "v2.0.0"
 
 [[projects]]
   digest = "1:befcb1d98850f051869db42d12ae1ec72bb1cb7cd605ada8aa4ea3f84981bd8a"
@@ -648,12 +641,13 @@
   revision = "3f797c8b12b141e1e252cc202f43c27fce58ec9e"
 
 [[projects]]
-  digest = "1:e6c6e4a90752f647c54c4d09d4cf9df0f9af97a0acf45221b9d9ca224d95e333"
+  digest = "1:44d999242a447d7c1fbb276bfb7c02e95cc93e7c51d2ac7416af03f8500dc233"
   name = "github.com/quorumcontrol/storage"
   packages = ["."]
   pruneopts = ""
-  revision = "ef2e4b7fe9df1595d34838f830d9798da33392be"
-  version = "v0.0.1"
+  revision = "02ffa9bf3a02b122b2f7970c34d2e62a4e49bb3d"
+  source = "git@github.com:quorumcontrol/storage.git"
+  version = "v1.0.1"
 
 [[projects]]
   digest = "1:633b5b39909d9d794f5543baee4971890e1866f5c082cdf4694954c1ff489a18"
@@ -892,7 +886,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/abiosoft/ishell",
-    "github.com/btcsuite/btcd/btcec",
     "github.com/btcsuite/btcutil/base58",
     "github.com/dedis/kyber",
     "github.com/dedis/kyber/pairing/bn256",
@@ -905,7 +898,6 @@
     "github.com/ethereum/go-ethereum/log",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
-    "github.com/google/uuid",
     "github.com/gorilla/mux",
     "github.com/hashicorp/golang-lru",
     "github.com/ipfs/go-block-format",
