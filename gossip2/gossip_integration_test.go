@@ -231,7 +231,7 @@ func TestGossip(t *testing.T) {
 	}
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
-	assert.True(t, stop.Sub(start) < 30*time.Second)
+	assert.True(t, stop.Sub(start) < 60*time.Second)
 
 	for i := 0; i < 1; i++ {
 		exists, err := gossipNodes[i].Storage.Exists(transaction1.ToConflictSet().DoneID())
