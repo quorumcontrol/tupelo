@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/storage"
 )
 
 var doneBytes = []byte("done")
@@ -28,7 +29,7 @@ func (c *ConflictSet) DoneID() []byte {
 func conflictSetIDFromMessageKey(key []byte) []byte {
 	return key[len(key)-32:]
 }
-func isDone(storage *BadgerStorage, conflictSetID []byte) (bool, error) {
+func isDone(storage storage.Storage, conflictSetID []byte) (bool, error) {
 	doneID := doneIDFromConflictSetID(conflictSetID)
 	doneIDPrefix := doneID[0:8]
 

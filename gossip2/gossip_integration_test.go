@@ -6,8 +6,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/rand"
-	"os"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -170,27 +168,14 @@ func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*GossipN
 	group := testnotarygroup.GroupFromTestSet(t, ts)
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
-	pathsToCleanup := make([]string, groupSize, groupSize)
-
 	for i := 0; i < groupSize; i++ {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
-		path := testStoragePath + "badger/" + strconv.Itoa(i)
-		os.RemoveAll(path)
-		os.MkdirAll(path, 0755)
-		pathsToCleanup[i] = path
-		storage := NewBadgerStorage(path)
+		storage := storage.NewMemStorage()
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
 	}
-
-	go func(ctx context.Context, pathsToCleanup []string) {
-		<-ctx.Done()
-		for _, path := range pathsToCleanup {
-			os.RemoveAll(path)
-		}
-	}(ctx, pathsToCleanup)
 
 	return gossipNodes
 }
@@ -321,13 +306,7 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
-		path := testStoragePath + "badger/" + strconv.Itoa(i)
-		os.RemoveAll(path)
-		os.MkdirAll(path, 0755)
-		defer func() {
-			os.RemoveAll(path)
-		}()
-		storage := NewBadgerStorage(path)
+		storage := storage.NewMemStorage()
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
 	}
@@ -480,13 +459,7 @@ func TestSubscription(t *testing.T) {
 		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
-		path := testStoragePath + "badger/" + strconv.Itoa(i)
-		os.RemoveAll(path)
-		os.MkdirAll(path, 0755)
-		defer func() {
-			os.RemoveAll(path)
-		}()
-		storage := NewBadgerStorage(path)
+		storage := storage.NewMemStorage()
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
 		defer gossipNodes[i].Stop()
@@ -590,11 +563,7 @@ func TestNodeRestartMaintainsIBF(t *testing.T) {
 
 	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], 0)
 	require.Nil(t, err)
-	path := testStoragePath + "badger/node1"
-	os.RemoveAll(path)
-	os.MkdirAll(path, 0755)
-	defer os.RemoveAll(path)
-	storage := NewBadgerStorage(path)
+	storage := storage.NewMemStorage()
 	node1 := NewGossipNode(ts.EcdsaKeys[0], ts.SignKeys[0], host, storage)
 	node1.Add((&Signature{}).StoredID(randBytes(20)), randBytes(20))
 	node1.Add((&Transaction{}).StoredID(), randBytes(20))

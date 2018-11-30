@@ -15,6 +15,7 @@ import (
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/differencedigest/ibf"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
@@ -58,7 +59,7 @@ type GossipNode struct {
 	address          string
 	id               string
 	Host             *p2p.Host
-	Storage          *BadgerStorage
+	Storage          storage.Storage
 	Strata           *ibf.DifferenceStrata
 	Group            *consensus.NotaryGroup
 	IBFs             IBFMap
@@ -75,7 +76,7 @@ type GossipNode struct {
 
 const NumberOfSyncWorkers = 3
 
-func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Host, storage *BadgerStorage) *GossipNode {
+func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Host, storage storage.Storage) *GossipNode {
 	node := &GossipNode{
 		Key:     dstKey,
 		SignKey: signKey,
