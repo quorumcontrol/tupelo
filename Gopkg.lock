@@ -891,7 +891,6 @@
     "github.com/dedis/kyber/pairing/bn256",
     "github.com/dedis/kyber/sign/bls",
     "github.com/dedis/kyber/util/random",
-    "github.com/dgraph-io/badger",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/crypto",
