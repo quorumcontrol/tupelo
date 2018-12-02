@@ -5,23 +5,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/quorumcontrol/chaintree/nodestore"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/consensus"
 )
-
-var chainBucket = []byte("chains")
-var signaturesBucket = []byte("signatures")
-var keyBucket = []byte("keys")
-var nodeBucket = []byte("nodes")
 
 type UnlockInexistentWalletError struct {
 	path string
@@ -43,9 +37,9 @@ func (e *CreateExistingWalletError) Error() string {
 var _ consensus.Wallet = (*FileWallet)(nil)
 
 type FileWallet struct {
-	path        string
-	boltStorage storage.EncryptedStorage
-	nodeStore   nodestore.NodeStore
+	path           string
+	encryptedStore storage.EncryptedStorage
+	nodeStore      nodestore.NodeStore
 }
 
 // isExists checks if the wallet specified by `path` already exists.
@@ -64,14 +58,14 @@ func NewFileWallet(path string) *FileWallet {
 // CreateIfNotExists creates a new wallet at the path specified by `fw` if one
 // hasn't already been created at that path.
 func (fw *FileWallet) CreateIfNotExists(passphrase string) {
-	boltStorage := storage.NewEncryptedBoltStorage(fw.path)
-	boltStorage.Unlock(passphrase)
-	boltStorage.CreateBucketIfNotExists(chainBucket)
-	boltStorage.CreateBucketIfNotExists(keyBucket)
-	boltStorage.CreateBucketIfNotExists(nodeBucket)
-	boltStorage.CreateBucketIfNotExists(signaturesBucket)
+	store, err := storage.NewBadgerStorage(fw.path)
+	if err != nil {
+		panic(fmt.Sprintf("error creating badger store: %v", err))
+	}
+	encryptedStore := storage.NewEncryptedStore(store)
+	encryptedStore.Unlock(passphrase)
 
-	fw.boltStorage = boltStorage
+	fw.encryptedStore = encryptedStore
 }
 
 // Create creates a new wallet at the path specified by `fw`. It returns an
@@ -98,31 +92,28 @@ func (fw *FileWallet) Unlock(passphrase string) error {
 		}
 	}
 
-	boltStorage := storage.NewEncryptedBoltStorage(fw.path)
-	boltStorage.Unlock(passphrase)
-
-	fw.boltStorage = boltStorage
+	fw.CreateIfNotExists(passphrase)
 
 	return nil
 }
 
 func (fw *FileWallet) Close() {
-	if fw.boltStorage != nil {
-		fw.boltStorage.Close()
+	if fw.encryptedStore != nil {
+		fw.encryptedStore.Close()
 	}
 }
 
 // NodeStore returns a NodeStore based on the underlying storage system of the wallet
 func (fw *FileWallet) NodeStore() nodestore.NodeStore {
 	if fw.nodeStore == nil { //TODO: thread safety
-		fw.nodeStore = nodestore.NewStorageBasedStore(fw.boltStorage)
+		fw.nodeStore = nodestore.NewStorageBasedStore(fw.encryptedStore)
 	}
 	return fw.nodeStore
 }
 
 func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
 	nodes := make([]*cbornode.Node, 1)
-	nodeBytes, err := fw.boltStorage.Get(nodeBucket, objCid)
+	nodeBytes, err := fw.encryptedStore.Get(objCid)
 	if err != nil {
 		return nil, fmt.Errorf("error getting nodes: %v", err)
 	}
@@ -151,7 +142,7 @@ func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
 }
 
 func (fw *FileWallet) GetTip(chainId string) ([]byte, error) {
-	tip, err := fw.boltStorage.Get(chainBucket, []byte(chainId))
+	tip, err := fw.encryptedStore.Get(chainIdWithPrefix([]byte(chainId)))
 	if err != nil {
 		return nil, fmt.Errorf("error getting tip for chain id %v: %v", chainId, err)
 	}
@@ -165,7 +156,7 @@ func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
 		return nil, fmt.Errorf("error getting chain: %v", err)
 	}
 
-	signatures, err := fw.boltStorage.Get(signaturesBucket, []byte(id+"_signatures"))
+	signatures, err := fw.encryptedStore.Get([]byte(id + "_signatures"))
 	if err != nil {
 		return nil, fmt.Errorf("error getting signatures: %v", err)
 	}
@@ -210,7 +201,7 @@ func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error getting nodes: %v", err)
 	}
 	for _, node := range nodes {
-		fw.boltStorage.Set(nodeBucket, node.Cid().Bytes(), node.RawData())
+		fw.encryptedStore.Set(node.Cid().Bytes(), node.RawData())
 	}
 
 	sw := &safewrap.SafeWrap{}
@@ -224,28 +215,28 @@ func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error getting signedChain id: %v", err)
 	}
 
-	fw.boltStorage.Set(signaturesBucket, []byte(id+"_signatures"), signatureNode.RawData())
-	fw.boltStorage.Set(chainBucket, []byte(id), signedChain.ChainTree.Dag.Tip.Bytes())
+	fw.encryptedStore.Set([]byte(id+"_signatures"), signatureNode.RawData())
+	fw.encryptedStore.Set(chainIdWithPrefix([]byte(id)), signedChain.ChainTree.Dag.Tip.Bytes())
 
 	return nil
 }
 
 func (fw *FileWallet) GetChainIds() ([]string, error) {
-	chainIds, err := fw.boltStorage.GetKeys(chainBucket)
+	chainIds, err := fw.encryptedStore.GetKeysByPrefix(chainPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("error getting saved chain tree ids; %v", err)
 	}
 
 	stringIds := make([]string, len(chainIds))
 	for i, k := range chainIds {
-		stringIds[i] = string(k)
+		stringIds[i] = string(k[len(chainPrefix):])
 	}
 
 	return stringIds, nil
 }
 
 func (fw *FileWallet) GetKey(addr string) (*ecdsa.PrivateKey, error) {
-	keyBytes, err := fw.boltStorage.Get(keyBucket, common.HexToAddress(addr).Bytes())
+	keyBytes, err := fw.encryptedStore.Get(keyAddrWithPrefix(common.HexToAddress(addr).Bytes()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting key: %v", err)
 	}
@@ -258,7 +249,7 @@ func (fw *FileWallet) GenerateKey() (*ecdsa.PrivateKey, error) {
 		return nil, fmt.Errorf("error generating key: %v", err)
 	}
 
-	err = fw.boltStorage.Set(keyBucket, crypto.PubkeyToAddress(key.PublicKey).Bytes(), crypto.FromECDSA(key))
+	err = fw.encryptedStore.Set(keyAddrWithPrefix(crypto.PubkeyToAddress(key.PublicKey).Bytes()), crypto.FromECDSA(key))
 	if err != nil {
 		return nil, fmt.Errorf("error generating key: %v", err)
 	}
@@ -267,13 +258,24 @@ func (fw *FileWallet) GenerateKey() (*ecdsa.PrivateKey, error) {
 }
 
 func (fw *FileWallet) ListKeys() ([]string, error) {
-	keys, err := fw.boltStorage.GetKeys(keyBucket)
+	keys, err := fw.encryptedStore.GetKeysByPrefix(keyPrefix)
 	if err != nil {
 		return nil, fmt.Errorf("error getting keys; %v", err)
 	}
 	addrs := make([]string, len(keys))
 	for i, k := range keys {
-		addrs[i] = common.BytesToAddress(k).String()
+		addrs[i] = common.BytesToAddress(k[len(keyPrefix):]).String()
 	}
 	return addrs, nil
+}
+
+var chainPrefix = []byte("-c-")
+var keyPrefix = []byte("-k-")
+
+func chainIdWithPrefix(chainID []byte) []byte {
+	return append(chainPrefix, chainID...)
+}
+
+func keyAddrWithPrefix(addr []byte) []byte {
+	return append(keyPrefix, addr...)
 }

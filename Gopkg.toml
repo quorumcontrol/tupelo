@@ -43,11 +43,16 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  version = "v1.0.1"
+  version = "2.0.0"
+  source = "git@github.com:quorumcontrol/chaintree.git"  
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
   version = "v0.0.2"
+
+[[constraint]]
+  name = "github.com/quorumcontrol/storage"
+  source = "git@github.com:quorumcontrol/storage.git"  
 
 [[constraint]]
   name = "github.com/gorilla/mux"
