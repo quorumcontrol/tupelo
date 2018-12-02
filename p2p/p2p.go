@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"time"
 
 	ds "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore"
@@ -27,6 +26,9 @@ import (
 var log = logging.Logger("libp2play")
 
 var ErrDialBackoff = swarm.ErrDialBackoff
+
+// Compile time assertion that Host implements Node
+var _ Node = (*Host)(nil)
 
 type Host struct {
 	host      *rhost.RoutedHost
@@ -96,7 +98,7 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 	}, nil
 }
 
-func (h *Host) P2PIdentity() string {
+func (h *Host) Identity() string {
 	return h.host.ID().String()
 }
 
@@ -105,7 +107,7 @@ func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
 }
 
-func (h *Host) SetStreamHandler(protocol protocol.ID, handler func(net.Stream)) {
+func (h *Host) SetStreamHandler(protocol protocol.ID, handler net.StreamHandler) {
 	h.host.SetStreamHandler(protocol, handler)
 }
 
@@ -134,33 +136,15 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 	if err != nil {
 		return fmt.Errorf("Error opening new stream: %v", err)
 	}
+	defer stream.Close()
 
 	n, err := stream.Write(payload)
 	if err != nil {
 		return fmt.Errorf("Error writing message: %v", err)
 	}
 	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
-	stream.Close()
 
 	return nil
-}
-
-func (h *Host) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	stream, err := h.NewStream(ctx, publicKey, protocol)
-	if err != nil {
-		return nil, fmt.Errorf("error creating new stream")
-	}
-	defer stream.Close()
-
-	n, err := stream.Write(payload)
-	if err != nil {
-		return nil, fmt.Errorf("Error writing message: %v", err)
-	}
-	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
-
-	return ioutil.ReadAll(stream)
 }
 
 func (h *Host) Addresses() []ma.Multiaddr {
@@ -170,10 +154,6 @@ func (h *Host) Addresses() []ma.Multiaddr {
 		addrs = append(addrs, addr.Encapsulate(hostAddr))
 	}
 	return addrs
-}
-
-func (h *Host) PeerID() (peer.ID, error) {
-	return PeerIDFromPublicKey(h.publicKey)
 }
 
 func PeerIDFromPublicKey(publicKey *ecdsa.PublicKey) (peer.ID, error) {

@@ -323,7 +323,7 @@ func (gn *GossipNode) ID() string {
 	if gn.id != "" {
 		return gn.id
 	}
-	gn.id = gn.Host.P2PIdentity()
+	gn.id = gn.Host.Identity()
 	return gn.id
 }
 
