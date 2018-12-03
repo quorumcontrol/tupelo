@@ -4,18 +4,17 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/quorumcontrol/storage"
-
-	"github.com/quorumcontrol/chaintree/nodestore"
-
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 )
 
 const (
 	TransactionTypeEstablishCoin = "ESTABLISH_COIN"
 	TransactionTypeMintCoin      = "MINT_COIN"
+	TransactionTypeSendCoin      = "SEND_COIN"
 	TransactionTypeSetData       = "SET_DATA"
 	TransactionTypeSetOwnership  = "SET_OWNERSHIP"
 	TransactionTypeStake         = "STAKE"
@@ -24,6 +23,7 @@ const (
 var DefaultTransactors = map[string]chaintree.TransactorFunc{
 	TransactionTypeEstablishCoin: EstablishCoinTransaction,
 	TransactionTypeMintCoin:      MintCoinTransaction,
+	TransactionTypeSendCoin:      SendCoinTransaction,
 	TransactionTypeSetData:       SetDataTransaction,
 	TransactionTypeSetOwnership:  SetOwnershipTransaction,
 	TransactionTypeStake:         StakeTransaction,

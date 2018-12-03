@@ -22,17 +22,21 @@ func init() {
 	typecaster.AddType(SetOwnershipPayload{})
 	typecaster.AddType(EstablishCoinPayload{})
 	typecaster.AddType(MintCoinPayload{})
+	typecaster.AddType(SendCoinPayload{})
 	typecaster.AddType(Coin{})
 	typecaster.AddType(CoinMonetaryPolicy{})
 	typecaster.AddType(CoinMint{})
+	typecaster.AddType(CoinSend{})
 	typecaster.AddType(StakePayload{})
 	cbornode.RegisterCborType(SetDataPayload{})
 	cbornode.RegisterCborType(SetOwnershipPayload{})
 	cbornode.RegisterCborType(EstablishCoinPayload{})
 	cbornode.RegisterCborType(MintCoinPayload{})
+	cbornode.RegisterCborType(SendCoinPayload{})
 	cbornode.RegisterCborType(Coin{})
 	cbornode.RegisterCborType(CoinMonetaryPolicy{})
 	cbornode.RegisterCborType(CoinMint{})
+	cbornode.RegisterCborType(CoinSend{})
 	cbornode.RegisterCborType(StakePayload{})
 }
 
@@ -234,6 +238,154 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 	mintCids = append(mintCids, newMint.Cid())
 
 	newTree, err = tree.SetAsLink(append(coinPath, "mints"), mintCids)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	return newTree, true, nil
+}
+
+type SendCoinPayload struct {
+	Id          string
+	Name        string
+	Amount      uint64
+	Destination string
+}
+type CoinSend struct {
+	Id          string
+	Amount      uint64
+	Destination string
+}
+
+func SendCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
+	payload := &SendCoinPayload{}
+	err := typecaster.ToType(transaction.Payload, payload)
+
+	// TODO: verify recipient is chaintree address?
+
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
+	}
+
+	if payload.Amount <= 0 {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: "error, must send an amount greater than 0"}
+	}
+
+	coinName := payload.Name
+	coinPath := append(strings.Split(TreePathForCoins, "/"), coinName)
+
+	uncastMintCids, _, err := tree.Resolve(append(coinPath, "mints"))
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching mints at %v: %v", coinPath, err)}
+	}
+
+	var mintCids []cid.Cid
+
+	if uncastMintCids == nil {
+		mintCids = make([]cid.Cid, 0)
+	} else {
+		mintCids = make([]cid.Cid, len(uncastMintCids.([]interface{})))
+		for k, c := range uncastMintCids.([]interface{}) {
+			mintCids[k] = c.(cid.Cid)
+		}
+	}
+
+	var availableBalance uint64
+
+	for _, c := range mintCids {
+		node, err := tree.Get(c)
+
+		if err != nil {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching node %v: %v", c, err)}
+		}
+
+		amount, _, err := node.Resolve([]string{"amount"})
+
+		if err != nil {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching amount from %v: %v", node, err)}
+		}
+
+		availableBalance = availableBalance + amount.(uint64)
+	}
+
+	uncastReceivedCids, _, err := tree.Resolve(append(coinPath, "receives"))
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching receives at %v: %v", coinPath, err)}
+	}
+
+	var receivedCids []cid.Cid
+
+	if uncastReceivedCids == nil {
+		receivedCids = make([]cid.Cid, 0)
+	} else {
+		receivedCids = make([]cid.Cid, len(uncastReceivedCids.([]interface{})))
+		for k, c := range uncastReceivedCids.([]interface{}) {
+			receivedCids[k] = c.(cid.Cid)
+		}
+	}
+
+	for _, c := range receivedCids {
+		node, err := tree.Get(c)
+
+		if err != nil {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching node %v: %v", c, err)}
+		}
+
+		amount, _, err := node.Resolve([]string{"amount"})
+
+		if err != nil {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching amount from %v: %v", node, err)}
+		}
+		availableBalance = availableBalance + amount.(uint64)
+	}
+
+	uncastSentCids, _, err := tree.Resolve(append(coinPath, "sends"))
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching sends at %v: %v", coinPath, err)}
+	}
+
+	var sentCids []cid.Cid
+
+	if uncastSentCids == nil {
+		sentCids = make([]cid.Cid, 0)
+	} else {
+		sentCids = make([]cid.Cid, len(uncastSentCids.([]interface{})))
+		for k, c := range uncastSentCids.([]interface{}) {
+			sentCids[k] = c.(cid.Cid)
+		}
+	}
+
+	for _, c := range sentCids {
+		node, err := tree.Get(c)
+
+		if err != nil {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching node %v: %v", c, err)}
+		}
+
+		amount, _, err := node.Resolve([]string{"amount"})
+
+		if err != nil {
+			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error fetching amount from %v: %v", node, err)}
+		}
+		availableBalance = availableBalance - amount.(uint64)
+	}
+
+	if availableBalance < payload.Amount {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("can not send coin, balance of %d is too low to send %d", availableBalance, payload.Amount)}
+	}
+
+	newSend, err := tree.CreateNode(&CoinSend{
+		Id:          payload.Id,
+		Amount:      payload.Amount,
+		Destination: payload.Destination,
+	})
+	if err != nil {
+		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("could not create new node: %v", err)}
+	}
+
+	sentCids = append(sentCids, newSend.Cid())
+
+	newTree, err = tree.SetAsLink(append(coinPath, "sends"), sentCids)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
