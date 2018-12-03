@@ -254,31 +254,35 @@ func (gn *GossipNode) handleNewObjCh() {
 			if resp.NewTransaction {
 				conflictSetStat.HasTransaction = true
 			}
+
 			if resp.NewSignature {
-				log.Debugf("%s sig count: %d, conflict set id %v", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
 				conflictSetStat.SignatureCount++
+				log.Debugf("%s sig count: %d, conflict set id %v", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
 			}
+
 			if resp.IsDone {
 				conflictSetStat.IsDone = true
 				conflictSetStat.PendingMessages = make([]ProvideMessage, 0)
 			}
 
-			roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
-			if err != nil {
-				log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
-			}
-
-			if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
-				log.Debugf("%s reached super majority", gn.ID())
-				provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
-
+			if !resp.IsDone {
+				roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 				if err != nil {
-					log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
+					log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
 				}
 
-				if provideMessage != nil {
-					log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
-					conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, *provideMessage)
+				if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
+					log.Debugf("%s reached super majority", gn.ID())
+					provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
+
+					if err != nil {
+						log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
+					}
+
+					if provideMessage != nil {
+						log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
+						conflictSetStat.PendingMessages = append([]ProvideMessage{*provideMessage}, conflictSetStat.PendingMessages...)
+					}
 				}
 			}
 
