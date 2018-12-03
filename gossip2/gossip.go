@@ -208,6 +208,7 @@ func (gn *GossipNode) handleNewObjCh() {
 			if conflictSetStat.IsDone {
 				// we can just stop here
 				log.Debugf("%s ignore message because conflict set is done %v", gn.ID(), msg.Key)
+				conflictSetStat.PendingMessages = nil
 				continue
 			}
 
@@ -236,6 +237,7 @@ func (gn *GossipNode) handleNewObjCh() {
 				continue
 			}
 
+			log.Debugf("%s queueing msg (type %s): %v conflict set id: %v", gn.ID(), msg.Type().string(), msg.Key, conflictSetID)
 			conflictSetStat.InProgress = true
 			toProcessChan <- handlerRequest{
 				responseChan:  responseChan,
@@ -243,6 +245,7 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetID: conflictSetID,
 			}
 		case resp := <-responseChan:
+			log.Debugf("%s response conflict set id: %v", gn.ID(), resp.ConflictSetID)
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
 			if !ok {
 				panic("this should never happen")
@@ -255,31 +258,36 @@ func (gn *GossipNode) handleNewObjCh() {
 				conflictSetStat.HasTransaction = true
 			}
 			if resp.NewSignature {
-				log.Debugf("%s sig count: %d, conflict set id %v", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
 				conflictSetStat.SignatureCount++
+				log.Debugf("%s sig count: %d, conflict set id %v", gn.ID(), conflictSetStat.SignatureCount, resp.ConflictSetID)
+				roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
+				if err != nil {
+					log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
+				}
+
+				if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
+					log.Debugf("%s reached super majority on conflictSet: %v", gn.ID(), resp.ConflictSetID)
+					provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
+
+					if err != nil {
+						log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
+					}
+
+					if provideMessage != nil {
+						log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
+						toProcessChan <- handlerRequest{
+							responseChan:  responseChan,
+							msg:           *provideMessage,
+							conflictSetID: resp.ConflictSetID,
+						}
+						// continue so that InProgress does not get set to false
+						continue
+					}
+				}
 			}
 			if resp.IsDone {
 				conflictSetStat.IsDone = true
-				conflictSetStat.PendingMessages = make([]ProvideMessage, 0)
-			}
-
-			roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
-			if err != nil {
-				log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
-			}
-
-			if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
-				log.Debugf("%s reached super majority", gn.ID())
-				provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
-
-				if err != nil {
-					log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
-				}
-
-				if provideMessage != nil {
-					log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
-					conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, *provideMessage)
-				}
+				conflictSetStat.PendingMessages = nil
 			}
 
 			conflictSetStat.InProgress = false
