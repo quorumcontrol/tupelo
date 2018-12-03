@@ -8,6 +8,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -20,6 +22,15 @@ import (
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
 )
+
+func init() {
+	// SEE: https://github.com/quorumcontrol/storage
+	// Using badger suggests a minimum of 128 GOMAXPROCS, but also
+	// allow the user to customize
+	if os.Getenv("GOMAXPROCS") == "" {
+		runtime.GOMAXPROCS(128)
+	}
+}
 
 var log = logging.Logger("gossip")
 
