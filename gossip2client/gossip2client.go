@@ -22,7 +22,7 @@ import (
 )
 
 type GossipClient struct {
-	Host   *p2p.Host
+	Host   p2p.Node
 	Group  *consensus.NotaryGroup
 	cancel context.CancelFunc
 }
@@ -36,7 +36,7 @@ func NewGossipClient(group *consensus.NotaryGroup, boostrapNodes []string) *Goss
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	host, err := p2p.NewHost(ctx, sessionKey, 0)
+	host, err := p2p.NewLibP2PHost(ctx, sessionKey, 0)
 	host.Bootstrap(boostrapNodes)
 
 	return &GossipClient{

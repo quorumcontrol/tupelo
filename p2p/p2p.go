@@ -29,9 +29,9 @@ var log = logging.Logger("libp2play")
 var ErrDialBackoff = swarm.ErrDialBackoff
 
 // Compile time assertion that Host implements Node
-var _ Node = (*Host)(nil)
+var _ Node = (*LibP2PHost)(nil)
 
-type Host struct {
+type LibP2PHost struct {
 	host      *rhost.RoutedHost
 	routing   *dht.IpfsDHT
 	publicKey *ecdsa.PublicKey
@@ -50,15 +50,15 @@ func PeerFromEcdsaKey(publicKey *ecdsa.PublicKey) (peer.ID, error) {
 	return peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
 }
 
-func NewRelayHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host, error) {
-	return newHost(ctx, privateKey, port, true)
+func NewRelayLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*LibP2PHost, error) {
+	return newLibP2PHost(ctx, privateKey, port, true)
 }
 
-func NewHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*Host, error) {
-	return newHost(ctx, privateKey, port, false)
+func NewLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) (*LibP2PHost, error) {
+	return newLibP2PHost(ctx, privateKey, port, false)
 }
 
-func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRelay bool) (*Host, error) {
+func newLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRelay bool) (*LibP2PHost, error) {
 	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 	// Make the routed host
 	routedHost := rhost.Wrap(basicHost, dht)
 
-	return &Host{
+	return &LibP2PHost{
 		host:      routedHost,
 		routing:   dht,
 		publicKey: &privateKey.PublicKey,
@@ -99,24 +99,24 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 	}, nil
 }
 
-func (h *Host) PublicKey() *ecdsa.PublicKey {
+func (h *LibP2PHost) PublicKey() *ecdsa.PublicKey {
 	return h.publicKey
 }
 
-func (h *Host) Identity() string {
+func (h *LibP2PHost) Identity() string {
 	return h.host.ID().String()
 }
 
-func (h *Host) Bootstrap(peers []string) (io.Closer, error) {
+func (h *LibP2PHost) Bootstrap(peers []string) (io.Closer, error) {
 	bootstrapCfg := BootstrapConfigWithPeers(convertPeers(peers))
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
 }
 
-func (h *Host) SetStreamHandler(protocol protocol.ID, handler net.StreamHandler) {
+func (h *LibP2PHost) SetStreamHandler(protocol protocol.ID, handler net.StreamHandler) {
 	h.host.SetStreamHandler(protocol, handler)
 }
 
-func (h *Host) NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error) {
+func (h *LibP2PHost) NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error) {
 	peerID, err := peer.IDFromPublicKey(p2pPublicKeyFromEcdsaPublic(publicKey))
 	if err != nil {
 		return nil, fmt.Errorf("Could not convert public key to peer id: %v", err)
@@ -134,7 +134,7 @@ func (h *Host) NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protoc
 	}
 }
 
-func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error {
+func (h *LibP2PHost) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	stream, err := h.NewStream(ctx, publicKey, protocol)
@@ -152,7 +152,7 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 	return nil
 }
 
-func (h *Host) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error) {
+func (h *LibP2PHost) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	stream, err := h.NewStream(ctx, publicKey, protocol)
@@ -170,7 +170,7 @@ func (h *Host) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, 
 	return ioutil.ReadAll(stream)
 }
 
-func (h *Host) Addresses() []ma.Multiaddr {
+func (h *LibP2PHost) Addresses() []ma.Multiaddr {
 	hostAddr, _ := ma.NewMultiaddr(fmt.Sprintf("/ipfs/%s", h.host.ID().Pretty()))
 	addrs := make([]ma.Multiaddr, 0)
 	for _, addr := range h.host.Addrs() {

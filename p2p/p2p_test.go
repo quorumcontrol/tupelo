@@ -12,7 +12,7 @@ func LibP2PNodeGenerator(ctx context.Context, t *testing.T) Node {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	host, err := NewHost(ctx, key, 0)
+	host, err := NewLibP2PHost(ctx, key, 0)
 
 	require.Nil(t, err)
 	require.NotNil(t, host)

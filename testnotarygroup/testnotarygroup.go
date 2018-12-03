@@ -9,31 +9,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
-	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/require"
 )
 
 const testStoragePath = ".tmp/storage/"
 
-func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
-	addresses := bootstrapHost.Addresses()
-	for _, addr := range addresses {
-		addrStr := addr.String()
-		if strings.Contains(addrStr, "127.0.0.1") {
-			return []string{addrStr}
-		}
-	}
-	return nil
-}
-
-func NewBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
+func NewBootstrapHost(ctx context.Context, t *testing.T) p2p.Node {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	host, err := p2p.NewHost(ctx, key, 0)
+	host, err := p2p.NewLibP2PHost(ctx, key, 0)
 
 	require.Nil(t, err)
 	require.NotNil(t, host)
@@ -41,7 +30,7 @@ func NewBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
 	return host
 }
 
-func BootstrapAddresses(bootstrapHost *p2p.Host) []string {
+func BootstrapAddresses(bootstrapHost p2p.Node) []string {
 	addresses := bootstrapHost.Addresses()
 	for _, addr := range addresses {
 		addrStr := addr.String()

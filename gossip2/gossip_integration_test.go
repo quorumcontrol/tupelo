@@ -27,11 +27,11 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
+func newBootstrapHost(ctx context.Context, t *testing.T) p2p.Node {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	host, err := p2p.NewHost(ctx, key, 0)
+	host, err := p2p.NewLibP2PHost(ctx, key, 0)
 
 	require.Nil(t, err)
 	require.NotNil(t, host)
@@ -39,7 +39,7 @@ func newBootstrapHost(ctx context.Context, t *testing.T) *p2p.Host {
 	return host
 }
 
-func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
+func bootstrapAddresses(bootstrapHost p2p.Node) []string {
 	addresses := bootstrapHost.Addresses()
 	for _, addr := range addresses {
 		addrStr := addr.String()
@@ -169,7 +169,7 @@ func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*GossipN
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
+		host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		storage := storage.NewMemStorage()
@@ -268,8 +268,8 @@ func TestGossip(t *testing.T) {
 	var totalReceiveSync int64
 	var totalAttemptSync int64
 	for _, gn := range gossipNodes {
-		totalIn += gn.Host.Reporter.GetBandwidthTotals().TotalIn
-		totalOut += gn.Host.Reporter.GetBandwidthTotals().TotalOut
+		totalIn += gn.Host.(*p2p.LibP2PHost).Reporter.GetBandwidthTotals().TotalIn
+		totalOut += gn.Host.(*p2p.LibP2PHost).Reporter.GetBandwidthTotals().TotalOut
 		totalReceiveSync += int64(atomic.LoadUint64(&gn.debugReceiveSync))
 		totalAttemptSync += int64(atomic.LoadUint64(&gn.debugAttemptSync))
 	}
@@ -303,7 +303,7 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 	gossipNodes := make([]*GossipNode, groupSize)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
+		host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		storage := storage.NewMemStorage()
@@ -456,7 +456,7 @@ func TestSubscription(t *testing.T) {
 	gossipNodes := make([]*GossipNode, groupSize)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
+		host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		storage := storage.NewMemStorage()
@@ -522,7 +522,7 @@ func TestSubscription(t *testing.T) {
 
 	subscriptionReq := &ChainTreeSubscriptionRequest{ObjectID: transaction.ObjectID}
 	msg, err := subscriptionReq.MarshalMsg(nil)
-	client, err := p2p.NewHost(ctx, key, 0)
+	client, err := p2p.NewLibP2PHost(ctx, key, 0)
 	client.Bootstrap(bootstrapAddresses(bootstrap))
 	require.Nil(t, err)
 
@@ -561,7 +561,7 @@ func TestNodeRestartMaintainsIBF(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	host, err := p2p.NewHost(ctx, ts.EcdsaKeys[0], 0)
+	host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[0], 0)
 	require.Nil(t, err)
 	storage := storage.NewMemStorage()
 	node1 := NewGossipNode(ts.EcdsaKeys[0], ts.SignKeys[0], host, storage)

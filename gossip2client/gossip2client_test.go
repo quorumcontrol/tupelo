@@ -3,7 +3,6 @@ package gossip2client
 import (
 	"context"
 	"io/ioutil"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,17 +25,6 @@ import (
 
 const testStoragePath = ".tmp/storage/"
 
-func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
-	addresses := bootstrapHost.Addresses()
-	for _, addr := range addresses {
-		addrStr := addr.String()
-		if strings.Contains(addrStr, "127.0.0.1") {
-			return []string{addrStr}
-		}
-	}
-	return nil
-}
-
 func TestSend(t *testing.T) {
 	sessionKey, err := crypto.GenerateKey()
 	if err != nil {
@@ -45,7 +33,7 @@ func TestSend(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	target, err := p2p.NewHost(ctx, sessionKey, 0)
+	target, err := p2p.NewLibP2PHost(ctx, sessionKey, 0)
 
 	protocolToTest := protocol.ID("tupelo-test/v1")
 	bytesToTest := []byte("thesearebytestotest")
@@ -58,7 +46,7 @@ func TestSend(t *testing.T) {
 		respCh <- resp
 	})
 
-	client := NewGossipClient(nil, bootstrapAddresses(target))
+	client := NewGossipClient(nil, testnotarygroup.BootstrapAddresses(target))
 	// Give the bootstrap 0.01 seconds to get the bootstrap actually figured out
 	time.Sleep(100 * time.Millisecond)
 
@@ -82,9 +70,9 @@ func TestSubscribe(t *testing.T) {
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
+		host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
-		host.Bootstrap(bootstrapAddresses(bootstrap))
+		host.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 		storage := storage.NewMemStorage()
 		gossipNodes[i] = gossip2.NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
@@ -139,7 +127,7 @@ func TestSubscribe(t *testing.T) {
 		ObjectID:    []byte(treeDID),
 	}
 
-	client := NewGossipClient(nil, bootstrapAddresses(bootstrap))
+	client := NewGossipClient(nil, testnotarygroup.BootstrapAddresses(bootstrap))
 
 	// Give the bootstrap 0.01 seconds to get the bootstrap actually figured out
 	time.Sleep(100 * time.Millisecond)
@@ -173,9 +161,9 @@ func TestPlayTransactionAndTip(t *testing.T) {
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewHost(ctx, ts.EcdsaKeys[i], 0)
+		host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
-		host.Bootstrap(bootstrapAddresses(bootstrap))
+		host.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 		storage := storage.NewMemStorage()
 		gossipNodes[i] = gossip2.NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
@@ -187,7 +175,7 @@ func TestPlayTransactionAndTip(t *testing.T) {
 	require.Nil(t, err)
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	chain, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
-	client := NewGossipClient(group, bootstrapAddresses(bootstrap))
+	client := NewGossipClient(group, testnotarygroup.BootstrapAddresses(bootstrap))
 
 	// Give the bootstrap 0.01 seconds to get the bootstrap actually figured out
 	time.Sleep(100 * time.Millisecond)
