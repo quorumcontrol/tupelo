@@ -517,14 +517,12 @@ func TestSubscription(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	_, err = gossipNodes[0].InitiateTransaction(transaction)
-	require.Nil(t, err)
-
 	subscriptionReq := &ChainTreeSubscriptionRequest{ObjectID: transaction.ObjectID}
 	msg, err := subscriptionReq.MarshalMsg(nil)
 	client, err := p2p.NewHost(ctx, key, 0)
 	client.Bootstrap(bootstrapAddresses(bootstrap))
 	require.Nil(t, err)
+	time.Sleep(100 * time.Millisecond)
 
 	ctx, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel2()
@@ -532,6 +530,9 @@ func TestSubscription(t *testing.T) {
 	require.Nil(t, err)
 	defer stream.Close()
 	_, err = stream.Write(msg)
+	require.Nil(t, err)
+
+	_, err = gossipNodes[0].InitiateTransaction(transaction)
 	require.Nil(t, err)
 
 	reader := msgp.NewReader(stream)
