@@ -15,9 +15,11 @@ import (
 // can be used to, for example, simulate large networks on single machines
 type Node interface {
 	Identity() string
+	PublicKey() *ecdsa.PublicKey
+	Addresses() []ma.Multiaddr
 	Bootstrap(peers []string) (io.Closer, error)
 	SetStreamHandler(protocol protocol.ID, handler net.StreamHandler)
 	NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error)
 	Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error
-	Addresses() []ma.Multiaddr
+	SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error)
 }

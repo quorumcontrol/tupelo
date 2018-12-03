@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"time"
 
 	ds "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore"
@@ -98,6 +99,10 @@ func newHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRel
 	}, nil
 }
 
+func (h *Host) PublicKey() *ecdsa.PublicKey {
+	return h.publicKey
+}
+
 func (h *Host) Identity() string {
 	return h.host.ID().String()
 }
@@ -145,6 +150,24 @@ func (h *Host) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []
 	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
 
 	return nil
+}
+
+func (h *Host) SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	stream, err := h.NewStream(ctx, publicKey, protocol)
+	if err != nil {
+		return nil, fmt.Errorf("error creating new stream")
+	}
+	defer stream.Close()
+
+	n, err := stream.Write(payload)
+	if err != nil {
+		return nil, fmt.Errorf("Error writing message: %v", err)
+	}
+	log.Debugf("%s wrote %d bytes", h.host.ID().Pretty(), n)
+
+	return ioutil.ReadAll(stream)
 }
 
 func (h *Host) Addresses() []ma.Multiaddr {

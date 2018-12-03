@@ -58,7 +58,7 @@ type GossipNode struct {
 	verKey           *bls.VerKey
 	address          string
 	id               string
-	Host             *p2p.Host
+	Host             p2p.Node
 	Storage          storage.Storage
 	Strata           *ibf.DifferenceStrata
 	Group            *consensus.NotaryGroup
@@ -76,7 +76,7 @@ type GossipNode struct {
 
 const NumberOfSyncWorkers = 3
 
-func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host *p2p.Host, storage storage.Storage) *GossipNode {
+func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node, storage storage.Storage) *GossipNode {
 	node := &GossipNode{
 		Key:     dstKey,
 		SignKey: signKey,
