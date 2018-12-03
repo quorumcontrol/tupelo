@@ -526,6 +526,8 @@ func TestSubscription(t *testing.T) {
 	client.Bootstrap(bootstrapAddresses(bootstrap))
 	require.Nil(t, err)
 
+	// allow time for bootstrapping
+	time.Sleep(10 * time.Millisecond)
 	ctx, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel2()
 	stream, err := client.NewStream(ctx, &gossipNodes[0].Key.PublicKey, ChainTreeChangeProtocol)
