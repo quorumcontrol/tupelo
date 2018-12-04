@@ -101,9 +101,11 @@ func sendTransaction(client *gossip2client.GossipClient) {
 
 		startTime := time.Now()
 
-		_, err = client.Subscribe(targetPublicKey, did, 30*time.Second)
+		respChan, err := client.Subscribe(targetPublicKey, did, 30*time.Second)
 		if err != nil {
 			panic(fmt.Sprintf("subscription failed %v", err))
+		// Wait for response
+		<-respChan
 		}
 
 		elapsed := time.Since(startTime)
