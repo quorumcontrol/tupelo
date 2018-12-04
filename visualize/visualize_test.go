@@ -3,8 +3,8 @@
 package visualize
 
 // Run this with `go test -v ./visualize/ -tags=visualize`
-// then this will output  in ./visualize/.tmp/graph.dot
-// you can then run: dot -Tpng -o ./visualize/.tmp/graph.png ./visualize/.tmp/graph.dot
+// then this will output  in ./visualize/.tmp/transaction.dot
+// you can then run: dot -Tpng -o ./visualize/.tmp/graph.png ./visualize/.tmp/transaction.dot
 // which will show you the progression of a transaction through the nodes
 
 import (
@@ -197,8 +197,6 @@ func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*gossip2
 }
 
 func TestGossip(t *testing.T) {
-	graph := gographviz.NewGraph()
-	graph.Directed = true
 	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 20
 
@@ -240,16 +238,21 @@ func TestGossip(t *testing.T) {
 		}
 	}
 
-	events := reporter.GetSeenEventsFor(transaction1.StoredID())
+	os.MkdirAll(".tmp", 0755)
+
+	writeGraphFor(t, start, reporter, transaction1.StoredID(), "transaction.dot")
+	writeGraphFor(t, start, reporter, transaction1.ToConflictSet().DoneID(), "done.dot")
+}
+
+func writeGraphFor(t *testing.T, start time.Time, reporter gossip2.GossipReporter, id []byte, fileName string) {
+	graph := gographviz.NewGraph()
+	graph.Directed = true
+	events := reporter.GetSeenEventsFor(id)
 	for _, event := range events {
 		graph.AddNode("G", "P"+event.Seer, nil)
 		graph.AddNode("G", "P"+event.Sender, nil)
-		err = graph.AddEdge("P"+event.Sender, "P"+event.Seer, true, map[string]string{"label": "\"" + event.When.Sub(start).String() + "\""})
+		err := graph.AddEdge("P"+event.Sender, "P"+event.Seer, true, map[string]string{"label": "\"" + event.When.Sub(start).String() + "\""})
 		require.Nil(t, err)
 	}
-
-	os.MkdirAll(".tmp", 0755)
-
-	ioutil.WriteFile(".tmp/graph.dot", []byte(graph.String()), 0644)
-
+	ioutil.WriteFile(".tmp/"+fileName, []byte(graph.String()), 0644)
 }
