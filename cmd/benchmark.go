@@ -3,7 +3,9 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,7 +27,11 @@ type ResultSet struct {
 	Successes       int
 	Failures        int
 	Durations       []int
+	Errors          []string
 	AverageDuration int
+	MinDuration     int
+	MaxDuration     int
+	P95Duration     int
 }
 
 var results ResultSet
@@ -103,9 +109,20 @@ func sendTransaction(client *gossip2client.GossipClient) {
 
 		respChan, err := client.Subscribe(targetPublicKey, did, 30*time.Second)
 		if err != nil {
-			panic(fmt.Sprintf("subscription failed %v", err))
+			results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
+			results.Failures = results.Failures + 1
+			activeCounter--
+			return
+		}
+
 		// Wait for response
-		<-respChan
+		resp := <-respChan
+
+		if resp.Error != nil {
+			results.Errors = append(results.Errors, fmt.Errorf("subscription errored %v", resp.Error).Error())
+			results.Failures = results.Failures + 1
+			activeCounter--
+			return
 		}
 
 		elapsed := time.Since(startTime)
@@ -204,7 +221,7 @@ var benchmark = &cobra.Command{
 			select {
 			case <-doneCh:
 			case <-time.After(time.Duration(benchmarkTimeout) * time.Second):
-				fmt.Println("WARNING: timeout was triggered")
+				results.Errors = append(results.Errors, "WARNING: timeout was triggered")
 			}
 		} else {
 			select {
@@ -219,6 +236,15 @@ var benchmark = &cobra.Command{
 
 		if results.Successes > 0 {
 			results.AverageDuration = sum / results.Successes
+
+			sorted := make([]int, len(results.Durations))
+			copy(sorted, results.Durations)
+			sort.Ints(sorted)
+
+			results.MinDuration = sorted[0]
+			results.MaxDuration = sorted[len(sorted)-1]
+			p95Index := int64(math.Round(float64(len(sorted))*0.95)) - 1
+			results.P95Duration = sorted[p95Index]
 		}
 
 		out, _ := json.MarshalIndent(results, "", "  ")
