@@ -35,8 +35,21 @@ type Host struct {
 	Reporter  metrics.Reporter
 }
 
+const expectedKeySize = 32
+
 func p2pPrivateFromEcdsaPrivate(key *ecdsa.PrivateKey) (libp2pcrypto.PrivKey, error) {
-	return libp2pcrypto.UnmarshalSecp256k1PrivateKey(key.D.Bytes())
+	// private keys can be 31 or 32 bytes for ecdsa.PrivateKey, but must be 32 Bytes for libp2pcrypto,
+	// so we zero pad the slice if it is 31 bytes.
+	keyBytes := key.D.Bytes()
+	if (len(keyBytes) != expectedKeySize) && (len(keyBytes) != (expectedKeySize - 1)) {
+		return nil, fmt.Errorf("error: length of private key must be 31 or 32 bytes")
+	}
+	keyBytes = append(make([]byte, expectedKeySize-len(keyBytes)), keyBytes...)
+	libp2pKey, err := libp2pcrypto.UnmarshalSecp256k1PrivateKey(keyBytes)
+	if err != nil {
+		return libp2pKey, fmt.Errorf("error unmarshaling: %v", err)
+	}
+	return libp2pKey, err
 }
 
 func p2pPublicKeyFromEcdsaPublic(key *ecdsa.PublicKey) libp2pcrypto.PubKey {
