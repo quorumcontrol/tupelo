@@ -247,6 +247,9 @@ func (gn *GossipNode) handleNewObjCh() {
 			if !ok {
 				panic("this should never happen")
 			}
+			if conflictSetStat.IsDone {
+				continue
+			}
 			if resp.Error != nil {
 				// at minimum delete it out of storage
 				panic(fmt.Sprintf("TODO: handle this gracefully: %v", resp.Error))
