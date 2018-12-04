@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -38,6 +39,7 @@ type NotaryGroup struct {
 	ID          string
 	RoundLength int // round length in seconds
 	roundCache  *lru.Cache
+	locker      *sync.RWMutex
 }
 
 // RoundInfo is a struct that holds information about the round.
@@ -70,6 +72,7 @@ func NewNotaryGroup(id string, nodeStore nodestore.NodeStore) *NotaryGroup {
 		RoundLength: defaultRoundLength,
 		ID:          id,
 		roundCache:  roundCache,
+		locker:      new(sync.RWMutex),
 	}
 }
 
@@ -85,6 +88,12 @@ func (ng *NotaryGroup) CreateGenesisState(startRound int64, signers ...*RemoteNo
 
 // MostRecentRound returns the roundinfo that is most recent to the requested round.
 func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, err error) {
+	if cachedRoundInfo, ok := ng.roundCache.Get(round); ok {
+		return cachedRoundInfo.(*RoundInfo), nil
+	}
+
+	ng.locker.Lock()
+	defer ng.locker.Unlock()
 	if cachedRoundInfo, ok := ng.roundCache.Get(round); ok {
 		return cachedRoundInfo.(*RoundInfo), nil
 	}
@@ -117,7 +126,6 @@ func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, e
 			}
 		}
 	}
-
 	return nil, fmt.Errorf("no valid round found")
 }
 
