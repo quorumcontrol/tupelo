@@ -74,6 +74,7 @@ type GossipNode struct {
 	Strata           *ibf.DifferenceStrata
 	Group            *consensus.NotaryGroup
 	IBFs             IBFMap
+	GossipReporter   GossipReporter
 	newObjCh         chan ProvideMessage
 	stopChan         chan struct{}
 	ibfSyncer        *sync.RWMutex
@@ -89,12 +90,13 @@ const NumberOfSyncWorkers = 3
 
 func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node, storage storage.Storage) *GossipNode {
 	node := &GossipNode{
-		Key:     dstKey,
-		SignKey: signKey,
-		Host:    host,
-		Storage: storage,
-		Strata:  ibf.NewDifferenceStrata(),
-		IBFs:    make(IBFMap),
+		Key:            dstKey,
+		SignKey:        signKey,
+		Host:           host,
+		Storage:        storage,
+		Strata:         ibf.NewDifferenceStrata(),
+		IBFs:           make(IBFMap),
+		GossipReporter: new(NoOpReporter),
 		//TODO: examine the 5 here?
 		newObjCh:      make(chan ProvideMessage, 5),
 		stopChan:      make(chan struct{}, 3),
@@ -181,6 +183,7 @@ func (gn *GossipNode) handleToProcessChan(ch chan handlerRequest) {
 		select {
 		case req := <-ch:
 			(&conflictSetWorker{gn: gn}).HandleRequest(req.msg, req.responseChan)
+			gn.GossipReporter.Processed(gn.ID(), req.msg.From, req.msg.Key, time.Now())
 		case <-gn.stopChan:
 			return
 		}
@@ -228,6 +231,7 @@ func (gn *GossipNode) handleNewObjCh() {
 				gn.popPendingMessage(conflictSetStat)
 				continue
 			}
+			gn.GossipReporter.Seen(gn.ID(), msg.From, msg.Key, time.Now())
 
 			messageType := msg.Type()
 
@@ -333,7 +337,7 @@ func (gn *GossipNode) InitiateTransaction(t Transaction) ([]byte, error) {
 		return nil, fmt.Errorf("error encoding: %v", err)
 	}
 	log.Debugf("%s initiating transaction %v", gn.ID(), t.StoredID())
-	gn.newObjCh <- ProvideMessage{Key: t.StoredID(), Value: encodedTrans}
+	gn.newObjCh <- ProvideMessage{Key: t.StoredID(), Value: encodedTrans, From: gn.ID()}
 	return t.ID(), nil
 }
 

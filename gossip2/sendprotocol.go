@@ -327,6 +327,7 @@ func (sph *SyncProtocolHandler) WaitForProvides() error {
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
+			provideMsg.From = sph.peerID
 			gn.newObjCh <- provideMsg
 		}
 	}

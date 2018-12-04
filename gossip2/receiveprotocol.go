@@ -240,6 +240,7 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides() error {
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), rsph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
+			provideMsg.From = rsph.peerID
 			gn.newObjCh <- provideMsg
 		}
 	}

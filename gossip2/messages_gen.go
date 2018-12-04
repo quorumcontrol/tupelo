@@ -758,6 +758,11 @@ func (z *ProvideMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
+		case "From":
+			z.From, err = dc.ReadString()
+			if err != nil {
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -770,9 +775,9 @@ func (z *ProvideMessage) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *ProvideMessage) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 3
+	// map header, size 4
 	// write "Key"
-	err = en.Append(0x83, 0xa3, 0x4b, 0x65, 0x79)
+	err = en.Append(0x84, 0xa3, 0x4b, 0x65, 0x79)
 	if err != nil {
 		return
 	}
@@ -798,15 +803,24 @@ func (z *ProvideMessage) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
+	// write "From"
+	err = en.Append(0xa4, 0x46, 0x72, 0x6f, 0x6d)
+	if err != nil {
+		return
+	}
+	err = en.WriteString(z.From)
+	if err != nil {
+		return
+	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
 func (z *ProvideMessage) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 3
+	// map header, size 4
 	// string "Key"
-	o = append(o, 0x83, 0xa3, 0x4b, 0x65, 0x79)
+	o = append(o, 0x84, 0xa3, 0x4b, 0x65, 0x79)
 	o = msgp.AppendBytes(o, z.Key)
 	// string "Value"
 	o = append(o, 0xa5, 0x56, 0x61, 0x6c, 0x75, 0x65)
@@ -814,6 +828,9 @@ func (z *ProvideMessage) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "Last"
 	o = append(o, 0xa4, 0x4c, 0x61, 0x73, 0x74)
 	o = msgp.AppendBool(o, z.Last)
+	// string "From"
+	o = append(o, 0xa4, 0x46, 0x72, 0x6f, 0x6d)
+	o = msgp.AppendString(o, z.From)
 	return
 }
 
@@ -848,6 +865,11 @@ func (z *ProvideMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			if err != nil {
 				return
 			}
+		case "From":
+			z.From, bts, err = msgp.ReadStringBytes(bts)
+			if err != nil {
+				return
+			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -861,7 +883,7 @@ func (z *ProvideMessage) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *ProvideMessage) Msgsize() (s int) {
-	s = 1 + 4 + msgp.BytesPrefixSize + len(z.Key) + 6 + msgp.BytesPrefixSize + len(z.Value) + 5 + msgp.BoolSize
+	s = 1 + 4 + msgp.BytesPrefixSize + len(z.Key) + 6 + msgp.BytesPrefixSize + len(z.Value) + 5 + msgp.BoolSize + 5 + msgp.StringPrefixSize + len(z.From)
 	return
 }
 

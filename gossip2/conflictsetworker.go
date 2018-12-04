@@ -165,6 +165,7 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 		sigMessage := ProvideMessage{
 			Key:   sigID,
 			Value: encodedSig,
+			From:  gn.ID(),
 		}
 
 		go func(aMsg ProvideMessage) {

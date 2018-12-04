@@ -31,6 +31,7 @@ func DoNewSignatureProtocol(gn *GossipNode, stream net.Stream) error {
 	if err != nil {
 		return err
 	}
+	msg.From = sph.peerID
 	gn.newObjCh <- msg
 
 	return nil

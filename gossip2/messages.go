@@ -64,6 +64,7 @@ type ProvideMessage struct {
 	Key   []byte
 	Value []byte
 	Last  bool
+	From  string
 }
 
 type ConflictSetQuery struct {
