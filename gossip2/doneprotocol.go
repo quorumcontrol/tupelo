@@ -17,7 +17,7 @@ func DoDoneProtocol(gn *GossipNode, stream net.Stream) error {
 	dph := &DoneProtocolHandler{
 		gossipNode: gn,
 		stream:     stream,
-		peerID:     stream.Conn().RemotePeer().String(),
+		peerID:     stream.Conn().RemotePeer().Pretty(),
 		reader:     msgp.NewReader(stream),
 		writer:     msgp.NewWriter(stream),
 	}

@@ -49,7 +49,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	sph.stream = stream
 	sph.writer = msgp.NewWriter(stream)
 	sph.reader = msgp.NewReader(stream)
-	sph.peerID = stream.Conn().RemotePeer().String()
+	sph.peerID = stream.Conn().RemotePeer().Pretty()
 
 	// step 1 send strata
 	err = sph.SendStrata()

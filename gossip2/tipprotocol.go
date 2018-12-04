@@ -19,7 +19,7 @@ func DoTipProtocol(gn *GossipNode, stream net.Stream) error {
 	tph := &TipProtocolHandler{
 		gossipNode: gn,
 		stream:     stream,
-		peerID:     stream.Conn().RemotePeer().String(),
+		peerID:     stream.Conn().RemotePeer().Pretty(),
 		reader:     msgp.NewReader(stream),
 		writer:     msgp.NewWriter(stream),
 	}

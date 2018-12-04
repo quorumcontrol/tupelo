@@ -22,7 +22,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	rsph := &ReceiveSyncProtocolHandler{
 		gossipNode: gn,
 		stream:     stream,
-		peerID:     stream.Conn().RemotePeer().String(),
+		peerID:     stream.Conn().RemotePeer().Pretty(),
 		reader:     msgp.NewReader(stream),
 		writer:     msgp.NewWriter(stream),
 	}
