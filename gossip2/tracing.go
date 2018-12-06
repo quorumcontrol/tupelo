@@ -59,7 +59,7 @@ func (tl *traceLogger) Infof(msg string, args ...interface{}) {
 	trlog.Infof(msg, args...)
 }
 
-func InitializeForTesting() {
+func InitializeForTesting(serviceName string) {
 	// Sample configuration for testing. Use constant sampling to sample every trace
 	// and enable LogSpan to log every span via configured Logger.
 	cfg := jaegercfg.Configuration{
@@ -68,7 +68,8 @@ func InitializeForTesting() {
 			Param: 10,
 		},
 		Reporter: &jaegercfg.ReporterConfig{
-			LogSpans: false,
+			LogSpans:          false,
+			CollectorEndpoint: "http://localhost:14268/api/traces?format=jaeger.thrift",
 		},
 	}
 
@@ -79,7 +80,7 @@ func InitializeForTesting() {
 
 	// Initialize tracer with a logger and a metrics factory
 	closer, err := cfg.InitGlobalTracer(
-		"Gossiper",
+		serviceName,
 		jaegercfg.Logger(new(traceLogger)),
 		jaegercfg.Metrics(jMetricsFactory),
 	)

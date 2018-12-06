@@ -329,7 +329,6 @@ func (gn *GossipNode) handleNewObjCh() {
 
 func (gn *GossipNode) popPendingMessage(ctx context.Context, conflictSetStat *conflictSetStats) bool {
 	span, ctx := newSpan(ctx, gn.Tracer, "popPendingMessage")
-	defer span.Finish()
 
 	if len(conflictSetStat.PendingMessages) > 0 {
 		log.Debugf("%s pending messages, queuing one", gn.ID())
@@ -338,9 +337,11 @@ func (gn *GossipNode) popPendingMessage(ctx context.Context, conflictSetStat *co
 		go func(msg ProvideMessage) {
 			log.Debugf("%s queuing popped message: %v", gn.ID(), msg.Key)
 			gn.newObjCh <- msg
+			span.Finish()
 		}(nextMessage)
 		return true
 	}
+	span.Finish()
 	return false
 }
 
