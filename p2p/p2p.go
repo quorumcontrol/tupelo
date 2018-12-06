@@ -22,6 +22,7 @@ import (
 	swarm "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-swarm"
 	rhost "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var log = logging.Logger("libp2play")
@@ -72,6 +73,12 @@ func NewLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) 
 }
 
 func newLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRelay bool) (*LibP2PHost, error) {
+	go func() {
+		<-ctx.Done()
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.Finish()
+		}
+	}()
 	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
 		return nil, err
