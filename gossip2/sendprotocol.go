@@ -49,7 +49,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	sph.stream = stream
 	sph.writer = msgp.NewWriter(stream)
 	sph.reader = msgp.NewReader(stream)
-	sph.peerID = stream.Conn().RemotePeer().String()
+	sph.peerID = stream.Conn().RemotePeer().Pretty()
 
 	// step 1 send strata
 	err = sph.SendStrata()
@@ -327,6 +327,7 @@ func (sph *SyncProtocolHandler) WaitForProvides() error {
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
+			provideMsg.From = sph.peerID
 			gn.newObjCh <- provideMsg
 		}
 	}

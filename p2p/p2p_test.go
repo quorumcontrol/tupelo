@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 

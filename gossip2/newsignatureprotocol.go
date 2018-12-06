@@ -17,7 +17,7 @@ func DoNewSignatureProtocol(gn *GossipNode, stream net.Stream) error {
 	sph := &SignatureProtocolHandler{
 		gossipNode: gn,
 		stream:     stream,
-		peerID:     stream.Conn().RemotePeer().String(),
+		peerID:     stream.Conn().RemotePeer().Pretty(),
 		reader:     msgp.NewReader(stream),
 		writer:     msgp.NewWriter(stream),
 	}
@@ -31,6 +31,7 @@ func DoNewSignatureProtocol(gn *GossipNode, stream net.Stream) error {
 	if err != nil {
 		return err
 	}
+	msg.From = sph.peerID
 	gn.newObjCh <- msg
 
 	return nil

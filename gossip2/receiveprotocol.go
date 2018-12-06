@@ -22,7 +22,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	rsph := &ReceiveSyncProtocolHandler{
 		gossipNode: gn,
 		stream:     stream,
-		peerID:     stream.Conn().RemotePeer().String(),
+		peerID:     stream.Conn().RemotePeer().Pretty(),
 		reader:     msgp.NewReader(stream),
 		writer:     msgp.NewWriter(stream),
 	}
@@ -240,6 +240,7 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides() error {
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), rsph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
+			provideMsg.From = rsph.peerID
 			gn.newObjCh <- provideMsg
 		}
 	}

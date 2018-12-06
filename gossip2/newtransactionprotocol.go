@@ -17,7 +17,7 @@ func DoNewTransactionProtocol(gn *GossipNode, stream net.Stream) error {
 	ntph := &NewTransactionProtocolHandler{
 		gossipNode: gn,
 		stream:     stream,
-		peerID:     stream.Conn().RemotePeer().String(),
+		peerID:     stream.Conn().RemotePeer().Pretty(),
 		reader:     msgp.NewReader(stream),
 		writer:     msgp.NewWriter(stream),
 	}
