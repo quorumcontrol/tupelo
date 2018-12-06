@@ -22,7 +22,7 @@ import (
 )
 
 type GossipClient struct {
-	Host   *p2p.Host
+	Host   p2p.Node
 	Group  *consensus.NotaryGroup
 	cancel context.CancelFunc
 }
@@ -36,7 +36,7 @@ func NewGossipClient(group *consensus.NotaryGroup, boostrapNodes []string) *Goss
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	host, err := p2p.NewHost(ctx, sessionKey, 0)
+	host, err := p2p.NewLibP2PHost(ctx, sessionKey, 0)
 	host.Bootstrap(boostrapNodes)
 
 	return &GossipClient{
@@ -62,7 +62,7 @@ func (gc *GossipClient) Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, p
 	if err != nil {
 		return fmt.Errorf("Error writing message: %v", err)
 	}
-	log.Debugf("%s wrote %d bytes", gc.Host.P2PIdentity(), n)
+	log.Debugf("%s wrote %d bytes", gc.Host.Identity(), n)
 	stream.Close()
 
 	return nil
@@ -81,7 +81,7 @@ func (gc *GossipClient) SendAndReceive(publicKey *ecdsa.PublicKey, protocol prot
 	if err != nil {
 		return nil, fmt.Errorf("Error writing message: %v", err)
 	}
-	log.Debugf("%s wrote %d bytes", gc.Host.P2PIdentity(), n)
+	log.Debugf("%s wrote %d bytes", gc.Host.Identity(), n)
 	return ioutil.ReadAll(stream)
 }
 

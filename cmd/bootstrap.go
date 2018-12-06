@@ -26,7 +26,7 @@ var bootstrapNodeCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		host, err := p2p.NewRelayHost(ctx, ecdsaKey, bootstrapNodePort)
+		host, err := p2p.NewRelayLibP2PHost(ctx, ecdsaKey, bootstrapNodePort)
 		if err != nil {
 			panic(fmt.Errorf("Could not start bootstrap node, %v", err))
 		}

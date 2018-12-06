@@ -158,7 +158,7 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 		panic(fmt.Sprintf("error creating storage: %v", err))
 	}
 
-	p2pHost, err := p2p.NewHost(ctx, ecdsaKey, port)
+	p2pHost, err := p2p.NewLibP2PHost(ctx, ecdsaKey, port)
 	if err != nil {
 		panic("error setting up p2p host")
 	}

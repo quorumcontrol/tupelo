@@ -83,7 +83,7 @@ func setupLocalNetwork(ctx context.Context) (bootstrapAddrs []string) {
 	return bootstrapAddrs
 }
 
-func bootstrapAddresses(bootstrapHost *p2p.Host) []string {
+func bootstrapAddresses(bootstrapHost p2p.Node) []string {
 	addresses := bootstrapHost.Addresses()
 	for _, addr := range addresses {
 		addrStr := addr.String()
