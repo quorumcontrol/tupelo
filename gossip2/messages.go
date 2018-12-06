@@ -61,10 +61,11 @@ func WantMessageFromDiff(objs []ibf.ObjectId) *WantMessage {
 }
 
 type ProvideMessage struct {
-	Key   []byte
-	Value []byte
-	Last  bool
-	From  string
+	Key         []byte
+	Value       []byte
+	Last        bool
+	From        string
+	SpanContext []byte
 }
 
 type ConflictSetQuery struct {

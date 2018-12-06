@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
@@ -169,23 +170,25 @@ func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*GossipN
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 
 	for i := 0; i < groupSize; i++ {
-		host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[i], 0)
+		span, withSpan := newSpan(ctx, opentracing.GlobalTracer(), "LibP2PBackground")
+		host, err := p2p.NewLibP2PHost(withSpan, ts.EcdsaKeys[i], 0)
 		require.Nil(t, err)
 		host.Bootstrap(bootstrapAddresses(bootstrap))
 		storage := storage.NewMemStorage()
 		gossipNodes[i] = NewGossipNode(ts.EcdsaKeys[i], ts.SignKeys[i], host, storage)
 		gossipNodes[i].Group = group
+		span.SetTag("g", gossipNodes[i].ID())
 	}
 
 	return gossipNodes
 }
 
 func TestGossip(t *testing.T) {
+	InitializeForTesting()
 	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 20
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	gossipNodes := NewTestCluster(t, groupSize, ctx)
 
@@ -193,9 +196,14 @@ func TestGossip(t *testing.T) {
 	log.Debugf("gossipNode0 is %s", gossipNodes[0].ID())
 
 	for i := 0; i < groupSize; i++ {
-		defer gossipNodes[i].Stop()
 		go gossipNodes[i].Start()
 	}
+	defer func() {
+		for i := 0; i < groupSize; i++ {
+			go gossipNodes[i].Stop()
+		}
+		cancel()
+	}()
 	// This bit of commented out code will run the CPU profiler
 	// f, ferr := os.Create("../gossip.prof")
 	// if ferr != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
@@ -75,6 +76,7 @@ type GossipNode struct {
 	Group            *consensus.NotaryGroup
 	IBFs             IBFMap
 	GossipReporter   GossipReporter
+	Tracer           opentracing.Tracer
 	newObjCh         chan ProvideMessage
 	stopChan         chan struct{}
 	ibfSyncer        *sync.RWMutex
@@ -104,6 +106,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node
 		syncPool:      make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 		sigSendingCh:  make(chan envelope, workerCount+1),
 		subscriptions: newSubscriptionHolder(),
+		Tracer:        opentracing.GlobalTracer(),
 	}
 	node.verKey = node.SignKey.MustVerKey()
 	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()
