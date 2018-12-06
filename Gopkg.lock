@@ -29,6 +29,21 @@
   revision = "5312a61534124124185d41f09206b9fef1d88403"
 
 [[projects]]
+  digest = "1:1c8ee7543ae60103ae543f79e6044d768e6de6cfaa245c53e45f3681c7f682a0"
+  name = "github.com/awalterschulze/gographviz"
+  packages = [
+    ".",
+    "ast",
+    "internal/errors",
+    "internal/lexer",
+    "internal/parser",
+    "internal/token",
+  ]
+  pruneopts = ""
+  revision = "c84395e536e1a1199093a4e6253d1bee99e4cd2a"
+  version = "v2.0"
+
+[[projects]]
   branch = "master"
   digest = "1:542be9fb8d738302988a3733cd1391f5909c3b580825df99a9fae723f493e2bf"
   name = "github.com/btcsuite/btcd"
@@ -50,6 +65,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "f6d7a1f6fbf35bbf9beb80dc63c56a29dcfb759f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c46fd324e7902268373e1b337436a6377c196e2dbd7b35624c6256d29d494e78"
+  name = "github.com/codahale/hdrhistogram"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
   digest = "1:3c3f68ebab415344aef64363d23471e953a4715645115604aaf57923ae904f5e"
@@ -728,6 +751,34 @@
   version = "1.0.2"
 
 [[projects]]
+  digest = "1:941ab4973b3218a9a6d02d31734f5c762239eb538c0d702fff62d4037af8ab0a"
+  name = "github.com/uber/jaeger-client-go"
+  packages = [
+    ".",
+    "internal/baggage",
+    "internal/spanlog",
+    "internal/throttler",
+    "log",
+    "thrift",
+    "thrift-gen/agent",
+    "thrift-gen/jaeger",
+    "thrift-gen/sampling",
+    "thrift-gen/zipkincore",
+    "utils",
+  ]
+  pruneopts = ""
+  revision = "1a782e2da844727691fef1757c72eb190c2909f0"
+  version = "v2.15.0"
+
+[[projects]]
+  digest = "1:aa1598d34009b45ce74fdabdd25e4258d7923d1e1b418d4c98482e79607cb9b0"
+  name = "github.com/uber/jaeger-lib"
+  packages = ["metrics"]
+  pruneopts = ""
+  revision = "ed3a127ec5fef7ae9ea95b01b542c47fbd999ce5"
+  version = "v1.5.0"
+
+[[projects]]
   branch = "master"
   digest = "1:1e10b6e24ab9cbfafc7db7985cc43f01624a5a82d188572baf2ab2257b4427e2"
   name = "github.com/whyrusleeping/base32"
@@ -886,6 +937,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/abiosoft/ishell",
+    "github.com/awalterschulze/gographviz",
     "github.com/btcsuite/btcutil/base58",
     "github.com/dedis/kyber",
     "github.com/dedis/kyber/pairing/bn256",
@@ -925,6 +977,7 @@
     "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr",
     "github.com/ipsn/go-ipfs/thirdparty/math2",
     "github.com/mitchellh/go-homedir",
+    "github.com/opentracing/opentracing-go",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
     "github.com/quorumcontrol/chaintree/nodestore",
@@ -937,6 +990,8 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
+    "github.com/uber/jaeger-client-go",
+    "github.com/uber/jaeger-lib/metrics",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",
