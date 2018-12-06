@@ -112,7 +112,11 @@ func newLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, 
 	}, nil
 }
 
-func (h *LibP2PHost) P2PIdentity() string {
+func (h *LibP2PHost) PublicKey() *ecdsa.PublicKey {
+	return h.publicKey
+}
+
+func (h *LibP2PHost) Identity() string {
 	return h.host.ID().String()
 }
 
