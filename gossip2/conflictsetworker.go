@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 type conflictSetWorker struct {
@@ -16,58 +18,82 @@ func (csw *conflictSetWorker) HandleRequest(msg ProvideMessage, respCh chan proc
 	messageType := MessageType(msg.Key[8])
 	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 
+	opts := []opentracing.StartSpanOption{opentracing.Tag{Key: "span.kind", Value: "consumer"}}
+	if spanContext := msg.spanContext; spanContext != nil {
+		opts = append(opts, opentracing.FollowsFrom(spanContext))
+	}
+	span, ctx := newSpan(context.Background(), gn.Tracer, "ConflictSetWorker", opts...)
+	defer span.Finish()
+
 	log.Debugf("%s conflict set worker %s", gn.ID(), msg.Key)
 	switch messageType {
 	case MessageTypeSignature:
 		log.Debugf("%v: handling a new Signature message", gn.ID())
-		_, err := csw.HandleNewSignature(msg)
+		_, err := csw.HandleNewSignature(ctx, msg)
+		queueSpan, _ := newSpan(ctx, gn.Tracer, "QueueProcessorResponse")
 		if err != nil {
 			respCh <- processorResponse{
 				ConflictSetID: conflictSetID,
 				Error:         err,
+				spanContext:   queueSpan.Context(),
 			}
 			return
 		}
 		respCh <- processorResponse{
 			ConflictSetID: conflictSetID,
 			NewSignature:  true,
+			spanContext:   queueSpan.Context(),
 		}
+		queueSpan.Finish()
+
 	case MessageTypeTransaction:
 		log.Debugf("%v: handling a new Transaction message", gn.ID())
-		didSign, err := csw.HandleNewTransaction(msg)
+		didSign, err := csw.HandleNewTransaction(ctx, msg)
+		queueSpan, _ := newSpan(ctx, gn.Tracer, "QueueProcessorResponse")
 		if err != nil {
 			respCh <- processorResponse{
 				ConflictSetID: conflictSetID,
 				Error:         err,
+				spanContext:   queueSpan.Context(),
 			}
 			return
 		}
 		respCh <- processorResponse{
 			ConflictSetID:  conflictSetID,
 			NewTransaction: didSign,
+			spanContext:    queueSpan.Context(),
 		}
+		queueSpan.Finish()
+
 	case MessageTypeDone:
 		log.Debugf("%v: handling a new Done message", gn.ID())
-		err := csw.handleDone(msg)
+		err := csw.handleDone(ctx, msg)
+		queueSpan, _ := newSpan(ctx, gn.Tracer, "QueueProcessorResponse")
 		if err != nil {
 			respCh <- processorResponse{
 				ConflictSetID: conflictSetID,
 				Error:         err,
+				spanContext:   queueSpan.Context(),
 			}
 			return
 		}
 		respCh <- processorResponse{
 			ConflictSetID: conflictSetID,
 			IsDone:        true,
+			spanContext:   queueSpan.Context(),
 		}
+		queueSpan.Finish()
 	default:
 		log.Errorf("%v: unknown message %v", gn.ID(), msg.Key)
 	}
 }
 
-func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
+func (csw *conflictSetWorker) handleDone(ctx context.Context, msg ProvideMessage) error {
 	gn := csw.gn
 	log.Debugf("%s handling done message %v", gn.ID(), msg.Key)
+
+	span, _ := newSpan(ctx, gn.Tracer, "HandleDone")
+	defer span.Finish()
 
 	var state CurrentState
 	_, err := state.UnmarshalMsg(msg.Value)
@@ -112,17 +138,22 @@ func (csw *conflictSetWorker) handleDone(msg ProvideMessage) error {
 	return nil
 }
 
-func (csw *conflictSetWorker) HandleNewSignature(msg ProvideMessage) (accepted bool, err error) {
+func (csw *conflictSetWorker) HandleNewSignature(ctx context.Context, msg ProvideMessage) (accepted bool, err error) {
+	span, _ := newSpan(ctx, csw.gn.Tracer, "HandleNewSignature")
+	defer span.Finish()
+
 	log.Debugf("%s handling sig message %v", csw.gn.ID(), msg.Key)
 	// TOOD: actually check to see if we accept this sig (although, only maybe... we can check it when we actually care, that is when we are summing up)
 	return true, nil
 }
 
-func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign bool, err error) {
+func (csw *conflictSetWorker) HandleNewTransaction(ctx context.Context, msg ProvideMessage) (didSign bool, err error) {
 	gn := csw.gn
 	//TODO: check if transaction hash matches key hash
 	//TODO: check if the conflict set is done
 	//TODO: sign this transaction if it's valid and new
+	span, funcCtx := newSpan(ctx, gn.Tracer, "HandleNewTransaction")
+	defer span.Finish()
 
 	var t Transaction
 	_, err = t.UnmarshalMsg(msg.Value)
@@ -132,7 +163,7 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 	}
 	log.Debugf("%s new transaction %s", gn.ID(), bytesToString(t.ID()))
 
-	isValid, err := csw.IsTransactionValid(t)
+	isValid, err := csw.IsTransactionValid(funcCtx, t)
 	if err != nil {
 		return false, fmt.Errorf("error validating transaction: %v", err)
 	}
@@ -194,8 +225,12 @@ func (csw *conflictSetWorker) HandleNewTransaction(msg ProvideMessage) (didSign 
 	return false, nil
 }
 
-func (csw *conflictSetWorker) IsTransactionValid(t Transaction) (bool, error) {
+func (csw *conflictSetWorker) IsTransactionValid(ctx context.Context, t Transaction) (bool, error) {
 	gn := csw.gn
+
+	span, _ := newSpan(ctx, gn.Tracer, "IsTransactionValid")
+	defer span.Finish()
+
 	state, err := gn.getCurrentState(t.ObjectID)
 	if err != nil {
 		return false, fmt.Errorf("error getting current state: %v", err)

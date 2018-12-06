@@ -173,6 +173,7 @@ type processorResponse struct {
 	NewSignature   bool
 	NewTransaction bool
 	Error          error
+	spanContext    opentracing.SpanContext
 }
 
 type handlerRequest struct {
@@ -204,6 +205,12 @@ func (gn *GossipNode) handleNewObjCh() {
 		select {
 		case msg := <-gn.newObjCh:
 			log.Debugf("%s new object chan length: %d", gn.ID(), len(gn.newObjCh))
+			opts := []opentracing.StartSpanOption{opentracing.Tag{Key: "span.kind", Value: "consumer"}}
+			if spanContext := msg.spanContext; spanContext != nil {
+				opts = append(opts, opentracing.FollowsFrom(spanContext))
+			}
+			span, ctx := newSpan(context.Background(), gn.Tracer, "HandleNewObjectChannel", opts...)
+
 			conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 			conflictSetStat, ok := inProgressConflictSets[string(conflictSetID)]
 			if !ok {
@@ -214,12 +221,14 @@ func (gn *GossipNode) handleNewObjCh() {
 			if conflictSetStat.IsDone {
 				// we can just stop here
 				log.Debugf("%s ignore message because conflict set is done %v", gn.ID(), msg.Key)
+				span.Finish()
 				continue
 			}
 
 			// If another worker is processing this conflict set, queue up this message for later processing
 			if conflictSetStat.InProgress {
 				conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
+				span.Finish()
 				continue
 			}
 
@@ -231,7 +240,8 @@ func (gn *GossipNode) handleNewObjCh() {
 
 			// This message already existed, skip further processing
 			if !didSet {
-				gn.popPendingMessage(conflictSetStat)
+				gn.popPendingMessage(ctx, conflictSetStat)
+				span.Finish()
 				continue
 			}
 			gn.GossipReporter.Seen(gn.ID(), msg.From, msg.Key, time.Now())
@@ -239,22 +249,33 @@ func (gn *GossipNode) handleNewObjCh() {
 			messageType := msg.Type()
 
 			if messageType == MessageTypeTransaction && conflictSetStat.HasTransaction {
-				gn.popPendingMessage(conflictSetStat)
+				gn.popPendingMessage(ctx, conflictSetStat)
 				continue
 			}
 
 			conflictSetStat.InProgress = true
+			queueSpan, _ := newSpan(ctx, gn.Tracer, "QueueForProcessing", opentracing.Tag{Key: "span.kind", Value: "producer"})
+			msg.spanContext = queueSpan.Context()
 			toProcessChan <- handlerRequest{
 				responseChan:  responseChan,
 				msg:           msg,
 				conflictSetID: conflictSetID,
 			}
+			queueSpan.Finish()
+			span.Finish()
 		case resp := <-responseChan:
+			opts := []opentracing.StartSpanOption{opentracing.Tag{Key: "span.kind", Value: "consumer"}}
+			if spanContext := resp.spanContext; spanContext != nil {
+				opts = append(opts, opentracing.FollowsFrom(spanContext))
+			}
+			span, ctx := newSpan(context.Background(), gn.Tracer, "HandlingResponse", opts...)
+
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
 			if !ok {
 				panic("this should never happen")
 			}
 			if conflictSetStat.IsDone {
+				span.Finish()
 				continue
 			}
 			if resp.Error != nil {
@@ -298,14 +319,18 @@ func (gn *GossipNode) handleNewObjCh() {
 
 			conflictSetStat.InProgress = false
 
-			gn.popPendingMessage(conflictSetStat)
+			gn.popPendingMessage(ctx, conflictSetStat)
+			span.Finish()
 		case <-gn.stopChan:
 			return
 		}
 	}
 }
 
-func (gn *GossipNode) popPendingMessage(conflictSetStat *conflictSetStats) bool {
+func (gn *GossipNode) popPendingMessage(ctx context.Context, conflictSetStat *conflictSetStats) bool {
+	span, ctx := newSpan(ctx, gn.Tracer, "popPendingMessage")
+	defer span.Finish()
+
 	if len(conflictSetStat.PendingMessages) > 0 {
 		log.Debugf("%s pending messages, queuing one", gn.ID())
 		nextMessage, remainingMessages := conflictSetStat.PendingMessages[0], conflictSetStat.PendingMessages[1:]
