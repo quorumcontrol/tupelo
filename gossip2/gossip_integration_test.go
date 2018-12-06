@@ -203,6 +203,7 @@ func TestGossip(t *testing.T) {
 			go gossipNodes[i].Stop()
 		}
 		cancel()
+		GlobalCloser.Close()
 	}()
 	// This bit of commented out code will run the CPU profiler
 	// f, ferr := os.Create("../gossip.prof")

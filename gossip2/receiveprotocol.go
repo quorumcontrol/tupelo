@@ -253,13 +253,9 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides(ctx context.Context) err
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), rsph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
-			spanBin, err := spanToBinary(gn.Tracer, span)
-			if err != nil {
-				log.Errorf("error convergin span to binary: %v", err)
-			}
 			provideMsg.From = rsph.peerID
 			queueSpan, _ := newSpan(msgCtx, gn.Tracer, "QueueMessage", opentracing.Tag{Key: "span.kind", Value: "producer"})
-			provideMsg.SpanContext = spanBin
+			provideMsg.spanContext = queueSpan.Context()
 			gn.newObjCh <- provideMsg
 			queueSpan.Finish()
 		}

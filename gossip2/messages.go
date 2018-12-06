@@ -4,6 +4,7 @@ package gossip2
 import (
 	"fmt"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
 
@@ -65,7 +66,7 @@ type ProvideMessage struct {
 	Value       []byte
 	Last        bool
 	From        string
-	SpanContext []byte
+	spanContext opentracing.SpanContext
 }
 
 type ConflictSetQuery struct {
