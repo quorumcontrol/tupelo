@@ -35,11 +35,12 @@ const (
 // NotaryGroup is a wrapper around a Chain Tree specifically used
 // for keeping track of Signer membership and rewards.
 type NotaryGroup struct {
-	signedTree  *SignedChainTree
-	ID          string
-	RoundLength int // round length in seconds
-	roundCache  *lru.Cache
-	locker      *sync.RWMutex
+	signedTree       *SignedChainTree
+	ID               string
+	RoundLength      int // round length in seconds
+	roundCache       *lru.Cache
+	locker           *sync.RWMutex
+	currentRoundInfo *RoundInfo
 }
 
 // RoundInfo is a struct that holds information about the round.
@@ -83,50 +84,17 @@ func (ng *NotaryGroup) CreateGenesisState(startRound int64, signers ...*RemoteNo
 	if err != nil {
 		return fmt.Errorf("could not create genesis block: %v", err)
 	}
-	return ng.AddBlock(block)
+	err = ng.AddBlock(block)
+	if err != nil {
+		return fmt.Errorf("error adding block: %v", err)
+	}
+	ng.currentRoundInfo, err = ng.RoundInfoFor(startRound)
+	return err
 }
 
 // MostRecentRound returns the roundinfo that is most recent to the requested round.
 func (ng *NotaryGroup) MostRecentRoundInfo(round int64) (roundInfo *RoundInfo, err error) {
-	if cachedRoundInfo, ok := ng.roundCache.Get(round); ok {
-		return cachedRoundInfo.(*RoundInfo), nil
-	}
-
-	ng.locker.Lock()
-	defer ng.locker.Unlock()
-	if cachedRoundInfo, ok := ng.roundCache.Get(round); ok {
-		return cachedRoundInfo.(*RoundInfo), nil
-	}
-
-	allRoundsUntyped, _, err := ng.signedTree.ChainTree.Dag.Resolve([]string{"tree", "rounds"})
-
-	if err != nil {
-		return nil, fmt.Errorf("error resolving round nodes: %v", err)
-	}
-
-	allRounds := allRoundsUntyped.(map[string]interface{})
-
-	if len(allRounds) == 0 {
-		return nil, fmt.Errorf("no rounds found")
-	}
-
-	for r := round; r >= 0; r-- {
-		if _, ok := allRounds[strconv.FormatInt(r, 10)]; ok {
-			roundInfo, err = ng.RoundInfoFor(r)
-			if err != nil {
-				return nil, err
-			}
-			if roundInfo != nil {
-				// Only cache current or past rounds
-				if round <= ng.RoundAt(time.Now()) {
-					ng.roundCache.ContainsOrAdd(r, roundInfo)
-				}
-
-				return
-			}
-		}
-	}
-	return nil, fmt.Errorf("no valid round found")
+	return ng.currentRoundInfo, nil
 }
 
 func (ng *NotaryGroup) IsGenesis() bool {
