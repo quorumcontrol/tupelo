@@ -25,7 +25,7 @@ func (csw *conflictSetWorker) HandleRequest(msg ProvideMessage, respCh chan proc
 	span, ctx := newSpan(context.Background(), gn.Tracer, "ConflictSetWorker", opts...)
 	defer span.Finish()
 
-	log.Debugf("%s conflict set worker %s", gn.ID(), msg.Key)
+	log.Debugf("%s conflict set worker %v", gn.ID(), msg.Key)
 	switch messageType {
 	case MessageTypeSignature:
 		log.Debugf("%v: handling a new Signature message", gn.ID())

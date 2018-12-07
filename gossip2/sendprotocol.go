@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/tinylib/msgp/msgp"
@@ -333,7 +334,7 @@ func (sph *SyncProtocolHandler) ConnectToPeer(ctx context.Context) (net.Stream, 
 
 func (sph *SyncProtocolHandler) QueueMessages(ctx context.Context, messages []ProvideMessage) error {
 	gn := sph.gossipNode
-	span, _ := newSpan(ctx, gn.Tracer, "QueueMessages")
+	span, _ := newSpan(ctx, gn.Tracer, "SendProtocolQueueMessages", opentracing.Tag{Key: "span.kind", Value: "producer"}, opentracing.Tag{Key: "queueLength", Value: len(gn.newObjCh)})
 	defer span.Finish()
 
 	for _, msg := range messages {

@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/tinylib/msgp/msgp"
 )
@@ -36,10 +37,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		}
 	}()
 
-	span, ctx := newSpan(context.Background(), gn.Tracer, "DoReceiveSyncProtocol")
-	span.SetTag("gn", gn.ID())
-	span.SetTag("gsender", rsph.peerID)
-	defer span.Finish()
+	ctx := context.Background()
 
 	// Step 0 (terminate if too busy)
 	// If we are already processing NumberOfSyncWorkers syncs, then send a 503
@@ -51,6 +49,11 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		return nil
 	}
 	defer func() { gn.syncPool <- *worker }()
+
+	span, ctx := newSpan(ctx, gn.Tracer, "DoReceiveSyncProtocol")
+	span.SetTag("gn", gn.ID())
+	span.SetTag("gsender", rsph.peerID)
+	defer span.Finish()
 
 	// step 1 wait for strata
 	strata, err := rsph.WaitForStrata(ctx)
@@ -128,7 +131,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	close(results)
 	for res := range results {
 		if res != nil {
-			return fmt.Errorf("error sending or waiting: %v", err)
+			return fmt.Errorf("error sending or waiting: %v", res)
 		}
 	}
 
@@ -258,7 +261,6 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides(ctx context.Context) ([]
 	var messages []ProvideMessage
 
 	for !isLastMessage {
-		// msgSpan, _ := newSpan(funcCtx, gn.Tracer, "HandleMessage")
 		var provideMsg ProvideMessage
 		err := provideMsg.DecodeMsg(reader)
 		if err != nil {
@@ -271,7 +273,6 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides(ctx context.Context) ([]
 			provideMsg.From = rsph.peerID
 			messages = append(messages, provideMsg)
 		}
-		// msgSpan.Finish()
 	}
 
 	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), rsph.peerID)
@@ -280,7 +281,7 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForProvides(ctx context.Context) ([]
 
 func (rsph *ReceiveSyncProtocolHandler) QueueMessages(ctx context.Context, messages []ProvideMessage) error {
 	gn := rsph.gossipNode
-	span, _ := newSpan(ctx, gn.Tracer, "QueueMessages")
+	span, _ := newSpan(ctx, gn.Tracer, "ReceiveProtocolQueueMessages", opentracing.Tag{Key: "span.kind", Value: "producer"}, opentracing.Tag{Key: "queueLength", Value: len(gn.newObjCh)})
 	defer span.Finish()
 
 	for _, msg := range messages {
@@ -300,7 +301,7 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForStrata(ctx context.Context) (*ibf
 	var remoteStrata ibf.DifferenceStrata
 	err := remoteStrata.DecodeMsg(reader)
 	if err != nil {
-		log.Errorf("%s error decoding message", gn.ID(), err)
+		log.Errorf("%s error decoding message: %v", gn.ID(), err)
 		return &remoteStrata, fmt.Errorf("error decoding message: %v", err)
 	}
 	return &remoteStrata, nil
