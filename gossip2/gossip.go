@@ -137,18 +137,28 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node
 }
 
 func (gn *GossipNode) Start() {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	pauser := make(chan time.Time, 1)
+	time.AfterFunc(200*time.Millisecond, func() {
+		pauser <- time.Now()
+	})
 	for {
 		select {
 		case <-gn.stopChan:
 			return
-		case <-ticker.C:
+		case <-pauser:
 			err := gn.DoSync()
+			timeToSleep := 100 * time.Millisecond
 			if err != nil {
-				log.Errorf("%s error doing sync %v", gn.ID(), err)
+				if err == p2p.ErrDialBackoff {
+					// slow things down if we got an errDialBackoff
+					timeToSleep = 500 * time.Millisecond
+				} else {
+					log.Errorf("%s error doing sync %v", gn.ID(), err)
+				}
 			}
-
+			time.AfterFunc(timeToSleep, func() {
+				pauser <- time.Now()
+			})
 		}
 	}
 }
