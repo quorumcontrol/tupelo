@@ -138,7 +138,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node
 
 func (gn *GossipNode) Start() {
 	pauser := make(chan time.Time, 1)
-	time.AfterFunc(200*time.Millisecond, func() {
+	time.AfterFunc(100*time.Millisecond, func() {
 		pauser <- time.Now()
 	})
 	for {
