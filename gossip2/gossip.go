@@ -304,37 +304,44 @@ func (gn *GossipNode) handleNewObjCh() {
 			if resp.IsDone {
 				conflictSetStat.IsDone = true
 				conflictSetStat.PendingMessages = make([]ProvideMessage, 0)
-			}
-
-			if !resp.IsDone {
+				gn.popPendingMessage(ctx, conflictSetStat)
+				conflictSetStat.InProgress = false
+			} else {
 				roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 				if err != nil {
 					log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
 				}
 
 				if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
-					log.Debugf("%s reached super majority", gn.ID())
-					provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
-
-					if err != nil {
-						log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
-					}
-
-					if provideMessage != nil {
-						log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
-						conflictSetStat.PendingMessages = append([]ProvideMessage{*provideMessage}, conflictSetStat.PendingMessages...)
-					}
+					go gn.signatureCheckWorker(ctx, resp.ConflictSetID, conflictSetStat)
+				} else {
+					gn.popPendingMessage(ctx, conflictSetStat)
+					conflictSetStat.InProgress = false
 				}
 			}
-
-			conflictSetStat.InProgress = false
-
-			gn.popPendingMessage(ctx, conflictSetStat)
 			span.Finish()
+
 		case <-gn.stopChan:
 			return
 		}
 	}
+}
+
+func (gn *GossipNode) signatureCheckWorker(ctx context.Context, conflictSetID []byte, conflictSetStat *conflictSetStats) {
+	log.Debugf("%s reached super majority", gn.ID())
+	provideMessage, err := gn.checkSignatures(conflictSetID, conflictSetStat)
+
+	if err != nil {
+		log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
+	}
+
+	if provideMessage != nil {
+		log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
+		conflictSetStat.PendingMessages = append([]ProvideMessage{*provideMessage}, conflictSetStat.PendingMessages...)
+	}
+
+	gn.popPendingMessage(ctx, conflictSetStat)
+	conflictSetStat.InProgress = false
 }
 
 func (gn *GossipNode) popPendingMessage(ctx context.Context, conflictSetStat *conflictSetStats) bool {
