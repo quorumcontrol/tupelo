@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
-	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/tinylib/msgp/msgp"
@@ -19,6 +18,7 @@ type SyncProtocolHandler struct {
 	reader     *msgp.Reader
 	writer     *msgp.Writer
 	peerID     string
+	isClosed   bool
 }
 
 func DoSyncProtocol(gn *GossipNode) error {
@@ -29,11 +29,13 @@ func DoSyncProtocol(gn *GossipNode) error {
 	}
 	log.Debugf("%s starting sync", gn.ID())
 	defer func() {
-		if sph.writer != nil {
-			sph.writer.Flush()
-		}
-		if sph.stream != nil {
-			sph.stream.Close()
+		if !sph.isClosed {
+			if sph.writer != nil {
+				sph.writer.Flush()
+			}
+			if sph.stream != nil {
+				sph.stream.Close()
+			}
 		}
 	}()
 	span, ctx := newSpan(context.Background(), gn.Tracer, "DoSyncProtocol")
@@ -109,6 +111,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 
 	wg := &sync.WaitGroup{}
 	results := make(chan error, 2)
+	var messages []ProvideMessage
 
 	wg.Add(1)
 	go func() {
@@ -118,7 +121,9 @@ func DoSyncProtocol(gn *GossipNode) error {
 
 	wg.Add(1)
 	go func() {
-		results <- sph.WaitForProvides(ctx)
+		msgs, err := sph.WaitForProvides(ctx)
+		messages = msgs
+		results <- err
 		wg.Done()
 	}()
 	wg.Wait()
@@ -127,6 +132,15 @@ func DoSyncProtocol(gn *GossipNode) error {
 		if res != nil {
 			return fmt.Errorf("error sending or receiving: %v", err)
 		}
+	}
+
+	sph.writer.Flush()
+	sph.stream.Close()
+	sph.isClosed = true
+
+	err = sph.QueueMessages(ctx, messages)
+	if err != nil {
+		return fmt.Errorf("error queueing messages: %v", err)
 	}
 
 	log.Debugf("%s: sync complete to %s", gn.ID(), sph.peerID)
@@ -317,34 +331,42 @@ func (sph *SyncProtocolHandler) ConnectToPeer(ctx context.Context) (net.Stream, 
 	return stream, nil
 }
 
-func (sph *SyncProtocolHandler) WaitForProvides(ctx context.Context) error {
+func (sph *SyncProtocolHandler) QueueMessages(ctx context.Context, messages []ProvideMessage) error {
+	gn := sph.gossipNode
+	span, _ := newSpan(ctx, gn.Tracer, "QueueMessages")
+	defer span.Finish()
+
+	for _, msg := range messages {
+		msg.spanContext = span.Context()
+		gn.newObjCh <- msg
+	}
+	return nil
+}
+
+func (sph *SyncProtocolHandler) WaitForProvides(ctx context.Context) ([]ProvideMessage, error) {
 	gn := sph.gossipNode
 	reader := sph.reader
 	var isLastMessage bool
-	span, funcCtx := newSpan(ctx, gn.Tracer, "WaitForProvides")
+	span, _ := newSpan(ctx, gn.Tracer, "WaitForProvides")
 	defer span.Finish()
 
-	for !isLastMessage {
-		msgSpan, msgCtx := newSpan(funcCtx, gn.Tracer, "HandleMessage")
+	var messages []ProvideMessage
 
+	for !isLastMessage {
 		var provideMsg ProvideMessage
 		err := provideMsg.DecodeMsg(reader)
 		if err != nil {
 			log.Errorf("%s error decoding message: %v", gn.ID(), err)
-			return fmt.Errorf("error decoding message: %v", err)
+			return nil, fmt.Errorf("error decoding message: %v", err)
 		}
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
 			provideMsg.From = sph.peerID
-			queueSpan, _ := newSpan(msgCtx, gn.Tracer, "QueueMessage", opentracing.Tag{Key: "span.kind", Value: "producer"})
-			provideMsg.spanContext = queueSpan.Context()
-			gn.newObjCh <- provideMsg
-			queueSpan.Finish()
+			messages = append(messages, provideMsg)
 		}
-		msgSpan.Finish()
 	}
 
 	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), sph.peerID)
-	return nil
+	return messages, nil
 }
