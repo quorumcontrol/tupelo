@@ -33,10 +33,11 @@ var ErrDialBackoff = swarm.ErrDialBackoff
 var _ Node = (*LibP2PHost)(nil)
 
 type LibP2PHost struct {
-	host      *rhost.RoutedHost
-	routing   *dht.IpfsDHT
-	publicKey *ecdsa.PublicKey
-	Reporter  metrics.Reporter
+	host            *rhost.RoutedHost
+	routing         *dht.IpfsDHT
+	publicKey       *ecdsa.PublicKey
+	Reporter        metrics.Reporter
+	bootstrapConfig *BootstrapConfig
 }
 
 const expectedKeySize = 32
@@ -129,7 +130,30 @@ func (h *LibP2PHost) Identity() string {
 
 func (h *LibP2PHost) Bootstrap(peers []string) (io.Closer, error) {
 	bootstrapCfg := BootstrapConfigWithPeers(convertPeers(peers))
+	h.bootstrapConfig = &bootstrapCfg
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
+}
+
+func (h *LibP2PHost) WaitForBootstrap(timeout time.Duration) error {
+	if h.bootstrapConfig == nil {
+		return fmt.Errorf("error must call Bootstrap() before calling WaitForBootstrap")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	doneCh := ctx.Done()
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			connected := h.host.Network().Peers()
+			if len(connected) >= h.bootstrapConfig.MinPeerThreshold {
+				return nil
+			}
+		case <-doneCh:
+			return fmt.Errorf("timeout waiting for bootstrap")
+		}
+	}
 }
 
 func (h *LibP2PHost) SetStreamHandler(protocol protocol.ID, handler net.StreamHandler) {

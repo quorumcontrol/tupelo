@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"io"
+	"time"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
@@ -18,6 +19,7 @@ type Node interface {
 	PublicKey() *ecdsa.PublicKey
 	Addresses() []ma.Multiaddr
 	Bootstrap(peers []string) (io.Closer, error)
+	WaitForBootstrap(timeout time.Duration) error
 	SetStreamHandler(protocol protocol.ID, handler net.StreamHandler)
 	NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error)
 	Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error

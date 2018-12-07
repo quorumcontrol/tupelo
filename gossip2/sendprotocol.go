@@ -323,8 +323,8 @@ func (sph *SyncProtocolHandler) ConnectToPeer(ctx context.Context) (net.Stream, 
 	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
 	if err != nil {
 		if err == p2p.ErrDialBackoff {
-			log.Debugf("%s: dial backoff for peer %s", gn.ID(), peerPublicKey)
-			return nil, nil
+			log.Debugf("%s: dial backoff for peer %s (triggers a sleep)", gn.ID(), peerPublicKey)
+			return nil, err
 		}
 		return nil, fmt.Errorf("error opening new stream to %s - %v", peerPublicKey, err)
 	}
