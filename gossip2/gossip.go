@@ -22,6 +22,7 @@ import (
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func init() {
@@ -43,6 +44,7 @@ const TipProtocol = "tupelo-tip/v1"
 const NewTransactionProtocol = "tupelo-new-transaction/v1"
 const NewSignatureProtocol = "tupelo-new-signature/v1"
 const ChainTreeChangeProtocol = "tupelo-chain-change/v1"
+const LogLevelProtocol = "tupelo-log-level/v1"
 
 const minSyncNodesPerTransaction = 3
 const workerCount = 100
@@ -133,7 +135,19 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node
 	host.SetStreamHandler(NewTransactionProtocol, node.HandleNewTransactionProtocol)
 	host.SetStreamHandler(NewSignatureProtocol, node.HandleNewSignatureProtocol)
 	host.SetStreamHandler(ChainTreeChangeProtocol, node.HandleChainTreeChangeProtocol)
+	host.SetStreamHandler(LogLevelProtocol, node.HandleLogLevelProtocol)
 	return node
+}
+
+func (gn *GossipNode) HandleLogLevelProtocol(stream net.Stream) {
+	defer stream.Close()
+	reader := msgp.NewReader(stream)
+	var msg ProtocolMessage
+	err := msg.DecodeMsg(reader)
+	if err != nil {
+		return
+	}
+	logging.SetLogLevel("gossip", string(msg.Payload))
 }
 
 func (gn *GossipNode) Start() {
