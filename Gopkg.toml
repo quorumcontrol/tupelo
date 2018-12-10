@@ -52,7 +52,7 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/storage"
-  source = "git@github.com:quorumcontrol/storage.git"  
+  source = "git@github.com:quorumcontrol/storage.git"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
