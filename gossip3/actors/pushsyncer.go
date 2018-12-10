@@ -56,7 +56,8 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 		panic("timeout")
 	}
 	msg.RemoteSyncer.Request(&messages.ProvideStrata{
-		Strata: strata.(ibf.DifferenceStrata),
+		Strata:    strata.(ibf.DifferenceStrata),
+		Validator: syncer.validator,
 	}, context.Self())
 }
 
@@ -70,7 +71,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 	localStrata := localStrataInt.(ibf.DifferenceStrata)
 	count, result := localStrata.Estimate(&msg.Strata)
 	if result != nil {
-		log.Infof("result found")
+		syncer.handleDiff(context, *result, msg.Validator)
 	} else {
 		context.Sender().Request(&messages.RequestIBF{
 			Count:  count,
@@ -103,7 +104,7 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 		log.Errorf("%s estimate too large to send an IBF: %d", context.Self().GetId(), msg.Count)
 		return
 	}
-	localIBF, err := syncer.GetLocalIBF(sizeToSend)
+	localIBF, err := syncer.getLocalIBF(sizeToSend)
 	if err != nil {
 		panic("timeout")
 	}
@@ -115,7 +116,7 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 }
 
 func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *messages.ProvideBloomFilter) {
-	localIBF, err := syncer.GetLocalIBF(len(msg.Filter.Cells))
+	localIBF, err := syncer.getLocalIBF(len(msg.Filter.Cells))
 	if err != nil {
 		panic(fmt.Sprintf("error getting local IBF: %v", err))
 	}
@@ -124,14 +125,7 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 	if err != nil {
 		log.Errorw("error getting diff from peer %s (remote size: %d): %v", "id", context.Self().GetId(), "err", err)
 	}
-	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.validator)
-	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storage), "objectSender")
-	for _, pref := range diff.LeftSet {
-		sender.Tell(&messages.SendPrefix{
-			Prefix:      uint64ToBytes(uint64(pref)),
-			Destination: msg.Validator,
-		})
-	}
+	syncer.handleDiff(context, diff, msg.Validator)
 }
 
 func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages.RequestKeys) {
@@ -144,7 +138,7 @@ func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages
 	}
 }
 
-func (syncer *PushSyncer) GetLocalIBF(size int) (*ibf.InvertibleBloomFilter, error) {
+func (syncer *PushSyncer) getLocalIBF(size int) (*ibf.InvertibleBloomFilter, error) {
 	localIBF, err := syncer.storage.RequestFuture(&messages.GetIBF{
 		Size: size,
 	}, 30*time.Second).Result()
@@ -153,6 +147,17 @@ func (syncer *PushSyncer) GetLocalIBF(size int) (*ibf.InvertibleBloomFilter, err
 	}
 	ibf := localIBF.(ibf.InvertibleBloomFilter)
 	return &ibf, err
+}
+
+func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResults, destination *actor.PID) {
+	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.validator)
+	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storage), "objectSender")
+	for _, pref := range diff.LeftSet {
+		sender.Tell(&messages.SendPrefix{
+			Prefix:      uint64ToBytes(uint64(pref)),
+			Destination: destination,
+		})
+	}
 }
 
 func requestKeysFromDiff(objs []ibf.ObjectId) *messages.RequestKeys {
