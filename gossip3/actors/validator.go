@@ -1,6 +1,8 @@
 package actors
 
 import (
+	"time"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -28,10 +30,14 @@ func NewValidatorProps(storage *actor.PID) *actor.Props {
 
 func (v *Validator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *actor.Started:
-		v.Log.Debugw("started")
+	case *actor.ReceiveTimeout:
+		v.Log.Debugw("validator clear")
+		context.SetReceiveTimeout(0)
+		context.Parent().Tell(&messages.ValidatorClear{})
 	case *messages.Store:
+		context.SetReceiveTimeout(100 * time.Millisecond)
 		v.handleStore(context, msg)
+		context.Parent().Tell(&messages.ValidatorWorking{})
 	}
 }
 

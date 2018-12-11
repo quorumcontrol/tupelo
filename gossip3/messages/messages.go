@@ -21,6 +21,9 @@ type GetSyncer struct{}
 
 type SyncDone struct{}
 
+type ValidatorClear struct{}
+type ValidatorWorking struct{}
+
 type GetPrefix struct {
 	Prefix []byte
 }

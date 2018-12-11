@@ -51,11 +51,10 @@ func (s *Storage) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		s.id = context.Self().Id
-		s.Log.Debugw("started", "me", context.Self().Id)
 	case *messages.Debug:
 		s.Log.Debugw("message: %v", msg.Message)
 	case *messages.Store:
-		s.Log.Debugw("adding", "me", context.Self().GetId(), "key", msg.Key, "value", msg.Value)
+		s.Log.Debugw("adding", "key", msg.Key, "value", msg.Value)
 		s.Add(msg.Key, msg.Value)
 	case *messages.Remove:
 		s.Remove(msg.Key)
@@ -66,14 +65,13 @@ func (s *Storage) Receive(context actor.Context) {
 	case *messages.GetPrefix:
 		keys, err := s.storage.GetPairsByPrefix(msg.Prefix)
 		if err != nil {
-			s.Log.Errorw("error getting keys", "me", context.Self().GetId(), "err", err)
+			s.Log.Errorw("error getting keys", "err", err)
 		}
 		context.Respond(keys)
 	case *messages.Get:
 		val, err := s.storage.Get(msg.Key)
-		s.Log.Debugw("get", "id", s.id, "key", msg.Key, "val", val)
 		if err != nil {
-			s.Log.Errorw("error getting key", "me", context.Self().GetId(), "err", err, "key", msg.Key)
+			s.Log.Errorw("error getting key", "err", err, "key", msg.Key)
 		}
 		context.Respond(val)
 	}
@@ -82,7 +80,7 @@ func (s *Storage) Receive(context actor.Context) {
 func (s *Storage) Add(key, value []byte) (bool, error) {
 	didSet, err := s.storage.SetIfNotExists(key, value)
 	if err != nil {
-		s.Log.Errorf("%s error setting: %v", s.id, err)
+		s.Log.Errorf("error setting: %v", err)
 		return false, fmt.Errorf("error setting storage: %v", err)
 	}
 
@@ -108,7 +106,7 @@ func (s *Storage) Remove(key []byte) {
 	for _, filter := range s.ibfs {
 		filter.Remove(ibfObjectID)
 	}
-	s.Log.Debugf("%s removed key %v", s.id, key)
+	s.Log.Debugf("removed key %v", key)
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
