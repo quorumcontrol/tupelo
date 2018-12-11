@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -12,6 +13,8 @@ import (
 
 // Sender sends objects off to somewhere else
 type ObjectSender struct {
+	middleware.LogAwareHolder
+
 	store *actor.PID
 }
 
@@ -20,7 +23,10 @@ func NewObjectSenderProps(store *actor.PID) *actor.Props {
 		return &ObjectSender{
 			store: store,
 		}
-	}).WithMiddleware(middleware.LoggingMiddleware)
+	}).WithMiddleware(
+		middleware.LoggingMiddleware,
+		plugin.Use(&middleware.LogPlugin{}),
+	)
 }
 
 func (o *ObjectSender) Receive(context actor.Context) {
@@ -30,7 +36,7 @@ func (o *ObjectSender) Receive(context actor.Context) {
 		if err != nil {
 			panic(fmt.Sprintf("timeout waiting: %v", err))
 		}
-		log.Infow("sending", "me", context.Self().GetId(), "prefix", msg.Prefix, "length", len(keys.([]storage.KeyValuePair)))
+		o.Log.Debugw("sending", "me", context.Self().GetId(), "destination", msg.Destination.GetId(), "prefix", msg.Prefix, "length", len(keys.([]storage.KeyValuePair)))
 		for _, pair := range keys.([]storage.KeyValuePair) {
 			msg.Destination.Tell(&messages.Store{
 				Key:   pair.Key,

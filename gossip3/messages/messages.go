@@ -25,19 +25,24 @@ type GetPrefix struct {
 	Prefix []byte
 }
 
+type Get struct {
+	Key []byte
+}
+
 type system interface {
 	GetRandomSyncer() *actor.PID
 }
 type StartGossip struct {
 	System system
 }
+type DoOneGossip struct{}
 
 type GetIBF struct {
 	Size int
 }
 
 type DoPush struct {
-	RemoteSyncer *actor.PID
+	System system
 }
 
 type ProvideStrata struct {

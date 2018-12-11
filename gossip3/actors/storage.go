@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -15,18 +16,23 @@ type ibfMap map[int]*ibf.InvertibleBloomFilter
 
 var standardIBFSizes = []int{500, 2000, 100000}
 
-var log = middleware.Log
-
 // PushSyncer is the main remote-facing actor that handles
 // Sending out syncs
 type Storage struct {
+	middleware.LogAwareHolder
+
 	id      string
 	ibfs    ibfMap
 	storage *storage.MemStorage
 	strata  *ibf.DifferenceStrata
 }
 
-var StorageProps *actor.Props = actor.FromProducer(NewStorage).WithMiddleware(middleware.LoggingMiddleware)
+func NewStorageProps() *actor.Props {
+	return actor.FromProducer(NewStorage).WithMiddleware(
+		middleware.LoggingMiddleware,
+		plugin.Use(&middleware.LogPlugin{}),
+	)
+}
 
 func NewStorage() actor.Actor {
 	s := &Storage{
@@ -45,10 +51,11 @@ func (s *Storage) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		s.id = context.Self().Id
-		log.Infow("started", "actor", context.Self().Id)
+		s.Log.Debugw("started", "me", context.Self().Id)
 	case *messages.Debug:
-		log.Infof("message: %v", msg.Message)
+		s.Log.Debugw("message: %v", msg.Message)
 	case *messages.Store:
+		s.Log.Debugw("adding", "me", context.Self().GetId(), "key", msg.Key, "value", msg.Value)
 		s.Add(msg.Key, msg.Value)
 	case *messages.Remove:
 		s.Remove(msg.Key)
@@ -59,18 +66,26 @@ func (s *Storage) Receive(context actor.Context) {
 	case *messages.GetPrefix:
 		keys, err := s.storage.GetPairsByPrefix(msg.Prefix)
 		if err != nil {
-			log.Errorw("error getting keys", "me", context.Self().GetId(), "err", err)
+			s.Log.Errorw("error getting keys", "me", context.Self().GetId(), "err", err)
 		}
 		context.Respond(keys)
+	case *messages.Get:
+		val, err := s.storage.Get(msg.Key)
+		s.Log.Debugw("get", "id", s.id, "key", msg.Key, "val", val)
+		if err != nil {
+			s.Log.Errorw("error getting key", "me", context.Self().GetId(), "err", err, "key", msg.Key)
+		}
+		context.Respond(val)
 	}
 }
 
 func (s *Storage) Add(key, value []byte) (bool, error) {
 	didSet, err := s.storage.SetIfNotExists(key, value)
 	if err != nil {
-		log.Errorf("%s error setting: %v", s.id, err)
+		s.Log.Errorf("%s error setting: %v", s.id, err)
 		return false, fmt.Errorf("error setting storage: %v", err)
 	}
+
 	if didSet {
 		ibfObjectID := byteToIBFsObjectId(key[0:8])
 		s.strata.Add(ibfObjectID)
@@ -78,7 +93,7 @@ func (s *Storage) Add(key, value []byte) (bool, error) {
 			filter.Add(ibfObjectID)
 		}
 	} else {
-		log.Debugf("%s skipped adding, already exists %v", s.id, key)
+		s.Log.Debugf("%s skipped adding, already exists %v", s.id, key)
 	}
 	return didSet, nil
 }
@@ -93,7 +108,7 @@ func (s *Storage) Remove(key []byte) {
 	for _, filter := range s.ibfs {
 		filter.Remove(ibfObjectID)
 	}
-	log.Debugf("%s removed key %v", s.id, key)
+	s.Log.Debugf("%s removed key %v", s.id, key)
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {

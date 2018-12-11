@@ -19,7 +19,7 @@ func NewSystem() *System {
 
 func (s *System) GetRandomSyncer() *actor.PID {
 	vals := s.Syncers.Values()
-	pid := vals[randInt(len(vals))]
+	pid := vals[randInt(len(vals)-1)]
 	return &pid
 }
 
