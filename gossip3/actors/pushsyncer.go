@@ -16,19 +16,28 @@ type PushSyncer struct {
 	storage   *actor.PID
 	validator *actor.PID
 	gossiper  *actor.PID
+	isLocal   bool
 }
 
-func NewPushSyncerProps(storage, validator *actor.PID) *actor.Props {
+func NewPushSyncerProps(storage, validator *actor.PID, isLocal bool) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &PushSyncer{
 			storage:   storage,
 			validator: validator,
+			isLocal:   isLocal,
 		}
 	}).WithMiddleware(middleware.LoggingMiddleware)
 }
 
 func (syncer *PushSyncer) Receive(context actor.Context) {
+	// this makes sure the protocol continues along
+	// and will terminate when nothing is happening
+	context.SetReceiveTimeout(1 * time.Second)
+
 	switch msg := context.Message().(type) {
+	case *actor.ReceiveTimeout:
+		log.Infow("timeout", "me", context.Self().GetId())
+		context.Self().Poison()
 	case *actor.Started:
 		syncer.handleStarted(context)
 	case *messages.DoPush:
@@ -43,6 +52,9 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.handleRequestKeys(context, msg)
 	case *messages.Debug:
 		fmt.Printf("message: %v", msg.Message)
+	case *messages.SyncDone:
+		context.SetReceiveTimeout(0)
+		context.Self().Poison()
 	}
 }
 
@@ -81,6 +93,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 			}, context.Self())
 		} else {
 			log.Infow("synced", "me", context.Self().GetId())
+			context.Sender().Tell(&messages.SyncDone{})
 		}
 	}
 }
@@ -106,6 +119,7 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 	}
 	if sizeToSend == 0 {
 		log.Errorf("%s estimate too large to send an IBF: %d", context.Self().GetId(), msg.Count)
+		context.Sender().Tell(&messages.SyncDone{})
 		return
 	}
 	localIBF, err := syncer.getLocalIBF(sizeToSend)
@@ -133,13 +147,7 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 }
 
 func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages.RequestKeys) {
-	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storage), "objectSender")
-	for _, pref := range msg.Keys {
-		sender.Tell(&messages.SendPrefix{
-			Prefix:      uint64ToBytes(uint64(pref)),
-			Destination: context.Sender(),
-		})
-	}
+	syncer.sendPrefixes(context, msg.Keys, context.Sender())
 }
 
 func (syncer *PushSyncer) getLocalIBF(size int) (*ibf.InvertibleBloomFilter, error) {
@@ -155,13 +163,34 @@ func (syncer *PushSyncer) getLocalIBF(size int) (*ibf.InvertibleBloomFilter, err
 
 func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResults, destination *actor.PID) {
 	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.validator)
+	prefixes := make([]uint64, len(diff.LeftSet), len(diff.LeftSet))
+	for i, pref := range diff.LeftSet {
+		prefixes[i] = uint64(pref)
+	}
+	syncer.sendPrefixes(context, prefixes, destination).Wait()
+	context.Sender().Tell(&messages.SyncDone{})
+}
+
+func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) *actor.Future {
 	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storage), "objectSender")
-	for _, pref := range diff.LeftSet {
+	for _, pref := range prefixes {
 		sender.Tell(&messages.SendPrefix{
-			Prefix:      uint64ToBytes(uint64(pref)),
+			Prefix:      uint64ToBytes(pref),
 			Destination: destination,
 		})
 	}
+
+	return sender.PoisonFuture()
+}
+
+func notifyWhenFinished(destination *actor.PID, msg interface{}) *actor.PID {
+	return actor.Spawn(actor.FromFunc(func(ctx actor.Context) {
+		switch msg := ctx.Message().(type) {
+		case *actor.Terminated:
+			destination.Tell(msg)
+			ctx.Self().Stop()
+		}
+	}))
 }
 
 func requestKeysFromDiff(objs []ibf.ObjectId) *messages.RequestKeys {
