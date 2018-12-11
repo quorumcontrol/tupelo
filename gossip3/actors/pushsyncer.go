@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -13,6 +14,8 @@ import (
 // PushSyncer is the main remote-facing actor that handles
 // Sending out syncs
 type PushSyncer struct {
+	middleware.LogAwareHolder
+
 	storage   *actor.PID
 	validator *actor.PID
 	gossiper  *actor.PID
@@ -26,17 +29,20 @@ func NewPushSyncerProps(storage, validator *actor.PID, isLocal bool) *actor.Prop
 			validator: validator,
 			isLocal:   isLocal,
 		}
-	}).WithMiddleware(middleware.LoggingMiddleware)
+	}).WithMiddleware(
+		middleware.LoggingMiddleware,
+		plugin.Use(&middleware.LogPlugin{}),
+	)
 }
 
 func (syncer *PushSyncer) Receive(context actor.Context) {
 	// this makes sure the protocol continues along
 	// and will terminate when nothing is happening
-	context.SetReceiveTimeout(1 * time.Second)
+	context.SetReceiveTimeout(5 * time.Second)
 
 	switch msg := context.Message().(type) {
 	case *actor.ReceiveTimeout:
-		log.Infow("timeout", "me", context.Self().GetId())
+		syncer.Log.Debugw("timeout", "me", context.Self().GetId())
 		context.Self().Poison()
 	case *actor.Started:
 		syncer.handleStarted(context)
@@ -59,25 +65,42 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 }
 
 func (syncer *PushSyncer) handleStarted(context actor.Context) {
-	log.Infow("started", "id", context.Self().Id)
+	syncer.Log.Debugw("started", "id", context.Self().Id)
 }
 
 func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPush) {
-	log.Infow("handleDoPush", "id", context.Self().Id)
-	strata, err := syncer.storage.RequestFuture(&messages.GetStrata{}, 30*time.Second).Result()
+	syncer.Log.Debugw("handleDoPush", "id", context.Self().Id)
+	var remoteGossiper *actor.PID
+	for remoteGossiper == nil || remoteGossiper.GetId() == context.Self().GetId() {
+		remoteGossiper = msg.System.GetRandomSyncer()
+	}
+	syncer.Log.Debugw("requesting syncer", "me", context.Self().GetId(), "remote", remoteGossiper.GetId())
+
+	resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{}, 1*time.Second).Result()
 	if err != nil {
 		panic("timeout")
 	}
-	msg.RemoteSyncer.Request(&messages.ProvideStrata{
-		Strata:    strata.(ibf.DifferenceStrata),
-		Validator: syncer.validator,
-	}, context.Self())
+
+	switch remoteSyncer := resp.(type) {
+	case bool:
+		syncer.Log.Debugw("remote busy", "me", context.Self().GetId())
+		context.Self().Poison()
+	case *actor.PID:
+		strata, err := syncer.storage.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
+		if err != nil {
+			panic("timeout")
+		}
+		remoteSyncer.Request(&messages.ProvideStrata{
+			Strata:    strata.(ibf.DifferenceStrata),
+			Validator: syncer.validator,
+		}, context.Self())
+	}
 }
 
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
-	log.Infow("handleProvideMessage", "id", context.Self().Id)
+	syncer.Log.Debugw("handleProvideMessage", "id", context.Self().Id)
 	//TODO: 503 when too busy
-	localStrataInt, err := syncer.storage.RequestFuture(&messages.GetStrata{}, 30*time.Second).Result()
+	localStrataInt, err := syncer.storage.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 	if err != nil {
 		panic("timeout")
 	}
@@ -92,17 +115,17 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 				Result: result,
 			}, context.Self())
 		} else {
-			log.Infow("synced", "me", context.Self().GetId())
-			context.Sender().Tell(&messages.SyncDone{})
+			syncer.Log.Debugw("synced", "me", context.Self().GetId())
+			syncDone(context)
 		}
 	}
 }
 
 func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.RequestIBF) {
-	log.Infow("handleRequestIBF", "id", context.Self().Id)
+	syncer.Log.Debugw("handleRequestIBF", "id", context.Self().Id)
 	if msg.Count == 0 {
 		//TODO: this needs to cleanup and maybe queue up another sync
-		log.Infow("count 0", "me", context.Self().GetId())
+		syncer.Log.Debugw("count 0", "me", context.Self().GetId())
 		return
 	}
 	if msg.Result != nil {
@@ -118,8 +141,8 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 		}
 	}
 	if sizeToSend == 0 {
-		log.Errorf("%s estimate too large to send an IBF: %d", context.Self().GetId(), msg.Count)
-		context.Sender().Tell(&messages.SyncDone{})
+		syncer.Log.Errorf("%s estimate too large to send an IBF: %d", context.Self().GetId(), msg.Count)
+		syncDone(context)
 		return
 	}
 	localIBF, err := syncer.getLocalIBF(sizeToSend)
@@ -141,7 +164,8 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 	subtracted := localIBF.Subtract(&msg.Filter)
 	diff, err := subtracted.Decode()
 	if err != nil {
-		log.Errorw("error getting diff from peer %s (remote size: %d): %v", "id", context.Self().GetId(), "err", err)
+		syncer.Log.Errorw("error getting diff from peer %s (remote size: %d): %v", "id", context.Self().GetId(), "err", err)
+		syncDone(context)
 	}
 	syncer.handleDiff(context, diff, msg.Validator)
 }
@@ -168,7 +192,7 @@ func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResul
 		prefixes[i] = uint64(pref)
 	}
 	syncer.sendPrefixes(context, prefixes, destination).Wait()
-	context.Sender().Tell(&messages.SyncDone{})
+	syncDone(context)
 }
 
 func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) *actor.Future {
@@ -183,14 +207,9 @@ func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64,
 	return sender.PoisonFuture()
 }
 
-func notifyWhenFinished(destination *actor.PID, msg interface{}) *actor.PID {
-	return actor.Spawn(actor.FromFunc(func(ctx actor.Context) {
-		switch msg := ctx.Message().(type) {
-		case *actor.Terminated:
-			destination.Tell(msg)
-			ctx.Self().Stop()
-		}
-	}))
+func syncDone(context actor.Context) {
+	context.Sender().Tell(&messages.SyncDone{})
+	context.Self().Poison()
 }
 
 func requestKeysFromDiff(objs []ibf.ObjectId) *messages.RequestKeys {

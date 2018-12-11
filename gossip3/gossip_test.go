@@ -1,14 +1,15 @@
 package gossip3
 
 import (
+	"bytes"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,18 +25,78 @@ func newSystem(count int) (*System, error) {
 	return system, nil
 }
 
-func TestStart(t *testing.T) {
-	system, err := newSystem(3)
+func TestStorage(t *testing.T) {
+	numMembers := 3
+	system, err := newSystem(numMembers)
 	require.Nil(t, err)
-	syncer := system.GetRandomSyncer()
+
+	syncers := system.Syncers.Values()
+	require.Len(t, syncers, numMembers)
+	t.Logf("syncers: %v", syncers)
+	syncer := syncers[0]
+
+	key := []byte("hi this is a long key that does many things")
+	value := []byte("hiyo")
+
 	syncer.Tell(&messages.Store{
-		Key:   []byte("hi this is a long key that does many things"),
-		Value: []byte("hiyo"),
+		Key:   key,
+		Value: value,
 	})
 
-	syncer.Tell(&messages.StartGossip{
-		System: system,
+	time.Sleep(200 * time.Millisecond)
+
+	store, err := syncer.RequestFuture(&messages.GetStorage{}, 1*time.Second).Result()
+	require.Nil(t, err)
+	val, err := store.(*actor.PID).RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
+	require.Nil(t, err)
+	require.Equal(t, value, val)
+}
+
+func TestStart(t *testing.T) {
+	numMembers := 100
+	system, err := newSystem(numMembers)
+	require.Nil(t, err)
+
+	syncers := system.Syncers.Values()
+	require.Len(t, syncers, numMembers)
+	t.Logf("syncers: %v", syncers)
+
+	wg := sync.WaitGroup{}
+	wg.Add(numMembers)
+
+	key := []byte("hi this is a long key that does many things")
+	value := []byte("hiyo")
+
+	syncers[0].Tell(&messages.Store{
+		Key:   key,
+		Value: value,
 	})
-	assert.Len(t, system.Syncers.Values(), 3)
-	time.Sleep(2 * time.Second)
+
+	for _, s := range syncers {
+		s.Tell(&messages.StartGossip{
+			System: system,
+		})
+		go func(syncer *actor.PID) {
+			store, err := syncer.RequestFuture(&messages.GetStorage{}, 1*time.Second).Result()
+			require.Nil(t, err)
+
+			val, err := store.(*actor.PID).RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
+			require.Nil(t, err)
+
+			timer := time.AfterFunc(10*time.Second, func() {
+				t.Logf("TIMEOUT %s", syncer.GetId())
+				wg.Done()
+				t.Fatalf("timeout waiting for key to appear")
+			})
+			for !bytes.Equal(val.([]byte), value) {
+				time.Sleep(1 * time.Second)
+				val, err = store.(*actor.PID).RequestFuture(&messages.Get{Key: key}, 2*time.Second).Result()
+				require.Nil(t, err)
+			}
+			wg.Done()
+			timer.Stop()
+			syncer.Stop()
+		}(&s)
+	}
+	wg.Wait()
 }
