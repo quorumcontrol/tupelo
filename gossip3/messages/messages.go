@@ -19,6 +19,8 @@ type GetStrata struct{}
 type GetStorage struct{}
 type GetSyncer struct{}
 
+type SyncDone struct{}
+
 type GetPrefix struct {
 	Prefix []byte
 }

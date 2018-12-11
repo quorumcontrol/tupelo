@@ -15,8 +15,9 @@ type system interface {
 
 // Gossiper is the root gossiper
 type Gossiper struct {
-	pids   map[string]*actor.PID
-	system system
+	pids             map[string]*actor.PID
+	system           system
+	syncersAvailable int64
 }
 
 func NewGossiper() actor.Actor {
@@ -42,30 +43,38 @@ func (g *Gossiper) Receive(context actor.Context) {
 		}
 		g.pids["validator"] = validator
 	case *messages.StartGossip:
-		pid, err := context.SpawnNamed(NewPushSyncerProps(g.pids["storage"], g.pids["validator"]), "pushSyncer")
-		if err != nil {
-			panic(fmt.Sprintf("error spawning: %v", err))
-		}
-
 		var remoteGossiper *actor.PID
 		for remoteGossiper == nil || remoteGossiper.GetId() == context.Self().GetId() {
 			remoteGossiper = msg.System.GetRandomSyncer()
 		}
-		syncer, err := remoteGossiper.RequestFuture(&messages.GetSyncer{}, 30*time.Second).Result()
+		resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{}, 30*time.Second).Result()
 		if err != nil {
 			panic("timeout")
 		}
-		pid.Tell(&messages.DoPush{
-			RemoteSyncer: syncer.(*actor.PID),
-		})
+
+		switch remoteSyncer := resp.(type) {
+		case bool:
+			// handle case where remote is doing too many syncs
+		case *actor.PID:
+			localsyncer, err := context.SpawnNamed(NewPushSyncerProps(g.pids["storage"], g.pids["validator"], true), "pushSyncer")
+			if err != nil {
+				panic(fmt.Sprintf("error spawning: %v", err))
+			}
+
+			localsyncer.Tell(&messages.DoPush{
+				RemoteSyncer: remoteSyncer,
+			})
+		}
+
 	case *messages.GetStorage:
 		context.Respond(g.pids["storage"])
 	case *messages.GetSyncer:
 		// TODO: this is where we'd limit concurrency, etc
-		context.Respond(context.SpawnPrefix(NewPushSyncerProps(g.pids["storage"], g.pids["validator"]), "syncer"))
+		context.Respond(context.SpawnPrefix(NewPushSyncerProps(g.pids["storage"], g.pids["validator"], false), "syncer"))
 	case *messages.Store:
 		g.pids["validator"].Tell(msg)
 	case *messages.Debug:
 		fmt.Printf("message: %v", msg.Message)
+		actor.NewPID("test", "test")
 	}
 }
