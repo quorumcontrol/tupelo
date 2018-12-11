@@ -115,25 +115,25 @@ func (csw *conflictSetWorker) handleDone(ctx context.Context, msg ProvideMessage
 
 	go gn.subscriptions.Notify(state.ObjectID, state)
 
-	// conflictSetID := conflictSetIDFromMessageKey(msg.Key)
-	// conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
-	// if err != nil {
-	// 	return err
-	// }
-	// for _, key := range conflictSetKeys {
-	// 	switch messageTypeFromKey(key) {
-	// 	case MessageTypeDone:
-	// 		continue
-	// 	case MessageTypeSignature:
-	// 		if bytes.Equal(conflictSetIDFromMessageKey(key), conflictSetID) {
-	// 			gn.Storage.Delete(key)
-	// 		}
-	// 	default:
-	// 		if bytes.Equal(conflictSetIDFromMessageKey(key), conflictSetID) {
-	// 			gn.Remove(key)
-	// 		}
-	// 	}
-	// }
+	conflictSetID := conflictSetIDFromMessageKey(msg.Key)
+	conflictSetKeys, err := gn.Storage.GetKeysByPrefix(conflictSetID[0:4])
+	if err != nil {
+		return err
+	}
+	for _, key := range conflictSetKeys {
+		switch messageTypeFromKey(key) {
+		case MessageTypeDone:
+			continue
+		case MessageTypeSignature:
+			if bytes.Equal(conflictSetIDFromMessageKey(key), conflictSetID) {
+				gn.Storage.Delete(key)
+			}
+		default:
+			if bytes.Equal(conflictSetIDFromMessageKey(key), conflictSetID) {
+				gn.Remove(key)
+			}
+		}
+	}
 
 	return nil
 }
