@@ -15,6 +15,7 @@ import (
 type PushSyncer struct {
 	storage   *actor.PID
 	validator *actor.PID
+	gossiper  *actor.PID
 }
 
 func NewPushSyncerProps(storage, validator *actor.PID) *actor.Props {
@@ -73,12 +74,15 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 	if result != nil {
 		syncer.handleDiff(context, *result, msg.Validator)
 	} else {
-		context.Sender().Request(&messages.RequestIBF{
-			Count:  count,
-			Result: result,
-		}, context.Self())
+		if count > 0 {
+			context.Sender().Request(&messages.RequestIBF{
+				Count:  count,
+				Result: result,
+			}, context.Self())
+		} else {
+			log.Infow("synced", "me", context.Self().GetId())
+		}
 	}
-
 }
 
 func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.RequestIBF) {
