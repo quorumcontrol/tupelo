@@ -53,13 +53,12 @@ func TestStorage(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
-	numMembers := 100
+	numMembers := 200
 	system, err := newSystem(numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
 	require.Len(t, syncers, numMembers)
-	t.Logf("syncers: %v", syncers)
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
@@ -71,11 +70,20 @@ func TestStart(t *testing.T) {
 		Key:   key,
 		Value: value,
 	})
+	syncers[1].Tell(&messages.Store{
+		Key:   key,
+		Value: value,
+	})
+	syncers[2].Tell(&messages.Store{
+		Key:   key,
+		Value: value,
+	})
 
 	for _, s := range syncers {
 		s.Tell(&messages.StartGossip{
 			System: system,
 		})
+		b := s
 		go func(syncer *actor.PID) {
 			store, err := syncer.RequestFuture(&messages.GetStorage{}, 1*time.Second).Result()
 			require.Nil(t, err)
@@ -83,7 +91,7 @@ func TestStart(t *testing.T) {
 			val, err := store.(*actor.PID).RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
 			require.Nil(t, err)
 
-			timer := time.AfterFunc(10*time.Second, func() {
+			timer := time.AfterFunc(2*time.Second, func() {
 				t.Logf("TIMEOUT %s", syncer.GetId())
 				wg.Done()
 				t.Fatalf("timeout waiting for key to appear")
@@ -93,10 +101,11 @@ func TestStart(t *testing.T) {
 				val, err = store.(*actor.PID).RequestFuture(&messages.Get{Key: key}, 2*time.Second).Result()
 				require.Nil(t, err)
 			}
-			wg.Done()
+			require.Equal(t, value, val.([]byte))
 			timer.Stop()
-			syncer.Stop()
-		}(&s)
+			wg.Done()
+			syncer.StopFuture().Wait()
+		}(&b)
 	}
 	wg.Wait()
 }
