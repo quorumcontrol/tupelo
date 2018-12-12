@@ -40,6 +40,8 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleStartGossip(context, msg)
 	case *messages.RoundTransition:
 		tn.handleRoundTransition(context, msg)
+	case *messages.NewValidatedTransaction:
+		tn.handleNewValidatedTransaction(context, msg)
 	case *messages.Store:
 		context.Forward(tn.mempoolGossiper)
 	case *messages.Get:
@@ -80,6 +82,10 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	}
 	tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
+}
+
+func (tn *TupeloNode) handleNewValidatedTransaction(context actor.Context, msg *messages.NewValidatedTransaction) {
+	
 }
 
 func (tn *TupeloNode) handleRoundTransition(context actor.Context, msg *messages.RoundTransition) {

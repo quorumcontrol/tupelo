@@ -88,3 +88,17 @@ type Transaction struct {
 	NewTip      []byte
 	Payload     []byte
 }
+
+type Signature struct {
+	TransactionID []byte
+	ObjectID      []byte
+	Tip           []byte
+	Signers       []bool
+	Signature     []byte
+}
+
+type NewValidatedTransaction struct {
+	ConflictSetID string
+	ObjectID      []byte
+	TransactionID []byte
+}

@@ -12,30 +12,37 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
+	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, count int) (*System, error) {
-	system := NewSystem()
-	for i := 0; i < count; i++ {
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*System, error) {
+	ng := types.NewNotaryGroup()
+	for i, signKey := range testSet.SignKeys {
+		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), signKey)
 		syncer, err := actor.SpawnPrefix(actors.NewTupeloNodeProps(), "tupelo")
 		if err != nil {
 			return nil, fmt.Errorf("error spawning: %v", err)
 		}
+		signer.Actor = syncer
 		go func() {
 			<-ctx.Done()
 			syncer.Stop()
 		}()
-		system.Syncers.Add(syncer)
+		ng.AddSigner(signer)
 	}
+	system := NewSystem(ng)
 	return system, nil
 }
 
 func TestTupeloMemStorage(t *testing.T) {
 	numMembers := 3
+	ts := testnotarygroup.NewTestSet(t, numMembers)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	system, err := newTupeloSystem(ctx, numMembers)
+	system, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
@@ -67,8 +74,9 @@ func TestTupeloGossip(t *testing.T) {
 	numMembers := 200
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ts := testnotarygroup.NewTestSet(t, numMembers)
 
-	system, err := newTupeloSystem(ctx, numMembers)
+	system, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
