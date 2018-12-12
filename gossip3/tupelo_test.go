@@ -64,7 +64,7 @@ func TestTupeloMemStorage(t *testing.T) {
 }
 
 func TestTupeloGossip(t *testing.T) {
-	numMembers := 20
+	numMembers := 200
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
