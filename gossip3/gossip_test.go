@@ -2,6 +2,7 @@ package gossip3
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -13,21 +14,40 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newSystem(count int) (*System, error) {
+func newSystem(ctx context.Context, count int) (*System, error) {
 	system := NewSystem()
 	for i := 0; i < count; i++ {
-		syncer, err := actor.SpawnPrefix(actors.NewGossiperProps("mempool", actors.NewMemPoolValidatorProps, actors.NewStorageProps()), "gossiper")
+		store, err := actor.SpawnPrefix(actors.NewStorageProps(), "store")
+		if err != nil {
+			return nil, err
+		}
+
+		validator, err := actor.SpawnPrefix(actors.NewMemPoolValidatorProps(store), "validator")
+		if err != nil {
+			return nil, err
+		}
+
+		syncer, err := actor.SpawnPrefix(actors.NewGossiperProps("mempool", validator), "gossiper")
 		if err != nil {
 			return nil, fmt.Errorf("error spawning: %v", err)
 		}
+		go func() {
+			<-ctx.Done()
+			store.Poison()
+			validator.Poison()
+			syncer.Stop()
+		}()
 		system.Syncers.Add(syncer)
 	}
+
 	return system, nil
 }
 
 func TestStorage(t *testing.T) {
-	numMembers := 3
-	system, err := newSystem(numMembers)
+	numMembers := 1
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	system, err := newSystem(ctx, numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
@@ -43,7 +63,7 @@ func TestStorage(t *testing.T) {
 		Value: value,
 	})
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
 	require.Nil(t, err)
@@ -52,7 +72,9 @@ func TestStorage(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	numMembers := 200
-	system, err := newSystem(numMembers)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	system, err := newSystem(ctx, numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
@@ -99,7 +121,6 @@ func TestStart(t *testing.T) {
 			require.Equal(t, value, val.([]byte))
 			timer.Stop()
 			wg.Done()
-			syncer.StopFuture().Wait()
 		}(&b)
 	}
 	wg.Wait()

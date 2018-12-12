@@ -2,6 +2,7 @@ package gossip3
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -13,13 +14,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(count int) (*System, error) {
+func newTupeloSystem(ctx context.Context, count int) (*System, error) {
 	system := NewSystem()
 	for i := 0; i < count; i++ {
 		syncer, err := actor.SpawnPrefix(actors.NewTupeloNodeProps(), "tupelo")
 		if err != nil {
 			return nil, fmt.Errorf("error spawning: %v", err)
 		}
+		go func() {
+			<-ctx.Done()
+			syncer.Stop()
+		}()
 		system.Syncers.Add(syncer)
 	}
 	return system, nil
@@ -27,7 +32,9 @@ func newTupeloSystem(count int) (*System, error) {
 
 func TestTupeloMemStorage(t *testing.T) {
 	numMembers := 3
-	system, err := newTupeloSystem(numMembers)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	system, err := newTupeloSystem(ctx, numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
@@ -52,7 +59,10 @@ func TestTupeloMemStorage(t *testing.T) {
 
 func TestTupeloGossip(t *testing.T) {
 	numMembers := 200
-	system, err := newTupeloSystem(numMembers)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	system, err := newTupeloSystem(ctx, numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
@@ -99,7 +109,6 @@ func TestTupeloGossip(t *testing.T) {
 			require.Equal(t, value, val.([]byte))
 			timer.Stop()
 			wg.Done()
-			syncer.StopFuture().Wait()
 		}(&b)
 	}
 	wg.Wait()
