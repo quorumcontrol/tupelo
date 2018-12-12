@@ -50,6 +50,9 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 		context.SetReceiveTimeout(0)
 		mpv.isWorking = false
 		mpv.notifyClear()
+
+	// Override the default storage Store message handling
+	// by inserting a validator
 	case *messages.Store:
 		if !mpv.isWorking {
 			// only notify on start working
@@ -60,25 +63,14 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 		mpv.handleStore(context, msg)
 	case *messages.SubscribeValidatorWorking:
 		mpv.subscriptions = append(mpv.subscriptions, msg.Actor)
-	case *messages.Get:
-		val, err := mpv.storage.Get(msg.Key)
-		if err != nil {
-			mpv.Log.Errorw("error getting key", "err", err, "key", msg.Key)
-		}
-		context.Respond(val)
-	case *messages.GetStrata:
-		context.Respond(*mpv.strata)
-	case *messages.GetIBF:
-		context.Respond(*mpv.ibfs[msg.Size])
-	case *messages.GetPrefix:
-		keys, err := mpv.storage.GetPairsByPrefix(msg.Prefix)
-		if err != nil {
-			mpv.Log.Errorw("error getting keys", "err", err)
-		}
-		context.Respond(keys)
+
+	// actually do the store now that it's passed a validator
 	case *stateTransactionResponse:
 		mpv.Log.Infow("stateTransactionResponse", "msg", msg)
 		mpv.Add(msg.stateTransaction.TransactionID, msg.stateTransaction.payload)
+	default:
+		// handle the standard GET/GetPrefix, etc
+		mpv.Storage.Receive(context)
 	}
 }
 
