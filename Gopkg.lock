@@ -29,6 +29,21 @@
   revision = "5312a61534124124185d41f09206b9fef1d88403"
 
 [[projects]]
+  digest = "1:1c8ee7543ae60103ae543f79e6044d768e6de6cfaa245c53e45f3681c7f682a0"
+  name = "github.com/awalterschulze/gographviz"
+  packages = [
+    ".",
+    "ast",
+    "internal/errors",
+    "internal/lexer",
+    "internal/parser",
+    "internal/token",
+  ]
+  pruneopts = ""
+  revision = "c84395e536e1a1199093a4e6253d1bee99e4cd2a"
+  version = "v2.0"
+
+[[projects]]
   branch = "master"
   digest = "1:542be9fb8d738302988a3733cd1391f5909c3b580825df99a9fae723f493e2bf"
   name = "github.com/btcsuite/btcd"
@@ -886,6 +901,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/abiosoft/ishell",
+    "github.com/awalterschulze/gographviz",
     "github.com/btcsuite/btcutil/base58",
     "github.com/dedis/kyber",
     "github.com/dedis/kyber/pairing/bn256",

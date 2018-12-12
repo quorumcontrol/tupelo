@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"os/user"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ var (
 	certFile              string
 	keyFile               string
 	localNetworkNodeCount int
+	localConfigPath       string
 )
 
 func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
@@ -116,11 +118,20 @@ var rpcServerCmd = &cobra.Command{
 	},
 }
 
+func defaultCfgPath() string {
+	usr, err := user.Current()
+	if err != nil {
+		log.Warn("Error finding user: %v", err)
+	}
+	return filepath.Join(usr.HomeDir, ".tupelo/local_network")
+}
+
 func init() {
 	rootCmd.AddCommand(rpcServerCmd)
 	rpcServerCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which public keys to bootstrap the notary groups with")
-	rpcServerCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
+	rpcServerCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 	rpcServerCmd.Flags().BoolVarP(&tls, "tls", "t", false, "Encrypt connections with TLS/SSL")
+	rpcServerCmd.Flags().StringVarP(&localConfigPath, "config-path", "c", defaultCfgPath(), "Local network configuration")
 	rpcServerCmd.Flags().StringVarP(&certFile, "tls-cert", "C", "", "TLS certificate file")
 	rpcServerCmd.Flags().StringVarP(&keyFile, "tls-key", "K", "", "TLS private key file")
 }
