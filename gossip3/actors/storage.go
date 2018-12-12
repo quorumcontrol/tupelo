@@ -12,9 +12,9 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/storage"
 )
 
-type ibfMap map[int]*ibf.InvertibleBloomFilter
-
 var standardIBFSizes = []int{500, 2000, 100000}
+
+type ibfMap map[int]*ibf.InvertibleBloomFilter
 
 // PushSyncer is the main remote-facing actor that handles
 // Sending out syncs
@@ -34,7 +34,7 @@ func NewStorageProps() *actor.Props {
 	)
 }
 
-func NewStorage() actor.Actor {
+func NewInitializedStorageStruct() *Storage {
 	s := &Storage{
 		ibfs:    make(ibfMap),
 		storage: storage.NewMemStorage(),
@@ -44,6 +44,10 @@ func NewStorage() actor.Actor {
 		s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
 	}
 	return s
+}
+
+func NewStorage() actor.Actor {
+	return NewInitializedStorageStruct()
 }
 
 func (s *Storage) Receive(context actor.Context) {
