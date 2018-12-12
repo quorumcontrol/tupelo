@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newSystem(count int) (*System, error) {
+func newTupeloSystem(count int) (*System, error) {
 	system := NewSystem()
 	for i := 0; i < count; i++ {
-		syncer, err := actor.SpawnPrefix(actors.NewGossiperProps("mempool", actors.NewMemPoolValidatorProps, actors.NewStorageProps()), "gossiper")
+		syncer, err := actor.SpawnPrefix(actors.NewTupeloNodeProps(), "tupelo")
 		if err != nil {
 			return nil, fmt.Errorf("error spawning: %v", err)
 		}
@@ -25,9 +25,9 @@ func newSystem(count int) (*System, error) {
 	return system, nil
 }
 
-func TestStorage(t *testing.T) {
+func TestTupeloMemStorage(t *testing.T) {
 	numMembers := 3
-	system, err := newSystem(numMembers)
+	system, err := newTupeloSystem(numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()
@@ -50,9 +50,9 @@ func TestStorage(t *testing.T) {
 	require.Equal(t, value, val)
 }
 
-func TestStart(t *testing.T) {
+func TestTupeloGossip(t *testing.T) {
 	numMembers := 200
-	system, err := newSystem(numMembers)
+	system, err := newTupeloSystem(numMembers)
 	require.Nil(t, err)
 
 	syncers := system.Syncers.Values()

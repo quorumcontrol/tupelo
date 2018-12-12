@@ -30,24 +30,19 @@ type Gossiper struct {
 	validatorClear   bool
 	round            uint64
 	validatorMaker   validatorPropsCreator
+	storageProps     *actor.Props
 }
 
 const maxSyncers = 3
 
-func NewGossiper() actor.Actor {
-	return &Gossiper{
-		pids:             make(map[string]*actor.PID),
-		syncersAvailable: maxSyncers,
-	}
-}
-
-func NewGossiperProps(kind string, validatorMaker validatorPropsCreator) *actor.Props {
+func NewGossiperProps(kind string, validatorMaker validatorPropsCreator, storageProps *actor.Props) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &Gossiper{
+			kind:             kind,
 			pids:             make(map[string]*actor.PID),
 			syncersAvailable: maxSyncers,
 			validatorMaker:   validatorMaker,
-			kind:             kind,
+			storageProps:     storageProps,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -73,7 +68,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 		}
 		panic(fmt.Sprintf("unknown actor terminated: %s", msg.Who.GetId()))
 	case *actor.Started:
-		store, err := context.SpawnNamed(NewStorageProps(), "storage")
+		store, err := context.SpawnNamed(g.storageProps, "storage")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning storage: %v", err))
 		}
@@ -99,8 +94,6 @@ func (g *Gossiper) Receive(context actor.Context) {
 		localsyncer.Tell(&messages.DoPush{
 			System: g.system,
 		})
-	case *messages.GetStorage:
-		context.Respond(g.pids["storage"])
 	case *messages.GetSyncer:
 		g.Log.Debugw("GetSyncer", "remote", context.Sender().GetId())
 		if g.syncersAvailable > 0 {
@@ -113,6 +106,8 @@ func (g *Gossiper) Receive(context actor.Context) {
 		}
 	case *messages.Store:
 		g.pids["validator"].Tell(msg)
+	case *messages.Get:
+		context.Forward(g.pids["storage"])
 	case *messages.ValidatorClear:
 		g.validatorClear = true
 		_, ok := g.pids[currentPusherKey]
