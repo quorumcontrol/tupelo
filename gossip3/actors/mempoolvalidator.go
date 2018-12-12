@@ -14,18 +14,19 @@ const stateHandlerConcurrency = 10
 
 type MemPoolValidator struct {
 	middleware.LogAwareHolder
+	*Storage
+
 	subscriptions     []*actor.PID
-	storage           *actor.PID
 	currentStateStore *actor.PID
 	handlerPool       *actor.PID
 	isWorking         bool
 }
 
-func NewMemPoolValidatorProps(storage *actor.PID, currentState *actor.PID) *actor.Props {
+func NewMemPoolValidatorProps(currentState *actor.PID) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &MemPoolValidator{
-			storage:           storage,
 			currentStateStore: currentState,
+			Storage:           NewInitializedStorageStruct(),
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -60,16 +61,24 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 	case *messages.SubscribeValidatorWorking:
 		mpv.subscriptions = append(mpv.subscriptions, msg.Actor)
 	case *messages.Get:
-		context.Forward(mpv.storage)
+		val, err := mpv.storage.Get(msg.Key)
+		if err != nil {
+			mpv.Log.Errorw("error getting key", "err", err, "key", msg.Key)
+		}
+		context.Respond(val)
 	case *messages.GetStrata:
-		context.Forward(mpv.storage)
+		context.Respond(*mpv.strata)
 	case *messages.GetIBF:
-		context.Forward(mpv.storage)
+		context.Respond(*mpv.ibfs[msg.Size])
 	case *messages.GetPrefix:
-		context.Forward(mpv.storage)
+		keys, err := mpv.storage.GetPairsByPrefix(msg.Prefix)
+		if err != nil {
+			mpv.Log.Errorw("error getting keys", "err", err)
+		}
+		context.Respond(keys)
 	case *stateTransactionResponse:
 		mpv.Log.Infow("stateTransactionResponse", "msg", msg)
-		mpv.storage.Tell(&messages.Store{Key: msg.stateTransaction.TransactionID, Value: msg.stateTransaction.payload})
+		mpv.Add(msg.stateTransaction.TransactionID, msg.stateTransaction.payload)
 	}
 }
 

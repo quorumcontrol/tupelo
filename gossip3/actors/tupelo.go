@@ -64,13 +64,11 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	mempoolStore := context.Spawn(NewStorageProps())
-	committedStore := context.Spawn(NewStorageProps())
 	currentStateStore := context.Spawn(NewStorageProps())
 
-	mempoolValidator := context.Spawn(NewMemPoolValidatorProps(mempoolStore, currentStateStore))
+	mempoolValidator := context.Spawn(NewMemPoolValidatorProps(currentStateStore))
 	// TODO: this should be a different validator
-	committedValidator := context.Spawn(NewMemPoolValidatorProps(committedStore, currentStateStore))
+	committedValidator := context.Spawn(NewMemPoolValidatorProps(currentStateStore))
 
 	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolValidator), mempoolKind)
 	if err != nil {
