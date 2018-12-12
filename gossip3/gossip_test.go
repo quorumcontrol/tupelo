@@ -16,7 +16,7 @@ import (
 func newSystem(count int) (*System, error) {
 	system := NewSystem()
 	for i := 0; i < count; i++ {
-		syncer, err := actor.SpawnPrefix(actors.GossiperProps, "gossiper")
+		syncer, err := actor.SpawnPrefix(actors.NewGossiperProps("mempool", actors.NewMemPoolValidatorProps), "gossiper")
 		if err != nil {
 			return nil, fmt.Errorf("error spawning: %v", err)
 		}
@@ -43,7 +43,7 @@ func TestStorage(t *testing.T) {
 		Value: value,
 	})
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	store, err := syncer.RequestFuture(&messages.GetStorage{}, 1*time.Second).Result()
 	require.Nil(t, err)

@@ -14,16 +14,22 @@ type system interface {
 	GetRandomSyncer() *actor.PID
 }
 
+type validatorPropsCreator func(storage *actor.PID) *actor.Props
+
 const remoteSyncerPrefix = "remoteSyncer"
 const currentPusherKey = "currentPusher"
 
 // Gossiper is the root gossiper
 type Gossiper struct {
 	middleware.LogAwareHolder
+
+	kind             string
 	pids             map[string]*actor.PID
 	system           system
 	syncersAvailable int64
 	validatorClear   bool
+	round            uint64
+	validatorMaker   validatorPropsCreator
 }
 
 const maxSyncers = 3
@@ -35,10 +41,19 @@ func NewGossiper() actor.Actor {
 	}
 }
 
-var GossiperProps *actor.Props = actor.FromProducer(NewGossiper).WithMiddleware(
-	middleware.LoggingMiddleware,
-	plugin.Use(&middleware.LogPlugin{}),
-)
+func NewGossiperProps(kind string, validatorMaker validatorPropsCreator) *actor.Props {
+	return actor.FromProducer(func() actor.Actor {
+		return &Gossiper{
+			pids:             make(map[string]*actor.PID),
+			syncersAvailable: maxSyncers,
+			validatorMaker:   validatorMaker,
+			kind:             kind,
+		}
+	}).WithMiddleware(
+		middleware.LoggingMiddleware,
+		plugin.Use(&middleware.LogPlugin{}),
+	)
+}
 
 func (g *Gossiper) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
@@ -54,7 +69,9 @@ func (g *Gossiper) Receive(context actor.Context) {
 		if strings.HasPrefix(msg.Who.GetId(), context.Self().GetId()+"/"+remoteSyncerPrefix) {
 			g.Log.Debugw("releasing a new remote syncer")
 			g.syncersAvailable++
+			return
 		}
+		panic(fmt.Sprintf("unknown actor terminated: %s", msg.Who.GetId()))
 	case *actor.Started:
 		store, err := context.SpawnNamed(NewStorageProps(), "storage")
 		if err != nil {
@@ -62,7 +79,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 		}
 		g.pids["storage"] = store
 
-		validator, err := context.SpawnNamed(NewValidatorProps(store), "validator")
+		validator, err := context.SpawnNamed(g.validatorMaker(store), "validator")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning storage: %v", err))
 		}
@@ -73,7 +90,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 		context.Self().Tell(&messages.DoOneGossip{})
 	case *messages.DoOneGossip:
 		g.Log.Debugw("gossiping again")
-		localsyncer, err := context.SpawnNamed(NewPushSyncerProps(g.pids["storage"], g.pids["validator"], true), "pushSyncer")
+		localsyncer, err := context.SpawnNamed(NewPushSyncerProps(g.kind, g.pids["storage"], g.pids["validator"], true), "pushSyncer")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning: %v", err))
 		}
@@ -87,14 +104,13 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *messages.GetSyncer:
 		g.Log.Debugw("GetSyncer", "remote", context.Sender().GetId())
 		if g.syncersAvailable > 0 {
-			receiveSyncer := context.SpawnPrefix(NewPushSyncerProps(g.pids["storage"], g.pids["validator"], false), remoteSyncerPrefix)
+			receiveSyncer := context.SpawnPrefix(NewPushSyncerProps(g.kind, g.pids["storage"], g.pids["validator"], false), remoteSyncerPrefix)
 			context.Watch(receiveSyncer)
 			g.syncersAvailable--
 			context.Respond(receiveSyncer)
 		} else {
 			context.Respond(false)
 		}
-		// TODO: this is where we'd limit concurrency, etc
 	case *messages.Store:
 		g.pids["validator"].Tell(msg)
 	case *messages.ValidatorClear:
