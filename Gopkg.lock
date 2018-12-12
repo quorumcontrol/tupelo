@@ -15,12 +15,13 @@
   name = "github.com/AsynkronIT/protoactor-go"
   packages = [
     "actor",
-    "actor/middleware",
     "eventstream",
     "internal/queue/goring",
     "internal/queue/mpsc",
     "log",
     "mailbox",
+    "plugin",
+    "router",
   ]
   pruneopts = ""
   revision = "aa58a65b6e42e085b938ccc4cb25b06fcef8f0ee"
@@ -722,6 +723,14 @@
   version = "v1.0.1"
 
 [[projects]]
+  branch = "master"
+  digest = "1:4176436b905cb4846fc4664cd673d7f941b9aca1ba7d407ce70fe2838695b338"
+  name = "github.com/serialx/hashring"
+  packages = ["."]
+  pruneopts = ""
+  revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
+
+[[projects]]
   digest = "1:633b5b39909d9d794f5543baee4971890e1866f5c082cdf4694954c1ff489a18"
   name = "github.com/spaolacci/murmur3"
   packages = ["."]
@@ -989,7 +998,8 @@
   analyzer-version = 1
   input-imports = [
     "github.com/AsynkronIT/protoactor-go/actor",
-    "github.com/AsynkronIT/protoactor-go/actor/middleware",
+    "github.com/AsynkronIT/protoactor-go/plugin",
+    "github.com/AsynkronIT/protoactor-go/router",
     "github.com/abiosoft/ishell",
     "github.com/awalterschulze/gographviz",
     "github.com/btcsuite/btcutil/base58",

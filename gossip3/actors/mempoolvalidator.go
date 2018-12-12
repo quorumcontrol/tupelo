@@ -5,9 +5,12 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
+
+const stateHandlerConcurrency = 10
 
 type MemPoolValidator struct {
 	middleware.LogAwareHolder
@@ -33,7 +36,14 @@ func NewMemPoolValidatorProps(storage *actor.PID, currentState *actor.PID) *acto
 func (mpv *MemPoolValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
-		mpv.handlerPool = context.Spawn(NewStateHandlerProps(mpv.currentStateStore))
+		mpv.handlerPool = context.Spawn(router.NewRoundRobinPool(stateHandlerConcurrency).WithProducer(func() actor.Actor {
+			return &stateHandler{
+				currentStateActor: mpv.currentStateStore,
+			}
+		}).WithMiddleware(
+			middleware.LoggingMiddleware,
+			plugin.Use(&middleware.LogPlugin{}),
+		))
 	case *actor.ReceiveTimeout:
 		mpv.Log.Debugw("validator clear")
 		context.SetReceiveTimeout(0)
