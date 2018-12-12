@@ -25,6 +25,7 @@ type stateTransaction struct {
 	Transaction   []byte
 	CurrentState  []byte
 	TransactionID []byte
+	ConflictSetID string
 	payload       []byte
 }
 
@@ -57,7 +58,7 @@ func (sh *stateHandler) Receive(context actor.Context) {
 		sh.Log.Debugw("stateHandler initial", "key", msg.Key)
 		err := sh.handleStore(context, msg)
 		if err != nil {
-			sh.Log.Errorw("error handling", "err", err)
+			sh.Log.Errorw("statehandler: error preparing", "err", err)
 		}
 	case *stateTransaction:
 		sh.Log.Debugw("stateTransaction", "key", msg.TransactionID)
@@ -93,6 +94,7 @@ func (sh *stateHandler) handleStore(context actor.Context, msg *messages.Store) 
 		// TODO: verify transaction ID is correct
 		TransactionID: msg.Key,
 		CurrentState:  curr.([]byte),
+		ConflictSetID: string(append(t.ObjectID, curr.([]byte)...)),
 		//TODO: verify payload
 		payload: msg.Value,
 	}, context.Sender())

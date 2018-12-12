@@ -5,16 +5,23 @@ import (
 	"math/big"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
 )
 
 type System struct {
-	Syncers *actor.PIDSet
+	NotaryGroup *types.NotaryGroup
+	Syncers     *actor.PIDSet
 }
 
-func NewSystem() *System {
-	return &System{
-		Syncers: actor.NewPIDSet(),
+func NewSystem(ng *types.NotaryGroup) *System {
+	s := &System{
+		NotaryGroup: ng,
+		Syncers:     actor.NewPIDSet(),
 	}
+	for _, signer := range ng.Signers {
+		s.Syncers.Add(signer.Actor)
+	}
+	return s
 }
 
 func (s *System) GetRandomSyncer() *actor.PID {

@@ -67,7 +67,22 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 	// actually do the store now that it's passed a validator
 	case *stateTransactionResponse:
 		mpv.Log.Infow("stateTransactionResponse", "msg", msg)
-		mpv.Add(msg.stateTransaction.TransactionID, msg.stateTransaction.payload)
+		if msg.accepted {
+			didSet, err := mpv.Add(msg.stateTransaction.TransactionID, msg.stateTransaction.payload)
+			if err != nil {
+				mpv.Log.Errorw("error storing: %v", err)
+				return
+			}
+			if didSet {
+				context.Parent().Tell(&messages.NewValidatedTransaction{
+					ObjectID:      msg.stateTransaction.ObjectID,
+					ConflictSetID: msg.stateTransaction.ConflictSetID,
+					TransactionID: msg.stateTransaction.TransactionID,
+				})
+			}
+		} else {
+			mpv.Log.Infow("rejected transaction", "id", msg.stateTransaction.TransactionID, "err", msg.err)
+		}
 	default:
 		// handle the standard GET/GetPrefix, etc
 		mpv.Storage.Receive(context)
