@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.System, error) {
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
 	ng := types.NewNotaryGroup()
 	for i, signKey := range testSet.SignKeys {
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), signKey)
@@ -32,8 +32,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		}()
 		ng.AddSigner(signer)
 	}
-	system := types.NewSystem(ng)
-	return system, nil
+	return ng, nil
 }
 
 func TestTupeloMemStorage(t *testing.T) {
@@ -42,10 +41,10 @@ func TestTupeloMemStorage(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	system, err := newTupeloSystem(ctx, ts)
+	ng, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
-	syncers := system.Syncers.Values()
+	syncers := ng.AllSigners()
 	require.Len(t, syncers, numMembers)
 	t.Logf("syncers: %v", syncers)
 	syncer := syncers[0]
@@ -58,14 +57,14 @@ func TestTupeloMemStorage(t *testing.T) {
 	key := id
 	value := bits
 
-	syncer.Tell(&messages.Store{
+	syncer.Actor.Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
 
 	time.Sleep(10 * time.Millisecond)
 
-	val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
+	val, err := syncer.Actor.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
 	require.Nil(t, err)
 	require.Equal(t, value, val)
 }
@@ -79,7 +78,7 @@ func TestTupeloGossip(t *testing.T) {
 	system, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
-	syncers := system.Syncers.Values()
+	syncers := system.AllSigners()
 	require.Len(t, syncers, numMembers)
 
 	wg := sync.WaitGroup{}
@@ -93,24 +92,23 @@ func TestTupeloGossip(t *testing.T) {
 	key := id
 	value := bits
 
-	syncers[0].Tell(&messages.Store{
+	syncers[0].Actor.Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
-	syncers[1].Tell(&messages.Store{
+	syncers[1].Actor.Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
-	syncers[2].Tell(&messages.Store{
+	syncers[2].Actor.Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
 
 	for _, s := range syncers {
-		s.Tell(&messages.StartGossip{
+		s.Actor.Tell(&messages.StartGossip{
 			System: system,
 		})
-		b := s
 		go func(syncer *actor.PID) {
 			val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
 			require.Nil(t, err)
@@ -128,7 +126,7 @@ func TestTupeloGossip(t *testing.T) {
 			require.Equal(t, value, val.([]byte))
 			timer.Stop()
 			wg.Done()
-		}(&b)
+		}(s.Actor)
 	}
 	wg.Wait()
 }
