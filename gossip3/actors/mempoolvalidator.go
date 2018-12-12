@@ -11,8 +11,9 @@ import (
 
 type MemPoolValidator struct {
 	middleware.LogAwareHolder
-
-	storage *actor.PID
+	subscriptions []*actor.PID
+	storage       *actor.PID
+	isWorking     bool
 }
 
 func NewMemPoolValidatorProps(storage *actor.PID) *actor.Props {
@@ -31,18 +32,44 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 	case *actor.ReceiveTimeout:
 		mpv.Log.Debugw("validator clear")
 		context.SetReceiveTimeout(0)
-		context.Parent().Tell(&messages.ValidatorClear{})
+		mpv.isWorking = false
+		mpv.notifyClear()
 	case *messages.Store:
-		context.SetReceiveTimeout(100 * time.Millisecond)
+		if !mpv.isWorking {
+			// only notify on start working
+			mpv.notifyWorking()
+			mpv.isWorking = true
+			context.SetReceiveTimeout(10 * time.Millisecond)
+		}
 		mpv.handleStore(context, msg)
-		context.Parent().Tell(&messages.ValidatorWorking{})
+	case *messages.SubscribeValidatorWorking:
+		mpv.subscriptions = append(mpv.subscriptions, msg.Actor)
+	case *messages.Get:
+		context.Forward(mpv.storage)
+	case *messages.GetStrata:
+		context.Forward(mpv.storage)
+	case *messages.GetIBF:
+		context.Forward(mpv.storage)
+	case *messages.GetPrefix:
+		context.Forward(mpv.storage)
 	}
 }
 
 func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.Store) {
-	mpv.Log.Debugw("validator handle store", "id", context.Self().GetId())
+	mpv.Log.Debugw("validator handle store", "key", msg.Key)
 	// for now we're just saying all messages are valid
 	// but here's where we'd decode and test ownership, etc
-	mpv.Log.Infow("store", "key", msg.Key)
 	mpv.storage.Tell(msg)
+}
+
+func (mpv *MemPoolValidator) notifyWorking() {
+	for _, act := range mpv.subscriptions {
+		act.Tell(&messages.ValidatorWorking{})
+	}
+}
+
+func (mpv *MemPoolValidator) notifyClear() {
+	for _, act := range mpv.subscriptions {
+		act.Tell(&messages.ValidatorClear{})
+	}
 }

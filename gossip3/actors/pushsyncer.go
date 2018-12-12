@@ -18,20 +18,16 @@ import (
 type PushSyncer struct {
 	middleware.LogAwareHolder
 
-	kind      string
-	storage   *actor.PID
-	validator *actor.PID
-	gossiper  *actor.PID
-	isLocal   bool
+	kind         string
+	storageActor *actor.PID
+	gossiper     *actor.PID
 }
 
-func NewPushSyncerProps(kind string, storage, validator *actor.PID, isLocal bool) *actor.Props {
+func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &PushSyncer{
-			storage:   storage,
-			validator: validator,
-			isLocal:   isLocal,
-			kind:      kind,
+			storageActor: storageActor,
+			kind:         kind,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -94,14 +90,14 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 		context.Self().Poison()
 	case *actor.PID:
 		syncer.Log.Debugw("requesting strata")
-		strata, err := syncer.storage.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
+		strata, err := syncer.storageActor.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 		if err != nil {
 			panic("timeout")
 		}
 		syncer.Log.Debugw("providing strata", "remote", remoteSyncer.GetId())
 		remoteSyncer.Request(&messages.ProvideStrata{
 			Strata:    strata.(ibf.DifferenceStrata),
-			Validator: syncer.validator,
+			Validator: syncer.storageActor,
 		}, context.Self())
 	default:
 		panic("unknown type")
@@ -111,7 +107,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
 	syncer.Log.Debugw("handleProvideStrata")
 	//TODO: 503 when too busy
-	localStrataInt, err := syncer.storage.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
+	localStrataInt, err := syncer.storageActor.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 	if err != nil {
 		panic("timeout")
 	}
@@ -166,7 +162,7 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 
 	context.Sender().Request(&messages.ProvideBloomFilter{
 		Filter:    *localIBF,
-		Validator: syncer.validator,
+		Validator: syncer.storageActor,
 	}, context.Self())
 }
 
@@ -189,7 +185,7 @@ func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages
 }
 
 func (syncer *PushSyncer) getLocalIBF(size int) (*ibf.InvertibleBloomFilter, error) {
-	localIBF, err := syncer.storage.RequestFuture(&messages.GetIBF{
+	localIBF, err := syncer.storageActor.RequestFuture(&messages.GetIBF{
 		Size: size,
 	}, 30*time.Second).Result()
 	if err != nil {
@@ -201,7 +197,7 @@ func (syncer *PushSyncer) getLocalIBF(size int) (*ibf.InvertibleBloomFilter, err
 
 func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResults, destination *actor.PID) {
 	syncer.Log.Debugw("handleDiff")
-	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.validator)
+	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.storageActor)
 	prefixes := make([]uint64, len(diff.LeftSet), len(diff.LeftSet))
 	for i, pref := range diff.LeftSet {
 		prefixes[i] = uint64(pref)
@@ -211,7 +207,7 @@ func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResul
 }
 
 func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) *actor.Future {
-	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storage), "objectSender")
+	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storageActor), "objectSender")
 	for _, pref := range prefixes {
 		sender.Tell(&messages.SendPrefix{
 			Prefix:      uint64ToBytes(pref),

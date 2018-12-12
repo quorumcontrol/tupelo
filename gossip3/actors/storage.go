@@ -42,7 +42,6 @@ func NewStorage() actor.Actor {
 	}
 	for _, size := range standardIBFSizes {
 		s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
-		// node.IBFs[size].TurnOnDebug()
 	}
 	return s
 }

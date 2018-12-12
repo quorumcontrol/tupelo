@@ -24,6 +24,9 @@ type SyncDone struct{}
 
 type ValidatorClear struct{}
 type ValidatorWorking struct{}
+type SubscribeValidatorWorking struct {
+	Actor *actor.PID
+}
 
 type GetPrefix struct {
 	Prefix []byte
@@ -71,4 +74,8 @@ type RequestKeys struct {
 type SendPrefix struct {
 	Prefix      []byte
 	Destination *actor.PID
+}
+
+type RoundTransition struct {
+	NextRound uint64
 }
