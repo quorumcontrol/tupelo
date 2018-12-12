@@ -11,15 +11,18 @@ import (
 
 type MemPoolValidator struct {
 	middleware.LogAwareHolder
-	subscriptions []*actor.PID
-	storage       *actor.PID
-	isWorking     bool
+	subscriptions     []*actor.PID
+	storage           *actor.PID
+	currentStateStore *actor.PID
+	handlerPool       *actor.PID
+	isWorking         bool
 }
 
-func NewMemPoolValidatorProps(storage *actor.PID) *actor.Props {
+func NewMemPoolValidatorProps(storage *actor.PID, currentState *actor.PID) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &MemPoolValidator{
-			storage: storage,
+			storage:           storage,
+			currentStateStore: currentState,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -29,6 +32,8 @@ func NewMemPoolValidatorProps(storage *actor.PID) *actor.Props {
 
 func (mpv *MemPoolValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		mpv.handlerPool = context.Spawn(NewStateHandlerProps(mpv.currentStateStore))
 	case *actor.ReceiveTimeout:
 		mpv.Log.Debugw("validator clear")
 		context.SetReceiveTimeout(0)
@@ -52,6 +57,9 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 		context.Forward(mpv.storage)
 	case *messages.GetPrefix:
 		context.Forward(mpv.storage)
+	case *stateTransactionResponse:
+		mpv.Log.Infow("stateTransactionResponse", "msg", msg)
+		mpv.storage.Tell(&messages.Store{Key: msg.stateTransaction.TransactionID, Value: msg.stateTransaction.payload})
 	}
 }
 
@@ -59,7 +67,8 @@ func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.St
 	mpv.Log.Debugw("validator handle store", "key", msg.Key)
 	// for now we're just saying all messages are valid
 	// but here's where we'd decode and test ownership, etc
-	mpv.storage.Tell(msg)
+
+	mpv.handlerPool.Request(msg, context.Self())
 }
 
 func (mpv *MemPoolValidator) notifyWorking() {

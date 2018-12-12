@@ -1,3 +1,5 @@
+//go:generate msgp
+
 package messages
 
 import (
@@ -25,7 +27,7 @@ type SyncDone struct{}
 type ValidatorClear struct{}
 type ValidatorWorking struct{}
 type SubscribeValidatorWorking struct {
-	Actor *actor.PID
+	Actor *actor.PID `msg:"-"`
 }
 
 type GetPrefix struct {
@@ -40,7 +42,7 @@ type system interface {
 	GetRandomSyncer() *actor.PID
 }
 type StartGossip struct {
-	System system
+	System system `msg:"-"`
 }
 type DoOneGossip struct{}
 
@@ -49,22 +51,22 @@ type GetIBF struct {
 }
 
 type DoPush struct {
-	System system
+	System system `msg:"-"`
 }
 
 type ProvideStrata struct {
-	Strata    ibf.DifferenceStrata
-	Validator *actor.PID
+	Strata    ibf.DifferenceStrata `msg:"-"`
+	Validator *actor.PID           `msg:"-"`
 }
 
 type ProvideBloomFilter struct {
-	Filter    ibf.InvertibleBloomFilter
-	Validator *actor.PID
+	Filter    ibf.InvertibleBloomFilter `msg:"-"`
+	Validator *actor.PID                `msg:"-"`
 }
 
 type RequestIBF struct {
 	Count  int
-	Result *ibf.DecodeResults
+	Result *ibf.DecodeResults `msg:"-"`
 }
 
 type RequestKeys struct {
@@ -73,9 +75,16 @@ type RequestKeys struct {
 
 type SendPrefix struct {
 	Prefix      []byte
-	Destination *actor.PID
+	Destination *actor.PID `msg:"-"`
 }
 
 type RoundTransition struct {
 	NextRound uint64
+}
+
+type Transaction struct {
+	ObjectID    []byte
+	PreviousTip []byte
+	NewTip      []byte
+	Payload     []byte
 }
