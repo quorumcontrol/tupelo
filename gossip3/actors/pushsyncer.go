@@ -42,25 +42,31 @@ func NewPushSyncerProps(kind string, storage, validator *actor.PID, isLocal bool
 func (syncer *PushSyncer) Receive(context actor.Context) {
 	// this makes sure the protocol continues along
 	// and will terminate when nothing is happening
-	context.SetReceiveTimeout(10 * time.Second)
 
 	switch msg := context.Message().(type) {
 	case *actor.ReceiveTimeout:
 		syncer.Log.Debugw("timeout")
 		context.Self().Poison()
 	case *messages.DoPush:
+		context.SetReceiveTimeout(2 * time.Second)
 		syncer.handleDoPush(context, msg)
 	case *messages.ProvideStrata:
+		context.SetReceiveTimeout(2 * time.Second)
 		syncer.handleProvideStrata(context, msg)
 	case *messages.RequestIBF:
+		context.SetReceiveTimeout(2 * time.Second)
 		syncer.handleRequestIBF(context, msg)
 	case *messages.ProvideBloomFilter:
+		context.SetReceiveTimeout(2 * time.Second)
 		syncer.handleProvideBloomFilter(context, msg)
 	case *messages.RequestKeys:
+		context.SetReceiveTimeout(2 * time.Second)
 		syncer.handleRequestKeys(context, msg)
 	case *messages.Debug:
 		syncer.Log.Debugf("message: %v", msg.Message)
 	case *messages.SyncDone:
+		context.SetReceiveTimeout(0)
+
 		syncer.Log.Debugw("received sync done", "remote", context.Sender().GetId())
 		context.SetReceiveTimeout(0)
 		context.Self().Poison()
