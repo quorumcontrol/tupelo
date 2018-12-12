@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/require"
@@ -42,8 +43,13 @@ func TestTupeloMemStorage(t *testing.T) {
 	t.Logf("syncers: %v", syncers)
 	syncer := syncers[0]
 
-	key := []byte("hi this is a long key that does many things")
-	value := []byte("hiyo")
+	trans := newValidTransaction(t)
+	bits, err := trans.MarshalMsg(nil)
+	require.Nil(t, err)
+	id := crypto.Keccak256(bits)
+
+	key := id
+	value := bits
 
 	syncer.Tell(&messages.Store{
 		Key:   key,
@@ -58,7 +64,7 @@ func TestTupeloMemStorage(t *testing.T) {
 }
 
 func TestTupeloGossip(t *testing.T) {
-	numMembers := 200
+	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -71,8 +77,13 @@ func TestTupeloGossip(t *testing.T) {
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
 
-	key := []byte("hi this is a long key that does many things")
-	value := []byte("hiyo")
+	trans := newValidTransaction(t)
+	bits, err := trans.MarshalMsg(nil)
+	require.Nil(t, err)
+	id := crypto.Keccak256(bits)
+
+	key := id
+	value := bits
 
 	syncers[0].Tell(&messages.Store{
 		Key:   key,
@@ -96,7 +107,7 @@ func TestTupeloGossip(t *testing.T) {
 			val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
 			require.Nil(t, err)
 
-			timer := time.AfterFunc(2*time.Second, func() {
+			timer := time.AfterFunc(5*time.Second, func() {
 				t.Logf("TIMEOUT %s", syncer.GetId())
 				wg.Done()
 				t.Fatalf("timeout waiting for key to appear")
