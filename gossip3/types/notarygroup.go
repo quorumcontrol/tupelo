@@ -2,6 +2,7 @@ package types
 
 import (
 	"crypto/ecdsa"
+	"math"
 	"sort"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -40,6 +41,14 @@ func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) Signer {
 type NotaryGroup struct {
 	Signers   map[string]Signer
 	sortedIds []string
+}
+
+func (ng *NotaryGroup) GetMajorityCount() int64 {
+	required := int64(math.Ceil((2.0 * float64(len(ng.sortedIds))) / 3.0))
+	if required == 0 {
+		return 1
+	}
+	return required
 }
 
 func NewNotaryGroup() *NotaryGroup {
