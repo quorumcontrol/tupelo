@@ -18,18 +18,20 @@ import (
 type PushSyncer struct {
 	middleware.LogAwareHolder
 
+	kind      string
 	storage   *actor.PID
 	validator *actor.PID
 	gossiper  *actor.PID
 	isLocal   bool
 }
 
-func NewPushSyncerProps(storage, validator *actor.PID, isLocal bool) *actor.Props {
+func NewPushSyncerProps(kind string, storage, validator *actor.PID, isLocal bool) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &PushSyncer{
 			storage:   storage,
 			validator: validator,
 			isLocal:   isLocal,
+			kind:      kind,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -73,7 +75,9 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 	}
 	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.GetId())
 
-	resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{}, 1*time.Second).Result()
+	resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{
+		Kind: syncer.kind,
+	}, 1*time.Second).Result()
 	if err != nil {
 		panic("timeout")
 	}

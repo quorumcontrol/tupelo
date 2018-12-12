@@ -17,7 +17,9 @@ type Remove struct {
 type GetStrata struct{}
 
 type GetStorage struct{}
-type GetSyncer struct{}
+type GetSyncer struct {
+	Kind string
+}
 
 type SyncDone struct{}
 
