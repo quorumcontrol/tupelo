@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*System, error) {
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.System, error) {
 	ng := types.NewNotaryGroup()
 	for i, signKey := range testSet.SignKeys {
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), signKey)
@@ -32,7 +32,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*Sy
 		}()
 		ng.AddSigner(signer)
 	}
-	system := NewSystem(ng)
+	system := types.NewSystem(ng)
 	return system, nil
 }
 
