@@ -36,5 +36,6 @@ func init() {
 	shellCmd.Flags().StringVarP(&shellName, "name", "n", "", "the name to use for the wallet")
 	shellCmd.MarkFlagRequired("name")
 	shellCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
-	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
+	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
+	shellCmd.Flags().StringVarP(&localConfigPath, "config-path", "c", defaultCfgPath(), "Local network configuration")
 }
