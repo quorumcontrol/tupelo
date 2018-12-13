@@ -133,6 +133,7 @@ func (vth *ValidTransactionHandler) createDoneMessageActor(context actor.Context
 	}
 }
 
+// TODO: learned that initialize is probably not the right place to deo this stuff
 func (vth *ValidTransactionHandler) initialize(context actor.Context) {
 	sigGenerator, err := context.SpawnNamed(NewSignatureGeneratorProps(vth.self, vth.notaryGroup), "signatureGenerator")
 	if err != nil {
@@ -159,6 +160,7 @@ func (vth *ValidTransactionHandler) handleNewValidatedTransaction(context actor.
 		// nothing to do here
 		return
 	}
+	// TODO: handle the deadlock case
 	if !cs.didSign {
 		cs.didSign = true
 		context.Request(vth.signatureGenerator, msg)
@@ -169,6 +171,21 @@ func (vth *ValidTransactionHandler) handleNewValidatedTransaction(context actor.
 func (vth *ValidTransactionHandler) handleCurrentState(context actor.Context, msg *messages.CurrentState) {
 	cs := vth.getConflictSet(string(append(msg.ObjectID, msg.OldTip...)))
 	cs.done = true
+
+	toRemove := make([][]byte, len(cs.transactions), len(cs.transactions))
+	i := 0
+	for k := range cs.transactions {
+		toRemove[i] = []byte(k)
+		i++
+	}
+	if len(toRemove) > 0 {
+		context.Respond(&messages.MemPoolCleanup{
+			Transactions: toRemove,
+		})
+	}
+	cs.transactions = nil
+	cs.signatures = nil
+
 	vth.conflictSets[cs.ID] = cs
 }
 

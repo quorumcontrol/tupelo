@@ -102,6 +102,8 @@ func (g *Gossiper) Receive(context actor.Context) {
 		context.Forward(g.storageActor)
 	case *messages.Get:
 		context.Forward(g.storageActor)
+	case *messages.BulkRemove:
+		context.Forward(g.storageActor)
 	case *messages.ValidatorClear:
 		g.validatorClear = true
 		_, ok := g.pids[currentPusherKey]

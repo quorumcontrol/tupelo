@@ -61,6 +61,8 @@ func (s *Storage) Receive(context actor.Context) {
 		s.Add(msg.Key, msg.Value)
 	case *messages.Remove:
 		s.Remove(msg.Key)
+	case *messages.BulkRemove:
+		s.BulkRemove(msg.ObjectIDs)
 	case *messages.GetStrata:
 		context.Respond(*s.strata)
 	case *messages.GetIBF:
@@ -110,6 +112,12 @@ func (s *Storage) Remove(key []byte) {
 		filter.Remove(ibfObjectID)
 	}
 	s.Log.Debugf("removed key %v", key)
+}
+
+func (s *Storage) BulkRemove(objectIDs [][]byte) {
+	for _, id := range objectIDs {
+		s.Remove(id)
+	}
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
