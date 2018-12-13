@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"go.uber.org/zap"
 )
 
 const stateHandlerConcurrency = 10
@@ -20,6 +21,11 @@ type MemPoolValidator struct {
 	currentStateStore *actor.PID
 	handlerPool       *actor.PID
 	isWorking         bool
+}
+
+func (mpv *MemPoolValidator) SetLog(log *zap.SugaredLogger) {
+	mpv.Log = log
+	mpv.Storage.SetLog(log)
 }
 
 func NewMemPoolValidatorProps(currentState *actor.PID) *actor.Props {
@@ -66,7 +72,7 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 
 	// actually do the store now that it's passed a validator
 	case *stateTransactionResponse:
-		mpv.Log.Infow("stateTransactionResponse", "msg", msg)
+		mpv.Log.Debugw("stateTransactionResponse", "msg", msg)
 		if msg.accepted {
 			didSet, err := mpv.Add(msg.stateTransaction.TransactionID, msg.stateTransaction.payload)
 			if err != nil {
