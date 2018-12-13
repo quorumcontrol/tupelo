@@ -84,6 +84,8 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 					ObjectID:      msg.stateTransaction.ObjectID,
 					ConflictSetID: msg.stateTransaction.ConflictSetID,
 					TransactionID: msg.stateTransaction.TransactionID,
+					NewTip:        msg.nextState,
+					OldTip:        msg.stateTransaction.CurrentState,
 				})
 			}
 		} else {

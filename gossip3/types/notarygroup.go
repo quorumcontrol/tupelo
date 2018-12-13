@@ -3,6 +3,7 @@ package types
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/binary"
 	"math"
 	"math/big"
 	"sort"
@@ -93,4 +94,33 @@ func randInt(max int) int {
 		panic("bad random")
 	}
 	return int(bigInt.Int64())
+}
+
+const minSyncNodesPerTransaction = 3
+
+func (ng *NotaryGroup) RewardsCommittee(key []byte, excluding *Signer) ([]*Signer, error) {
+	signerCount := float64(len(ng.sortedIds))
+	logOfSigners := math.Log(signerCount)
+	numberOfTargets := math.Min(signerCount-1, math.Floor(math.Max(logOfSigners, float64(minSyncNodesPerTransaction))))
+	indexSpacing := signerCount / numberOfTargets
+	moduloOffset := math.Mod(float64(bytesToUint64(key)), indexSpacing)
+
+	targets := make([]*Signer, 0, int(numberOfTargets))
+	i := 0
+	for len(targets) < int(numberOfTargets) {
+		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
+		targetID := ng.sortedIds[targetIndex]
+		target := ng.Signers[targetID]
+		// Make sure this node doesn't add itself as a target
+		if target.ID == excluding.ID {
+			continue
+		}
+		targets[i] = target
+		i++
+	}
+	return targets, nil
+}
+
+func bytesToUint64(byteID []byte) uint64 {
+	return binary.BigEndian.Uint64(byteID)
 }
