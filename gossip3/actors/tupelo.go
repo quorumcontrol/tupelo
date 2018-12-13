@@ -66,11 +66,20 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	currentStateStore := context.Spawn(NewStorageProps())
+	currentStateStore, err := context.SpawnNamed(NewStorageProps(), "currentStateStore")
+	if err != nil {
+		panic(fmt.Sprintf("err: %v", err))
+	}
 
-	mempoolValidator := context.Spawn(NewMemPoolValidatorProps(currentStateStore))
+	mempoolValidator, err := context.SpawnNamed(NewMemPoolValidatorProps(currentStateStore), "mempoolvalidator")
+	if err != nil {
+		panic(fmt.Sprintf("err: %v", err))
+	}
 	// TODO: this should be a different validator
-	committedValidator := context.Spawn(NewMemPoolValidatorProps(currentStateStore))
+	committedValidator, err := context.SpawnNamed(NewMemPoolValidatorProps(currentStateStore), "committedvalidator")
+	if err != nil {
+		panic(fmt.Sprintf("err: %v", err))
+	}
 
 	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolValidator), mempoolKind)
 	if err != nil {
@@ -85,7 +94,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 }
 
 func (tn *TupeloNode) handleNewValidatedTransaction(context actor.Context, msg *messages.NewValidatedTransaction) {
-	
+
 }
 
 func (tn *TupeloNode) handleRoundTransition(context actor.Context, msg *messages.RoundTransition) {
