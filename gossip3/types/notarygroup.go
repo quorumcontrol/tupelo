@@ -2,7 +2,9 @@ package types
 
 import (
 	"crypto/ecdsa"
+	"crypto/rand"
 	"math"
+	"math/big"
 	"sort"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -19,9 +21,9 @@ type Signer struct {
 	Actor   *actor.PID
 }
 
-func NewLocalSigner(dstKey *ecdsa.PublicKey, signKey *bls.SignKey) Signer {
+func NewLocalSigner(dstKey *ecdsa.PublicKey, signKey *bls.SignKey) *Signer {
 	pubKey := consensus.BlsKeyToPublicKey(signKey.MustVerKey())
-	return Signer{
+	return &Signer{
 		ID:      consensus.PublicKeyToAddr(&pubKey),
 		SignKey: signKey,
 		VerKey:  signKey.MustVerKey(),
@@ -29,9 +31,9 @@ func NewLocalSigner(dstKey *ecdsa.PublicKey, signKey *bls.SignKey) Signer {
 	}
 }
 
-func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) Signer {
+func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) *Signer {
 	pubKey := consensus.BlsKeyToPublicKey(verKey)
-	return Signer{
+	return &Signer{
 		ID:     consensus.PublicKeyToAddr(&pubKey),
 		VerKey: verKey,
 		DstKey: dstKey,
@@ -39,7 +41,7 @@ func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) Signer {
 }
 
 type NotaryGroup struct {
-	Signers   map[string]Signer
+	Signers   map[string]*Signer
 	sortedIds []string
 }
 
@@ -53,21 +55,42 @@ func (ng *NotaryGroup) GetMajorityCount() int64 {
 
 func NewNotaryGroup() *NotaryGroup {
 	return &NotaryGroup{
-		Signers: make(map[string]Signer),
+		Signers: make(map[string]*Signer),
 	}
 }
 
-func (ng *NotaryGroup) AddSigner(signer Signer) {
+func (ng *NotaryGroup) AddSigner(signer *Signer) {
 	ng.Signers[signer.ID] = signer
 	ng.sortedIds = append(ng.sortedIds, signer.ID)
 	sort.Strings(ng.sortedIds)
 }
 
-func (ng *NotaryGroup) IndexOfSigner(signer Signer) int {
+func (ng *NotaryGroup) AllSigners() []*Signer {
+	signers := make([]*Signer, len(ng.sortedIds), len(ng.sortedIds))
+	for i, id := range ng.sortedIds {
+		signers[i] = ng.Signers[id]
+	}
+	return signers
+}
+
+func (ng *NotaryGroup) IndexOfSigner(signer *Signer) int {
 	for i, s := range ng.sortedIds {
 		if s == signer.ID {
 			return i
 		}
 	}
 	return -1
+}
+
+func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
+	id := ng.sortedIds[randInt(len(ng.sortedIds)-1)]
+	return ng.Signers[id].Actor
+}
+
+func randInt(max int) int {
+	bigInt, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
+	if err != nil {
+		panic("bad random")
+	}
+	return int(bigInt.Int64())
 }
