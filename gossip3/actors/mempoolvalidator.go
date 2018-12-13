@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -101,8 +102,13 @@ func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.St
 	mpv.Log.Debugw("validator handle store", "key", msg.Key)
 	// for now we're just saying all messages are valid
 	// but here's where we'd decode and test ownership, etc
-
-	mpv.handlerPool.Request(msg, context.Self())
+	alreadyExists, err := mpv.storage.Exists(msg.Key)
+	if err != nil {
+		panic(fmt.Sprintf("error checking existance: %v", err))
+	}
+	if !alreadyExists {
+		mpv.handlerPool.Request(msg, context.Self())
+	}
 }
 
 func (mpv *MemPoolValidator) notifyWorking() {

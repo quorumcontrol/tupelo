@@ -3,6 +3,8 @@
 package messages
 
 import (
+	"fmt"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
@@ -95,6 +97,8 @@ type Signature struct {
 	Tip           []byte
 	Signers       []bool
 	Signature     []byte
+	ConflictSetID string
+	Internal      bool `msg:"-"`
 }
 
 type NewValidatedTransaction struct {
@@ -103,4 +107,37 @@ type NewValidatedTransaction struct {
 	TransactionID []byte
 	OldTip        []byte
 	NewTip        []byte
+}
+
+type GetTip struct {
+	ObjectID []byte
+}
+
+type CurrentState struct {
+	ObjectID  []byte
+	Tip       []byte
+	OldTip    []byte // This is a big deal, worth talking through
+	Signature Signature
+}
+
+func (cs *CurrentState) StorageKey() []byte {
+	return append(cs.ObjectID, cs.OldTip...)
+}
+
+func (cs *CurrentState) CurrentKey() []byte {
+	return append(cs.ObjectID)
+}
+
+func (cs *CurrentState) MustBytes() []byte {
+	bits, err := cs.MarshalMsg(nil)
+	if err != nil {
+		panic(fmt.Errorf("error marshaling current state: %v", err))
+	}
+	return bits
+}
+
+type NewValidCurrentState struct {
+	CurrentState *CurrentState
+	Key          []byte
+	Value        []byte
 }

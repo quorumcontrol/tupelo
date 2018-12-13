@@ -11,6 +11,8 @@ import (
 )
 
 type SignatureGenerator struct {
+	middleware.LogAwareHolder
+
 	notaryGroup *types.NotaryGroup
 	signer      *types.Signer
 }
@@ -43,12 +45,14 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		panic(fmt.Sprintf("error signing: %v", err))
 	}
 
-	signature := messages.Signature{
+	signature := &messages.Signature{
 		TransactionID: msg.TransactionID,
 		ObjectID:      msg.ObjectID,
 		Tip:           msg.NewTip,
 		Signers:       signers,
 		Signature:     sig,
+		ConflictSetID: string(append(msg.ObjectID, msg.OldTip...)),
+		Internal:      true,
 	}
 	context.Respond(signature)
 }

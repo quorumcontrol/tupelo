@@ -131,3 +131,77 @@ func TestTupeloGossip(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestCommits(t *testing.T) {
+	numMembers := 20
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ts := testnotarygroup.NewTestSet(t, numMembers)
+
+	system, err := newTupeloSystem(ctx, ts)
+	require.Nil(t, err)
+
+	syncers := system.AllSigners()
+	require.Len(t, system.Signers, numMembers)
+
+	wg := sync.WaitGroup{}
+	wg.Add(numMembers)
+
+	trans := newValidTransaction(t)
+	bits, err := trans.MarshalMsg(nil)
+	require.Nil(t, err)
+	id := crypto.Keccak256(bits)
+
+	key := id
+	value := bits
+
+	syncers[0].Actor.Tell(&messages.Store{
+		Key:   key,
+		Value: value,
+	})
+	syncers[1].Actor.Tell(&messages.Store{
+		Key:   key,
+		Value: value,
+	})
+	syncers[2].Actor.Tell(&messages.Store{
+		Key:   key,
+		Value: value,
+	})
+
+	for _, s := range syncers {
+		s.Actor.Tell(&messages.StartGossip{})
+		b := s
+		go func(syncer *actor.PID) {
+			val, err := syncer.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
+			require.Nil(t, err)
+
+			timer := time.AfterFunc(5*time.Second, func() {
+				t.Logf("TIMEOUT %s", syncer.GetId())
+				wg.Done()
+				t.Fatalf("timeout waiting for key to appear")
+			})
+			var isDone bool
+			for len(val.([]byte)) == 0 || !isDone {
+				if len(val.([]byte)) > 0 {
+					var currState messages.CurrentState
+					_, err := currState.UnmarshalMsg(val.([]byte))
+					t.Logf("resp: %v", val.([]byte))
+					require.Nil(t, err)
+					if bytes.Equal(currState.Tip, trans.NewTip) {
+						isDone = true
+						continue
+					} else {
+						t.Logf("CurrState: %v", currState)
+					}
+				}
+
+				val, err = syncer.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
+				require.Nil(t, err)
+				time.Sleep(200 * time.Millisecond)
+			}
+			timer.Stop()
+			wg.Done()
+		}(b.Actor)
+	}
+	wg.Wait()
+}
