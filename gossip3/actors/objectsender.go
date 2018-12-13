@@ -36,7 +36,7 @@ func (o *ObjectSender) Receive(context actor.Context) {
 		if err != nil {
 			panic(fmt.Sprintf("timeout waiting: %v", err))
 		}
-		o.Log.Debugw("sending", "me", context.Self().GetId(), "destination", msg.Destination.GetId(), "prefix", msg.Prefix, "length", len(keys.([]storage.KeyValuePair)))
+		o.Log.Debugw("sending", "destination", msg.Destination.GetId(), "prefix", msg.Prefix, "length", len(keys.([]storage.KeyValuePair)))
 		for _, pair := range keys.([]storage.KeyValuePair) {
 			msg.Destination.Tell(&messages.Store{
 				Key:   pair.Key,
