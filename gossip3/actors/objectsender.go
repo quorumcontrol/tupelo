@@ -32,7 +32,7 @@ func NewObjectSenderProps(store *actor.PID) *actor.Props {
 func (o *ObjectSender) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.SendPrefix:
-		keys, err := o.store.RequestFuture(&messages.GetPrefix{Prefix: msg.Prefix}, 30*time.Millisecond).Result()
+		keys, err := o.store.RequestFuture(&messages.GetPrefix{Prefix: msg.Prefix}, 500*time.Millisecond).Result()
 		if err != nil {
 			panic(fmt.Sprintf("timeout waiting: %v", err))
 		}

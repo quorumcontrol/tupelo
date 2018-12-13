@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
 )
 
 const mempoolKind = "mempool"
@@ -15,15 +16,20 @@ const committedKind = "committed"
 // TupeloNode is the main logic of the entire system,
 // consisting of multiple gossipers
 type TupeloNode struct {
+	self              *types.Signer
+	notaryGroup       *types.NotaryGroup
 	mempoolGossiper   *actor.PID
 	committedGossiper *actor.PID
 	currentStateStore *actor.PID
 	currentRound      uint64
 }
 
-func NewTupeloNodeProps() *actor.Props {
+func NewTupeloNodeProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
-		return &TupeloNode{}
+		return &TupeloNode{
+			self:        self,
+			notaryGroup: ng,
+		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
@@ -61,8 +67,11 @@ func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSy
 }
 
 func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.StartGossip) {
-	context.Forward(tn.mempoolGossiper)
-	context.Forward(tn.committedGossiper)
+	newMsg := &messages.StartGossip{
+		System: tn.notaryGroup,
+	}
+	tn.mempoolGossiper.Tell(newMsg)
+	tn.committedGossiper.Tell(newMsg)
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {

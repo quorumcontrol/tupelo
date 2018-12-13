@@ -22,7 +22,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
-		syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(), "tupelo-"+signer.ID)
+		syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(signer, ng), "tupelo-"+signer.ID)
 		if err != nil {
 			return nil, fmt.Errorf("error spawning: %v", err)
 		}
@@ -41,7 +41,10 @@ func TestTupeloMemStorage(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		t.Log("--------- ignore errors below here ---------")
+		cancel()
+	}()
 	system, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
@@ -105,9 +108,7 @@ func TestTupeloGossip(t *testing.T) {
 	})
 
 	for _, s := range syncers {
-		s.Actor.Tell(&messages.StartGossip{
-			System: system,
-		})
+		s.Actor.Tell(&messages.StartGossip{})
 		b := s
 		go func(syncer *actor.PID) {
 			val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()

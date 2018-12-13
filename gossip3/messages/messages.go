@@ -101,4 +101,6 @@ type NewValidatedTransaction struct {
 	ConflictSetID string
 	ObjectID      []byte
 	TransactionID []byte
+	OldTip        []byte
+	NewTip        []byte
 }
