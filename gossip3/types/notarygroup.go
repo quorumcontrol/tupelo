@@ -74,6 +74,11 @@ func (ng *NotaryGroup) AllSigners() []*Signer {
 	return signers
 }
 
+func (ng *NotaryGroup) SignerAtIndex(idx int) *Signer {
+	id := ng.sortedIds[idx]
+	return ng.Signers[id]
+}
+
 func (ng *NotaryGroup) IndexOfSigner(signer *Signer) int {
 	for i, s := range ng.sortedIds {
 		if s == signer.ID {
@@ -81,6 +86,10 @@ func (ng *NotaryGroup) IndexOfSigner(signer *Signer) int {
 		}
 	}
 	return -1
+}
+
+func (ng *NotaryGroup) QuorumCount() int {
+	return int(math.Ceil((float64(len(ng.sortedIds)) / 3) * 2))
 }
 
 func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
@@ -115,7 +124,7 @@ func (ng *NotaryGroup) RewardsCommittee(key []byte, excluding *Signer) ([]*Signe
 		if target.ID == excluding.ID {
 			continue
 		}
-		targets[i] = target
+		targets = append(targets, target)
 		i++
 	}
 	return targets, nil

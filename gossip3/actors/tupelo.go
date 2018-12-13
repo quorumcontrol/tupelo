@@ -16,12 +16,15 @@ const committedKind = "committed"
 // TupeloNode is the main logic of the entire system,
 // consisting of multiple gossipers
 type TupeloNode struct {
-	self              *types.Signer
-	notaryGroup       *types.NotaryGroup
-	mempoolGossiper   *actor.PID
-	committedGossiper *actor.PID
-	currentStateStore *actor.PID
-	currentRound      uint64
+	middleware.LogAwareHolder
+
+	self               *types.Signer
+	notaryGroup        *types.NotaryGroup
+	mempoolGossiper    *actor.PID
+	committedGossiper  *actor.PID
+	currentStateStore  *actor.PID
+	transactionHandler *actor.PID
+	currentRound       uint64
 }
 
 func NewTupeloNodeProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {
@@ -37,6 +40,13 @@ func NewTupeloNodeProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props 
 }
 
 func (tn *TupeloNode) Receive(context actor.Context) {
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		tn.Log.Errorw("error", "r", r)
+	// 		debug.PrintStack()
+	// 	}
+	// }()
+
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		tn.handleStarted(context)
@@ -48,8 +58,16 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleRoundTransition(context, msg)
 	case *messages.NewValidatedTransaction:
 		tn.handleNewValidatedTransaction(context, msg)
+	case *messages.NewValidCurrentState:
+		tn.handleNewValidCurrentState(context, msg)
+	case *messages.GetTip:
+		tn.handleGetTip(context, msg)
 	case *messages.Store:
 		context.Forward(tn.mempoolGossiper)
+	case *messages.Signature:
+		context.Forward(tn.transactionHandler)
+	case *messages.CurrentState:
+		context.Forward(tn.committedGossiper)
 	case *messages.Get:
 		context.Forward(tn.mempoolGossiper)
 	}
@@ -85,7 +103,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("err: %v", err))
 	}
 	// TODO: this should be a different validator
-	committedValidator, err := context.SpawnNamed(NewMemPoolValidatorProps(currentStateStore), "committedvalidator")
+	committedValidator, err := context.SpawnNamed(NewCommitValidatorProps(currentStateStore, tn.notaryGroup), "committedvalidator")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
 	}
@@ -98,12 +116,31 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("error spawning mempool: %v", err))
 	}
+
+	transactionHandler, err := context.SpawnNamed(NewValidTransactionHandlerProps(currentStateStore, tn.self, tn.notaryGroup), "transactionValidator")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning mempool: %v", err))
+	}
+
 	tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
+	tn.transactionHandler = transactionHandler
+	tn.currentStateStore = currentStateStore
 }
 
 func (tn *TupeloNode) handleNewValidatedTransaction(context actor.Context, msg *messages.NewValidatedTransaction) {
 
+	context.Request(tn.transactionHandler, msg)
+}
+
+func (tn *TupeloNode) handleNewValidCurrentState(context actor.Context, msg *messages.NewValidCurrentState) {
+	tn.Log.Infow("committing", "cs", msg.CurrentState.StorageKey(), "curr", msg.CurrentState.CurrentKey())
+	tn.currentStateStore.Tell(&messages.Store{Key: msg.CurrentState.CurrentKey(), Value: msg.Value})
+	context.Request(tn.transactionHandler, msg.CurrentState)
+}
+
+func (tn *TupeloNode) handleGetTip(context actor.Context, msg *messages.GetTip) {
+	tn.currentStateStore.Request(&messages.Get{Key: msg.ObjectID}, context.Sender())
 }
 
 func (tn *TupeloNode) handleRoundTransition(context actor.Context, msg *messages.RoundTransition) {

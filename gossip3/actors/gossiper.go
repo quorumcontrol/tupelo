@@ -98,6 +98,8 @@ func (g *Gossiper) Receive(context actor.Context) {
 		}
 	case *messages.Store:
 		context.Forward(g.storageActor)
+	case *messages.CurrentState:
+		context.Forward(g.storageActor)
 	case *messages.Get:
 		context.Forward(g.storageActor)
 	case *messages.ValidatorClear:
