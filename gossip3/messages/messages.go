@@ -141,3 +141,11 @@ type NewValidCurrentState struct {
 	Key          []byte
 	Value        []byte
 }
+
+type MemPoolCleanup struct {
+	Transactions [][]byte
+}
+
+type BulkRemove struct {
+	ObjectIDs [][]byte
+}

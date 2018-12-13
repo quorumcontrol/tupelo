@@ -70,6 +70,9 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		context.Forward(tn.committedGossiper)
 	case *messages.Get:
 		context.Forward(tn.mempoolGossiper)
+	case *messages.MemPoolCleanup:
+		tn.Log.Infow("removing", "trans", msg.Transactions)
+		tn.mempoolGossiper.Tell(&messages.BulkRemove{ObjectIDs: msg.Transactions})
 	}
 }
 

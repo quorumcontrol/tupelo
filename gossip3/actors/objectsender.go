@@ -38,7 +38,7 @@ func (o *ObjectSender) Receive(context actor.Context) {
 		}
 		o.Log.Debugw("sending", "destination", msg.Destination.GetId(), "prefix", msg.Prefix, "length", len(keys.([]storage.KeyValuePair)))
 		for _, pair := range keys.([]storage.KeyValuePair) {
-			msg.Destination.Tell(&messages.Store{
+			context.Request(msg.Destination, &messages.Store{
 				Key:   pair.Key,
 				Value: pair.Value,
 			})
