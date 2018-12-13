@@ -20,7 +20,7 @@ var (
 	generateNodeKeysPath   string
 )
 
-func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, err error) {
+func generateKeySets(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, err error) {
 	for i := 1; i <= numberOfKeys; i++ {
 		blsKey, err := bls.NewSignKey()
 		if err != nil {
@@ -50,48 +50,72 @@ func generateKeySet(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys 
 	return privateKeys, publicKeys, err
 }
 
+func printTextKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet) {
+	for i := 1; i <= len(privateKeys); i++ {
+		fmt.Printf("================ Key %v ================\n", i)
+		fmt.Printf(
+			"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\npeer id: '%v'",
+			privateKeys[0].BlsHexPrivateKey,
+			publicKeys[0].BlsHexPublicKey,
+			privateKeys[0].EcdsaHexPrivateKey,
+			publicKeys[0].EcdsaHexPublicKey,
+			publicKeys[0].PeerIDBase58Key,
+		)
+	}
+}
+
+func privateKeyFile(configPath string) string {
+	return filepath.Join(configPath, "private-keys.json")
+}
+
+func publicKeyFile(configPath string) string {
+	return filepath.Join(configPath, "public-keys.json")
+}
+
+func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, path string) error {
+	publicKeyJson, err := json.Marshal(publicKeys)
+	if err != nil {
+		return fmt.Errorf("Error marshaling public keys: %v", err)
+	}
+
+	pubPath := publicKeyFile(path)
+	err = ioutil.WriteFile(pubPath, publicKeyJson, 0644)
+	if err != nil {
+		return fmt.Errorf("Error writing to path '%v': %v", pubPath, err)
+	}
+
+	privateKeyJson, err := json.Marshal(privateKeys)
+	if err != nil {
+		return fmt.Errorf("Error marshaling private keys: %v", err)
+	}
+
+	prvPath := privateKeyFile(path)
+	err = ioutil.WriteFile(prvPath, privateKeyJson, 0644)
+	if err != nil {
+		return fmt.Errorf("Error writing to path '%v': %v", prvPath, err)
+	}
+
+	return nil
+}
+
 // generateNodeKeysCmd represents the generateNodeKeys command
 var generateNodeKeysCmd = &cobra.Command{
 	Use:   "generate-node-keys",
 	Short: "Generate a new set of node keys",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		privateKeys, publicKeys, err := generateKeySet(generateNodeKeysCount)
-
+		privateKeys, publicKeys, err := generateKeySets(generateNodeKeysCount)
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("error generating key sets: %v", err))
 		}
 
 		switch generateNodeKeysOutput {
 		case "text":
-			for i := 1; i <= len(privateKeys); i++ {
-				fmt.Printf("================ Key %v ================\n", i)
-				fmt.Printf(
-					"bls: '%v'\nbls public: '%v'\necdsa: '%v'\necdsa public: '%v'\npeer id: '%v'",
-					privateKeys[0].BlsHexPrivateKey,
-					publicKeys[0].BlsHexPublicKey,
-					privateKeys[0].EcdsaHexPrivateKey,
-					publicKeys[0].EcdsaHexPublicKey,
-					publicKeys[0].PeerIDBase58Key,
-				)
-			}
+			printTextKeys(privateKeys, publicKeys)
 		case "json-file":
-			publicKeyJson, err := json.Marshal(publicKeys)
+			err := writeJSONKeys(privateKeys, publicKeys, generateNodeKeysPath)
 			if err != nil {
-				panic(fmt.Sprintf("error writing json %v", err))
-			}
-			err = ioutil.WriteFile(filepath.Join(generateNodeKeysPath, "public-keys.json"), publicKeyJson, 0644)
-			if err != nil {
-				panic(fmt.Sprintf("error writing file %v", err))
-			}
-
-			privateKeyJson, err := json.Marshal(privateKeys)
-			if err != nil {
-				panic(fmt.Sprintf("error writing json %v", err))
-			}
-			err = ioutil.WriteFile(filepath.Join(generateNodeKeysPath, "private-keys.json"), privateKeyJson, 0644)
-			if err != nil {
-				panic(fmt.Sprintf("error writing file %v", err))
+				panic(fmt.Sprintf("error writing json file: %v", err))
 			}
 		default:
 			panic(fmt.Sprintf("output=%v type is not supported", generateNodeKeysOutput))
