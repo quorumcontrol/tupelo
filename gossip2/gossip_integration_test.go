@@ -184,7 +184,7 @@ func NewTestCluster(t *testing.T, groupSize int, ctx context.Context) []*GossipN
 }
 
 func TestGossip(t *testing.T) {
-	InitializeForTesting()
+	InitializeForTesting("tupelo-test")
 	logging.SetLogLevel("gossip", "ERROR")
 	groupSize := 20
 
@@ -203,7 +203,6 @@ func TestGossip(t *testing.T) {
 			go gossipNodes[i].Stop()
 		}
 		cancel()
-		GlobalCloser.Close()
 	}()
 	// This bit of commented out code will run the CPU profiler
 	// f, ferr := os.Create("../gossip.prof")

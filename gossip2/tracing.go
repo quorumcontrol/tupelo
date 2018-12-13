@@ -3,16 +3,11 @@ package gossip2
 import (
 	"bytes"
 	"context"
-	"io"
 
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/uber/jaeger-client-go"
-	jaegercfg "github.com/uber/jaeger-client-go/config"
-	"github.com/uber/jaeger-lib/metrics"
+	"go.elastic.co/apm/module/apmot"
 )
-
-var GlobalCloser io.Closer
 
 func newSpan(ctx context.Context, tracer opentracing.Tracer, operationName string, opts ...opentracing.StartSpanOption) (opentracing.Span, context.Context) {
 	var span opentracing.Span
@@ -60,33 +55,5 @@ func (tl *traceLogger) Infof(msg string, args ...interface{}) {
 }
 
 func InitializeForTesting(serviceName string) {
-	// Sample configuration for testing. Use constant sampling to sample every trace
-	// and enable LogSpan to log every span via configured Logger.
-	cfg := jaegercfg.Configuration{
-		Sampler: &jaegercfg.SamplerConfig{
-			Type:  jaeger.SamplerTypeRateLimiting,
-			Param: 10,
-		},
-		Reporter: &jaegercfg.ReporterConfig{
-			LogSpans:          false,
-			CollectorEndpoint: "http://localhost:14268/api/traces?format=jaeger.thrift",
-		},
-	}
-
-	// Example logger and metrics factory. Use github.com/uber/jaeger-client-go/log
-	// and github.com/uber/jaeger-lib/metrics respectively to bind to real logging and metrics
-	// frameworks.
-	jMetricsFactory := metrics.NullFactory
-
-	// Initialize tracer with a logger and a metrics factory
-	closer, err := cfg.InitGlobalTracer(
-		serviceName,
-		jaegercfg.Logger(new(traceLogger)),
-		jaegercfg.Metrics(jMetricsFactory),
-	)
-	if err != nil {
-		log.Errorf("Could not initialize jaeger tracer: %s", err.Error())
-		return
-	}
-	GlobalCloser = closer
+	opentracing.SetGlobalTracer(apmot.New())
 }
