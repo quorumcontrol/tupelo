@@ -61,12 +61,6 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 	// Override the default storage Store message handling
 	// by inserting a validator
 	case *messages.Store:
-		if !mpv.isWorking {
-			// only notify on start working
-			mpv.notifyWorking()
-			mpv.isWorking = true
-			context.SetReceiveTimeout(10 * time.Millisecond)
-		}
 		mpv.handleStore(context, msg)
 	case *messages.SubscribeValidatorWorking:
 		mpv.subscriptions = append(mpv.subscriptions, msg.Actor)
@@ -99,9 +93,14 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 }
 
 func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.Store) {
-	mpv.Log.Debugw("validator handle store", "key", msg.Key)
-	// for now we're just saying all messages are valid
-	// but here's where we'd decode and test ownership, etc
+	mpv.Log.Infow("store", "key", msg.Key, "lenVal", len(msg.Value), "sender", context.Sender())
+	if !mpv.isWorking {
+		// only notify on start working
+		mpv.notifyWorking()
+		mpv.isWorking = true
+		context.SetReceiveTimeout(10 * time.Millisecond)
+	}
+
 	alreadyExists, err := mpv.storage.Exists(msg.Key)
 	if err != nil {
 		panic(fmt.Sprintf("error checking existance: %v", err))

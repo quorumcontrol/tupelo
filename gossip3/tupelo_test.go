@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,7 @@ func TestTupeloMemStorage(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		t.Log("--------- ignore errors below here ---------")
+		middleware.Log.Infow("---- tests over ----")
 		cancel()
 	}()
 	system, err := newTupeloSystem(ctx, ts)
@@ -74,7 +75,10 @@ func TestTupeloMemStorage(t *testing.T) {
 func TestTupeloGossip(t *testing.T) {
 	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		middleware.Log.Infow("---- tests over ----")
+		cancel()
+	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
 	system, err := newTupeloSystem(ctx, ts)
@@ -133,9 +137,12 @@ func TestTupeloGossip(t *testing.T) {
 }
 
 func TestCommits(t *testing.T) {
-	numMembers := 20
+	numMembers := 100
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		middleware.Log.Infow("---- tests over ----")
+		cancel()
+	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
 	system, err := newTupeloSystem(ctx, ts)
@@ -153,6 +160,7 @@ func TestCommits(t *testing.T) {
 	id := crypto.Keccak256(bits)
 
 	key := id
+	middleware.Log.Infow("tests", "key", key)
 	value := bits
 
 	syncers[0].Actor.Tell(&messages.Store{
@@ -185,13 +193,10 @@ func TestCommits(t *testing.T) {
 				if len(val.([]byte)) > 0 {
 					var currState messages.CurrentState
 					_, err := currState.UnmarshalMsg(val.([]byte))
-					t.Logf("resp: %v", val.([]byte))
 					require.Nil(t, err)
 					if bytes.Equal(currState.Tip, trans.NewTip) {
 						isDone = true
 						continue
-					} else {
-						t.Logf("CurrState: %v", currState)
 					}
 				}
 
