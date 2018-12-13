@@ -81,9 +81,19 @@ func (sh *stateHandler) handleStore(context actor.Context, msg *messages.Store) 
 		return fmt.Errorf("error unmarshaling: %v", err)
 	}
 
-	curr, err := sh.currentStateActor.RequestFuture(&messages.Get{Key: t.ObjectID}, 1*time.Second).Result()
+	currBytes, err := sh.currentStateActor.RequestFuture(&messages.Get{Key: t.ObjectID}, 1*time.Second).Result()
 	if err != nil {
 		return fmt.Errorf("error getting current state: %v", err)
+	}
+
+	bits := currBytes.([]byte)
+	if len(bits) > 0 {
+		var currentState messages.CurrentState
+		_, err := currentState.UnmarshalMsg(bits)
+		if err != nil {
+			panic(fmt.Sprintf("error unmarshaling: %v", err))
+		}
+		bits = currentState.Tip
 	}
 
 	// transform the message but send in the original caller for the request
@@ -93,8 +103,8 @@ func (sh *stateHandler) handleStore(context actor.Context, msg *messages.Store) 
 		Transaction: t.Payload,
 		// TODO: verify transaction ID is correct
 		TransactionID: msg.Key,
-		CurrentState:  curr.([]byte),
-		ConflictSetID: string(append(t.ObjectID, curr.([]byte)...)),
+		CurrentState:  bits,
+		ConflictSetID: string(append(t.ObjectID, bits...)),
 		//TODO: verify payload
 		payload: msg.Value,
 	}, context.Sender())
