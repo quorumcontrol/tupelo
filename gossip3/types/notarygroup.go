@@ -2,9 +2,7 @@ package types
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
 	"math"
-	"math/big"
 	"sort"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -72,26 +70,4 @@ func (ng *NotaryGroup) IndexOfSigner(signer Signer) int {
 		}
 	}
 	return -1
-}
-
-func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
-	id := ng.sortedIds[randInt(len(ng.sortedIds)-1)]
-	signer := ng.Signers[id]
-	return signer.Actor
-}
-
-func (ng *NotaryGroup) AllSigners() []Signer {
-	signers := make([]Signer, len(ng.sortedIds), len(ng.sortedIds))
-	for i, id := range ng.sortedIds {
-		signers[i] = ng.Signers[id]
-	}
-	return signers
-}
-
-func randInt(max int) int {
-	bigInt, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
-	if err != nil {
-		panic("bad random")
-	}
-	return int(bigInt.Int64())
 }
