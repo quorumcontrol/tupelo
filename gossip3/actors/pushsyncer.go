@@ -18,9 +18,10 @@ import (
 type PushSyncer struct {
 	middleware.LogAwareHolder
 
-	kind         string
-	storageActor *actor.PID
-	gossiper     *actor.PID
+	kind           string
+	storageActor   *actor.PID
+	gossiper       *actor.PID
+	sendingObjects bool
 }
 
 func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
@@ -60,12 +61,15 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.handleRequestKeys(context, msg)
 	case *messages.Debug:
 		syncer.Log.Debugf("message: %v", msg.Message)
+	case *messages.SendingDone:
+		syncer.sendingObjects = false
+		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
-		context.SetReceiveTimeout(0)
-
 		syncer.Log.Debugw("received sync done", "remote", context.Sender().GetId())
 		context.SetReceiveTimeout(0)
-		context.Self().Poison()
+		if !syncer.sendingObjects {
+			context.Self().Poison()
+		}
 	}
 }
 
@@ -197,16 +201,16 @@ func (syncer *PushSyncer) getLocalIBF(size int) (*ibf.InvertibleBloomFilter, err
 
 func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResults, destination *actor.PID) {
 	syncer.Log.Debugw("handleDiff")
+	syncer.sendingObjects = true
 	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.storageActor)
 	prefixes := make([]uint64, len(diff.LeftSet), len(diff.LeftSet))
 	for i, pref := range diff.LeftSet {
 		prefixes[i] = uint64(pref)
 	}
-	syncer.sendPrefixes(context, prefixes, destination).Wait()
-	syncer.syncDone(context)
+	syncer.sendPrefixes(context, prefixes, destination)
 }
 
-func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) *actor.Future {
+func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) {
 	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storageActor), "objectSender")
 	for _, pref := range prefixes {
 		sender.Tell(&messages.SendPrefix{
@@ -214,8 +218,7 @@ func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64,
 			Destination: destination,
 		})
 	}
-
-	return sender.PoisonFuture()
+	context.Request(sender, &messages.SendingDone{})
 }
 
 func (syncer *PushSyncer) syncDone(context actor.Context) {
