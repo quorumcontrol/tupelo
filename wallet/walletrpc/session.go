@@ -34,8 +34,8 @@ func (e ExistingChainError) Error() string {
 	return fmt.Sprintf("A chain tree for public key %v has already been created.", keyAddr)
 }
 
-func walletPath(name string) string {
-	return filepath.Join(".storage", name+"-wallet")
+func walletPath(parent string, name string) string {
+	return filepath.Join(parent, name+"-wallet")
 }
 
 var StoppedError = errors.New("Unstarted wallet session")
@@ -53,8 +53,8 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func NewSession(walletName string, group *consensus.NotaryGroup, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
-	path := walletPath(walletName)
+func NewSession(storagePath string, walletName string, group *consensus.NotaryGroup, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
+	path := walletPath(storagePath, walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
 

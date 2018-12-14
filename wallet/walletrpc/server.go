@@ -22,10 +22,11 @@ const (
 type server struct {
 	NotaryGroup *consensus.NotaryGroup
 	Client      *gossip2client.GossipClient
+	storagePath string
 }
 
 func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +43,7 @@ func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*Reg
 }
 
 func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +67,7 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 }
 
 func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +90,7 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 }
 
 func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +118,7 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 }
 
 func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +141,7 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 }
 
 func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +169,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 }
 
 func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +192,7 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 }
 
 func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +215,7 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 }
 
 func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +238,7 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 }
 
 func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +261,7 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 }
 
 func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +293,7 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 }
 
 func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +316,7 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 }
 
 func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
-	session, err := NewSession(req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +338,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	}, nil
 }
 
-func startServer(grpcServer *grpc.Server, group *consensus.NotaryGroup, client *gossip2client.GossipClient) (*grpc.Server, error) {
+func startServer(grpcServer *grpc.Server, storagePath string, group *consensus.NotaryGroup, client *gossip2client.GossipClient) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
 	fmt.Println("Listening on port", defaultPort)
@@ -349,6 +350,7 @@ func startServer(grpcServer *grpc.Server, group *consensus.NotaryGroup, client *
 	s := &server{
 		NotaryGroup: group,
 		Client:      client,
+		storagePath: storagePath,
 	}
 
 	RegisterWalletRPCServiceServer(grpcServer, s)
@@ -361,13 +363,13 @@ func startServer(grpcServer *grpc.Server, group *consensus.NotaryGroup, client *
 	return grpcServer, nil
 }
 
-func ServeInsecure(group *consensus.NotaryGroup, client *gossip2client.GossipClient) (*grpc.Server, error) {
+func ServeInsecure(storagePath string, group *consensus.NotaryGroup, client *gossip2client.GossipClient) (*grpc.Server, error) {
 	grpcServer := grpc.NewServer()
 
-	return startServer(grpcServer, group, client)
+	return startServer(grpcServer, storagePath, group, client)
 }
 
-func ServeTLS(group *consensus.NotaryGroup, client *gossip2client.GossipClient, certFile string, keyFile string) (*grpc.Server, error) {
+func ServeTLS(storagePath string, group *consensus.NotaryGroup, client *gossip2client.GossipClient, certFile string, keyFile string) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
 		return nil, err
@@ -376,5 +378,5 @@ func ServeTLS(group *consensus.NotaryGroup, client *gossip2client.GossipClient, 
 	credsOption := grpc.Creds(creds)
 	grpcServer := grpc.NewServer(credsOption)
 
-	return startServer(grpcServer, group, client)
+	return startServer(grpcServer, storagePath, group, client)
 }
