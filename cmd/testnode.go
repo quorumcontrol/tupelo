@@ -17,12 +17,9 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
-	"os/user"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -45,51 +42,6 @@ var (
 	EcdsaKeys    []*ecdsa.PrivateKey
 	testnodePort int
 )
-
-func expandHomePath(path string) (string, error) {
-	currentUser, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("error getting current user: %v", err)
-	}
-	homeDir := currentUser.HomeDir
-
-	if path[:2] == "~/" {
-		path = filepath.Join(homeDir, path[2:])
-	}
-	return path, nil
-}
-
-func loadJSON(path string) ([]byte, error) {
-	if path == "" {
-		return nil, nil
-	}
-	modPath, err := expandHomePath(path)
-	if err != nil {
-		return nil, err
-	}
-	_, err = os.Stat(modPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return ioutil.ReadFile(modPath)
-}
-
-func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
-	var jsonLoadedKeys []*PublicKeySet
-
-	jsonBytes, err := loadJSON(path)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonLoadedKeys, nil
-}
 
 func bootstrapMembers(keys []*PublicKeySet) (members []*consensus.RemoteNode) {
 	for _, keySet := range keys {

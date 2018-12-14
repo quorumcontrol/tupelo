@@ -67,7 +67,8 @@ var rootCmd = &cobra.Command{
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if bootstrapPublicKeysFile != "" {
-			bootstrapPublicKeys, err := loadPublicKeyFile(bootstrapPublicKeysFile)
+			var err error
+			bootstrapPublicKeys, err = loadPublicKeyFile(bootstrapPublicKeysFile)
 			if err != nil {
 				panic(fmt.Sprintf("Error loading public keys: %v", err))
 			}

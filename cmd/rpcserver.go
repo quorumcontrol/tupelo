@@ -3,10 +3,15 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip2"
 	"github.com/quorumcontrol/tupelo/gossip2client"
@@ -15,53 +20,104 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	tls                   bool
-	certFile              string
-	keyFile               string
-	localNetworkNodeCount int
-	localConfigPath       string
-)
 
-func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
-	var jsonLoadedKeys []*PrivateKeySet
+func expandHomePath(path string) (string, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return "", fmt.Errorf("error getting current user: %v", err)
+	}
+	homeDir := currentUser.HomeDir
 
+	if path[:2] == "~/" {
+		path = filepath.Join(homeDir, path[2:])
+	}
+	return path, nil
+}
+
+func loadJSON(path string) ([]byte, error) {
+	if path == "" {
+		return nil, nil
+	}
+	modPath, err := expandHomePath(path)
+	if err != nil {
+		return nil, err
+	}
+	_, err = os.Stat(modPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return ioutil.ReadFile(modPath)
+}
+
+func loadKeyFile(keySet interface{}, path string) error {
 	jsonBytes, err := loadJSON(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
+	err = json.Unmarshal(jsonBytes, keySet)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return jsonLoadedKeys, nil
+	return nil
 }
 
-func panicWithoutTLSOpts() {
-	if certFile == "" || keyFile == "" {
-		var msg strings.Builder
-		if certFile == "" {
-			msg.WriteString("Missing certificate file path. ")
-			msg.WriteString("Please supply with the -C flag. ")
+func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
+	var keySet []*PublicKeySet
+	err := loadKeyFile(&keySet, publicKeyFile(path))
+
+	return keySet, err
+}
+
+func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
+	var keySet []*PrivateKeySet
+	err := loadKeyFile(&keySet, privateKeyFile(path))
+
+	return keySet, err
+}
+
+func loadKeys(path string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
+	privateKeys, err := loadPrivateKeyFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error loading private keys: %v", err)
+	}
+
+	publicKeys, err := loadPublicKeyFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Error loading public keys: %v", err)
+	}
+
+	savedKeyCount := len(privateKeys)
+	if savedKeyCount < num {
+		extraPrivateKeys, extraPublicKeys, err := generateKeySets(num - savedKeyCount)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error generating extra node keys: %v", err)
 		}
 
-		if keyFile == "" {
-			msg.WriteString("Missing key file path. ")
-			msg.WriteString("Please supply with the -K flag. ")
+		combinedPrivateKeys := append(privateKeys, extraPrivateKeys...)
+		combinedPublicKeys := append(publicKeys, extraPublicKeys...)
+
+		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, path)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Error writing extra node keys: %v", err)
 		}
 
-		panic(msg.String())
+		return combinedPrivateKeys, combinedPublicKeys, nil
+	} else if savedKeyCount > num {
+		return privateKeys[:num], publicKeys[:num], nil
+	} else {
+		return privateKeys, publicKeys, nil
 	}
 }
 
-func setupLocalNetwork(ctx context.Context) (bootstrapAddrs []string) {
+func setupLocalNetwork(ctx context.Context, configPath string, nodeCount int) (bootstrapAddrs []string) {
 	var err error
 	var publicKeys []*PublicKeySet
 	var privateKeys []*PrivateKeySet
 
-	privateKeys, publicKeys, err = generateKeySet(localNetworkNodeCount)
+	privateKeys, publicKeys, err = loadKeys(configPath, nodeCount)
 	if err != nil {
 		panic("Can't generate node keys")
 	}
@@ -96,15 +152,33 @@ func bootstrapAddresses(bootstrapHost p2p.Node) []string {
 	return nil
 }
 
+func panicWithoutTLSOpts() {
+	if certFile == "" || keyFile == "" {
+		var msg strings.Builder
+		if certFile == "" {
+			msg.WriteString("Missing certificate file path. ")
+			msg.WriteString("Please supply with the -C flag. ")
+		}
+
+		if keyFile == "" {
+			msg.WriteString("Missing key file path. ")
+			msg.WriteString("Please supply with the -K flag. ")
+		}
+
+		panic(msg.String())
+	}
+}
+
 var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
+
 		bootstrapAddrs := p2p.BootstrapNodes()
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			bootstrapAddrs = setupLocalNetwork(ctx)
+			bootstrapAddrs = setupLocalNetwork(ctx, localConfigPath, localNetworkNodeCount)
 		}
 
 		notaryGroup := setupNotaryGroup(storage.NewMemStorage())
@@ -117,6 +191,14 @@ var rpcServerCmd = &cobra.Command{
 		}
 	},
 }
+
+var (
+	tls                   bool
+	certFile              string
+	keyFile               string
+	localNetworkNodeCount int
+	localConfigPath       string
+)
 
 func defaultCfgPath() string {
 	usr, err := user.Current()
