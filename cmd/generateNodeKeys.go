@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -64,6 +65,15 @@ func printTextKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet) {
 	}
 }
 
+func createDirIfNotExist(dir string) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0700)
+		if err != nil {
+			panic(fmt.Sprintf("error creating directory: %v", err))
+		}
+	}
+}
+
 func privateKeyFile(configPath string) string {
 	return filepath.Join(configPath, "private-keys.json")
 }
@@ -73,6 +83,8 @@ func publicKeyFile(configPath string) string {
 }
 
 func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, path string) error {
+	createDirIfNotExist(path)
+
 	publicKeyJson, err := json.Marshal(publicKeys)
 	if err != nil {
 		return fmt.Errorf("Error marshaling public keys: %v", err)

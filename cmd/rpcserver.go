@@ -20,6 +20,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func filePathExists(path string) bool {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return false
+		} else {
+			panic(err)
+		}
+	} else {
+		return true
+	}
+}
 
 func expandHomePath(path string) (string, error) {
 	currentUser, err := user.Current()
@@ -66,14 +77,24 @@ func loadKeyFile(keySet interface{}, path string) error {
 
 func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
 	var keySet []*PublicKeySet
-	err := loadKeyFile(&keySet, publicKeyFile(path))
+	var err error
+
+	pubPath := publicKeyFile(path)
+	if filePathExists(pubPath) {
+		err = loadKeyFile(&keySet, pubPath)
+	}
 
 	return keySet, err
 }
 
 func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
 	var keySet []*PrivateKeySet
-	err := loadKeyFile(&keySet, privateKeyFile(path))
+	var err error
+
+	prvPath := privateKeyFile(path)
+	if filePathExists(prvPath) {
+		err = loadKeyFile(&keySet, prvPath)
+	}
 
 	return keySet, err
 }
@@ -81,19 +102,19 @@ func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
 func loadKeys(path string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 	privateKeys, err := loadPrivateKeyFile(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error loading private keys: %v", err)
+		return nil, nil, fmt.Errorf("error loading private keys: %v", err)
 	}
 
 	publicKeys, err := loadPublicKeyFile(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Error loading public keys: %v", err)
+		return nil, nil, fmt.Errorf("error loading public keys: %v", err)
 	}
 
 	savedKeyCount := len(privateKeys)
 	if savedKeyCount < num {
 		extraPrivateKeys, extraPublicKeys, err := generateKeySets(num - savedKeyCount)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Error generating extra node keys: %v", err)
+			return nil, nil, fmt.Errorf("error generating extra node keys: %v", err)
 		}
 
 		combinedPrivateKeys := append(privateKeys, extraPrivateKeys...)
@@ -101,7 +122,7 @@ func loadKeys(path string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 
 		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, path)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Error writing extra node keys: %v", err)
+			return nil, nil, fmt.Errorf("error writing extra node keys: %v", err)
 		}
 
 		return combinedPrivateKeys, combinedPublicKeys, nil
@@ -119,7 +140,7 @@ func setupLocalNetwork(ctx context.Context, configPath string, nodeCount int) (b
 
 	privateKeys, publicKeys, err = loadKeys(configPath, nodeCount)
 	if err != nil {
-		panic("Can't generate node keys")
+		panic(fmt.Sprintf("error generating node keys: %v", err))
 	}
 	bootstrapPublicKeys = publicKeys
 	signers := make([]*gossip2.GossipNode, len(privateKeys))
@@ -203,7 +224,7 @@ var (
 func defaultCfgPath() string {
 	usr, err := user.Current()
 	if err != nil {
-		log.Warn("Error finding user: %v", err)
+		log.Warn("error finding user: %v", err)
 	}
 	return filepath.Join(usr.HomeDir, ".tupelo/local_network")
 }
