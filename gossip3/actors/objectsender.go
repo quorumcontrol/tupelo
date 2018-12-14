@@ -31,6 +31,10 @@ func NewObjectSenderProps(store *actor.PID) *actor.Props {
 
 func (o *ObjectSender) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Restarting:
+		o.Log.Errorw("restaring obj sender")
+	case *messages.SendingDone:
+		context.Respond(msg)
 	case *messages.SendPrefix:
 		keys, err := o.store.RequestFuture(&messages.GetPrefix{Prefix: msg.Prefix}, 500*time.Millisecond).Result()
 		if err != nil {

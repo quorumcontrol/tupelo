@@ -115,6 +115,7 @@ func (s *Storage) Remove(key []byte) {
 }
 
 func (s *Storage) BulkRemove(objectIDs [][]byte) {
+	s.Log.Debugw("bulk remove", "objectIDs", objectIDs)
 	for _, id := range objectIDs {
 		s.Remove(id)
 	}

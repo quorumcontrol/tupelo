@@ -71,7 +71,6 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 	case *messages.Get:
 		context.Forward(tn.mempoolGossiper)
 	case *messages.MemPoolCleanup:
-		tn.Log.Infow("removing", "trans", msg.Transactions)
 		tn.mempoolGossiper.Tell(&messages.BulkRemove{ObjectIDs: msg.Transactions})
 	}
 }
@@ -111,11 +110,11 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("err: %v", err))
 	}
 
-	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolValidator), mempoolKind)
+	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolValidator, tn.notaryGroup), mempoolKind)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning mempool: %v", err))
 	}
-	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedValidator), committedKind)
+	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedValidator, tn.notaryGroup), committedKind)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning mempool: %v", err))
 	}

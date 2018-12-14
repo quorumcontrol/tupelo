@@ -149,3 +149,5 @@ type MemPoolCleanup struct {
 type BulkRemove struct {
 	ObjectIDs [][]byte
 }
+
+type SendingDone struct{}
