@@ -30,7 +30,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		signer.Actor = syncer
 		go func() {
 			<-ctx.Done()
-			syncer.Stop()
+			syncer.Poison()
 		}()
 		ng.AddSigner(signer)
 	}
@@ -137,7 +137,7 @@ func TestTupeloGossip(t *testing.T) {
 }
 
 func TestCommits(t *testing.T) {
-	numMembers := 100
+	numMembers := 200
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		middleware.Log.Infow("---- tests over ----")

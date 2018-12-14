@@ -3,7 +3,6 @@ package remote
 import (
 	"context"
 	"fmt"
-	"log"
 	"testing"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
@@ -83,6 +83,7 @@ func TestRemoteMessageSending(t *testing.T) {
 	signer2 := types.NewLocalSigner(ts.PubKeys[1].ToEcdsaPub(), ts.SignKeys[1])
 	require.NotEmpty(t, signer1.ActorAddress())
 	require.NotEmpty(t, signer2.ActorAddress())
+	require.NotEqual(t, signer1.ActorAddress(), signer2.ActorAddress())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -92,13 +93,41 @@ func TestRemoteMessageSending(t *testing.T) {
 	require.Nil(t, err)
 	host1.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 
-	host2, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[0], 0)
+	host2, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[1], 0)
 	require.Nil(t, err)
-	host1.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
+	host2.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 
-	host2.SetStreamHandler("actor/1.0", func(s pnet.Stream) {
-		log.Printf("host2: %v", s)
+	host2.SetStreamHandler(p2pProtocol, func(s pnet.Stream) {
+		reader := msgp.NewReader(s)
+		writer := msgp.NewWriter(s)
+
+		s.Conn()
+
+		var wd WireDelivery
+		err := wd.DecodeMsg(reader)
+		require.Nil(t, err)
+
+		var ping messages.Ping
+		_, err = ping.UnmarshalMsg(wd.Message)
+		require.Nil(t, err)
+
+		pong := &messages.Pong{Msg: ping.Msg}
+		bits, err := pong.MarshalMsg(nil)
+		require.Nil(t, err)
+
+		response := &WireDelivery{
+			Target:  wd.Sender,
+			Sender:  nil,
+			Message: bits,
+			Type:    messages.GetTypeCode(pong),
+		}
+
+		response.EncodeMsg(writer)
+		writer.Flush()
 	})
+
+	// time to bootstrap
+	time.Sleep(500 * time.Millisecond)
 
 	Start(signer1, host1)
 	defer Stop()
