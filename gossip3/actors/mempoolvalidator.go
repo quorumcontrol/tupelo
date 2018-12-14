@@ -84,7 +84,7 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 				})
 			}
 		} else {
-			mpv.Log.Infow("rejected transaction", "id", msg.stateTransaction.TransactionID, "err", msg.err)
+			mpv.Log.Debugw("rejected transaction", "id", msg.stateTransaction.TransactionID, "err", msg.err)
 		}
 	default:
 		// handle the standard GET/GetPrefix, etc
@@ -93,7 +93,7 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 }
 
 func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.Store) {
-	mpv.Log.Infow("store", "key", msg.Key, "lenVal", len(msg.Value), "sender", context.Sender())
+	mpv.Log.Debugw("store", "key", msg.Key, "lenVal", len(msg.Value), "sender", context.Sender())
 	if !mpv.isWorking {
 		// only notify on start working
 		mpv.notifyWorking()
