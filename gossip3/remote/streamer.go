@@ -170,7 +170,7 @@ func (s *streamer) Receive(context actor.Context) {
 			}
 			target = FromActorPid(msg.Target)
 			obj := messages.GetEncodable(msg.Type)
-			s.Log.Infow("obj", "obj", obj, "type", reflect.TypeOf(obj))
+			s.Log.Infow("obj", "obj", obj, "type", reflect.TypeOf(obj), "target", target)
 			_, err := obj.UnmarshalMsg(msg.Message)
 			if err != nil {
 				panic(fmt.Sprintf("error unmarshaling: %v", err))

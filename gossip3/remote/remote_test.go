@@ -137,9 +137,9 @@ func TestRemoteMessageSending(t *testing.T) {
 
 	t.Logf("remotePing: %s, addr: %s, s2Addr: %s", remotePing.String(), remotePing.Address, signer2.ActorAddress())
 
-	_, err = remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+	resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
 	assert.Equal(t, remotePing.Address, signer2.ActorAddress())
 
 	assert.Nil(t, err)
-	// assert.Equal(t, resp.(*pong).msg, "hi")
+	assert.Equal(t, resp.(*messages.Pong).Msg, "hi")
 }
