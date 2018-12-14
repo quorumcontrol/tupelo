@@ -61,7 +61,7 @@ func NewTestSet(t *testing.T, size int) *TestSet {
 			t.Fatalf("error generating key: %v", err)
 		}
 		verKeys[i] = signKey.MustVerKey()
-		pubKeys[i] = consensus.BlsKeyToPublicKey(verKeys[i])
+		pubKeys[i] = consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey)
 		ecdsaKeys[i] = ecdsaKey
 		signKeysByAddress[consensus.BlsVerKeyToAddress(verKeys[i].Bytes()).String()] = signKey
 
