@@ -2,6 +2,11 @@
 
 package messages
 
+func init() {
+	RegisterEncodable(Ping{})
+	RegisterEncodable(Pong{})
+}
+
 type Ping struct {
 	Msg string
 }

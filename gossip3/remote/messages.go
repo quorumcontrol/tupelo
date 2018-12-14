@@ -6,12 +6,9 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/tinylib/msgp/msgp"
 )
-
-type msgPackObject interface {
-	MarshalMsg([]byte) ([]byte, error)
-	UnmarshalMsg([]byte) ([]byte, error)
-}
 
 type remoteDeliver struct {
 	header       actor.ReadonlyMessageHeader
@@ -22,13 +19,14 @@ type remoteDeliver struct {
 }
 
 func ToWireDelivery(rd *remoteDeliver) *WireDelivery {
-	marshaled, err := rd.message.(msgPackObject).MarshalMsg(nil)
+	marshaled, err := rd.message.(msgp.Marshaler).MarshalMsg(nil)
 	if err != nil {
 		panic(fmt.Errorf("could not marshal message: %v", err))
 	}
 	return &WireDelivery{
 		Header:  rd.header.ToMap(),
 		Message: marshaled,
+		Type:    messages.GetTypeCode(rd.message),
 		Target:  ToActorPid(rd.target),
 		Sender:  ToActorPid(rd.sender),
 	}
@@ -51,8 +49,10 @@ func FromActorPid(a *ActorPID) *actor.PID {
 }
 
 type WireDelivery struct {
-	Header  map[string]string
-	Message []byte
-	Target  *ActorPID
-	Sender  *ActorPID
+	Header   map[string]string
+	Message  []byte
+	Type     int8
+	Target   *ActorPID
+	Sender   *ActorPID
+	Outgoing bool `msg:"-"`
 }

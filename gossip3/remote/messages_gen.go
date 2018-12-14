@@ -170,6 +170,11 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 			if err != nil {
 				return
 			}
+		case "Type":
+			z.Type, err = dc.ReadInt8()
+			if err != nil {
+				return
+			}
 		case "Target":
 			if dc.IsNil() {
 				err = dc.ReadNil()
@@ -264,9 +269,9 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 4
+	// map header, size 5
 	// write "Header"
-	err = en.Append(0x84, 0xa6, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72)
+	err = en.Append(0x85, 0xa6, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72)
 	if err != nil {
 		return
 	}
@@ -290,6 +295,15 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 		return
 	}
 	err = en.WriteBytes(z.Message)
+	if err != nil {
+		return
+	}
+	// write "Type"
+	err = en.Append(0xa4, 0x54, 0x79, 0x70, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteInt8(z.Type)
 	if err != nil {
 		return
 	}
@@ -361,9 +375,9 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *WireDelivery) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 4
+	// map header, size 5
 	// string "Header"
-	o = append(o, 0x84, 0xa6, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72)
+	o = append(o, 0x85, 0xa6, 0x48, 0x65, 0x61, 0x64, 0x65, 0x72)
 	o = msgp.AppendMapHeader(o, uint32(len(z.Header)))
 	for za0001, za0002 := range z.Header {
 		o = msgp.AppendString(o, za0001)
@@ -372,6 +386,9 @@ func (z *WireDelivery) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "Message"
 	o = append(o, 0xa7, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65)
 	o = msgp.AppendBytes(o, z.Message)
+	// string "Type"
+	o = append(o, 0xa4, 0x54, 0x79, 0x70, 0x65)
+	o = msgp.AppendInt8(o, z.Type)
 	// string "Target"
 	o = append(o, 0xa6, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74)
 	if z.Target == nil {
@@ -446,6 +463,11 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			}
 		case "Message":
 			z.Message, bts, err = msgp.ReadBytesBytes(bts, z.Message)
+			if err != nil {
+				return
+			}
+		case "Type":
+			z.Type, bts, err = msgp.ReadInt8Bytes(bts)
 			if err != nil {
 				return
 			}
@@ -551,7 +573,7 @@ func (z *WireDelivery) Msgsize() (s int) {
 			s += msgp.StringPrefixSize + len(za0001) + msgp.StringPrefixSize + len(za0002)
 		}
 	}
-	s += 8 + msgp.BytesPrefixSize + len(z.Message) + 7
+	s += 8 + msgp.BytesPrefixSize + len(z.Message) + 5 + msgp.Int8Size + 7
 	if z.Target == nil {
 		s += msgp.NilSize
 	} else {
