@@ -33,7 +33,7 @@ func confirmPassword(c *ishell.Context) (string, error) {
 	return "", errors.New("can't confirm password")
 }
 
-func RunGossip(name string, group *consensus.NotaryGroup, client *gossip2client.GossipClient) {
+func RunGossip(name string, storagePath string, group *consensus.NotaryGroup, client *gossip2client.GossipClient) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
@@ -41,7 +41,7 @@ func RunGossip(name string, group *consensus.NotaryGroup, client *gossip2client.
 	shell.Printf("Loading shell for wallet: %v\n", name)
 
 	// load the session
-	session, err := walletrpc.NewSession(name, group, client)
+	session, err := walletrpc.NewSession(storagePath, name, group, client)
 	if err != nil {
 		shell.Printf("error loading shell: %v\n", err)
 		return
