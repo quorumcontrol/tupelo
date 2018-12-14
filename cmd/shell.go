@@ -22,7 +22,7 @@ var shellCmd = &cobra.Command{
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			bootstrapAddrs = setupLocalNetwork(ctx)
+			bootstrapAddrs = setupLocalNetwork(ctx, localConfigPath, localNetworkNodeCount)
 		}
 
 		group := setupNotaryGroup(storage.NewMemStorage())
