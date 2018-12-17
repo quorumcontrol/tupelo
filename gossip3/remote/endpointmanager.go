@@ -3,85 +3,95 @@ package remote
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"log"
+	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	"github.com/quorumcontrol/tupelo/p2p"
-	"github.com/tinylib/msgp/msgp"
 )
+
+const routableSeparator = "-"
+
+type routableAddress string
+
+func NewRoutableAddress(from, to string) routableAddress {
+	return routableAddress(from + routableSeparator + to)
+}
+
+func (ra routableAddress) From() string {
+	return strings.Split(string(ra), routableSeparator)[0]
+}
+
+func (ra routableAddress) To() string {
+	return strings.Split(string(ra), routableSeparator)[1]
+}
+
+func (ra routableAddress) Swap() routableAddress {
+	split := strings.Split(string(ra), routableSeparator)
+	return routableAddress(split[1] + routableSeparator + split[0])
+}
+
+func (ra routableAddress) String() string {
+	return string(ra)
+}
 
 type actorRegistry map[string]*actor.PID
 
 type remoteManger struct {
-	router *actor.PID
+	gateways actorRegistry
 }
 
 // These are GLOBAL state used to handle the singleton for routing to remote hosts
 // and the registry of local bridges
-var endpointManager *remoteManger
-var incomingHandlerRegistry = make(actorRegistry)
+var globalManager *remoteManger
 
 func Start() {
-	endpointManager = newRemoteManager()
+	globalManager = newRemoteManager()
 	actor.ProcessRegistry.RegisterAddressResolver(remoteHandler)
 }
 
 func Stop() {
-	endpointManager.stop()
-	for _, bridge := range incomingHandlerRegistry {
-		bridge.Poison()
-	}
-	endpointManager = nil
-	incomingHandlerRegistry = make(actorRegistry)
+	globalManager.stop()
+	globalManager = nil
 }
 
-func Register(peer peer.ID, handler *actor.PID) {
-	endpointManager.router.Tell(&registerBridge{Peer: peer.Pretty(), Handler: handler})
+func NewRouter(host p2p.Node) *actor.PID {
+	router, err := actor.SpawnNamed(newRouterProps(host), "router-"+host.Identity())
+	if err != nil {
+		panic(fmt.Sprintf("error spawning router: %v", err))
+	}
+	globalManager.gateways[host.Identity()] = router
+	return router
 }
 
-func NewBridge(remoteKey *ecdsa.PublicKey, host p2p.Node) *actor.PID {
-	peer, err := p2p.PeerFromEcdsaKey(remoteKey)
-	if err != nil {
-		panic(fmt.Sprintf("error getting peer from key: %v", err))
+func RegisterBridge(from string, to *ecdsa.PublicKey) {
+	router, ok := globalManager.gateways[from]
+	if !ok {
+		panic(fmt.Sprintf("router not found: %s", from))
 	}
-
-	bridge, err := actor.SpawnNamed(newBridgeProps(host, remoteKey), "bridge-"+peer.Pretty())
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
-	Register(peer, bridge)
-	return bridge
+	router.Tell(&internalCreateBridge{from: from, to: to})
 }
 
 func remoteHandler(pid *actor.PID) (actor.Process, bool) {
-	ref := newProcess(pid)
-	return ref, true
+	from := routableAddress(pid.Address).From()
+	for gateway, router := range globalManager.gateways {
+		if from == gateway {
+			ref := newProcess(pid, router)
+			return ref, true
+		}
+	}
+	return nil, false
 }
 
 func newRemoteManager() *remoteManger {
-	streamer, err := actor.SpawnNamed(newRouterProps(), "remote-router")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning streamer: %v", err))
-	}
 	rm := &remoteManger{
-		router: streamer,
+		gateways: make(actorRegistry),
 	}
 
 	return rm
 }
 
-func (rm *remoteManger) remoteDeliver(rd *remoteDeliver) {
-	_, ok := rd.message.(msgp.Marshaler)
-	if !ok {
-		log.Printf("cannot send: %v", rd.message)
-		return
-	}
-	wd := ToWireDelivery(rd)
-	wd.Outgoing = true
-	rm.router.Tell(wd)
-}
-
 func (rm *remoteManger) stop() {
-	rm.router.GracefulStop()
+	for _, router := range rm.gateways {
+		router.GracefulStop()
+	}
 }
