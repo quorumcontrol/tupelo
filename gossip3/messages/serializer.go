@@ -11,7 +11,7 @@ var encodableRegister = make(map[int8]func() msgp.Unmarshaler)
 var typesToCodes = make(map[string]int8)
 var internalEncodableRegisterCounter int8 = 1
 
-func RegisterEncodable(obj msgp.Encodable) {
+func RegisterEncodable(obj interface{}) {
 	typ := reflect.TypeOf(obj)
 	typPtr := reflect.PtrTo(typ)
 	newFunc := func() msgp.Unmarshaler {

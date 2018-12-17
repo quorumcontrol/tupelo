@@ -2,8 +2,10 @@ package remote
 
 import (
 	"log"
+	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -35,7 +37,7 @@ func SendMessage(gateway, pid *actor.PID, header actor.ReadonlyMessageHeader, me
 
 	_, ok := rd.message.(msgp.Marshaler)
 	if !ok {
-		log.Printf("cannot send: %v", rd.message)
+		log.Printf("cannot send: %s", reflect.TypeOf(rd.message))
 		return
 	}
 	wd := ToWireDelivery(rd)
@@ -62,6 +64,7 @@ func (ref *process) SendSystemMessage(pid *actor.PID, message interface{}) {
 		// }
 		// endpointManager.remoteUnwatch(ruw)
 	default:
+		middleware.Log.Infow("SendMessage", "to", pid, "type", reflect.TypeOf(msg).String())
 		SendMessage(ref.gateway, pid, nil, msg, nil, -1)
 	}
 }

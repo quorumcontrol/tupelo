@@ -52,10 +52,15 @@ func NewGossiperProps(kind string, storage *actor.PID, system system) *actor.Pro
 }
 
 func (g *Gossiper) Receive(context actor.Context) {
-	actor.ProcessRegistry.GetLocal("test")
+	// defer func() {
+	// 	if re := recover(); re != nil {
+	// 		g.Log.Errorw("recover", "re", re)
+	// 		panic(re)
+	// 	}
+	// }()
 	switch msg := context.Message().(type) {
 	case *actor.Restarting:
-		g.Log.Errorw("restarting")
+		g.Log.Infow("restarting")
 	case *actor.Started:
 		g.storageActor.Tell(&messages.SubscribeValidatorWorking{
 			Actor: context.Self(),
@@ -97,9 +102,11 @@ func (g *Gossiper) Receive(context actor.Context) {
 			receiveSyncer := context.SpawnPrefix(NewPushSyncerProps(g.kind, g.storageActor), remoteSyncerPrefix)
 			context.Watch(receiveSyncer)
 			g.syncersAvailable--
-			context.Respond(receiveSyncer)
+			available := &messages.SyncerAvailable{}
+			available.SetDestination(messages.ToActorPid(receiveSyncer))
+			context.Respond(available)
 		} else {
-			context.Respond(false)
+			context.Respond(&messages.NoSyncersAvailable{})
 		}
 	case *messages.Store:
 		context.Forward(g.storageActor)

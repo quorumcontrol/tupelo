@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	pnet "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
 )
 
@@ -68,7 +69,7 @@ func (r *router) Receive(context actor.Context) {
 		}
 		context.Forward(handler)
 	case *WireDelivery:
-		target := routableAddress(msg.Target.Address)
+		target := types.RoutableAddress(msg.Target.Address)
 		handler, ok := r.bridges[target.To()]
 		if !ok {
 			r.Log.Errorw("no handler", "target", target)

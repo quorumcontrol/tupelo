@@ -1,8 +1,6 @@
 package messages
 
 import (
-	"fmt"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
@@ -43,23 +41,9 @@ type DoPush struct {
 	System system `msg:"-"`
 }
 
-type ProvideStrata struct {
-	Strata    ibf.DifferenceStrata `msg:"-"`
-	Validator *actor.PID           `msg:"-"`
-}
-
-type ProvideBloomFilter struct {
-	Filter    ibf.InvertibleBloomFilter `msg:"-"`
-	Validator *actor.PID                `msg:"-"`
-}
-
 type RequestIBF struct {
 	Count  int
 	Result *ibf.DecodeResults `msg:"-"`
-}
-
-type RequestKeys struct {
-	Keys []uint64
 }
 
 type SendPrefix struct {
@@ -71,37 +55,12 @@ type RoundTransition struct {
 	NextRound uint64
 }
 
-
-
-
 type NewValidatedTransaction struct {
 	ConflictSetID string
 	ObjectID      []byte
 	TransactionID []byte
 	OldTip        []byte
 	NewTip        []byte
-}
-
-type GetTip struct {
-	ObjectID []byte
-}
-
-
-
-func (cs *CurrentState) StorageKey() []byte {
-	return append(cs.ObjectID, cs.OldTip...)
-}
-
-func (cs *CurrentState) CurrentKey() []byte {
-	return append(cs.ObjectID)
-}
-
-func (cs *CurrentState) MustBytes() []byte {
-	bits, err := cs.MarshalMsg(nil)
-	if err != nil {
-		panic(fmt.Errorf("error marshaling current state: %v", err))
-	}
-	return bits
 }
 
 type NewValidCurrentState struct {

@@ -93,7 +93,6 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 }
 
 func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.Store) {
-	mpv.Log.Debugw("store", "key", msg.Key, "lenVal", len(msg.Value), "sender", context.Sender())
 	if !mpv.isWorking {
 		// only notify on start working
 		mpv.notifyWorking()
@@ -106,6 +105,7 @@ func (mpv *MemPoolValidator) handleStore(context actor.Context, msg *messages.St
 		panic(fmt.Sprintf("error checking existance: %v", err))
 	}
 	if !alreadyExists {
+		mpv.Log.Infow("store", "key", msg.Key, "lenVal", len(msg.Value), "sender", context.Sender())
 		mpv.handlerPool.Request(msg, context.Self())
 	}
 }
