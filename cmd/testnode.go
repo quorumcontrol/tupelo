@@ -98,7 +98,7 @@ func storagePath(parent string) string {
 }
 
 func storageFile(path string, id string) string {
-	return filepath.Join(path, "testnode-chains-"+id)
+	return filepath.Join(path, "node-chains-"+id)
 }
 
 func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, configPath string, port int) *gossip2.GossipNode {

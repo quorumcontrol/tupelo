@@ -99,13 +99,13 @@ func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
 	return keySet, err
 }
 
-func loadKeys(path string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
-	privateKeys, err := loadPrivateKeyFile(path)
+func loadKeys(networkPath string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
+	privateKeys, err := loadPrivateKeyFile(networkPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error loading private keys: %v", err)
 	}
 
-	publicKeys, err := loadPublicKeyFile(path)
+	publicKeys, err := loadPublicKeyFile(networkPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error loading public keys: %v", err)
 	}
@@ -120,7 +120,7 @@ func loadKeys(path string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 		combinedPrivateKeys := append(privateKeys, extraPrivateKeys...)
 		combinedPublicKeys := append(publicKeys, extraPublicKeys...)
 
-		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, path)
+		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, networkPath)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error writing extra node keys: %v", err)
 		}
@@ -138,14 +138,15 @@ func setupLocalNetwork(ctx context.Context, configPath string, nodeCount int) (b
 	var publicKeys []*PublicKeySet
 	var privateKeys []*PrivateKeySet
 
-	privateKeys, publicKeys, err = loadKeys(configPath, nodeCount)
+	networkPath := filepath.Join(configPath, "local-network")
+	privateKeys, publicKeys, err = loadKeys(networkPath, nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
 	}
 	bootstrapPublicKeys = publicKeys
 	signers := make([]*gossip2.GossipNode, len(privateKeys))
 	for i, keys := range privateKeys {
-		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configPath, 0)
+		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, networkPath, 0)
 	}
 	// Use first signer as bootstrap node
 	bootstrapAddrs = bootstrapAddresses(signers[0].Host)
@@ -203,7 +204,7 @@ func defaultCfgPath() string {
 	if err != nil {
 		log.Warn("error finding user: %v", err)
 	}
-	return filepath.Join(usr.HomeDir, ".tupelo/local_network")
+	return filepath.Join(usr.HomeDir, ".tupelo")
 }
 
 var rpcServerCmd = &cobra.Command{
