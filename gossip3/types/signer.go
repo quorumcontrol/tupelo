@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/gossip3/remote"
 	"github.com/quorumcontrol/tupelo/p2p"
 )
 
@@ -38,10 +39,14 @@ func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) *Signer {
 	}
 }
 
-func (s *Signer) ActorAddress() string {
+func (s *Signer) ActorAddress(fromSigner *Signer) string {
+	fromID, err := p2p.PeerFromEcdsaKey(fromSigner.DstKey)
+	if err != nil {
+		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+	}
 	id, err := p2p.PeerFromEcdsaKey(s.DstKey)
 	if err != nil {
 		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
 	}
-	return id.Pretty()
+	return remote.NewRoutableAddress(fromID.Pretty(), id.Pretty()).String()
 }
