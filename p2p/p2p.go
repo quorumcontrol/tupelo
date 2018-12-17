@@ -125,7 +125,7 @@ func (h *LibP2PHost) PublicKey() *ecdsa.PublicKey {
 }
 
 func (h *LibP2PHost) Identity() string {
-	return h.host.ID().String()
+	return h.host.ID().Pretty()
 }
 
 func (h *LibP2PHost) Bootstrap(peers []string) (io.Closer, error) {
