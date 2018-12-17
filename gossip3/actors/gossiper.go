@@ -52,12 +52,6 @@ func NewGossiperProps(kind string, storage *actor.PID, system system) *actor.Pro
 }
 
 func (g *Gossiper) Receive(context actor.Context) {
-	// defer func() {
-	// 	if re := recover(); re != nil {
-	// 		g.Log.Errorw("recover", "re", re)
-	// 		panic(re)
-	// 	}
-	// }()
 	switch msg := context.Message().(type) {
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
