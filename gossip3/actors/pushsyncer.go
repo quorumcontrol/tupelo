@@ -83,25 +83,26 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 
 	resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{
 		Kind: syncer.kind,
-	}, 1*time.Second).Result()
+	}, 10*time.Second).Result()
 	if err != nil {
 		panic("timeout")
 	}
 
 	switch remoteSyncer := resp.(type) {
-	case bool:
+	case *messages.NoSyncersAvailable:
 		syncer.Log.Debugw("remote busy")
 		context.Self().Poison()
-	case *actor.PID:
+	case *messages.SyncerAvailable:
+		destination := messages.FromActorPid(remoteSyncer.Destination)
 		syncer.Log.Debugw("requesting strata")
 		strata, err := syncer.storageActor.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 		if err != nil {
 			panic("timeout")
 		}
-		syncer.Log.Debugw("providing strata", "remote", remoteSyncer.GetId())
-		remoteSyncer.Request(&messages.ProvideStrata{
-			Strata:    strata.(ibf.DifferenceStrata),
-			Validator: syncer.storageActor,
+		syncer.Log.Debugw("providing strata", "remote", destination)
+		destination.Request(&messages.ProvideStrata{
+			Strata:            strata.(ibf.DifferenceStrata),
+			DestinationHolder: messages.DestinationHolder{messages.ToActorPid(syncer.storageActor)},
 		}, context.Self())
 	default:
 		panic("unknown type")
@@ -131,7 +132,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 			syncer.syncDone(context)
 		}
 	} else {
-		syncer.handleDiff(context, *result, msg.Validator)
+		syncer.handleDiff(context, *result, messages.FromActorPid(msg.Destination))
 	}
 }
 
@@ -165,8 +166,8 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 	}
 
 	context.Sender().Request(&messages.ProvideBloomFilter{
-		Filter:    *localIBF,
-		Validator: syncer.storageActor,
+		Filter:            *localIBF,
+		DestinationHolder: messages.DestinationHolder{messages.ToActorPid(syncer.storageActor)},
 	}, context.Self())
 }
 
@@ -181,7 +182,7 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 		syncer.Log.Errorw("error getting diff from peer %s (remote size: %d): %v", "err", err)
 		syncer.syncDone(context)
 	}
-	syncer.handleDiff(context, diff, msg.Validator)
+	syncer.handleDiff(context, diff, messages.FromActorPid(msg.Destination))
 }
 
 func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages.RequestKeys) {

@@ -50,12 +50,16 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 }
 
 func createHostsAndBridges(ctx context.Context, t *testing.T, testSet *testnotarygroup.TestSet) {
+	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
+
 	nodes := make([]p2p.Node, len(testSet.EcdsaKeys), len(testSet.EcdsaKeys))
 	for i, key := range testSet.EcdsaKeys {
 		node, err := p2p.NewLibP2PHost(ctx, key, 0)
 		if err != nil {
 			t.Fatalf("error creating libp2p host: %v", err)
 		}
+		node.Bootstrap(bootAddrs)
 		nodes[i] = node
 		remote.NewRouter(node)
 		for j, insideKey := range testSet.PubKeys {
@@ -67,6 +71,9 @@ func createHostsAndBridges(ctx context.Context, t *testing.T, testSet *testnotar
 }
 
 func TestLibP2PSigning(t *testing.T) {
+	remote.Start()
+	defer remote.Stop()
+
 	numMembers := 5
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -82,7 +89,17 @@ func TestLibP2PSigning(t *testing.T) {
 		require.Nil(t, err)
 		systems[i] = ng
 		localSyncers[i] = local.Actor
+		signers := ng.AllSigners()
+		require.Len(t, signers, numMembers)
+
+		// for y := 0; y < numMembers; i++ {
+		// 	targets, err := ng.RewardsCommittee([]byte("lkasdjflkasdjfasdjfksldakfjaskdfj"), signers[y])
+		// 	require.Nil(t, err)
+		// 	require.Len(t, targets, 3)
+		// }
+
 	}
+	createHostsAndBridges(ctx, t, ts)
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)

@@ -3,36 +3,12 @@ package remote
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
 )
-
-const routableSeparator = "-"
-
-type routableAddress string
-
-func NewRoutableAddress(from, to string) routableAddress {
-	return routableAddress(from + routableSeparator + to)
-}
-
-func (ra routableAddress) From() string {
-	return strings.Split(string(ra), routableSeparator)[0]
-}
-
-func (ra routableAddress) To() string {
-	return strings.Split(string(ra), routableSeparator)[1]
-}
-
-func (ra routableAddress) Swap() routableAddress {
-	split := strings.Split(string(ra), routableSeparator)
-	return routableAddress(split[1] + routableSeparator + split[0])
-}
-
-func (ra routableAddress) String() string {
-	return string(ra)
-}
 
 type actorRegistry map[string]*actor.PID
 
@@ -55,6 +31,7 @@ func Stop() {
 }
 
 func NewRouter(host p2p.Node) *actor.PID {
+	middleware.Log.Infow("registering router", "host", host.Identity())
 	router, err := actor.SpawnNamed(newRouterProps(host), "router-"+host.Identity())
 	if err != nil {
 		panic(fmt.Sprintf("error spawning router: %v", err))
@@ -72,13 +49,15 @@ func RegisterBridge(from string, to *ecdsa.PublicKey) {
 }
 
 func remoteHandler(pid *actor.PID) (actor.Process, bool) {
-	from := routableAddress(pid.Address).From()
+	from := types.RoutableAddress(pid.Address).From()
 	for gateway, router := range globalManager.gateways {
 		if from == gateway {
 			ref := newProcess(pid, router)
 			return ref, true
 		}
 	}
+	middleware.Log.Errorw("unhandled remote pid", "addr", pid.Address, "current", globalManager.gateways)
+	panic(fmt.Sprintf("unhandled remote pid: %s id: %s", pid.Address, pid.GetId()))
 	return nil, false
 }
 

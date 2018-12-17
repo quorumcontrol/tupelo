@@ -9,6 +9,7 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
+	"go.uber.org/zap"
 )
 
 type conflictSetMap map[string]*conflictSet
@@ -24,9 +25,10 @@ type conflictSet struct {
 }
 
 // returns true if one of the transactions has enough signatures
-func (cs *conflictSet) possiblyDone(ng *types.NotaryGroup) *messages.NewValidatedTransaction {
+func (cs *conflictSet) possiblyDone(log *zap.SugaredLogger, ng *types.NotaryGroup) *messages.NewValidatedTransaction {
 	count := ng.QuorumCount()
 	for tID, sigMap := range cs.signatures {
+		log.Infow("count", "quorum", count, "sigMapLen", len(sigMap))
 		if len(sigMap) >= count {
 			return cs.transactions[tID]
 		}
@@ -95,12 +97,16 @@ func (vth *ValidTransactionHandler) Receive(context actor.Context) {
 func (vth *ValidTransactionHandler) signatureSenderActor(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.Signature:
+		vth.Log.Infow("getting targets")
 		targets, err := vth.notaryGroup.RewardsCommittee([]byte(msg.ConflictSetID), vth.self)
 		if err != nil {
 			panic(fmt.Sprintf("error getting rewards committee: %v", err))
 		}
+		vth.Log.Infow("got targets")
+
 		msg.Internal = false
 		for _, t := range targets {
+			vth.Log.Infow("sending", "t", t.ID, "actor", t.Actor)
 			t.Actor.Tell(msg)
 		}
 	}
@@ -109,6 +115,7 @@ func (vth *ValidTransactionHandler) signatureSenderActor(context actor.Context) 
 func (vth *ValidTransactionHandler) createDoneMessageActor(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *internalCreateDoneMessage:
+		vth.Log.Infow("createDoneMessageActor")
 		mergedSigners := make([]bool, len(vth.notaryGroup.AllSigners()))
 		var sigBytes [][]byte
 		for _, sig := range msg.signatures {
@@ -155,6 +162,7 @@ func (vth *ValidTransactionHandler) initialize(context actor.Context) {
 }
 
 func (vth *ValidTransactionHandler) handleNewValidatedTransaction(context actor.Context, msg *messages.NewValidatedTransaction) {
+	vth.Log.Infow("new validated transaction")
 	cs := vth.getConflictSet(msg.ConflictSetID)
 	if cs.done {
 		// nothing to do here
@@ -170,6 +178,7 @@ func (vth *ValidTransactionHandler) handleNewValidatedTransaction(context actor.
 
 func (vth *ValidTransactionHandler) handleCurrentState(context actor.Context, msg *messages.CurrentState) {
 	cs := vth.getConflictSet(string(append(msg.ObjectID, msg.OldTip...)))
+	vth.Log.Infow("new current state")
 	cs.done = true
 
 	toRemove := make([][]byte, len(cs.transactions), len(cs.transactions))
@@ -190,6 +199,7 @@ func (vth *ValidTransactionHandler) handleCurrentState(context actor.Context, ms
 }
 
 func (vth *ValidTransactionHandler) handleNewSignature(context actor.Context, msg *messages.Signature) {
+	vth.Log.Infow("new signature")
 	cs := vth.getConflictSet(msg.ConflictSetID)
 	if cs.done {
 		// nothing to do here
@@ -203,9 +213,10 @@ func (vth *ValidTransactionHandler) handleNewSignature(context actor.Context, ms
 	cs.signatures[string(msg.TransactionID)] = sigs
 	vth.conflictSets[cs.ID] = cs
 
-	doneTrans := cs.possiblyDone(vth.notaryGroup)
+	doneTrans := cs.possiblyDone(vth.Log, vth.notaryGroup)
 
 	if doneTrans != nil {
+		vth.Log.Infow("possibly done")
 		vth.doneCreator.Request(&internalCreateDoneMessage{
 			CurrentState: &messages.CurrentState{
 				ObjectID: doneTrans.ObjectID,

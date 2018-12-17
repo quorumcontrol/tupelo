@@ -44,6 +44,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
 	}
+	sg.Log.Infow("signing")
 
 	signature := &messages.Signature{
 		TransactionID: msg.TransactionID,
