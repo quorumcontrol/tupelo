@@ -74,7 +74,7 @@ func TestLibP2PSigning(t *testing.T) {
 	remote.Start()
 	defer remote.Stop()
 
-	numMembers := 5
+	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		middleware.Log.Infow("---- tests over ----")

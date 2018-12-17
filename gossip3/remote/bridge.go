@@ -15,7 +15,6 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-type internalSetupStreamMessage struct{}
 type internalStreamDied struct {
 	id  uint64
 	err error
@@ -65,8 +64,6 @@ func (b *Bridge) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case pnet.Stream:
 		b.handleIncomingStream(context, msg)
-	case *internalSetupStreamMessage:
-		b.handleCreateNewStream(context)
 	case *internalStreamDied:
 		b.handleStreamDied(context, msg)
 	case *WireDelivery:
@@ -79,8 +76,12 @@ func (b *Bridge) Receive(context actor.Context) {
 }
 
 func (b *Bridge) handleIncomingStream(context actor.Context, stream pnet.Stream) {
+	if b.stream != nil {
+		b.Log.Debugw("ignoring incoming")
+		return
+	}
 	remote := stream.Conn().RemotePeer().Pretty()
-	b.Log.Infow("handling incoming stream")
+	b.Log.Debugw("handling incoming stream")
 	if remote != b.remoteAddress {
 		b.Log.Infow("ignoring stream from other peer", "peer", remote)
 	}
@@ -114,9 +115,12 @@ func (b *Bridge) handleIncomingWireDelivery(context actor.Context, wd *WireDeliv
 
 func (b *Bridge) handleOutgoingWireDelivery(context actor.Context, wd *WireDelivery) {
 	if b.writer == nil {
-		context.Self().Tell(&internalSetupStreamMessage{})
-		context.Forward(context.Self())
-		return
+		err := b.handleCreateNewStream(context)
+		if err != nil {
+			b.Log.Errorw("error opening stream", "err", err)
+			context.Forward(context.Self())
+			return
+		}
 	}
 	// b.Log.Debugw("writing", "target", wd.Target, "sender", wd.Sender, "msgHash", crypto.Keccak256(wd.Message))
 	if wd.Sender != nil && wd.Sender.Address == actor.ProcessRegistry.Address {
@@ -141,6 +145,9 @@ func (b *Bridge) clearStream(id uint64) {
 		b.Log.Errorw("ids did not match", "expecting", id, "actual", b.streamID)
 		return
 	}
+	if b.stream != nil {
+		b.stream.Reset()
+	}
 	if b.streamCancel != nil {
 		b.streamCancel()
 	}
@@ -149,24 +156,24 @@ func (b *Bridge) clearStream(id uint64) {
 	b.streamCtx = nil
 }
 
-func (b *Bridge) handleCreateNewStream(context actor.Context) {
+func (b *Bridge) handleCreateNewStream(context actor.Context) error {
 	if b.stream != nil {
 		b.Log.Infow("not creating new stream, already exists")
-		return
+		return nil
 	}
-	b.Log.Infow("create new stream")
+	b.Log.Debugw("create new stream")
 
 	ctx, cancel := gocontext.WithCancel(gocontext.Background())
 
 	stream, err := b.host.NewStream(ctx, b.remoteKey, p2pProtocol)
 	if err != nil {
 		b.clearStream(b.streamID)
-		b.Log.Errorw("error opening stream", "err", err)
 		cancel()
-		return
+		return fmt.Errorf("error opening stream: %v", err)
 	}
 
 	b.setupNewStream(ctx, cancel, context, stream)
+	return nil
 }
 
 func (b *Bridge) setupNewStream(ctx gocontext.Context, cancelFunc gocontext.CancelFunc, context actor.Context, stream pnet.Stream) {
@@ -182,7 +189,8 @@ func (b *Bridge) setupNewStream(ctx gocontext.Context, cancelFunc gocontext.Canc
 		for {
 			select {
 			case <-done:
-				s.Close()
+				b.Log.Infow("resetting stream due to done")
+				s.Reset()
 				return
 			default:
 				var wd WireDelivery

@@ -83,7 +83,7 @@ func (ng *NotaryGroup) RewardsCommittee(key []byte, excluding *Signer) ([]*Signe
 	indexSpacing := signerCount / numberOfTargets
 	moduloOffset := math.Mod(float64(bytesToUint64(key)), indexSpacing)
 
-	targets := make([]*Signer, int(numberOfTargets), int(numberOfTargets))
+	targets := make([]*Signer, 0, int(numberOfTargets))
 
 	for i := 0; i < int(numberOfTargets); i++ {
 		targetIndex := int64(math.Floor(moduloOffset + (indexSpacing * float64(i))))
@@ -93,7 +93,7 @@ func (ng *NotaryGroup) RewardsCommittee(key []byte, excluding *Signer) ([]*Signe
 		if excluding.ID == target.ID {
 			continue
 		}
-		targets[i] = target
+		targets = append(targets, target)
 
 	}
 	return targets, nil

@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/tinylib/msgp/msgp"
 )
 
@@ -64,7 +63,6 @@ func (ref *process) SendSystemMessage(pid *actor.PID, message interface{}) {
 		// }
 		// endpointManager.remoteUnwatch(ruw)
 	default:
-		middleware.Log.Infow("SendMessage", "to", pid, "type", reflect.TypeOf(msg).String())
 		SendMessage(ref.gateway, pid, nil, msg, nil, -1)
 	}
 }
