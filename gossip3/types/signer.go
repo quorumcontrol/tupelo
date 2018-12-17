@@ -2,12 +2,12 @@ package types
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/p2p"
 )
 
 type Signer struct {
@@ -39,5 +39,9 @@ func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) *Signer {
 }
 
 func (s *Signer) ActorAddress() string {
-	return hexutil.Encode(crypto.FromECDSAPub(s.DstKey))
+	id, err := p2p.PeerFromEcdsaKey(s.DstKey)
+	if err != nil {
+		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+	}
+	return id.Pretty()
 }
