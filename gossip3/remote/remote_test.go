@@ -65,13 +65,7 @@ func TestLocalStillWorks(t *testing.T) {
 }
 
 func TestRemoteMessageSending(t *testing.T) {
-	ts := testnotarygroup.NewTestSet(t, 2)
-	signer1 := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
-	signer2 := types.NewLocalSigner(ts.PubKeys[1].ToEcdsaPub(), ts.SignKeys[1])
-	require.NotEmpty(t, signer1.ActorAddress())
-	require.NotEmpty(t, signer2.ActorAddress())
-	require.NotEqual(t, signer1.ActorAddress(), signer2.ActorAddress())
-
+	ts := testnotarygroup.NewTestSet(t, 3)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	bootstrap := newBootstrapHost(ctx, t)
@@ -84,7 +78,14 @@ func TestRemoteMessageSending(t *testing.T) {
 	require.Nil(t, err)
 	host2.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 
-	t.Logf("host1: %s / host2: %s", host1.Identity(), host2.Identity())
+	host3, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[2], 0)
+	require.Nil(t, err)
+	host3.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
+
+	// time to bootstrap
+	time.Sleep(500 * time.Millisecond)
+
+	t.Logf("host1: %s / host2: %s / host3: %s", host1.Identity(), host2.Identity(), host3.Identity())
 
 	pingFunc := func(ctx actor.Context) {
 		switch msg := ctx.Message().(type) {
@@ -97,28 +98,31 @@ func TestRemoteMessageSending(t *testing.T) {
 	_, err = actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host1")
 	require.Nil(t, err)
 
-	host2Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host2")
+	_, err = actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host2")
 	require.Nil(t, err)
 
-	// time to bootstrap
-	time.Sleep(500 * time.Millisecond)
+	host3Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host3")
+	require.Nil(t, err)
 
 	Start()
 	defer Stop()
 
-	// this is the bridge on host1 that sends traffic to signer2
-	bridge1 := NewBridge(signer2.DstKey, host1)
-	require.NotNil(t, bridge1)
+	NewRouter(host1)
+	NewRouter(host2)
+	NewRouter(host3)
 
-	// this is the bridge on host2 that sends traffic to signer1
-	bridge2 := NewBridge(signer1.DstKey, host2)
-	require.NotNil(t, bridge2)
+	RegisterBridge(host1.Identity(), host2.PublicKey())
+	RegisterBridge(host1.Identity(), host3.PublicKey())
 
-	remotePing := actor.NewPID(signer2.ActorAddress(), host2Ping.GetId())
-	assert.Equal(t, remotePing.Address, signer2.ActorAddress())
+	RegisterBridge(host2.Identity(), host1.PublicKey())
+	RegisterBridge(host2.Identity(), host3.PublicKey())
+
+	RegisterBridge(host3.Identity(), host1.PublicKey())
+	RegisterBridge(host3.Identity(), host2.PublicKey())
+
+	remotePing := actor.NewPID(NewRoutableAddress(host1.Identity(), host3.Identity()).String(), host3Ping.GetId())
 
 	resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
-	assert.Equal(t, remotePing.Address, signer2.ActorAddress())
 
 	assert.Nil(t, err)
 	assert.Equal(t, resp.(*messages.Pong).Msg, "hi")

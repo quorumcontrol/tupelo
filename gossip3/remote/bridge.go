@@ -41,7 +41,7 @@ func newBridgeProps(host p2p.Node, remoteKey *ecdsa.PublicKey) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &Bridge{
 			host:          host,
-			localAddress:  host.Identity(),
+			localAddress:  NewRoutableAddress(host.Identity(), peer.Pretty()).String(),
 			remoteKey:     remoteKey,
 			remoteAddress: peer.Pretty(),
 		}
@@ -53,11 +53,6 @@ func newBridgeProps(host p2p.Node, remoteKey *ecdsa.PublicKey) *actor.Props {
 
 func (b *Bridge) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *actor.Started:
-		//TODO: what happens when the bridge dies?
-		b.host.SetStreamHandler(p2pProtocol, func(s pnet.Stream) {
-			context.Self().Tell(s)
-		})
 	case pnet.Stream:
 		b.handleIncomingStream(context, msg)
 	case *internalSetupStreamMessage:
@@ -92,6 +87,7 @@ func (b *Bridge) handleIncomingWireDelivery(context actor.Context, wd *WireDeliv
 	target := FromActorPid(wd.Target)
 	if wd.Sender != nil {
 		sender = FromActorPid(wd.Sender)
+		sender.Address = routableAddress(sender.Address).Swap().String()
 	}
 	// switch the target to the local actor system
 	target.Address = actor.ProcessRegistry.Address
@@ -109,7 +105,7 @@ func (b *Bridge) handleOutgoingWireDelivery(context actor.Context, wd *WireDeliv
 		return
 	}
 	b.Log.Infow("writing", "wd", wd)
-	if wd.Sender != nil {
+	if wd.Sender != nil && wd.Sender.Address == actor.ProcessRegistry.Address {
 		wd.Sender.Address = b.localAddress
 	}
 	err := wd.EncodeMsg(b.writer)
