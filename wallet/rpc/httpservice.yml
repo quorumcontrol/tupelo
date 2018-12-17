@@ -1,0 +1,13 @@
+type: google.api.Service
+config_version: 3
+
+http:
+  rules:
+    - selector: walletrpc.Service.ListChainIds
+      get: /v0/chains
+
+    - selector: walletrpc.Service.ListKeys
+      get: /v0/keys
+
+    - selector: walletrpc.Service.GetTip
+      get: /v0/chains/{chain_id}

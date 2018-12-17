@@ -1,4 +1,4 @@
-package walletshell
+package shell
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip2client"
-	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
+	"github.com/quorumcontrol/tupelo/wallet"
 )
 
 func confirmPassword(c *ishell.Context) (string, error) {
@@ -41,7 +41,7 @@ func RunGossip(name string, storagePath string, group *consensus.NotaryGroup, cl
 	shell.Printf("Loading shell for wallet: %v\n", name)
 
 	// load the session
-	session, err := walletrpc.NewSession(storagePath, name, group, client)
+	session, err := wallet.NewSession(storagePath, name, group, client)
 	if err != nil {
 		shell.Printf("error loading shell: %v\n", err)
 		return

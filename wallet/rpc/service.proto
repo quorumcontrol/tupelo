@@ -2,7 +2,7 @@
 syntax = "proto3";
 package walletrpc;
 
-option go_package = "walletrpc";
+option go_package = "rpc";
 
 message Credentials {
   string wallet_name = 1;

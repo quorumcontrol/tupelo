@@ -6,7 +6,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip2client"
 	"github.com/quorumcontrol/tupelo/p2p"
-	"github.com/quorumcontrol/tupelo/wallet/walletshell"
+	"github.com/quorumcontrol/tupelo/wallet/shell"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ var shellCmd = &cobra.Command{
 
 		group := setupNotaryGroup(storage.NewMemStorage())
 		client := gossip2client.NewGossipClient(group, bootstrapAddrs)
-		walletshell.RunGossip(shellName, tupeloConfig, group, client)
+		shell.RunGossip(shellName, tupeloConfig, group, client)
 	},
 }
 

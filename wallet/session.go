@@ -1,4 +1,4 @@
-package walletrpc
+package wallet
 
 import (
 	"crypto/ecdsa"
@@ -16,12 +16,11 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip2client"
-	"github.com/quorumcontrol/tupelo/wallet"
 )
 
 type RPCSession struct {
 	client    *gossip2client.GossipClient
-	wallet    *wallet.FileWallet
+	wallet    *FileWallet
 	isStarted bool
 }
 
@@ -56,7 +55,7 @@ func (e *NilTipError) Error() string {
 func NewSession(storagePath string, walletName string, group *consensus.NotaryGroup, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
 	path := walletPath(storagePath, walletName)
 
-	fileWallet := wallet.NewFileWallet(path)
+	fileWallet := NewFileWallet(path)
 
 	return &RPCSession{
 		client:    gossipClient,

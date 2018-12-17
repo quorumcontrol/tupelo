@@ -16,7 +16,7 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip2"
 	"github.com/quorumcontrol/tupelo/gossip2client"
 	"github.com/quorumcontrol/tupelo/p2p"
-	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
+	"github.com/quorumcontrol/tupelo/wallet/rpc"
 	"github.com/spf13/cobra"
 )
 
@@ -223,9 +223,9 @@ var rpcServerCmd = &cobra.Command{
 		client := gossip2client.NewGossipClient(notaryGroup, bootstrapAddrs)
 		if tls {
 			panicWithoutTLSOpts()
-			walletrpc.ServeTLS(tupeloConfig, notaryGroup, client, certFile, keyFile)
+			rpc.ServeTLS(tupeloConfig, notaryGroup, client, certFile, keyFile)
 		} else {
-			walletrpc.ServeInsecure(tupeloConfig, notaryGroup, client)
+			rpc.ServeInsecure(tupeloConfig, notaryGroup, client)
 		}
 	},
 }

@@ -1,4 +1,4 @@
-package walletrpc
+package rpc
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/wallet"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -26,7 +27,7 @@ type server struct {
 }
 
 func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +44,7 @@ func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*Reg
 }
 
 func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +68,7 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 }
 
 func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 }
 
 func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +119,7 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 }
 
 func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 }
 
 func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +170,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 }
 
 func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +193,7 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 }
 
 func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +216,7 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 }
 
 func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +239,7 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 }
 
 func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +262,7 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 }
 
 func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +294,7 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 }
 
 func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -316,7 +317,7 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 }
 
 func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
+	session, err := wallet.NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.Client)
 	if err != nil {
 		return nil, err
 	}
