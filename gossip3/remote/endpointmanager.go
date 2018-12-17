@@ -1,37 +1,74 @@
 package remote
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"log"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	pnet "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/tinylib/msgp/msgp"
 )
 
-var endpointManager *remoteManger
+type actorRegistry map[string]*actor.PID
 
 type remoteManger struct {
-	streamer *actor.PID
+	router *actor.PID
 }
 
-func newRemoteManager(host p2p.Node) *remoteManger {
-	streamer, err := actor.SpawnNamed(newStreamerProps(host), "streamer")
+// These are GLOBAL state used to handle the singleton for routing to remote hosts
+// and the registry of local bridges
+var endpointManager *remoteManger
+var incomingHandlerRegistry = make(actorRegistry)
+
+func Start() {
+	endpointManager = newRemoteManager()
+	actor.ProcessRegistry.RegisterAddressResolver(remoteHandler)
+}
+
+func Stop() {
+	endpointManager.stop()
+	for _, bridge := range incomingHandlerRegistry {
+		bridge.Poison()
+	}
+	endpointManager = nil
+	incomingHandlerRegistry = make(actorRegistry)
+}
+
+func Register(peer peer.ID, handler *actor.PID) {
+	endpointManager.router.Tell(&registerBridge{Peer: peer.Pretty(), Handler: handler})
+}
+
+func NewBridge(remoteKey *ecdsa.PublicKey, host p2p.Node) *actor.PID {
+	peer, err := p2p.PeerFromEcdsaKey(remoteKey)
+	if err != nil {
+		panic(fmt.Sprintf("error getting peer from key: %v", err))
+	}
+
+	bridge, err := actor.SpawnNamed(newBridgeProps(host, remoteKey), "bridge-"+peer.Pretty())
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+	Register(peer, bridge)
+	return bridge
+}
+
+func remoteHandler(pid *actor.PID) (actor.Process, bool) {
+	ref := newProcess(pid)
+	return ref, true
+}
+
+func newRemoteManager() *remoteManger {
+	streamer, err := actor.SpawnNamed(newRouterProps(), "remote-router")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning streamer: %v", err))
 	}
-	sm := &remoteManger{
-		streamer: streamer,
+	rm := &remoteManger{
+		router: streamer,
 	}
 
-	host.SetStreamHandler(p2pProtocol, sm.streamHandler)
-
-	return sm
-}
-
-func (rm *remoteManger) streamHandler(s pnet.Stream) {
-
+	return rm
 }
 
 func (rm *remoteManger) remoteDeliver(rd *remoteDeliver) {
@@ -42,9 +79,9 @@ func (rm *remoteManger) remoteDeliver(rd *remoteDeliver) {
 	}
 	wd := ToWireDelivery(rd)
 	wd.Outgoing = true
-	rm.streamer.Tell(wd)
+	rm.router.Tell(wd)
 }
 
 func (rm *remoteManger) stop() {
-	rm.streamer.GracefulStop()
+	rm.router.GracefulStop()
 }

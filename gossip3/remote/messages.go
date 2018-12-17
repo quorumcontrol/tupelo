@@ -23,13 +23,21 @@ func ToWireDelivery(rd *remoteDeliver) *WireDelivery {
 	if err != nil {
 		panic(fmt.Errorf("could not marshal message: %v", err))
 	}
-	return &WireDelivery{
-		Header:  rd.header.ToMap(),
+	wd := &WireDelivery{
 		Message: marshaled,
 		Type:    messages.GetTypeCode(rd.message),
 		Target:  ToActorPid(rd.target),
 		Sender:  ToActorPid(rd.sender),
 	}
+	if rd.header != nil {
+		wd.Header = rd.header.ToMap()
+	}
+	return wd
+}
+
+type registerBridge struct {
+	Peer    string
+	Handler *actor.PID
 }
 
 type ActorPID struct {
@@ -38,6 +46,9 @@ type ActorPID struct {
 }
 
 func ToActorPid(a *actor.PID) *ActorPID {
+	if a == nil {
+		return nil
+	}
 	return &ActorPID{
 		Address: a.Address,
 		Id:      a.Id,
@@ -55,4 +66,13 @@ type WireDelivery struct {
 	Target   *ActorPID
 	Sender   *ActorPID
 	Outgoing bool `msg:"-"`
+}
+
+func (wd *WireDelivery) GetMessage() (msgp.Unmarshaler, error) {
+	msg := messages.GetUnmarshaler(wd.Type)
+	_, err := msg.UnmarshalMsg(wd.Message)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshaling message: %v", err)
+	}
+	return msg, nil
 }

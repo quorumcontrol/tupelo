@@ -23,7 +23,7 @@ func RegisterEncodable(obj msgp.Encodable) {
 	internalEncodableRegisterCounter++
 }
 
-func GetEncodable(typeCode int8) msgp.Unmarshaler {
+func GetUnmarshaler(typeCode int8) msgp.Unmarshaler {
 	obj, ok := encodableRegister[typeCode]
 	if !ok {
 		panic(fmt.Sprintf("could not find type: %d", typeCode))

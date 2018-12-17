@@ -8,7 +8,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	pnet "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -16,7 +15,6 @@ import (
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tinylib/msgp/msgp"
 )
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
@@ -51,17 +49,7 @@ func newBootstrapHost(ctx context.Context, t *testing.T) p2p.Node {
 }
 
 func TestLocalStillWorks(t *testing.T) {
-	ts := testnotarygroup.NewTestSet(t, 2)
-	signer1 := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
-	// signer2 := types.NewLocalSigner(ts.PubKeys[1].ToEcdsaPub(), ts.SignKeys[1])
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	host, err := p2p.NewLibP2PHost(ctx, ts.EcdsaKeys[0], 0)
-	require.Nil(t, err)
-
-	Start(signer1, host)
+	Start()
 	defer Stop()
 
 	localPing := actor.Spawn(actor.FromFunc(func(ctx actor.Context) {
@@ -70,7 +58,6 @@ func TestLocalStillWorks(t *testing.T) {
 			ctx.Respond(&messages.Pong{Msg: msg.Msg})
 		}
 	}))
-	assert.Equal(t, signer1.ActorAddress(), localPing.Address)
 
 	resp, err := localPing.RequestFuture(&messages.Ping{Msg: "hi"}, 1*time.Second).Result()
 	require.Nil(t, err)
@@ -97,45 +84,38 @@ func TestRemoteMessageSending(t *testing.T) {
 	require.Nil(t, err)
 	host2.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 
-	host2.SetStreamHandler(p2pProtocol, func(s pnet.Stream) {
-		reader := msgp.NewReader(s)
-		writer := msgp.NewWriter(s)
+	t.Logf("host1: %s / host2: %s", host1.Identity(), host2.Identity())
 
-		s.Conn()
-
-		var wd WireDelivery
-		err := wd.DecodeMsg(reader)
-		require.Nil(t, err)
-
-		var ping messages.Ping
-		_, err = ping.UnmarshalMsg(wd.Message)
-		require.Nil(t, err)
-
-		pong := &messages.Pong{Msg: ping.Msg}
-		bits, err := pong.MarshalMsg(nil)
-		require.Nil(t, err)
-
-		response := &WireDelivery{
-			Target:  wd.Sender,
-			Sender:  nil,
-			Message: bits,
-			Type:    messages.GetTypeCode(pong),
+	pingFunc := func(ctx actor.Context) {
+		switch msg := ctx.Message().(type) {
+		case *messages.Ping:
+			// t.Logf("ctx: %v, msg: %v, sender: %v", ctx, msg, ctx.Sender().Address+ctx.Sender().GetId())
+			ctx.Respond(&messages.Pong{Msg: msg.Msg})
 		}
+	}
 
-		response.EncodeMsg(writer)
-		writer.Flush()
-	})
+	_, err = actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host1")
+	require.Nil(t, err)
+
+	host2Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host2")
+	require.Nil(t, err)
 
 	// time to bootstrap
 	time.Sleep(500 * time.Millisecond)
 
-	Start(signer1, host1)
+	Start()
 	defer Stop()
 
-	remotePing := actor.NewPID(signer2.ActorAddress(), "test")
-	assert.Equal(t, remotePing.Address, signer2.ActorAddress())
+	// this is the bridge on host1 that sends traffic to signer2
+	bridge1 := NewBridge(signer2.DstKey, host1)
+	require.NotNil(t, bridge1)
 
-	t.Logf("remotePing: %s, addr: %s, s2Addr: %s", remotePing.String(), remotePing.Address, signer2.ActorAddress())
+	// this is the bridge on host2 that sends traffic to signer1
+	bridge2 := NewBridge(signer1.DstKey, host2)
+	require.NotNil(t, bridge2)
+
+	remotePing := actor.NewPID(signer2.ActorAddress(), host2Ping.GetId())
+	assert.Equal(t, remotePing.Address, signer2.ActorAddress())
 
 	resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
 	assert.Equal(t, remotePing.Address, signer2.ActorAddress())
