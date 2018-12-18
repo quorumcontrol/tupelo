@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -14,10 +15,10 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/chaintree/typecaster"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/storage"
 )
 
 type stateTransaction struct {
@@ -29,21 +30,15 @@ type stateTransaction struct {
 	payload       []byte
 }
 
-type stateTransactionResponse struct {
-	nextState        []byte
-	accepted         bool
-	err              error
-	stateTransaction *stateTransaction
-}
-
-type stateHandler struct {
+type TransactionValidator struct {
 	middleware.LogAwareHolder
 	currentStateActor *actor.PID
+	reader            storage.Reader
 }
 
-func NewStateHandlerProps(currentState *actor.PID) *actor.Props {
+func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
-		return &stateHandler{
+		return &TransactionValidator{
 			currentStateActor: currentState,
 		}
 	}).WithMiddleware(
@@ -52,63 +47,81 @@ func NewStateHandlerProps(currentState *actor.PID) *actor.Props {
 	)
 }
 
-func (sh *stateHandler) Receive(context actor.Context) {
+func (tv *TransactionValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.Store:
-		sh.Log.Debugw("stateHandler initial", "key", msg.Key)
-		err := sh.handleStore(context, msg)
+	case *actor.Started:
+		reader, err := tv.currentStateActor.RequestFuture(&messages.GetThreadsafeReader{}, 500*time.Millisecond).Result()
 		if err != nil {
-			sh.Log.Errorw("statehandler: error preparing", "err", err)
+			panic(fmt.Sprintf("timeout waiting: %v", err))
 		}
-	case *stateTransaction:
-		sh.Log.Debugw("stateTransaction", "key", msg.TransactionID)
-		next, accepted, err := chainTreeStateHandler(msg)
-		context.Respond(&stateTransactionResponse{
-			stateTransaction: msg,
-			nextState:        next,
-			accepted:         accepted,
-			err:              err,
-		})
+		tv.reader = reader.(storage.Reader)
+	case *messages.Store:
+		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
+		tv.handleStore(context, msg)
 	}
 }
 
 // TODO: turn this into an actor so that we can scale it
 
-func (sh *stateHandler) handleStore(context actor.Context, msg *messages.Store) error {
+func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
 	var t messages.Transaction
 	_, err := t.UnmarshalMsg(msg.Value)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling: %v", err)
+		context.Respond(&messages.TransactionWrapper{
+			Key:      msg.Key,
+			Value:    msg.Value,
+			Accepted: false,
+		})
+		return
 	}
 
-	currBytes, err := sh.currentStateActor.RequestFuture(&messages.Get{Key: t.ObjectID}, 1*time.Second).Result()
+	bits, err := tv.reader.Get(t.ObjectID)
 	if err != nil {
-		return fmt.Errorf("error getting current state: %v", err)
+		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 
-	bits := currBytes.([]byte)
+	var currTip []byte
 	if len(bits) > 0 {
 		var currentState messages.CurrentState
 		_, err := currentState.UnmarshalMsg(bits)
 		if err != nil {
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
-		bits = currentState.Tip
+		currTip = currentState.Tip
 	}
 
-	// transform the message but send in the original caller for the request
-	// so it will get an answer after verifying a valid transaction
-	context.Self().Request(&stateTransaction{
+	st := &stateTransaction{
 		ObjectID:    t.ObjectID,
 		Transaction: t.Payload,
 		// TODO: verify transaction ID is correct
 		TransactionID: msg.Key,
-		CurrentState:  bits,
+		CurrentState:  currTip,
 		ConflictSetID: string(append(t.ObjectID, bits...)),
 		//TODO: verify payload
 		payload: msg.Value,
-	}, context.Sender())
-	return nil
+	}
+
+	nextState, accepted, err := chainTreeStateHandler(st)
+	if err != nil {
+		panic(fmt.Sprintf("error validating chain tree"))
+	}
+	if accepted && bytes.Equal(nextState, t.NewTip) {
+		context.Respond(&messages.TransactionWrapper{
+			ConflictSetID: t.ConflictSetID(),
+			Transaction:   &t,
+			Key:           msg.Key,
+			Value:         msg.Value,
+			Accepted:      true,
+		})
+		return
+	}
+
+	context.Respond(&messages.TransactionWrapper{
+		Transaction: &t,
+		Key:         msg.Key,
+		Value:       msg.Value,
+		Accepted:    false,
+	})
 }
 
 func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {

@@ -21,10 +21,11 @@ type ibfMap map[int]*ibf.InvertibleBloomFilter
 type Storage struct {
 	middleware.LogAwareHolder
 
-	id      string
-	ibfs    ibfMap
-	storage *storage.MemStorage
-	strata  *ibf.DifferenceStrata
+	id            string
+	ibfs          ibfMap
+	storage       *storage.MemStorage
+	strata        *ibf.DifferenceStrata
+	subscriptions []*actor.PID
 }
 
 func NewStorageProps() *actor.Props {
@@ -58,7 +59,17 @@ func (s *Storage) Receive(context actor.Context) {
 		s.Log.Debugw("message: %v", msg.Message)
 	case *messages.Store:
 		s.Log.Debugw("adding", "key", msg.Key, "value", msg.Value)
-		s.Add(msg.Key, msg.Value)
+		didSet, err := s.Add(msg.Key, msg.Value)
+		if err != nil {
+			panic(fmt.Sprintf("error addding (k: %s): %v", msg.Key, err))
+		}
+		if didSet {
+			for _, sub := range s.subscriptions {
+				context.Forward(sub)
+			}
+		}
+	case *messages.Subscribe:
+		s.subscriptions = append(s.subscriptions, msg.Subscriber)
 	case *messages.Remove:
 		s.Remove(msg.Key)
 	case *messages.BulkRemove:
@@ -67,6 +78,8 @@ func (s *Storage) Receive(context actor.Context) {
 		context.Respond(snapshotStrata(s.strata))
 	case *messages.GetIBF:
 		context.Respond(snapshotIBF(s.ibfs[msg.Size]))
+	case *messages.GetThreadsafeReader:
+		context.Respond(storage.Reader(s.storage))
 	case *messages.GetPrefix:
 		keys, err := s.storage.GetPairsByPrefix(msg.Prefix)
 		if err != nil {

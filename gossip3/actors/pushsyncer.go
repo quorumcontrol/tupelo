@@ -68,7 +68,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.sendingObjects = false
 		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
-		syncer.Log.Infow("sync done", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
+		syncer.Log.Debugw("sync done", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
 		context.SetReceiveTimeout(0)
 		if !syncer.sendingObjects {
 			context.Self().Poison()
@@ -79,7 +79,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPush) {
 	syncer.uuid = uuid.New().String()
 	syncer.start = time.Now()
-	syncer.Log.Infow("sync start", "uuid", syncer.uuid, "now", syncer.start)
+	syncer.Log.Debugw("sync start", "uuid", syncer.uuid, "now", syncer.start)
 	var remoteGossiper *actor.PID
 	for remoteGossiper == nil || strings.HasPrefix(context.Self().GetId(), remoteGossiper.GetId()) {
 		remoteGossiper = msg.System.GetRandomSyncer()
@@ -96,7 +96,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 
 	switch remoteSyncer := resp.(type) {
 	case *messages.NoSyncersAvailable:
-		syncer.Log.Infow("remote busy")
+		syncer.Log.Debugw("remote busy")
 		context.Self().Poison()
 	case *messages.SyncerAvailable:
 		destination := messages.FromActorPid(remoteSyncer.Destination)

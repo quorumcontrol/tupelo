@@ -31,28 +31,28 @@ func NewSignatureGeneratorProps(self *types.Signer, ng *types.NotaryGroup) *acto
 
 func (sg *SignatureGenerator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.NewValidatedTransaction:
+	case *messages.TransactionWrapper:
 		sg.handleNewTransaction(context, msg)
 	}
 }
 
-func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.NewValidatedTransaction) {
+func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	ng := sg.notaryGroup
 	signers := make([]bool, len(ng.Signers))
 	signers[ng.IndexOfSigner(sg.signer)] = true
-	sig, err := sg.signer.SignKey.Sign(append(msg.ObjectID, append(msg.OldTip, msg.NewTip...)...))
+	sig, err := sg.signer.SignKey.Sign(append(msg.Transaction.ObjectID, append(msg.Transaction.PreviousTip, msg.Transaction.NewTip...)...))
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
 	}
-	sg.Log.Debugw("signing", "t", msg.TransactionID)
+	sg.Log.Debugw("signing", "t", msg.Key)
 
 	signature := &messages.Signature{
-		TransactionID: msg.TransactionID,
-		ObjectID:      msg.ObjectID,
-		Tip:           msg.NewTip,
+		TransactionID: msg.Key,
+		ObjectID:      msg.Transaction.ObjectID,
+		Tip:           msg.Transaction.NewTip,
 		Signers:       signers,
 		Signature:     sig,
-		ConflictSetID: string(append(msg.ObjectID, msg.OldTip...)),
+		ConflictSetID: msg.ConflictSetID,
 		Internal:      true,
 	}
 	context.Respond(signature)

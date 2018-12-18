@@ -3,7 +3,6 @@ package actors
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -67,23 +66,14 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
 	case *actor.Started:
-		g.storageActor.Tell(&messages.SubscribeValidatorWorking{
-			Actor: context.Self(),
-		})
 	case *actor.Terminated:
 		// this is for when the pushers stop, we can queue up another push
 		if msg.Who.Equal(g.pids[currentPusherKey]) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
-			// if g.validatorClear {
 			delete(g.pids, currentPusherKey)
-			time.AfterFunc(200*time.Millisecond, func() {
-				context.Self().Tell(&messages.DoOneGossip{
-					Why: "internalPusherDone",
-				})
+			context.Self().Tell(&messages.DoOneGossip{
+				Why: "internalPusherDone",
 			})
-
-			// } else {
-			// }
 			return
 		}
 		if strings.HasPrefix(msg.Who.GetId(), context.Self().GetId()+"/"+remoteSyncerPrefix) {
@@ -126,30 +116,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 		} else {
 			context.Respond(&messages.NoSyncersAvailable{})
 		}
-	case *messages.Store:
+	case *messages.Subscribe:
 		context.Forward(g.storageActor)
-	case *messages.CurrentState:
-		context.Forward(g.storageActor)
-	case *messages.Get:
-		context.Forward(g.storageActor)
-	case *messages.BulkRemove:
-		context.Forward(g.storageActor)
-	case *messages.ValidatorClear:
-		g.Log.Debugw("validator clear")
-		if !g.validatorClear {
-			g.validatorClear = true
-			// _, ok := g.pids[currentPusherKey]
-			// g.Log.Infow("validator clear", "doGossip", !ok)
-			// if !ok {
-			// 	context.Self().Tell(&messages.DoOneGossip{
-			// 		Why: "validatorClear",
-			// 	})
-			// }
-		}
-	case *messages.ValidatorWorking:
-		g.Log.Debugw("validator working")
-		g.validatorClear = false
-	case *messages.Debug:
-		actor.NewPID("test", "test")
 	}
 }

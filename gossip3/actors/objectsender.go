@@ -6,16 +6,16 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/storage"
 )
 
 // Sender sends objects off to somewhere else
 type ObjectSender struct {
 	middleware.LogAwareHolder
-
-	store *actor.PID
+	reader storage.Reader
+	store  *actor.PID
 }
 
 func NewObjectSenderProps(store *actor.PID) *actor.Props {
@@ -31,17 +31,22 @@ func NewObjectSenderProps(store *actor.PID) *actor.Props {
 
 func (o *ObjectSender) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		reader, err := o.store.RequestFuture(&messages.GetThreadsafeReader{}, 500*time.Millisecond).Result()
+		if err != nil {
+			panic(fmt.Sprintf("timeout waiting: %v", err))
+		}
+		o.reader = reader.(storage.Reader)
 	case *actor.Restarting:
 		o.Log.Errorw("restaring obj sender")
 	case *messages.SendingDone:
 		context.Respond(msg)
 	case *messages.SendPrefix:
-		keys, err := o.store.RequestFuture(&messages.GetPrefix{Prefix: msg.Prefix}, 500*time.Millisecond).Result()
+		keys, err := o.reader.GetPairsByPrefix(msg.Prefix)
 		if err != nil {
-			panic(fmt.Sprintf("timeout waiting: %v", err))
+			panic("error getting prefix")
 		}
-		o.Log.Debugw("sending", "destination", msg.Destination.GetId(), "prefix", msg.Prefix, "length", len(keys.([]storage.KeyValuePair)))
-		for _, pair := range keys.([]storage.KeyValuePair) {
+		for _, pair := range keys {
 			context.Request(msg.Destination, &messages.Store{
 				Key:   pair.Key,
 				Value: pair.Value,
