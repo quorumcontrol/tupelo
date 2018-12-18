@@ -210,7 +210,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	signedTree.ChainTree.Dag.AddNodes(entryNode)
 	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
-	signedTree.ChainTree.Dag.Swap(chainNode.Cid(), newChainNode)
+	signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
 
 	t.Log(signedTree.ChainTree.Dag.Dump())
 
