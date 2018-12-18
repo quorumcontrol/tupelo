@@ -64,9 +64,9 @@ func (s *Storage) Receive(context actor.Context) {
 	case *messages.BulkRemove:
 		s.BulkRemove(msg.ObjectIDs)
 	case *messages.GetStrata:
-		context.Respond(*s.strata)
+		context.Respond(snapshotStrata(s.strata))
 	case *messages.GetIBF:
-		context.Respond(*s.ibfs[msg.Size])
+		context.Respond(snapshotIBF(s.ibfs[msg.Size]))
 	case *messages.GetPrefix:
 		keys, err := s.storage.GetPairsByPrefix(msg.Prefix)
 		if err != nil {
@@ -80,6 +80,20 @@ func (s *Storage) Receive(context actor.Context) {
 		}
 		context.Respond(val)
 	}
+}
+
+func snapshotIBF(existing *ibf.InvertibleBloomFilter) *ibf.InvertibleBloomFilter {
+	newIbf := ibf.NewInvertibleBloomFilter(len(existing.Cells), existing.HashCount)
+	copy(newIbf.Cells, existing.Cells)
+	return newIbf
+}
+
+func snapshotStrata(existing *ibf.DifferenceStrata) *ibf.DifferenceStrata {
+	newStrata := ibf.NewDifferenceStrata()
+	for i, filt := range existing.Filters {
+		newStrata.Filters[i] = snapshotIBF(filt)
+	}
+	return newStrata
 }
 
 func (s *Storage) Add(key, value []byte) (bool, error) {

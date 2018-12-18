@@ -110,11 +110,14 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("err: %v", err))
 	}
 
-	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolValidator, tn.notaryGroup), mempoolKind)
+	mempoolPusherProps := NewPushSyncerProps(mempoolKind, mempoolValidator)
+	committedProps := NewPushSyncerProps(committedKind, committedValidator)
+
+	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolValidator, tn.notaryGroup, mempoolPusherProps), mempoolKind)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning mempool: %v", err))
 	}
-	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedValidator, tn.notaryGroup), committedKind)
+	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedValidator, tn.notaryGroup, committedProps), committedKind)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning mempool: %v", err))
 	}

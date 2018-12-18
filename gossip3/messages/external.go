@@ -77,7 +77,11 @@ type CurrentState struct {
 }
 
 func (cs *CurrentState) StorageKey() []byte {
+	if len(cs.OldTip) == 0 {
+		return append(cs.ObjectID, byte(0))
+	}
 	return append(cs.ObjectID, cs.OldTip...)
+
 }
 
 func (cs *CurrentState) CurrentKey() []byte {
@@ -120,13 +124,13 @@ type Transaction struct {
 type ProvideStrata struct {
 	DestinationHolder
 
-	Strata ibf.DifferenceStrata
+	Strata *ibf.DifferenceStrata
 }
 
 type ProvideBloomFilter struct {
 	DestinationHolder
 
-	Filter ibf.InvertibleBloomFilter
+	Filter *ibf.InvertibleBloomFilter
 }
 
 type ActorPID struct {

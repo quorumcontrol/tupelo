@@ -53,10 +53,12 @@ func (mpv *MemPoolValidator) Receive(context actor.Context) {
 			plugin.Use(&middleware.LogPlugin{}),
 		))
 	case *actor.ReceiveTimeout:
-		mpv.Log.Debugw("validator clear")
-		context.SetReceiveTimeout(0)
-		mpv.isWorking = false
-		mpv.notifyClear()
+		if mpv.isWorking {
+			mpv.Log.Debugw("validator clear")
+			context.SetReceiveTimeout(0)
+			mpv.isWorking = false
+			mpv.notifyClear()
+		}
 
 	// Override the default storage Store message handling
 	// by inserting a validator

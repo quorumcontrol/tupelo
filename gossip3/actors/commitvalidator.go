@@ -117,6 +117,7 @@ func (cv *CommitValidator) handleStore(context actor.Context, msg *messages.Stor
 		panic(fmt.Sprintf("error checking existance: %v", err))
 	}
 	if !alreadyExists {
+		cv.Log.Infow("set new committed trans", "cs", msg.Key)
 		cv.handlerPool.Request(msg, context.Self())
 	}
 }

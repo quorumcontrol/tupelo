@@ -6,12 +6,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	libp2plogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -19,6 +21,7 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,15 +94,9 @@ func TestLibP2PSigning(t *testing.T) {
 		localSyncers[i] = local.Actor
 		signers := ng.AllSigners()
 		require.Len(t, signers, numMembers)
-
-		// for y := 0; y < numMembers; i++ {
-		// 	targets, err := ng.RewardsCommittee([]byte("lkasdjflkasdjfasdjfksldakfjaskdfj"), signers[y])
-		// 	require.Nil(t, err)
-		// 	require.Len(t, targets, 3)
-		// }
-
 	}
 	createHostsAndBridges(ctx, t, ts)
+	libp2plogging.SetLogLevel("swarm2", "ERROR")
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
@@ -113,13 +110,56 @@ func TestLibP2PSigning(t *testing.T) {
 	middleware.Log.Infow("tests", "key", key)
 	value := bits
 
+	for i := 0; i < 100; i++ {
+		trans := newValidTransaction(t)
+		bits, err := trans.MarshalMsg(nil)
+		require.Nil(t, err)
+		key := crypto.Keccak256(bits)
+		localSyncers[rand.Intn(len(localSyncers))].Tell(&messages.Store{
+			Key:   key,
+			Value: bits,
+		})
+		if err != nil {
+			t.Fatalf("error sending transaction: %v", err)
+		}
+	}
+
+	for _, s := range localSyncers {
+		s.Tell(&messages.StartGossip{})
+	}
+	start := time.Now()
+
 	localSyncers[0].Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
 
+	var stop time.Time
+	for {
+		if (time.Now().Sub(start)) > (5 * time.Second) {
+			t.Fatal("timed out looking for done function")
+			break
+		}
+		val, err := localSyncers[0].RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
+		require.Nil(t, err)
+
+		if len(val.([]byte)) > 0 {
+			var currState messages.CurrentState
+			_, err := currState.UnmarshalMsg(val.([]byte))
+			require.Nil(t, err)
+			if bytes.Equal(currState.Tip, trans.NewTip) {
+				stop = time.Now()
+				break
+			}
+		}
+
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
+	assert.True(t, stop.Sub(start) < 60*time.Second)
+
 	for _, s := range localSyncers {
-		s.Tell(&messages.StartGossip{})
 		b := s
 		go func(syncer *actor.PID) {
 			val, err := syncer.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()

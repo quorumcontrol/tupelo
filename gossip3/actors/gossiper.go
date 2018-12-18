@@ -3,6 +3,7 @@ package actors
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -27,6 +28,7 @@ type Gossiper struct {
 	syncersAvailable int64
 	validatorClear   bool
 	round            uint64
+	pusherProps      *actor.Props
 
 	// it is expected the storageActor is actually
 	// fronted with a validator
@@ -36,7 +38,7 @@ type Gossiper struct {
 
 const maxSyncers = 3
 
-func NewGossiperProps(kind string, storage *actor.PID, system system) *actor.Props {
+func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProps *actor.Props) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &Gossiper{
 			kind:             kind,
@@ -44,6 +46,7 @@ func NewGossiperProps(kind string, storage *actor.PID, system system) *actor.Pro
 			syncersAvailable: maxSyncers,
 			storageActor:     storage,
 			system:           system,
+			pusherProps:      pusherProps,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -51,7 +54,15 @@ func NewGossiperProps(kind string, storage *actor.PID, system system) *actor.Pro
 	)
 }
 
+type internalPusherDone struct{}
+
 func (g *Gossiper) Receive(context actor.Context) {
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		g.Log.Errorw("recover", "r", r)
+	// 		panic(r)
+	// 	}
+	// }()
 	switch msg := context.Message().(type) {
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
@@ -62,12 +73,17 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *actor.Terminated:
 		// this is for when the pushers stop, we can queue up another push
 		if msg.Who.Equal(g.pids[currentPusherKey]) {
-			g.Log.Debugw("terminate", "isClear", g.validatorClear)
-			if g.validatorClear {
-				context.Self().Tell(&messages.DoOneGossip{})
-			} else {
-				delete(g.pids, currentPusherKey)
-			}
+			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
+			// if g.validatorClear {
+			delete(g.pids, currentPusherKey)
+			time.AfterFunc(200*time.Millisecond, func() {
+				context.Self().Tell(&messages.DoOneGossip{
+					Why: "internalPusherDone",
+				})
+			})
+
+			// } else {
+			// }
 			return
 		}
 		if strings.HasPrefix(msg.Who.GetId(), context.Self().GetId()+"/"+remoteSyncerPrefix) {
@@ -76,12 +92,20 @@ func (g *Gossiper) Receive(context actor.Context) {
 			return
 		}
 		panic(fmt.Sprintf("unknown actor terminated: %s", msg.Who.GetId()))
+
 	case *messages.StartGossip:
+		g.Log.Infow("start gossip")
 		g.validatorClear = true
-		context.Self().Tell(&messages.DoOneGossip{})
+		context.Self().Tell(&messages.DoOneGossip{
+			Why: "startGosip",
+		})
 	case *messages.DoOneGossip:
-		g.Log.Debugw("gossiping again")
-		localsyncer, err := context.SpawnNamed(NewPushSyncerProps(g.kind, g.storageActor), "pushSyncer")
+		if _, ok := g.pids[currentPusherKey]; ok {
+			g.Log.Infow("ignoring because in progress", "why", msg.Why)
+			return
+		}
+		g.Log.Debugw("gossiping again", "why", msg.Why)
+		localsyncer, err := context.SpawnNamed(g.pusherProps, "pushSyncer")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning: %v", err))
 		}
@@ -92,8 +116,8 @@ func (g *Gossiper) Receive(context actor.Context) {
 		})
 	case *messages.GetSyncer:
 		g.Log.Debugw("GetSyncer", "remote", context.Sender().GetId())
-		if g.syncersAvailable > 0 && g.validatorClear {
-			receiveSyncer := context.SpawnPrefix(NewPushSyncerProps(g.kind, g.storageActor), remoteSyncerPrefix)
+		if g.syncersAvailable > 0 {
+			receiveSyncer := context.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
 			context.Watch(receiveSyncer)
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
@@ -111,11 +135,16 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *messages.BulkRemove:
 		context.Forward(g.storageActor)
 	case *messages.ValidatorClear:
-		g.validatorClear = true
-		_, ok := g.pids[currentPusherKey]
-		g.Log.Debugw("validator clear", "doGossip", !ok)
-		if !ok {
-			context.Self().Tell(&messages.DoOneGossip{})
+		g.Log.Debugw("validator clear")
+		if !g.validatorClear {
+			g.validatorClear = true
+			// _, ok := g.pids[currentPusherKey]
+			// g.Log.Infow("validator clear", "doGossip", !ok)
+			// if !ok {
+			// 	context.Self().Tell(&messages.DoOneGossip{
+			// 		Why: "validatorClear",
+			// 	})
+			// }
 		}
 	case *messages.ValidatorWorking:
 		g.Log.Debugw("validator working")

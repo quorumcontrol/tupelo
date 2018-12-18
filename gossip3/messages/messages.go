@@ -31,7 +31,9 @@ type system interface {
 type StartGossip struct {
 	System system `msg:"-"`
 }
-type DoOneGossip struct{}
+type DoOneGossip struct {
+	Why string
+}
 
 type GetIBF struct {
 	Size int
