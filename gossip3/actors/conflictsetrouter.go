@@ -5,6 +5,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/hashicorp/go-immutable-radix"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -41,24 +42,28 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
-		context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID))
+		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID)))
 	case *messages.SignatureWrapper:
-		context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID))
+		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID)))
 	case *messages.Signature:
-		context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID()))
+		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID())))
+	case *messages.Store:
+		context.Forward(csr.getOrCreateCS(context, msg.Key))
 	case *messages.CurrentStateWrapper:
-		csr.Log.Infow("popping up currents state wrapper")
+		// TODO: cleanup here
 		if parent := context.Parent(); parent != nil {
 			context.Forward(context.Parent())
 		}
 	}
 }
 
-func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id string) *actor.PID {
-	cs, ok := csr.conflictSets.Get([]byte(id))
+func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *actor.PID {
+	idS := hexutil.Encode(id)
+	id = []byte(idS)
+	cs, ok := csr.conflictSets.Get(id)
 	if !ok {
-		cs = csr.newConflictSet(context, id)
-		sets, _, _ := csr.conflictSets.Insert([]byte(id), cs)
+		cs = csr.newConflictSet(context, idS)
+		sets, _, _ := csr.conflictSets.Insert(id, cs)
 		csr.conflictSets = sets
 	}
 	return cs.(*actor.PID)

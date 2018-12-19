@@ -63,7 +63,7 @@ func (s *Storage) Receive(context actor.Context) {
 		if err != nil {
 			panic(fmt.Sprintf("error addding (k: %s): %v", msg.Key, err))
 		}
-		if didSet {
+		if didSet && !msg.SkipNotify {
 			for _, sub := range s.subscriptions {
 				context.Forward(sub)
 			}

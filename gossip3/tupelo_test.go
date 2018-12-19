@@ -74,7 +74,7 @@ func TestTupeloMemStorage(t *testing.T) {
 }
 
 func TestCommits(t *testing.T) {
-	numMembers := 3
+	numMembers := 10
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		middleware.Log.Infow("---- tests over ----")
@@ -142,7 +142,7 @@ func TestCommits(t *testing.T) {
 			var currState messages.CurrentState
 			_, err := currState.UnmarshalMsg(val.([]byte))
 			require.Nil(t, err)
-			if bytes.Equal(currState.Tip, trans.NewTip) {
+			if bytes.Equal(currState.Signature.NewTip, trans.NewTip) {
 				stop = time.Now()
 				break
 			}

@@ -110,9 +110,7 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	}
 
 	nextState, accepted, err := chainTreeStateHandler(st)
-	if err != nil {
-		panic(fmt.Sprintf("error validating chain tree"))
-	}
+
 	if accepted && bytes.Equal(nextState, t.NewTip) {
 		tv.Log.Debugw("accepted", "key", msg.Key)
 		wrapper.Accepted = true

@@ -73,9 +73,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
 			delete(g.pids, currentPusherKey)
 			time.AfterFunc(200*time.Millisecond, func() {
-				context.Self().Tell(&messages.DoOneGossip{
-					Why: "internalPusherDone",
-				})
+				context.Self().Tell(&messages.DoOneGossip{})
 			})
 
 			return

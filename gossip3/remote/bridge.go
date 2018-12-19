@@ -76,10 +76,6 @@ func (b *Bridge) Receive(context actor.Context) {
 }
 
 func (b *Bridge) handleIncomingStream(context actor.Context, stream pnet.Stream) {
-	if b.stream != nil {
-		b.Log.Debugw("ignoring incoming")
-		return
-	}
 	remote := stream.Conn().RemotePeer().Pretty()
 	b.Log.Debugw("handling incoming stream")
 	if remote != b.remoteAddress {

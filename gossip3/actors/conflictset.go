@@ -80,20 +80,36 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	case *messages.SignatureWrapper:
 		cs.handleNewSignature(context, msg)
 	case *messages.CurrentState:
-		cs.handleCurrentState(context, msg)
+		cs.Log.Errorw("something called this")
 	case *messages.CurrentStateWrapper:
 		cs.handleCurrentStateWrapper(context, msg)
+	case *messages.Store:
+		cs.handleStore(context, msg)
 	case *checkStateMsg:
 		cs.checkState(context, msg)
 	}
 }
 
-func (cs *ConflictSet) DoneReceive(context actor.Context) {
-	// do nothing when in the done state
+func (cs *ConflictSet) handleStore(context actor.Context, msg *messages.Store) {
+	cs.Log.Debugw("handleStore")
+	var currState messages.CurrentState
+	_, err := currState.UnmarshalMsg(msg.Value)
+	if err != nil {
+		panic(fmt.Errorf("error unmarshaling: %v", err))
+	}
+	wrapper := &messages.CurrentStateWrapper{
+		CurrentState: &currState,
+		Internal:     false,
+		Key:          msg.Key,
+		Value:        msg.Value,
+		Metadata:     messages.MetadataMap{"seen": time.Now()},
+	}
+	cs.handleCurrentStateWrapper(context, wrapper)
 }
 
-func (cs *ConflictSet) handleCurrentState(context actor.Context, msg *messages.CurrentState) {
-	// wrap this up and then call the function directly (don't use a message)
+func (cs *ConflictSet) DoneReceive(context actor.Context) {
+	cs.Log.Debugw("done cs received message")
+	// do nothing when in the done state
 }
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {

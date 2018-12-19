@@ -97,6 +97,7 @@ func TestLibP2PSigning(t *testing.T) {
 	}
 	createHostsAndBridges(ctx, t, ts)
 	libp2plogging.SetLogLevel("swarm2", "ERROR")
+	time.Sleep(100 * time.Millisecond) // give time for bootstrap
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
@@ -110,7 +111,7 @@ func TestLibP2PSigning(t *testing.T) {
 	middleware.Log.Infow("tests", "key", key)
 	value := bits
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 50; i++ {
 		trans := newValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
@@ -127,6 +128,8 @@ func TestLibP2PSigning(t *testing.T) {
 	for _, s := range localSyncers {
 		s.Tell(&messages.StartGossip{})
 	}
+	time.Sleep(100 * time.Millisecond) // give time for warmup
+
 	start := time.Now()
 
 	localSyncers[0].Tell(&messages.Store{
@@ -147,7 +150,7 @@ func TestLibP2PSigning(t *testing.T) {
 			var currState messages.CurrentState
 			_, err := currState.UnmarshalMsg(val.([]byte))
 			require.Nil(t, err)
-			if bytes.Equal(currState.Tip, trans.NewTip) {
+			if bytes.Equal(currState.Signature.NewTip, trans.NewTip) {
 				stop = time.Now()
 				break
 			}
@@ -158,37 +161,4 @@ func TestLibP2PSigning(t *testing.T) {
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 60*time.Second)
-
-	for _, s := range localSyncers {
-		b := s
-		go func(syncer *actor.PID) {
-			val, err := syncer.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
-			require.Nil(t, err)
-
-			timer := time.AfterFunc(5*time.Second, func() {
-				t.Logf("TIMEOUT %s", syncer.GetId())
-				wg.Done()
-				t.Fatalf("timeout waiting for key to appear")
-			})
-			var isDone bool
-			for len(val.([]byte)) == 0 || !isDone {
-				if len(val.([]byte)) > 0 {
-					var currState messages.CurrentState
-					_, err := currState.UnmarshalMsg(val.([]byte))
-					require.Nil(t, err)
-					if bytes.Equal(currState.Tip, trans.NewTip) {
-						isDone = true
-						continue
-					}
-				}
-
-				val, err = syncer.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
-				require.Nil(t, err)
-				time.Sleep(200 * time.Millisecond)
-			}
-			timer.Stop()
-			wg.Done()
-		}(b)
-	}
-	wg.Wait()
 }

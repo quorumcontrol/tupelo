@@ -69,7 +69,17 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
 		eventstream.Publish(msg)
+		tn.committedStore.Tell(&messages.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
 		tn.currentStateStore.Tell(&messages.Store{Key: msg.CurrentState.CurrentKey(), Value: msg.Value})
+		// cleanup the transactions
+		ids := make([][]byte, len(msg.CleanupTransactions), len(msg.CleanupTransactions))
+		for i, trans := range msg.CleanupTransactions {
+			ids[i] = trans.TransactionID
+		}
+		tn.mempoolStore.Tell(&messages.BulkRemove{ObjectIDs: ids})
+	} else {
+		tn.Log.Debugw("removing bad current state", "key", msg.Key)
+		tn.currentStateStore.Tell(&messages.Remove{Key: msg.Key})
 	}
 }
 
@@ -93,16 +103,8 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 func (tn *TupeloNode) handleNewCommit(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.Store:
-		tn.Log.Debugw("new commit", "msg", msg)
-		context.Request(tn.validatorPool, msg)
-	case *messages.CurrentStateWrapper:
-		if msg.Verified {
-			tn.committedStore.Tell(&messages.Store{Key: msg.Key, Value: msg.Value})
-			// TODO: fill in the below with the cleanup messages
-			// tn.mempoolStore.Tell(&messages.BulkRemove{ObjectIDs: nil})
-		} else {
-			//TODO: remove from commit pool
-		}
+		tn.Log.Debugw("new commit")
+		tn.conflictSetRouter.Tell(msg)
 	}
 }
 

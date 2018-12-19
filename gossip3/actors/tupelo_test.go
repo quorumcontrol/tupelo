@@ -38,7 +38,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	return ng, nil
 }
 func TestCommits(t *testing.T) {
-	numMembers := 50
+	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		middleware.Log.Infow("---- tests over ----")
@@ -130,7 +130,35 @@ func TestCommits(t *testing.T) {
 
 		_, err = fut.Result()
 		require.Nil(t, err)
+	})
 
+	t.Run("reaches another node", func(t *testing.T) {
+		trans := newValidTransaction(t)
+		bits, err := trans.MarshalMsg(nil)
+		require.Nil(t, err)
+		key := crypto.Keccak256(bits)
+
+		syncers[0].Actor.Tell(&messages.Store{
+			Key:   key,
+			Value: bits,
+		})
+
+		start := time.Now()
+		var stop time.Time
+		for {
+			if time.Now().Sub(start) > 5*time.Second {
+				t.Fatalf("timeout looking for done")
+				break
+			}
+			val, err := syncers[0].Actor.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
+			require.Nil(t, err)
+			if len(val.([]byte)) > 0 {
+				stop = time.Now()
+				break
+			}
+		}
+		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
+		require.Nil(t, err)
 	})
 
 	// trans := newValidTransaction(t)
