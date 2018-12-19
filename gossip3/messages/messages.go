@@ -3,9 +3,11 @@ package messages
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/differencedigest/ibf"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
 )
 
 type MetadataMap map[string]interface{}
+type SignerMap map[string]*types.Signer
 
 type Remove struct {
 	Key []byte
@@ -72,10 +74,19 @@ type NewValidCurrentState struct {
 }
 
 type SignatureWrapper struct {
-	Internal      bool
-	ConflictSetID string
-	TransactionID []byte
-	Signature     *Signature
+	Internal         bool
+	ConflictSetID    string
+	RewardsCommittee []*types.Signer
+	Signers          SignerMap
+	Signature        *Signature
+	Metadata         MetadataMap
+}
+
+type SignatureVerification struct {
+	Verified  bool
+	Message   []byte
+	Signature []byte
+	VerKeys   [][]byte
 }
 
 type TransactionWrapper struct {

@@ -106,14 +106,23 @@ type RequestKeys struct {
 }
 
 type Signature struct {
-	ObjectID    []byte
-	PreviousTip []byte
-	NewTip      []byte
-	View        uint64
-	Cycle       uint64
-	Signers     []byte // this is a marshaled BitArray from github.com/Workiva/go-datastructures
-	Signature   []byte
+	TransactionID []byte
+	ObjectID      []byte
+	PreviousTip   []byte
+	NewTip        []byte
+	View          uint64
+	Cycle         uint64
+	Signers       []byte // this is a marshaled BitArray from github.com/Workiva/go-datastructures
+	Signature     []byte
 }
+
+// type SignatureWrapper struct {
+// 	Internal      bool
+// 	ConflictSetID string
+// 	Signers       SignerMap
+// 	Signature     *Signature
+// 	Metadata      MetadataMap
+// }
 
 func (sig *Signature) GetSignable() []byte {
 	return append(append(sig.ObjectID, append(sig.PreviousTip, sig.NewTip...)...), append(uint64ToBytes(sig.View), uint64ToBytes(sig.Cycle)...)...)
@@ -133,7 +142,11 @@ type Transaction struct {
 }
 
 func (t *Transaction) ConflictSetID() string {
-	return string(append(t.ObjectID, t.PreviousTip...))
+	return ConflictSetID(t.ObjectID, t.PreviousTip)
+}
+
+func ConflictSetID(objectID, previousTip []byte) string {
+	return string(append(objectID, previousTip...))
 }
 
 type ProvideStrata struct {

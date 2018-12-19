@@ -2,6 +2,7 @@ package actors
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -18,6 +19,7 @@ type SignatureGenerator struct {
 	signer      *types.Signer
 }
 
+// TODO: turn this into a pool
 func NewSignatureGeneratorProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &SignatureGenerator{
@@ -46,11 +48,17 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		panic(fmt.Sprintf("error marshaling bitarray: %v", err))
 	}
 
+	committee, err := ng.RewardsCommittee([]byte(msg.ConflictSetID), sg.signer)
+	if err != nil {
+		panic(fmt.Sprintf("error getting committee: %v", err))
+	}
+
 	signature := &messages.Signature{
-		ObjectID:    msg.Transaction.ObjectID,
-		PreviousTip: msg.Transaction.PreviousTip,
-		NewTip:      msg.Transaction.NewTip,
-		Signers:     marshaled,
+		TransactionID: msg.TransactionID,
+		ObjectID:      msg.Transaction.ObjectID,
+		PreviousTip:   msg.Transaction.PreviousTip,
+		NewTip:        msg.Transaction.NewTip,
+		Signers:       marshaled,
 	}
 
 	sg.Log.Debugw("signing", "t", msg.Key)
@@ -62,10 +70,11 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 	signature.Signature = sig
 
 	context.Respond(&messages.SignatureWrapper{
-		Internal:      true,
-		ConflictSetID: msg.ConflictSetID,
-		TransactionID: msg.Key,
-
-		Signature: signature,
+		Internal:         true,
+		ConflictSetID:    msg.ConflictSetID,
+		Signers:          messages.SignerMap{sg.signer.ID: sg.signer},
+		Metadata:         messages.MetadataMap{"seen": time.Now()},
+		RewardsCommittee: committee,
+		Signature:        signature,
 	})
 }
