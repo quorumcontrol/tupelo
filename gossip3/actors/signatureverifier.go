@@ -33,6 +33,7 @@ func (sv *SignatureVerifier) Receive(context actor.Context) {
 }
 
 func (sv *SignatureVerifier) handleSignatureVerification(context actor.Context, msg *messages.SignatureVerification) {
+	sv.Log.Debugw("handle signature verification")
 	isVerified, err := bls.VerifyMultiSig(msg.Signature, msg.Message, msg.VerKeys)
 	if err != nil {
 		sv.Log.Errorw("error verifying", "err", err)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -51,27 +52,27 @@ func TestCommits(t *testing.T) {
 	require.Len(t, system.Signers, numMembers)
 	t.Logf("syncer 0 id: %s", syncers[0].ID)
 
-	for i := 0; i < 100; i++ {
-		trans := newValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
-		require.Nil(t, err)
-		key := crypto.Keccak256(bits)
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
-			Key:   key,
-			Value: bits,
-		})
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
-			Key:   key,
-			Value: bits,
-		})
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
-			Key:   key,
-			Value: bits,
-		})
-		if err != nil {
-			t.Fatalf("error sending transaction: %v", err)
-		}
-	}
+	// for i := 0; i < 10; i++ {
+	// 	trans := newValidTransaction(t)
+	// 	bits, err := trans.MarshalMsg(nil)
+	// 	require.Nil(t, err)
+	// 	key := crypto.Keccak256(bits)
+	// 	syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+	// 		Key:   key,
+	// 		Value: bits,
+	// 	})
+	// 	syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+	// 		Key:   key,
+	// 		Value: bits,
+	// 	})
+	// 	syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+	// 		Key:   key,
+	// 		Value: bits,
+	// 	})
+	// 	if err != nil {
+	// 		t.Fatalf("error sending transaction: %v", err)
+	// 	}
+	// }
 
 	for _, s := range syncers {
 		s.Actor.Tell(&messages.StartGossip{})
@@ -97,6 +98,37 @@ func TestCommits(t *testing.T) {
 		ret, err = syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 1*time.Second).Result()
 		require.Nil(t, err)
 		assert.Empty(t, ret)
+	})
+
+	t.Run("commits a good transaction", func(t *testing.T) {
+		trans := newValidTransaction(t)
+		bits, err := trans.MarshalMsg(nil)
+		require.Nil(t, err)
+		key := crypto.Keccak256(bits)
+
+		fut := actor.NewFuture(5 * time.Second)
+		sub := eventstream.Subscribe(func(evt interface{}) {
+			middleware.Log.Infow("event", "evt", evt)
+			fut.PID().Tell(evt)
+		})
+		defer eventstream.Unsubscribe(sub)
+
+		sub.WithPredicate(func(evt interface{}) bool {
+			switch evt.(type) {
+			case *messages.CurrentStateWrapper:
+				return true
+			}
+			return false
+		})
+
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+			Key:   key,
+			Value: bits,
+		})
+
+		_, err = fut.Result()
+		require.Nil(t, err)
+
 	})
 
 	// trans := newValidTransaction(t)

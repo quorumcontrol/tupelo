@@ -41,24 +41,17 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
-		csr.handleNewTransaction(context, msg)
+		context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID))
 	case *messages.SignatureWrapper:
-		csr.handleNewSignature(context, msg)
+		context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID))
+	case *messages.Signature:
+		context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID()))
 	case *messages.CurrentStateWrapper:
+		csr.Log.Infow("popping up currents state wrapper")
 		if parent := context.Parent(); parent != nil {
 			context.Forward(context.Parent())
 		}
 	}
-}
-
-func (csr *ConflictSetRouter) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
-	csr.Log.Debugw("new transaction")
-	context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID))
-}
-
-func (csr *ConflictSetRouter) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {
-	csr.Log.Debugw("new signature")
-	context.Forward(csr.getOrCreateCS(context, msg.ConflictSetID))
 }
 
 func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id string) *actor.PID {

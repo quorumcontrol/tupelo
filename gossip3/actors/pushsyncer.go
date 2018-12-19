@@ -68,7 +68,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.sendingObjects = false
 		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
-		syncer.Log.Debugw("sync done", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
+		syncer.Log.Debugw("sync complete", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
 		context.SetReceiveTimeout(0)
 		if !syncer.sendingObjects {
 			context.Self().Poison()
@@ -237,7 +237,7 @@ func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64,
 
 func (syncer *PushSyncer) syncDone(context actor.Context) {
 	sender := context.Sender()
-	syncer.Log.Debugw("sending sync done", "remote", sender)
+	syncer.Log.Debugw("sending sync complete", "remote", sender)
 	if sender != nil {
 		context.Sender().Request(&messages.SyncDone{}, context.Self())
 	}

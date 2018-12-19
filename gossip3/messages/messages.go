@@ -90,10 +90,13 @@ type SignatureVerification struct {
 }
 
 type CurrentStateWrapper struct {
-	Internal     bool
-	Verified     bool
-	CurrentState *CurrentState
-	Metadata     MetadataMap
+	Internal            bool
+	Verified            bool
+	CurrentState        *CurrentState
+	Metadata            MetadataMap
+	Key                 []byte
+	Value               []byte
+	CleanupTransactions []*TransactionWrapper
 }
 
 type TransactionWrapper struct {

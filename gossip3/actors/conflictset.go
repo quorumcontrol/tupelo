@@ -164,9 +164,10 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 		if err != nil {
 			return fmt.Errorf("error unmarshaling: %v", err)
 		}
-		signersArray = signersArray.And(other)
+		signersArray = signersArray.Or(other)
 		sigBytes = append(sigBytes, sig.Signature.Signature)
 	}
+
 	summed, err := bls.SumSignatures(sigBytes)
 	if err != nil {
 		return fmt.Errorf("error summing signatures: %v", err)
@@ -177,26 +178,37 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 		return fmt.Errorf("error marshaling bitarray: %v", err)
 	}
 
-	currState := &messages.CurrentStateWrapper{
-		Internal: true,
-		CurrentState: &messages.CurrentState{
-			Signature: &messages.Signature{
-				TransactionID: trans.TransactionID,
-				ObjectID:      trans.Transaction.ObjectID,
-				PreviousTip:   trans.Transaction.PreviousTip,
-				NewTip:        trans.Transaction.NewTip,
-				Signers:       marshaled,
-				Signature:     summed,
-			},
+	currState := &messages.CurrentState{
+		Signature: &messages.Signature{
+			TransactionID: trans.TransactionID,
+			ObjectID:      trans.Transaction.ObjectID,
+			PreviousTip:   trans.Transaction.PreviousTip,
+			NewTip:        trans.Transaction.NewTip,
+			Signers:       marshaled,
+			Signature:     summed,
 		},
-		Metadata: messages.MetadataMap{"seen": time.Now()},
+	}
+
+	marshaledState, err := currState.MarshalMsg(nil)
+	if err != nil {
+		return fmt.Errorf("error marshaling: %v", err)
+	}
+
+	currStateWrapper := &messages.CurrentStateWrapper{
+		Internal:     true,
+		CurrentState: currState,
+		Key:          currState.CommittedKey(),
+		Value:        marshaledState,
+		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
 
 	// don't use message passing, because we can skip a lot of processing if we're done right here
-	return cs.handleCurrentStateWrapper(context, currState)
+	return cs.handleCurrentStateWrapper(context, currStateWrapper)
 }
 
 func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	cs.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
+
 	sig := currWrapper.CurrentState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
@@ -215,6 +227,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		}
 	}
 
+	cs.Log.Infow("checking signature", "len", len(verKeys))
 	resp, err := cs.signatureChecker.RequestFuture(&messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,
@@ -228,12 +241,21 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	if resp.(*messages.SignatureVerification).Verified {
 		currWrapper.Metadata["verifiedAt"] = time.Now()
 		currWrapper.Verified = true
+		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions), len(cs.transactions))
+		i := 0
+		for _, t := range cs.transactions {
+			currWrapper.CleanupTransactions[i] = t
+			i++
+		}
+
 		cs.done = true
 		cs.Log.Debugw("done")
 		context.SetBehavior(cs.DoneReceive)
 		if parent := context.Parent(); parent != nil {
 			parent.Tell(currWrapper)
 		}
+	} else {
+		cs.Log.Errorw("signature not verified")
 	}
 	return nil
 }

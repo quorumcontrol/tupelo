@@ -7,7 +7,6 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,13 +16,13 @@ func TestValidator(t *testing.T) {
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
-	var msgs []interface{}
+	fut := actor.NewFuture(1 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
 			context.Request(validator, msg)
 		case *messages.TransactionWrapper:
-			msgs = append(msgs, msg)
+			fut.PID().Tell(msg)
 		}
 	}
 
@@ -40,6 +39,6 @@ func TestValidator(t *testing.T) {
 		Value: value,
 	})
 
-	time.Sleep(10 * time.Millisecond)
-	assert.Len(t, msgs, 1)
+	_, err = fut.Result()
+	require.Nil(t, err)
 }

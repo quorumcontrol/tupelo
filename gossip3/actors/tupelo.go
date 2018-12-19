@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -22,6 +23,8 @@ type TupeloNode struct {
 	notaryGroup       *types.NotaryGroup
 	mempoolGossiper   *actor.PID
 	committedGossiper *actor.PID
+
+	conflictSetRouter *actor.PID
 
 	currentStateStore *actor.PID
 	mempoolStore      *actor.PID
@@ -54,8 +57,19 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleGetSyncer(context, msg)
 	case *messages.StartGossip:
 		tn.handleStartGossip(context, msg)
+	case *messages.CurrentStateWrapper:
+		tn.handleNewCurrentState(context, msg)
 	case *messages.Store:
 		context.Forward(tn.mempoolStore)
+	case *messages.Signature:
+		context.Forward(tn.conflictSetRouter)
+	}
+}
+
+func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
+	if msg.Verified {
+		eventstream.Publish(msg)
+		tn.currentStateStore.Tell(&messages.Store{Key: msg.CurrentState.CurrentKey(), Value: msg.Value})
 	}
 }
 
@@ -67,10 +81,27 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		context.Request(tn.validatorPool, msg)
 	case *messages.TransactionWrapper:
 		if msg.Accepted {
-			// TODO: pass this off to the conflict set router
+			tn.conflictSetRouter.Tell(msg)
 		} else {
 			tn.Log.Debugw("removing bad transaction", "msg", msg)
 			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
+		}
+	}
+}
+
+// this function is its own actor
+func (tn *TupeloNode) handleNewCommit(context actor.Context) {
+	switch msg := context.Message().(type) {
+	case *messages.Store:
+		tn.Log.Debugw("new commit", "msg", msg)
+		context.Request(tn.validatorPool, msg)
+	case *messages.CurrentStateWrapper:
+		if msg.Verified {
+			tn.committedStore.Tell(&messages.Store{Key: msg.Key, Value: msg.Value})
+			// TODO: fill in the below with the cleanup messages
+			// tn.mempoolStore.Tell(&messages.BulkRemove{ObjectIDs: nil})
+		} else {
+			//TODO: remove from commit pool
 		}
 	}
 }
@@ -109,18 +140,24 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("err: %v", err))
 	}
 
-	storageSubscriber, err := context.SpawnNamed(actor.FromFunc(tn.handleNewTransaction), "storageSubscriber")
+	mempoolSubscriber, err := context.SpawnNamed(actor.FromFunc(tn.handleNewTransaction), "mempoolSubscriber")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
-	mempoolStore.Tell(&messages.Subscribe{Subscriber: storageSubscriber})
+	mempoolStore.Tell(&messages.Subscribe{Subscriber: mempoolSubscriber})
 
-	// TODO: this should be a different validator
 	committedStore, err := context.SpawnNamed(NewStorageProps(), "committedvalidator")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
 	}
+
+	commitSubscriber, err := context.SpawnNamed(actor.FromFunc(tn.handleNewCommit), "commitSubscriber")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	committedStore.Tell(&messages.Subscribe{Subscriber: commitSubscriber})
 
 	mempoolPusherProps := NewPushSyncerProps(mempoolKind, mempoolStore)
 	committedProps := NewPushSyncerProps(committedKind, committedStore)
@@ -139,6 +176,34 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
+	sender, err := context.SpawnNamed(NewSignatureSenderProps(), "signatureSender")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	sigGenerator, err := context.SpawnNamed(NewSignatureGeneratorProps(tn.self, tn.notaryGroup), "signatureGenerator")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	sigChecker, err := context.SpawnNamed(NewSignatureVerifier(), "sigChecker")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	cfg := &ConflictSetRouterConfig{
+		NotaryGroup:        tn.notaryGroup,
+		Signer:             tn.self,
+		SignatureGenerator: sigGenerator,
+		SignatureChecker:   sigChecker,
+		SignatureSender:    sender,
+	}
+	router, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "conflictSetRouter")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	tn.conflictSetRouter = router
 	tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
 	tn.currentStateStore = currentStateStore

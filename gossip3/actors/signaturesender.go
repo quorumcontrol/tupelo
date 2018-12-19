@@ -3,6 +3,7 @@ package actors
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
@@ -11,9 +12,10 @@ type SignatureSender struct {
 	middleware.LogAwareHolder
 }
 
-// TODO: turn this into a pool
+const senderConcurrency = 100
+
 func NewSignatureSenderProps() *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return router.NewRoundRobinPool(senderConcurrency).WithProducer(func() actor.Actor {
 		return new(SignatureSender)
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,

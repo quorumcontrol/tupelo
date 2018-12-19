@@ -116,16 +116,12 @@ type Signature struct {
 	Signature     []byte
 }
 
-// type SignatureWrapper struct {
-// 	Internal      bool
-// 	ConflictSetID string
-// 	Signers       SignerMap
-// 	Signature     *Signature
-// 	Metadata      MetadataMap
-// }
-
 func (sig *Signature) GetSignable() []byte {
 	return append(append(sig.ObjectID, append(sig.PreviousTip, sig.NewTip...)...), append(uint64ToBytes(sig.View), uint64ToBytes(sig.Cycle)...)...)
+}
+
+func (sig *Signature) ConflictSetID() string {
+	return ConflictSetID(sig.ObjectID, sig.PreviousTip)
 }
 
 func uint64ToBytes(id uint64) []byte {

@@ -45,7 +45,7 @@ func LoggingMiddleware(next actor.ActorFunc) actor.ActorFunc {
 
 func buildLogger() *zap.SugaredLogger {
 	cfg := zap.NewDevelopmentConfig()
-	cfg.Level.SetLevel(zap.DebugLevel)
+	cfg.Level.SetLevel(zap.InfoLevel)
 
 	logger, err := cfg.Build()
 	if err != nil {

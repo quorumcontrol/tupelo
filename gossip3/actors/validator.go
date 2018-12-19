@@ -8,6 +8,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/AsynkronIT/protoactor-go/router"
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -36,8 +37,10 @@ type TransactionValidator struct {
 	reader            storage.Reader
 }
 
+const maxConcurrency = 100
+
 func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return router.NewRoundRobinPool(maxConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
 			currentStateActor: currentState,
 		}
@@ -111,6 +114,7 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		panic(fmt.Sprintf("error validating chain tree"))
 	}
 	if accepted && bytes.Equal(nextState, t.NewTip) {
+		tv.Log.Debugw("accepted", "key", msg.Key)
 		wrapper.Accepted = true
 		context.Respond(wrapper)
 		return

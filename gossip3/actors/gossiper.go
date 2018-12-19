@@ -3,6 +3,7 @@ package actors
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -71,9 +72,12 @@ func (g *Gossiper) Receive(context actor.Context) {
 		if msg.Who.Equal(g.pids[currentPusherKey]) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
 			delete(g.pids, currentPusherKey)
-			context.Self().Tell(&messages.DoOneGossip{
-				Why: "internalPusherDone",
+			time.AfterFunc(200*time.Millisecond, func() {
+				context.Self().Tell(&messages.DoOneGossip{
+					Why: "internalPusherDone",
+				})
 			})
+
 			return
 		}
 		if strings.HasPrefix(msg.Who.GetId(), context.Self().GetId()+"/"+remoteSyncerPrefix) {

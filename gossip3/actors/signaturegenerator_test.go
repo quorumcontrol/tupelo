@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -53,4 +54,11 @@ func TestSignatureGenerator(t *testing.T) {
 
 	time.Sleep(10 * time.Millisecond)
 	assert.Len(t, msgs, 1)
+
+	sigWrapper := msgs[0].(*messages.SignatureWrapper)
+	arry, err := bitarray.Unmarshal(sigWrapper.Signature.Signers)
+	require.Nil(t, err)
+	isSet, err := arry.GetBit(0)
+	require.Nil(t, err)
+	assert.True(t, isSet)
 }

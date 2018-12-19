@@ -6,6 +6,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -19,9 +20,11 @@ type SignatureGenerator struct {
 	signer      *types.Signer
 }
 
+const generatorConcurrency = 10
+
 // TODO: turn this into a pool
 func NewSignatureGeneratorProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return router.NewRoundRobinPool(generatorConcurrency).WithProducer(func() actor.Actor {
 		return &SignatureGenerator{
 			signer:      self,
 			notaryGroup: ng,
