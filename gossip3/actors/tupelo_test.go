@@ -35,7 +35,6 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	}
 	return ng, nil
 }
-
 func TestCommits(t *testing.T) {
 	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())

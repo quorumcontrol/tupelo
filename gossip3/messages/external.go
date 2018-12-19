@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
 
@@ -71,22 +72,21 @@ type SyncerAvailable struct {
 }
 
 type CurrentState struct {
-	ObjectID  []byte
-	Tip       []byte
-	OldTip    []byte // This is a big deal, worth talking through
-	Signature Signature
+	Signature *Signature
 }
 
-func (cs *CurrentState) StorageKey() []byte {
-	if len(cs.OldTip) == 0 {
-		return append(cs.ObjectID, byte(0))
+//64 bits of conflict set id, then the full conflict set
+func (cs *CurrentState) CommittedKey() []byte {
+	objectID := cs.Signature.ObjectID
+	previousTip := cs.Signature.PreviousTip
+	if len(previousTip) == 0 {
+		previousTip = make([]byte, 4)
 	}
-	return append(cs.ObjectID, cs.OldTip...)
-
+	return append(objectID[0:5], append(append(previousTip[0:5], objectID...), previousTip...)...)
 }
 
 func (cs *CurrentState) CurrentKey() []byte {
-	return append(cs.ObjectID)
+	return append(cs.Signature.ObjectID)
 }
 
 func (cs *CurrentState) MustBytes() []byte {
@@ -146,7 +146,7 @@ func (t *Transaction) ConflictSetID() string {
 }
 
 func ConflictSetID(objectID, previousTip []byte) string {
-	return string(append(objectID, previousTip...))
+	return hexutil.Encode(append(objectID, previousTip...))
 }
 
 type ProvideStrata struct {

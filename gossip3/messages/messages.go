@@ -89,6 +89,13 @@ type SignatureVerification struct {
 	VerKeys   [][]byte
 }
 
+type CurrentStateWrapper struct {
+	Internal     bool
+	Verified     bool
+	CurrentState *CurrentState
+	Metadata     MetadataMap
+}
+
 type TransactionWrapper struct {
 	ConflictSetID string
 	TransactionID []byte

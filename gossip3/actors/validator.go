@@ -92,7 +92,7 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		if err != nil {
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
-		currTip = currentState.Tip
+		currTip = currentState.Signature.NewTip
 	}
 
 	st := &stateTransaction{

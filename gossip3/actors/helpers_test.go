@@ -3,6 +3,7 @@ package actors
 import (
 	"testing"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -69,4 +70,10 @@ func dagToByteNodes(t testing.TB, dagTree *dag.Dag) [][]byte {
 		nodes[i] = node.RawData()
 	}
 	return nodes
+}
+
+var nullActorFunc = func(_ actor.Context) {}
+
+func newNullActorProps() *actor.Props {
+	return actor.FromFunc(nullActorFunc)
 }
