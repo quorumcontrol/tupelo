@@ -3,6 +3,7 @@ package types
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"math/big"
 	"sort"
@@ -48,17 +49,21 @@ func (ng *NotaryGroup) SignerAtIndex(idx int) *Signer {
 	return ng.Signers[id]
 }
 
-func (ng *NotaryGroup) IndexOfSigner(signer *Signer) int {
+func (ng *NotaryGroup) IndexOfSigner(signer *Signer) uint64 {
 	for i, s := range ng.sortedIds {
 		if s == signer.ID {
-			return i
+			return uint64(i)
 		}
 	}
-	return -1
+	panic(fmt.Sprintf("signer not found: %v", signer))
 }
 
-func (ng *NotaryGroup) QuorumCount() int {
-	return int(math.Ceil((float64(len(ng.sortedIds)) / 3) * 2))
+func (ng *NotaryGroup) Size() uint64 {
+	return uint64(len(ng.sortedIds))
+}
+
+func (ng *NotaryGroup) QuorumCount() uint64 {
+	return uint64(math.Ceil((float64(len(ng.sortedIds)) / 3) * 2))
 }
 
 func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
