@@ -227,7 +227,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		}
 	}
 
-	cs.Log.Infow("checking signature", "len", len(verKeys))
+	cs.Log.Debugw("checking signature", "len", len(verKeys))
 	resp, err := cs.signatureChecker.RequestFuture(&messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,

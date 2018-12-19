@@ -5,6 +5,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -12,10 +13,9 @@ import (
 
 type SignatureVerifier struct {
 	middleware.LogAwareHolder
+	verifierFarm *actor.PID
 }
 
-// TODO: this should have many workers, but a single
-// point of entry so that it is easy to gang up signatures to verify
 func NewSignatureVerifier() *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return new(SignatureVerifier)
@@ -25,20 +25,30 @@ func NewSignatureVerifier() *actor.Props {
 	)
 }
 
+const verifierConcurrency = 12
+
+// this is a singleton that farms out to a farm so that in the future
+// we can gang up these verifications
 func (sv *SignatureVerifier) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
+	switch context.Message().(type) {
+	case *actor.Started:
+		sv.verifierFarm = context.Spawn(router.NewRoundRobinPool(verifierConcurrency).WithFunc(sv.handleSignatureVerification))
 	case *messages.SignatureVerification:
-		sv.handleSignatureVerification(context, msg)
+		context.Forward(sv.verifierFarm)
 	}
 }
 
-func (sv *SignatureVerifier) handleSignatureVerification(context actor.Context, msg *messages.SignatureVerification) {
-	sv.Log.Debugw("handle signature verification")
-	isVerified, err := bls.VerifyMultiSig(msg.Signature, msg.Message, msg.VerKeys)
-	if err != nil {
-		sv.Log.Errorw("error verifying", "err", err)
-		panic(fmt.Sprintf("error verifying: %v", err))
+func (sv *SignatureVerifier) handleSignatureVerification(context actor.Context) {
+	switch msg := context.Message().(type) {
+	case *messages.SignatureVerification:
+		sv.Log.Debugw("handle signature verification")
+		isVerified, err := bls.VerifyMultiSig(msg.Signature, msg.Message, msg.VerKeys)
+		if err != nil {
+			sv.Log.Errorw("error verifying", "err", err)
+			panic(fmt.Sprintf("error verifying: %v", err))
+		}
+		msg.Verified = isVerified
+		context.Respond(msg)
 	}
-	msg.Verified = isVerified
-	context.Respond(msg)
+
 }

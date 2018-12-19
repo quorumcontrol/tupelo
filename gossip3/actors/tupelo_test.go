@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -37,7 +38,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	return ng, nil
 }
 func TestCommits(t *testing.T) {
-	numMembers := 20
+	numMembers := 50
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		middleware.Log.Infow("---- tests over ----")
@@ -52,27 +53,27 @@ func TestCommits(t *testing.T) {
 	require.Len(t, system.Signers, numMembers)
 	t.Logf("syncer 0 id: %s", syncers[0].ID)
 
-	// for i := 0; i < 10; i++ {
-	// 	trans := newValidTransaction(t)
-	// 	bits, err := trans.MarshalMsg(nil)
-	// 	require.Nil(t, err)
-	// 	key := crypto.Keccak256(bits)
-	// 	syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
-	// 		Key:   key,
-	// 		Value: bits,
-	// 	})
-	// 	syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
-	// 		Key:   key,
-	// 		Value: bits,
-	// 	})
-	// 	syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
-	// 		Key:   key,
-	// 		Value: bits,
-	// 	})
-	// 	if err != nil {
-	// 		t.Fatalf("error sending transaction: %v", err)
-	// 	}
-	// }
+	for i := 0; i < 100; i++ {
+		trans := newValidTransaction(t)
+		bits, err := trans.MarshalMsg(nil)
+		require.Nil(t, err)
+		key := crypto.Keccak256(bits)
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+			Key:   key,
+			Value: bits,
+		})
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+			Key:   key,
+			Value: bits,
+		})
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+			Key:   key,
+			Value: bits,
+		})
+		if err != nil {
+			t.Fatalf("error sending transaction: %v", err)
+		}
+	}
 
 	for _, s := range syncers {
 		s.Actor.Tell(&messages.StartGossip{})
@@ -108,15 +109,16 @@ func TestCommits(t *testing.T) {
 
 		fut := actor.NewFuture(5 * time.Second)
 		sub := eventstream.Subscribe(func(evt interface{}) {
-			middleware.Log.Infow("event", "evt", evt)
 			fut.PID().Tell(evt)
 		})
 		defer eventstream.Unsubscribe(sub)
 
 		sub.WithPredicate(func(evt interface{}) bool {
-			switch evt.(type) {
+			switch msg := evt.(type) {
 			case *messages.CurrentStateWrapper:
-				return true
+				if bytes.Equal(msg.CurrentState.Signature.TransactionID, key) {
+					return true
+				}
 			}
 			return false
 		})
