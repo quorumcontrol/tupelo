@@ -5,6 +5,8 @@ import (
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
 
+type MetadataMap map[string]interface{}
+
 type Remove struct {
 	Key []byte
 }
@@ -15,6 +17,10 @@ type ValidatorClear struct{}
 type ValidatorWorking struct{}
 type SubscribeValidatorWorking struct {
 	Actor *actor.PID `msg:"-"`
+}
+
+type Subscribe struct {
+	Subscriber *actor.PID
 }
 
 type GetPrefix struct {
@@ -57,18 +63,29 @@ type RoundTransition struct {
 	NextRound uint64
 }
 
-type NewValidatedTransaction struct {
-	ConflictSetID string
-	ObjectID      []byte
-	TransactionID []byte
-	OldTip        []byte
-	NewTip        []byte
-}
+type GetThreadsafeReader struct{}
 
 type NewValidCurrentState struct {
 	CurrentState *CurrentState
 	Key          []byte
 	Value        []byte
+}
+
+type SignatureWrapper struct {
+	Internal      bool
+	ConflictSetID string
+	TransactionID []byte
+	Signature     *Signature
+}
+
+type TransactionWrapper struct {
+	ConflictSetID string
+	TransactionID []byte
+	Transaction   *Transaction
+	Accepted      bool
+	Key           []byte
+	Value         []byte
+	Metadata      MetadataMap
 }
 
 type MemPoolCleanup struct {

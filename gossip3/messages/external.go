@@ -3,6 +3,7 @@
 package messages
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -105,13 +106,23 @@ type RequestKeys struct {
 }
 
 type Signature struct {
-	TransactionID []byte
-	ObjectID      []byte
-	Tip           []byte
-	Signers       []bool
-	Signature     []byte
-	ConflictSetID string
-	Internal      bool `msg:"-"`
+	ObjectID    []byte
+	PreviousTip []byte
+	NewTip      []byte
+	View        uint64
+	Cycle       uint64
+	Signers     []byte // this is a marshaled BitArray from github.com/Workiva/go-datastructures
+	Signature   []byte
+}
+
+func (sig *Signature) GetSignable() []byte {
+	return append(append(sig.ObjectID, append(sig.PreviousTip, sig.NewTip...)...), append(uint64ToBytes(sig.View), uint64ToBytes(sig.Cycle)...)...)
+}
+
+func uint64ToBytes(id uint64) []byte {
+	a := make([]byte, 8)
+	binary.BigEndian.PutUint64(a, id)
+	return a
 }
 
 type Transaction struct {
@@ -119,6 +130,10 @@ type Transaction struct {
 	PreviousTip []byte
 	NewTip      []byte
 	Payload     []byte
+}
+
+func (t *Transaction) ConflictSetID() string {
+	return string(append(t.ObjectID, t.PreviousTip...))
 }
 
 type ProvideStrata struct {

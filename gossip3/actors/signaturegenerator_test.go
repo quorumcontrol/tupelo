@@ -31,7 +31,7 @@ func TestSignatureGenerator(t *testing.T) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
 			context.Request(validator, msg)
-		case *messages.Signature:
+		case *messages.SignatureWrapper:
 			msgs = append(msgs, msg)
 		case *messages.TransactionWrapper:
 			context.Request(sigGnerator, msg)

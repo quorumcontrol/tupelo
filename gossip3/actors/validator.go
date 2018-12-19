@@ -64,16 +64,21 @@ func (tv *TransactionValidator) Receive(context actor.Context) {
 // TODO: turn this into an actor so that we can scale it
 
 func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
+	wrapper := &messages.TransactionWrapper{
+		Key:      msg.Key,
+		Value:    msg.Value,
+		Accepted: false,
+		Metadata: messages.MetadataMap{"seen": time.Now()},
+	}
 	var t messages.Transaction
 	_, err := t.UnmarshalMsg(msg.Value)
 	if err != nil {
-		context.Respond(&messages.TransactionWrapper{
-			Key:      msg.Key,
-			Value:    msg.Value,
-			Accepted: false,
-		})
+		context.Respond(wrapper)
 		return
 	}
+	wrapper.ConflictSetID = t.ConflictSetID()
+	wrapper.Transaction = &t
+	wrapper.TransactionID = msg.Key
 
 	bits, err := tv.reader.Get(t.ObjectID)
 	if err != nil {
@@ -106,22 +111,12 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		panic(fmt.Sprintf("error validating chain tree"))
 	}
 	if accepted && bytes.Equal(nextState, t.NewTip) {
-		context.Respond(&messages.TransactionWrapper{
-			ConflictSetID: t.ConflictSetID(),
-			Transaction:   &t,
-			Key:           msg.Key,
-			Value:         msg.Value,
-			Accepted:      true,
-		})
+		wrapper.Accepted = true
+		context.Respond(wrapper)
 		return
 	}
 
-	context.Respond(&messages.TransactionWrapper{
-		Transaction: &t,
-		Key:         msg.Key,
-		Value:       msg.Value,
-		Accepted:    false,
-	})
+	context.Respond(wrapper)
 }
 
 func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {

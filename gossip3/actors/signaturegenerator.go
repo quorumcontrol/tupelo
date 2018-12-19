@@ -5,6 +5,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -38,22 +39,33 @@ func (sg *SignatureGenerator) Receive(context actor.Context) {
 
 func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	ng := sg.notaryGroup
-	signers := make([]bool, len(ng.Signers))
-	signers[ng.IndexOfSigner(sg.signer)] = true
-	sig, err := sg.signer.SignKey.Sign(append(msg.Transaction.ObjectID, append(msg.Transaction.PreviousTip, msg.Transaction.NewTip...)...))
+	signers := bitarray.NewSparseBitArray()
+	signers.SetBit(ng.IndexOfSigner(sg.signer))
+	marshaled, err := bitarray.Marshal(signers)
+	if err != nil {
+		panic(fmt.Sprintf("error marshaling bitarray: %v", err))
+	}
+
+	signature := &messages.Signature{
+		ObjectID:    msg.Transaction.ObjectID,
+		PreviousTip: msg.Transaction.PreviousTip,
+		NewTip:      msg.Transaction.NewTip,
+		Signers:     marshaled,
+	}
+
+	sg.Log.Debugw("signing", "t", msg.Key)
+	sig, err := sg.signer.SignKey.Sign(signature.GetSignable())
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
 	}
-	sg.Log.Debugw("signing", "t", msg.Key)
 
-	signature := &messages.Signature{
-		TransactionID: msg.Key,
-		ObjectID:      msg.Transaction.ObjectID,
-		Tip:           msg.Transaction.NewTip,
-		Signers:       signers,
-		Signature:     sig,
-		ConflictSetID: msg.ConflictSetID,
+	signature.Signature = sig
+
+	context.Respond(&messages.SignatureWrapper{
 		Internal:      true,
-	}
-	context.Respond(signature)
+		ConflictSetID: msg.ConflictSetID,
+		TransactionID: msg.Key,
+
+		Signature: signature,
+	})
 }
