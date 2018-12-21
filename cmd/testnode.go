@@ -74,7 +74,7 @@ var testnodeCmd = &cobra.Command{
 		logging.SetLogLevel("gossip", "ERROR")
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
-		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, tupeloConfig, testnodePort)
+		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
 		signer.Host.Bootstrap(p2p.BootstrapNodes())
 		go signer.Start()
 		stopOnSignal(signer)
@@ -93,15 +93,7 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 	return group
 }
 
-func storagePath(parent string) string {
-	return filepath.Join(parent, "storage")
-}
-
-func storageFile(path string, id string) string {
-	return filepath.Join(path, "node-chains-"+id)
-}
-
-func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, configPath string, port int) *gossip2.GossipNode {
+func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, namespace string, port int) *gossip2.GossipNode {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
@@ -112,11 +104,11 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
 	log.Info("starting up a test node", "id", id)
 
-	path := storagePath(configPath)
-	os.MkdirAll(path, 0700)
+	storagePath := configDir(namespace).Path
+	os.MkdirAll(storagePath, 0700)
 
-	file := storageFile(path, id)
-	badgerStorage, err := storage.NewBadgerStorage(file)
+	db := filepath.Join(storagePath, id+"-chains")
+	badgerStorage, err := storage.NewBadgerStorage(db)
 	if err != nil {
 		panic(fmt.Sprintf("error creating storage: %v", err))
 	}
@@ -154,5 +146,4 @@ func init() {
 	rootCmd.AddCommand(testnodeCmd)
 	testnodeCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
-	testnodeCmd.Flags().StringVarP(&tupeloConfig, "config-path", "c", defaultCfgPath(), "Tupelo configuration")
 }

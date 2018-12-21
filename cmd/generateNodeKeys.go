@@ -3,9 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -65,33 +62,20 @@ func printTextKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet) {
 	}
 }
 
-func createDirIfNotExist(dir string) {
-	err := os.MkdirAll(dir, 0700)
-	if err != nil {
-		panic(fmt.Sprintf("error creating directory: %v", err))
-	}
-}
+const (
+	publicKeyFile  = "public-keys.json"
+	privateKeyFile = "private-keys.json"
+)
 
-func privateKeyFile(configPath string) string {
-	return filepath.Join(configPath, "private-keys.json")
-}
-
-func publicKeyFile(configPath string) string {
-	return filepath.Join(configPath, "public-keys.json")
-}
-
-func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, path string) error {
-	createDirIfNotExist(path)
-
+func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, namespace string) error {
 	publicKeyJson, err := json.Marshal(publicKeys)
 	if err != nil {
 		return fmt.Errorf("Error marshaling public keys: %v", err)
 	}
 
-	pubPath := publicKeyFile(path)
-	err = ioutil.WriteFile(pubPath, publicKeyJson, 0644)
+	err = writeConfig(namespace, publicKeyFile, publicKeyJson)
 	if err != nil {
-		return fmt.Errorf("Error writing to path '%v': %v", pubPath, err)
+		return fmt.Errorf("error writing public keys: %v", err)
 	}
 
 	privateKeyJson, err := json.Marshal(privateKeys)
@@ -99,10 +83,9 @@ func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, pat
 		return fmt.Errorf("Error marshaling private keys: %v", err)
 	}
 
-	prvPath := privateKeyFile(path)
-	err = ioutil.WriteFile(prvPath, privateKeyJson, 0644)
+	err = writeConfig(namespace, privateKeyFile, privateKeyJson)
 	if err != nil {
-		return fmt.Errorf("Error writing to path '%v': %v", prvPath, err)
+		return fmt.Errorf("error writing private keys: %v", err)
 	}
 
 	return nil

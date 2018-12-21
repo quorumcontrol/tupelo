@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/shibukawa/configdir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -48,6 +49,27 @@ var logLvlName string
 var cfgFile string
 var bootstrapPublicKeysFile string
 var bootstrapPublicKeys []*PublicKeySet
+
+func configDir(namespace string) *configdir.Config {
+	conf := configdir.New("tupelo", namespace)
+	folders := conf.QueryFolders(configdir.Global)
+
+	return folders[0]
+}
+
+func readConfig(namespace string, name string) ([]byte, error) {
+	folder := configDir(namespace)
+	if !folder.Exists(name) {
+		return nil, nil
+	}
+
+	return folder.ReadFile(name)
+}
+
+func writeConfig(namespace string, name string, data []byte) error {
+	folder := configDir(namespace)
+	return folder.WriteFile(name, data)
+}
 
 type PublicKeySet struct {
 	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
