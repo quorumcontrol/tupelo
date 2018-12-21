@@ -37,10 +37,10 @@ type TransactionValidator struct {
 	reader            storage.Reader
 }
 
-const maxConcurrency = 100
+const maxValidatorConcurrency = 100
 
 func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
-	return router.NewRoundRobinPool(maxConcurrency).WithProducer(func() actor.Actor {
+	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
 			currentStateActor: currentState,
 		}

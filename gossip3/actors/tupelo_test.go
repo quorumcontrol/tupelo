@@ -107,7 +107,7 @@ func TestCommits(t *testing.T) {
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
 
-		fut := actor.NewFuture(5 * time.Second)
+		fut := actor.NewFuture(10 * time.Second)
 		sub := eventstream.Subscribe(func(evt interface{}) {
 			fut.PID().Tell(evt)
 		})
@@ -161,42 +161,4 @@ func TestCommits(t *testing.T) {
 		require.Nil(t, err)
 	})
 
-	// trans := newValidTransaction(t)
-	// bits, err := trans.MarshalMsg(nil)
-	// require.Nil(t, err)
-	// id := crypto.Keccak256(bits)
-
-	// key := id
-	// middleware.Log.Infow("tests", "key", key, "objID", trans.ObjectID, "cs", string(append(trans.ObjectID, trans.PreviousTip...)))
-	// value := bits
-
-	// start := time.Now()
-
-	// syncers[0].Actor.Tell(&messages.Store{
-	// 	Key:   key,
-	// 	Value: value,
-	// })
-
-	// var stop time.Time
-	// for {
-	// 	if (time.Now().Sub(start)) > (5 * time.Second) {
-	// 		t.Fatal("timed out looking for done function")
-	// 		break
-	// 	}
-	// 	val, err := syncers[0].Actor.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
-	// 	require.Nil(t, err)
-	// 	if len(val.([]byte)) > 0 {
-	// 		var currState messages.CurrentState
-	// 		_, err := currState.UnmarshalMsg(val.([]byte))
-	// 		require.Nil(t, err)
-	// 		if bytes.Equal(currState.Tip, trans.NewTip) {
-	// 			stop = time.Now()
-	// 			break
-	// 		}
-	// 	}
-	// 	time.Sleep(100 * time.Millisecond)
-	// }
-
-	// t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
-	// assert.True(t, stop.Sub(start) < 60*time.Second)
 }

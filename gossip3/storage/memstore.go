@@ -1,17 +1,14 @@
 package storage
 
 import (
-	"sync"
-
 	"github.com/hashicorp/go-immutable-radix"
 	"github.com/quorumcontrol/storage"
 )
 
 // MemStorage implements the Storage interface using an in-memory
-// only store
+// only store with NO locks (because write-access is considered single threaded)
 type MemStorage struct {
-	tree   *iradix.Tree
-	locker *sync.Mutex
+	tree *iradix.Tree
 }
 
 var _ storage.Storage = (*MemStorage)(nil)
@@ -19,8 +16,7 @@ var _ storage.Storage = (*MemStorage)(nil)
 // NewMemStorage returns a memory-only (MemStorage) implementation of the Storage interface
 func NewMemStorage() *MemStorage {
 	return &MemStorage{
-		tree:   iradix.New(),
-		locker: &sync.Mutex{},
+		tree: iradix.New(),
 	}
 }
 
@@ -32,9 +28,6 @@ func (ms *MemStorage) Close() {
 
 // SetIfNotExists implements the Storage interface
 func (ms *MemStorage) SetIfNotExists(key []byte, value []byte) (bool, error) {
-	ms.locker.Lock()
-	defer ms.locker.Unlock()
-
 	_, exists := ms.tree.Get(key)
 	if !exists {
 		newTree, _, _ := ms.tree.Insert(key, value)
@@ -47,8 +40,6 @@ func (ms *MemStorage) SetIfNotExists(key []byte, value []byte) (bool, error) {
 
 // Set implements the Storage interface
 func (ms *MemStorage) Set(key, value []byte) error {
-	ms.locker.Lock()
-	defer ms.locker.Unlock()
 	newTree, _, _ := ms.tree.Insert(key, value)
 	ms.tree = newTree
 	return nil
@@ -56,9 +47,6 @@ func (ms *MemStorage) Set(key, value []byte) error {
 
 // Delete implements the Storage interface
 func (ms *MemStorage) Delete(key []byte) error {
-	ms.locker.Lock()
-	defer ms.locker.Unlock()
-
 	newTree, _, didDelete := ms.tree.Delete(key)
 	if !didDelete {
 		return nil

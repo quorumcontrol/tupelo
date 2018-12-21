@@ -20,7 +20,7 @@ type SignatureGenerator struct {
 	signer      *types.Signer
 }
 
-const generatorConcurrency = 10
+const generatorConcurrency = 200
 
 // TODO: turn this into a pool
 func NewSignatureGeneratorProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {

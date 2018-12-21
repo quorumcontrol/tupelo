@@ -25,7 +25,7 @@ func NewSignatureVerifier() *actor.Props {
 	)
 }
 
-const verifierConcurrency = 12
+const verifierConcurrency = 20
 
 // this is a singleton that farms out to a farm so that in the future
 // we can gang up these verifications
