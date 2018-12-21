@@ -43,7 +43,42 @@ var benchmarkSignersFanoutNumber int
 
 var activeCounter = 0
 
-func sendTransaction(client *gossip2client.GossipClient) {
+func measureTransaction(client *gossip2client.GossipClient, did string) {
+	targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
+	targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
+	if err != nil {
+		panic("can't decode public key")
+	}
+	targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+
+	startTime := time.Now()
+
+	respChan, err := client.Subscribe(targetPublicKey, did, 30*time.Second)
+	if err != nil {
+		results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
+		results.Failures = results.Failures + 1
+		activeCounter--
+		return
+	}
+
+	// Wait for response
+	resp := <-respChan
+
+	if resp.Error != nil {
+		results.Errors = append(results.Errors, fmt.Errorf("subscription errored %v", resp.Error).Error())
+		results.Failures = results.Failures + 1
+		activeCounter--
+		return
+	}
+
+	elapsed := time.Since(startTime)
+	duration := int(elapsed / time.Millisecond)
+	results.Durations = append(results.Durations, duration)
+	results.Successes = results.Successes + 1
+	activeCounter--
+}
+
+func sendTransaction(client *gossip2client.GossipClient, shouldMeasure bool) {
 	blsKey, _ := bls.NewSignKey()
 	treeKey, _ := crypto.ToECDSA(blsKey.Bytes())
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
@@ -97,40 +132,11 @@ func sendTransaction(client *gossip2client.GossipClient) {
 
 	used := map[string]bool{}
 
-	go func(client *gossip2client.GossipClient, did string) {
-		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
-		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
-		if err != nil {
-			panic("can't decode public key")
-		}
-		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+	if shouldMeasure {
+		go measureTransaction(client, treeDID)
+	}
 
-		startTime := time.Now()
-
-		respChan, err := client.Subscribe(targetPublicKey, did, 30*time.Second)
-		if err != nil {
-			results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
-			results.Failures = results.Failures + 1
-			activeCounter--
-			return
-		}
-
-		// Wait for response
-		resp := <-respChan
-
-		if resp.Error != nil {
-			results.Errors = append(results.Errors, fmt.Errorf("subscription errored %v", resp.Error).Error())
-			results.Failures = results.Failures + 1
-			activeCounter--
-			return
-		}
-
-		elapsed := time.Since(startTime)
-		duration := int(elapsed / time.Millisecond)
-		results.Durations = append(results.Durations, duration)
-		results.Successes = results.Successes + 1
-		activeCounter--
-	}(client, treeDID)
+	tries := 0
 
 	for len(used) < benchmarkSignersFanoutNumber {
 		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
@@ -152,7 +158,11 @@ func sendTransaction(client *gossip2client.GossipClient) {
 
 		err = client.Send(targetPublicKey, protocol.ID(gossip2.NewTransactionProtocol), transBytes, 30*time.Second)
 		if err != nil {
-			panic(fmt.Sprintf("Couldn't add transaction, %v", err))
+			tries++
+			used[targetPublicKeyHex] = false
+			if tries > 5 {
+				panic(fmt.Sprintf("Couldn't add transaction, %v", err))
+			}
 		}
 	}
 
@@ -162,7 +172,22 @@ func sendTransaction(client *gossip2client.GossipClient) {
 func performTpsBenchmark(client *gossip2client.GossipClient) {
 	for benchmarkIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-			go sendTransaction(client)
+			go sendTransaction(client, true)
+		}
+		benchmarkIterations--
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func performTpsNoAckBenchmark(client *gossip2client.GossipClient) {
+	for benchmarkIterations > 0 {
+		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
+			// measure only the final iteration
+			if benchmarkIterations <= 1 {
+				go sendTransaction(client, true)
+			} else {
+				go sendTransaction(client, false)
+			}
 		}
 		benchmarkIterations--
 		time.Sleep(1 * time.Second)
@@ -172,7 +197,7 @@ func performTpsBenchmark(client *gossip2client.GossipClient) {
 func performLoadBenchmark(client *gossip2client.GossipClient) {
 	for benchmarkIterations > 0 {
 		if activeCounter < benchmarkConcurrency {
-			sendTransaction(client)
+			sendTransaction(client, true)
 			benchmarkIterations--
 		}
 		time.Sleep(30 * time.Millisecond)
@@ -193,7 +218,8 @@ var benchmark = &cobra.Command{
 		}
 		client := gossip2client.NewGossipClient(group, p2p.BootstrapNodes())
 
-		time.Sleep(5 * time.Second)
+		// Give time to bootstrap
+		time.Sleep(15 * time.Second)
 
 		results = ResultSet{}
 
@@ -203,6 +229,8 @@ var benchmark = &cobra.Command{
 		switch benchmarkStrategy {
 		case "tps":
 			go performTpsBenchmark(client)
+		case "tps-no-ack":
+			go performTpsNoAckBenchmark(client)
 		case "load":
 			go performLoadBenchmark(client)
 		default:
