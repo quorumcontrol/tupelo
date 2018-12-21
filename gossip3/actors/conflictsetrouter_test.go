@@ -45,7 +45,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	}
 
 	var conflictSetRouter *actor.PID
-	fut := actor.NewFuture(1 * time.Second)
+	fut := actor.NewFuture(5 * time.Second)
 	parentFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *actor.Started:

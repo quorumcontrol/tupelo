@@ -3,14 +3,26 @@ package actors
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
+	"runtime"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/differencedigest/ibf"
+	storagelib "github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/storage"
 )
+
+func init() {
+	// SEE: https://github.com/quorumcontrol/storage
+	// Using badger suggests a minimum of 128 GOMAXPROCS, but also
+	// allow the user to customize
+	if os.Getenv("GOMAXPROCS") == "" {
+		runtime.GOMAXPROCS(128)
+	}
+}
 
 var standardIBFSizes = []int{500, 2000, 100000}
 
@@ -23,7 +35,7 @@ type Storage struct {
 
 	id            string
 	ibfs          ibfMap
-	storage       *storage.MemStorage
+	storage       storagelib.Storage
 	strata        *ibf.DifferenceStrata
 	subscriptions []*actor.PID
 }
@@ -35,7 +47,7 @@ func NewStorageProps() *actor.Props {
 	)
 }
 
-func NewInitializedStorageStruct() *Storage {
+func NewStorage() actor.Actor {
 	s := &Storage{
 		ibfs:    make(ibfMap),
 		storage: storage.NewMemStorage(),
@@ -45,10 +57,6 @@ func NewInitializedStorageStruct() *Storage {
 		s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
 	}
 	return s
-}
-
-func NewStorage() actor.Actor {
-	return NewInitializedStorageStruct()
 }
 
 func (s *Storage) Receive(context actor.Context) {

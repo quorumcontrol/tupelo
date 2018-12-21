@@ -139,11 +139,11 @@ func TestLibP2PSigning(t *testing.T) {
 
 	var stop time.Time
 	for {
-		if (time.Now().Sub(start)) > (5 * time.Second) {
+		if (time.Now().Sub(start)) > (60 * time.Second) {
 			t.Fatal("timed out looking for done function")
 			break
 		}
-		val, err := localSyncers[0].RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
+		val, err := localSyncers[0].RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 5*time.Second).Result()
 		require.Nil(t, err)
 
 		if len(val.([]byte)) > 0 {
