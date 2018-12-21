@@ -66,11 +66,9 @@ func printTextKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet) {
 }
 
 func createDirIfNotExist(dir string) {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, 0700)
-		if err != nil {
-			panic(fmt.Sprintf("error creating directory: %v", err))
-		}
+	err := os.MkdirAll(dir, 0700)
+	if err != nil {
+		panic(fmt.Sprintf("error creating directory: %v", err))
 	}
 }
 
