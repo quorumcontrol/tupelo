@@ -22,12 +22,13 @@ var shellCmd = &cobra.Command{
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			bootstrapAddrs = setupLocalNetwork(ctx, tupeloConfig, localNetworkNodeCount)
+			bootstrapAddrs = setupLocalNetwork(ctx, localNetworkNodeCount)
 		}
 
+		walletStorage := configDir("wallets").Path
 		group := setupNotaryGroup(storage.NewMemStorage())
 		client := gossip2client.NewGossipClient(group, bootstrapAddrs)
-		walletshell.RunGossip(shellName, tupeloConfig, group, client)
+		walletshell.RunGossip(shellName, walletStorage, group, client)
 	},
 }
 
@@ -37,5 +38,4 @@ func init() {
 	shellCmd.MarkFlagRequired("name")
 	shellCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
-	shellCmd.Flags().StringVarP(&tupeloConfig, "config-path", "c", defaultCfgPath(), "Tupelo configuration")
 }
