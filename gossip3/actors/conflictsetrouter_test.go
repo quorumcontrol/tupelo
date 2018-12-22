@@ -46,12 +46,15 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 
 	var conflictSetRouter *actor.PID
 	fut := actor.NewFuture(5 * time.Second)
+
+	isReadyFuture := actor.NewFuture(5 * time.Second)
 	parentFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *actor.Started:
 			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR")
 			require.Nil(t, err)
 			conflictSetRouter = cs
+			isReadyFuture.PID().Tell(true)
 		case *messages.CurrentStateWrapper:
 			fut.PID().Tell(msg)
 		}
@@ -62,6 +65,9 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 
 	trans := newValidTransaction(t)
 	transWrapper := fakeValidateTransaction(t, &trans)
+
+	_, err = isReadyFuture.Result()
+	require.Nil(t, err)
 	conflictSetRouter.Tell(transWrapper)
 
 	// note skipping first signer here
