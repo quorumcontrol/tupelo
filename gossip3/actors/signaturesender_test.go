@@ -17,11 +17,11 @@ func TestSendSigs(t *testing.T) {
 	ss := actor.Spawn(NewSignatureSenderProps())
 	defer ss.Poison()
 
-	var msgs []*messages.Signature
+	fut := actor.NewFuture(5 * time.Second)
 	subscriberFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *messages.Signature:
-			msgs = append(msgs, msg)
+			fut.PID().Tell(msg)
 		}
 	}
 
@@ -35,8 +35,8 @@ func TestSendSigs(t *testing.T) {
 		Signature:        &messages.Signature{TransactionID: []byte("testonly")},
 		RewardsCommittee: []*types.Signer{signer},
 	})
-	time.Sleep(10 * time.Millisecond)
 
-	require.Len(t, msgs, 1)
-	assert.Equal(t, []byte("testonly"), msgs[0].TransactionID)
+	msg, err := fut.Result()
+	require.Nil(t, err)
+	assert.Equal(t, []byte("testonly"), msg.(*messages.Signature).TransactionID)
 }

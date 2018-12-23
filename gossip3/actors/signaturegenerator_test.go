@@ -27,13 +27,13 @@ func TestSignatureGenerator(t *testing.T) {
 	sigGnerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
 	defer sigGnerator.Poison()
 
-	var msgs []interface{}
+	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
 			context.Request(validator, msg)
 		case *messages.SignatureWrapper:
-			msgs = append(msgs, msg)
+			fut.PID().Tell(msg)
 		case *messages.TransactionWrapper:
 			context.Request(sigGnerator, msg)
 		}
@@ -52,10 +52,10 @@ func TestSignatureGenerator(t *testing.T) {
 		Value: value,
 	})
 
-	time.Sleep(10 * time.Millisecond)
-	assert.Len(t, msgs, 1)
+	msg, err := fut.Result()
+	require.Nil(t, err)
 
-	sigWrapper := msgs[0].(*messages.SignatureWrapper)
+	sigWrapper := msg.(*messages.SignatureWrapper)
 	arry, err := bitarray.Unmarshal(sigWrapper.Signature.Signers)
 	require.Nil(t, err)
 	isSet, err := arry.GetBit(0)
