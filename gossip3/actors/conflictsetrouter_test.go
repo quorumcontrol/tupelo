@@ -118,7 +118,6 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		// at this point the first signer should have 3 transactions with 1 signature each and be in a deadlocked state
 		// which means it should sign the lowest transaction (a different one than it did before)
 		// one more signature on that same transaction should get it to quorum in the new view
-		// note skipping first signer here
 		sig, err := sigGeneratorActors[1].RequestFuture(trans[2], 1*time.Second).Result()
 		require.Nil(t, err)
 		conflictSetRouter.Tell(sig)
