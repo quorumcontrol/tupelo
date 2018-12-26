@@ -29,7 +29,10 @@
 [[projects]]
   digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
   name = "github.com/Workiva/go-datastructures"
-  packages = ["queue"]
+  packages = [
+    "bitarray",
+    "queue",
+  ]
   pruneopts = ""
   revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
   version = "v1.0.50"
@@ -759,13 +762,13 @@
   revision = "3f797c8b12b141e1e252cc202f43c27fce58ec9e"
 
 [[projects]]
-  digest = "1:44d999242a447d7c1fbb276bfb7c02e95cc93e7c51d2ac7416af03f8500dc233"
+  digest = "1:9fbd9b953bd8ed856f8f3e4275473a210d0b0dfa01ddd79e47f1e8eaee501d64"
   name = "github.com/quorumcontrol/storage"
   packages = ["."]
   pruneopts = ""
-  revision = "02ffa9bf3a02b122b2f7970c34d2e62a4e49bb3d"
+  revision = "3d22d28d708e4c9810bfd908c6805495b1e83b09"
   source = "git@github.com:quorumcontrol/storage.git"
-  version = "v1.0.1"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:d518eb4bfb76545977b0be8549606e6de5c56f8887b84cc24d12f5ec1c587e3a"
@@ -1112,8 +1115,10 @@
   analyzer-version = 1
   input-imports = [
     "github.com/AsynkronIT/protoactor-go/actor",
+    "github.com/AsynkronIT/protoactor-go/eventstream",
     "github.com/AsynkronIT/protoactor-go/plugin",
     "github.com/AsynkronIT/protoactor-go/router",
+    "github.com/Workiva/go-datastructures/bitarray",
     "github.com/abiosoft/ishell",
     "github.com/awalterschulze/gographviz",
     "github.com/btcsuite/btcutil/base58",
@@ -1127,6 +1132,7 @@
     "github.com/ethereum/go-ethereum/log",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
+    "github.com/google/uuid",
     "github.com/gorilla/mux",
     "github.com/hashicorp/go-immutable-radix",
     "github.com/hashicorp/golang-lru",

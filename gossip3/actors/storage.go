@@ -9,10 +9,9 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/differencedigest/ibf"
-	storagelib "github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo/gossip3/storage"
 )
 
 func init() {
@@ -35,7 +34,7 @@ type Storage struct {
 
 	id            string
 	ibfs          ibfMap
-	storage       storagelib.Storage
+	storage       storage.Storage
 	strata        *ibf.DifferenceStrata
 	subscriptions []*actor.PID
 }
@@ -50,7 +49,7 @@ func NewStorageProps() *actor.Props {
 func NewStorage() actor.Actor {
 	s := &Storage{
 		ibfs:    make(ibfMap),
-		storage: storage.NewMemStorage(),
+		storage: storage.NewLockFreeMemStorage(),
 		strata:  ibf.NewDifferenceStrata(),
 	}
 	for _, size := range standardIBFSizes {
