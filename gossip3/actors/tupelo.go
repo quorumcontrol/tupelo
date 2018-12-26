@@ -6,6 +6,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -31,13 +32,22 @@ type TupeloNode struct {
 	committedStore    *actor.PID
 
 	validatorPool *actor.PID
+	cfg           *TupeloConfig
 }
 
-func NewTupeloNodeProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {
+type TupeloConfig struct {
+	Self              *types.Signer
+	NotaryGroup       *types.NotaryGroup
+	CommitStore       storage.Storage
+	CurrentStateStore storage.Storage
+}
+
+func NewTupeloNodeProps(cfg *TupeloConfig) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &TupeloNode{
-			self:        self,
-			notaryGroup: ng,
+			self:        cfg.Self,
+			notaryGroup: cfg.NotaryGroup,
+			cfg:         cfg,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -132,12 +142,12 @@ func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSy
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	currentStateStore, err := context.SpawnNamed(NewStorageProps(), "currentStateStore")
+	currentStateStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CurrentStateStore), "currentStateStore")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
 	}
 
-	mempoolStore, err := context.SpawnNamed(NewStorageProps(), "mempoolvalidator")
+	mempoolStore, err := context.SpawnNamed(NewStorageProps(storage.NewLockFreeMemStorage()), "mempoolvalidator")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
 	}
@@ -149,7 +159,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 
 	mempoolStore.Tell(&messages.Subscribe{Subscriber: mempoolSubscriber})
 
-	committedStore, err := context.SpawnNamed(NewStorageProps(), "committedvalidator")
+	committedStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CommitStore), "committedvalidator")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
 	}

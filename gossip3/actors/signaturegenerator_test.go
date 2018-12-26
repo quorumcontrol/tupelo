@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -19,7 +20,7 @@ func TestSignatureGenerator(t *testing.T) {
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	ng := types.NewNotaryGroup()
 	ng.AddSigner(signer)
-	currentState := actor.Spawn(NewStorageProps())
+	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer currentState.Poison()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()

@@ -27,6 +27,7 @@ func init() {
 	RegisterEncodable(ProvideStrata{})
 	RegisterEncodable(ProvideBloomFilter{})
 	RegisterEncodable(RequestKeys{})
+	RegisterEncodable(RequestIBF{})
 }
 
 type DestinationHolder struct {
@@ -62,6 +63,10 @@ type Store struct {
 
 type GetSyncer struct {
 	Kind string
+}
+
+type RequestIBF struct {
+	Count int
 }
 
 type SyncDone struct{}

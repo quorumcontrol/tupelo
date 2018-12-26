@@ -2,7 +2,6 @@ package messages
 
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 )
 
@@ -49,11 +48,6 @@ type GetIBF struct {
 
 type DoPush struct {
 	System system `msg:"-"`
-}
-
-type RequestIBF struct {
-	Count  int
-	Result *ibf.DecodeResults `msg:"-"`
 }
 
 type SendPrefix struct {

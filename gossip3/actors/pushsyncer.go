@@ -130,8 +130,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 		if count > 0 {
 			log.Debug("requesting IBF", "remote", context.Sender().GetId(), "count", count)
 			context.Sender().Request(&messages.RequestIBF{
-				Count:  count,
-				Result: result,
+				Count: count,
 			}, context.Self())
 		} else {
 			syncer.Log.Debugw("synced", "remote", context.Sender())
@@ -155,9 +154,6 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 		//TODO: this needs to cleanup and maybe queue up another sync
 		syncer.Log.Debugw("count 0")
 		return
-	}
-	if msg.Result != nil {
-		//TODO: just send a wants and then start sending the messages
 	}
 	wantsToSend := msg.Count * 2
 	var sizeToSend int

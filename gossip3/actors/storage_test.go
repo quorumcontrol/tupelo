@@ -7,13 +7,14 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/differencedigest/ibf"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestImmutableIBF(t *testing.T) {
-	s := actor.Spawn(NewStorageProps())
+	s := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer s.Poison()
 
 	value := []byte("hi")
@@ -39,7 +40,7 @@ func TestImmutableIBF(t *testing.T) {
 }
 
 func TestSubscription(t *testing.T) {
-	s := actor.Spawn(NewStorageProps())
+	s := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer s.Poison()
 
 	var msgs []interface{}

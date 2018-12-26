@@ -6,12 +6,13 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/require"
 )
 
 func TestValidator(t *testing.T) {
-	currentState := actor.Spawn(NewStorageProps())
+	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer currentState.Poison()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()

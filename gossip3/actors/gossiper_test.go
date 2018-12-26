@@ -8,6 +8,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/stretchr/testify/assert"
@@ -88,7 +89,7 @@ func TestFastGossip(t *testing.T) {
 	nodes := make([]*actor.PID, numNodes, numNodes)
 	stores := make([]*actor.PID, numNodes, numNodes)
 	for i := 0; i < numNodes; i++ {
-		storage := actor.Spawn(NewStorageProps())
+		storage := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 		stores[i] = storage
 		defer storage.Poison()
 		pusherProps := NewPushSyncerProps("test", storage)

@@ -39,27 +39,27 @@ type Storage struct {
 	subscriptions []*actor.PID
 }
 
-func NewStorageProps() *actor.Props {
-	return actor.FromProducer(NewStorage).WithMiddleware(
+func NewStorageProps(store storage.Storage) *actor.Props {
+	return actor.FromProducer(func() actor.Actor {
+		s := &Storage{
+			ibfs:    make(ibfMap),
+			storage: store,
+			strata:  ibf.NewDifferenceStrata(),
+		}
+		for _, size := range standardIBFSizes {
+			s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
+		}
+		return s
+	}).WithMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
 
-func NewStorage() actor.Actor {
-	s := &Storage{
-		ibfs:    make(ibfMap),
-		storage: storage.NewLockFreeMemStorage(),
-		strata:  ibf.NewDifferenceStrata(),
-	}
-	for _, size := range standardIBFSizes {
-		s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
-	}
-	return s
-}
-
 func (s *Storage) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Terminated:
+		s.storage.Close()
 	case *actor.Started:
 		s.id = context.Self().Id
 	case *messages.Debug:

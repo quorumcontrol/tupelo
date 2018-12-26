@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	libp2plogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -25,11 +27,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testCommitPath  = "./.tmp/teststore/commit"
+	testCurrentPath = "./.tmp/teststore/current"
+)
+
 func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
 	ng := types.NewNotaryGroup()
 
 	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal].ToEcdsaPub(), testSet.SignKeys[indexOfLocal])
-	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(localSigner, ng), "tupelo-"+localSigner.ID)
+	commitPath := testCommitPath + "/" + localSigner.ID
+	currentPath := testCurrentPath + "/" + localSigner.ID
+	os.MkdirAll(commitPath, 0755)
+	os.MkdirAll(currentPath, 0755)
+
+	commitStore, err := storage.NewBadgerStorage(commitPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error badgering: %v", err)
+	}
+	currenStore, err := storage.NewBadgerStorage(currentPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error badgering: %v", err)
+	}
+
+	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+		Self:              localSigner,
+		NotaryGroup:       ng,
+		CommitStore:       commitStore,
+		CurrentStateStore: currenStore,
+	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
 	}
@@ -74,6 +100,19 @@ func createHostsAndBridges(ctx context.Context, t *testing.T, testSet *testnotar
 }
 
 func TestLibP2PSigning(t *testing.T) {
+	paths := []string{
+		testCommitPath,
+		testCurrentPath,
+	}
+	for _, path := range paths {
+		os.MkdirAll(path, 0755)
+	}
+	defer func() {
+		for _, path := range paths {
+			os.RemoveAll(path)
+		}
+	}()
+
 	remote.Start()
 	defer remote.Stop()
 
@@ -111,7 +150,7 @@ func TestLibP2PSigning(t *testing.T) {
 	middleware.Log.Infow("tests", "key", key)
 	value := bits
 
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 200; i++ {
 		trans := newValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
