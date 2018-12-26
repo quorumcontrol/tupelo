@@ -72,11 +72,11 @@ func (g *Gossiper) Receive(context actor.Context) {
 		if _, ok := g.pids[currentPusherKey]; ok && msg.Who.Equal(g.pids[currentPusherKey]) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
 			delete(g.pids, currentPusherKey)
-			timer := time.After(200 * time.Millisecond)
-			go func(ctx actor.Context) {
+			timer := time.After(100 * time.Millisecond)
+			go func(pid *actor.PID) {
 				<-timer
-				ctx.Self().Tell(&messages.DoOneGossip{})
-			}(context)
+				pid.Tell(&messages.DoOneGossip{})
+			}(context.Self())
 
 			return
 		}
