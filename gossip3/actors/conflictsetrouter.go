@@ -49,6 +49,8 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID())))
 	case *messages.Store:
 		context.Forward(csr.getOrCreateCS(context, msg.Key))
+	case *messages.GetConflictSetView:
+		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID)))
 	case *messages.CurrentStateWrapper:
 		// TODO: cleanup here
 		if parent := context.Parent(); parent != nil {

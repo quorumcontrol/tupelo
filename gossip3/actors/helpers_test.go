@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"crypto/ecdsa"
 	"testing"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -16,9 +17,18 @@ import (
 )
 
 func newValidTransaction(t testing.TB) messages.Transaction {
-	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
+
+	return newValidTransactionWithKey(t, treeKey)
+}
+
+func newValidTransactionWithKey(t testing.TB, treeKey *ecdsa.PrivateKey) messages.Transaction {
+	return newValidTransactionWithPathAndValue(t, treeKey, "down/in/the/thing", "hi")
+}
+
+func newValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey, path, value string) messages.Transaction {
+	sw := safewrap.SafeWrap{}
 
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 
@@ -29,8 +39,8 @@ func newValidTransaction(t testing.TB) messages.Transaction {
 				{
 					Type: "SET_DATA",
 					Payload: map[string]string{
-						"path":  "down/in/the/thing",
-						"value": "hi",
+						"path":  path,
+						"value": value,
 					},
 				},
 			},

@@ -15,6 +15,7 @@ import (
 
 type signatureMap map[string]*messages.SignatureWrapper
 type signaturesByTransaction map[string]signatureMap
+type signaturesBySigner map[string]*messages.SignatureWrapper
 type transactionMap map[string]*messages.TransactionWrapper
 
 type checkStateMsg struct {
@@ -33,6 +34,7 @@ type ConflictSet struct {
 
 	done         bool
 	signatures   signaturesByTransaction
+	signerSigs   signaturesBySigner
 	didSign      bool
 	transactions transactionMap
 	view         uint64
@@ -58,6 +60,7 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatureChecker:   cfg.SignatureChecker,
 			signatureSender:    cfg.SignatureSender,
 			signatures:         make(signaturesByTransaction),
+			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
 		}
 	}).WithMiddleware(
@@ -87,6 +90,8 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleStore(context, msg)
 	case *checkStateMsg:
 		cs.checkState(context, msg)
+	case *messages.GetConflictSetView:
+		context.Respond(cs.view)
 	}
 }
 
@@ -152,6 +157,11 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 		}
 	}
 	cs.signatures[string(msg.Signature.TransactionID)] = existingMap
+	for id := range msg.Signers {
+		//TODO: this is probably a good place to look for slashable offenses
+		cs.signerSigs[id] = msg
+	}
+
 	cs.updates++
 	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 }
@@ -166,8 +176,38 @@ func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
 	if trans := cs.possiblyDone(); trans != nil {
 		// we have a possibly done transaction, lets make a current state
 		cs.createCurrentStateFromTrans(context, trans)
-
+		return
 	}
+
+	if cs.deadlocked() {
+		cs.handleDeadlockedState(context)
+	}
+}
+
+func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
+	cs.Log.Debugw("handle deadlocked state")
+
+	var lowestTrans *messages.TransactionWrapper
+	for transID, trans := range cs.transactions {
+		if lowestTrans == nil {
+			lowestTrans = trans
+			continue
+		}
+		if transID < string(lowestTrans.TransactionID) {
+			lowestTrans = trans
+		}
+	}
+	cs.nextView()
+
+	cs.handleNewTransaction(context, lowestTrans)
+}
+
+func (cs *ConflictSet) nextView() {
+	cs.view++
+	cs.didSign = false
+	cs.signatures = make(signaturesByTransaction)
+	cs.signerSigs = make(signaturesBySigner)
+	cs.transactions = make(transactionMap)
 }
 
 func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans *messages.TransactionWrapper) error {
@@ -267,6 +307,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		cs.done = true
 		cs.Log.Debugw("done")
 		context.SetBehavior(cs.DoneReceive)
+
 		if parent := context.Parent(); parent != nil {
 			parent.Tell(currWrapper)
 		}
@@ -288,9 +329,19 @@ func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 	return nil
 }
 
-// TODO: detect deadlocks
 func (cs *ConflictSet) deadlocked() bool {
-	return false
+	unknownSigCount := len(cs.notaryGroup.Signers) - len(cs.signerSigs)
+	quorumAt := cs.notaryGroup.QuorumCount()
+	if len(cs.signerSigs) == 0 {
+		return false
+	}
+	for _, sigs := range cs.signatures {
+		if uint64(len(sigs)+unknownSigCount) >= quorumAt {
+			return false
+		}
+	}
+
+	return true
 }
 
 func sigToWrapper(sig *messages.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
