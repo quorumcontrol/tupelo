@@ -39,6 +39,23 @@ func TestImmutableIBF(t *testing.T) {
 	assert.NotEqual(t, ibf1, ibf2)
 }
 
+func TestSetupIBFAtStart(t *testing.T) {
+	store := storage.NewMemStorage()
+	key := []byte("12345678910")
+	err := store.Set(key, []byte("hi"))
+	require.Nil(t, err)
+	testIBF := ibf.NewInvertibleBloomFilter(500, 4)
+	testIBF.Add(byteToIBFsObjectId(key[0:8]))
+
+	s := actor.Spawn(NewStorageProps(store))
+	defer s.Poison()
+
+	ibfInter, err := s.RequestFuture(&messages.GetIBF{Size: 500}, 1*time.Second).Result()
+	require.Nil(t, err)
+	actorIBF := ibfInter.(*ibf.InvertibleBloomFilter)
+	assert.Equal(t, testIBF, actorIBF)
+}
+
 func TestSubscription(t *testing.T) {
 	s := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer s.Poison()

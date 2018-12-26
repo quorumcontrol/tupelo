@@ -61,7 +61,7 @@ func (s *Storage) Receive(context actor.Context) {
 	case *actor.Terminated:
 		s.storage.Close()
 	case *actor.Started:
-		s.id = context.Self().Id
+		s.loadIBFAtStart()
 	case *messages.Debug:
 		s.Log.Debugw("message: %v", msg.Message)
 	case *messages.Store:
@@ -124,15 +124,19 @@ func (s *Storage) Add(key, value []byte) (bool, error) {
 	}
 
 	if didSet {
-		ibfObjectID := byteToIBFsObjectId(key[0:8])
-		s.strata.Add(ibfObjectID)
-		for _, filter := range s.ibfs {
-			filter.Add(ibfObjectID)
-		}
+		s.addKeyToIBFs(key)
 	} else {
-		s.Log.Debugf("%s skipped adding, already exists %v", s.id, key)
+		s.Log.Debugf("skipped adding, already exists %v", key)
 	}
 	return didSet, nil
+}
+
+func (s *Storage) addKeyToIBFs(key []byte) {
+	ibfObjectID := byteToIBFsObjectId(key[0:8])
+	s.strata.Add(ibfObjectID)
+	for _, filter := range s.ibfs {
+		filter.Add(ibfObjectID)
+	}
 }
 
 func (s *Storage) Remove(key []byte) {
@@ -153,6 +157,13 @@ func (s *Storage) BulkRemove(objectIDs [][]byte) {
 	for _, id := range objectIDs {
 		s.Remove(id)
 	}
+}
+
+func (s *Storage) loadIBFAtStart() {
+	s.storage.ForEachKey([]byte{}, func(key []byte) error {
+		s.addKeyToIBFs(key)
+		return nil
+	})
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {
