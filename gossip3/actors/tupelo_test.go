@@ -152,7 +152,7 @@ func TestCommits(t *testing.T) {
 		start := time.Now()
 		var stop time.Time
 		for {
-			if time.Now().Sub(start) > 5*time.Second {
+			if time.Now().Sub(start) > 15*time.Second {
 				t.Fatalf("timeout looking for done")
 				break
 			}
