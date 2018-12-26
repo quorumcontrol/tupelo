@@ -16,11 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/tinylib/msgp/msgp"
 )
 
 func init() {
@@ -42,6 +44,7 @@ const TipProtocol = "tupelo-tip/v1"
 const NewTransactionProtocol = "tupelo-new-transaction/v1"
 const NewSignatureProtocol = "tupelo-new-signature/v1"
 const ChainTreeChangeProtocol = "tupelo-chain-change/v1"
+const LogLevelProtocol = "tupelo-log-level/v1"
 
 const minSyncNodesPerTransaction = 3
 const workerCount = 100
@@ -75,6 +78,7 @@ type GossipNode struct {
 	Group            *consensus.NotaryGroup
 	IBFs             IBFMap
 	GossipReporter   GossipReporter
+	Tracer           opentracing.Tracer
 	newObjCh         chan ProvideMessage
 	stopChan         chan struct{}
 	ibfSyncer        *sync.RWMutex
@@ -104,6 +108,7 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node
 		syncPool:      make(chan SyncHandlerWorker, NumberOfSyncWorkers),
 		sigSendingCh:  make(chan envelope, workerCount+1),
 		subscriptions: newSubscriptionHolder(),
+		Tracer:        opentracing.GlobalTracer(),
 	}
 	node.verKey = node.SignKey.MustVerKey()
 	node.address = consensus.BlsVerKeyToAddress(node.verKey.Bytes()).String()
@@ -130,22 +135,44 @@ func NewGossipNode(dstKey *ecdsa.PrivateKey, signKey *bls.SignKey, host p2p.Node
 	host.SetStreamHandler(NewTransactionProtocol, node.HandleNewTransactionProtocol)
 	host.SetStreamHandler(NewSignatureProtocol, node.HandleNewSignatureProtocol)
 	host.SetStreamHandler(ChainTreeChangeProtocol, node.HandleChainTreeChangeProtocol)
+	host.SetStreamHandler(LogLevelProtocol, node.HandleLogLevelProtocol)
 	return node
 }
 
+func (gn *GossipNode) HandleLogLevelProtocol(stream net.Stream) {
+	defer stream.Close()
+	reader := msgp.NewReader(stream)
+	var msg ProtocolMessage
+	err := msg.DecodeMsg(reader)
+	if err != nil {
+		return
+	}
+	logging.SetLogLevel("gossip", string(msg.Payload))
+}
+
 func (gn *GossipNode) Start() {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	pauser := make(chan time.Time, 1)
+	time.AfterFunc(100*time.Millisecond, func() {
+		pauser <- time.Now()
+	})
 	for {
 		select {
 		case <-gn.stopChan:
 			return
-		case <-ticker.C:
+		case <-pauser:
 			err := gn.DoSync()
+			timeToSleep := 100 * time.Millisecond
 			if err != nil {
-				log.Errorf("%s error doing sync %v", gn.ID(), err)
+				if err == p2p.ErrDialBackoff {
+					// slow things down if we got an errDialBackoff
+					timeToSleep = 500 * time.Millisecond
+				} else {
+					log.Errorf("%s error doing sync %v", gn.ID(), err)
+				}
 			}
-
+			time.AfterFunc(timeToSleep, func() {
+				pauser <- time.Now()
+			})
 		}
 	}
 }
@@ -170,6 +197,7 @@ type processorResponse struct {
 	NewSignature   bool
 	NewTransaction bool
 	Error          error
+	spanContext    opentracing.SpanContext
 }
 
 type handlerRequest struct {
@@ -201,6 +229,12 @@ func (gn *GossipNode) handleNewObjCh() {
 		select {
 		case msg := <-gn.newObjCh:
 			log.Debugf("%s new object chan length: %d", gn.ID(), len(gn.newObjCh))
+			opts := []opentracing.StartSpanOption{opentracing.Tag{Key: "span.kind", Value: "consumer"}}
+			if spanContext := msg.spanContext; spanContext != nil {
+				opts = append(opts, opentracing.FollowsFrom(spanContext))
+			}
+			span, ctx := newSpan(context.Background(), gn.Tracer, "HandleNewObjectChannel", opts...)
+
 			conflictSetID := conflictSetIDFromMessageKey(msg.Key)
 			conflictSetStat, ok := inProgressConflictSets[string(conflictSetID)]
 			if !ok {
@@ -211,12 +245,14 @@ func (gn *GossipNode) handleNewObjCh() {
 			if conflictSetStat.IsDone {
 				// we can just stop here
 				log.Debugf("%s ignore message because conflict set is done %v", gn.ID(), msg.Key)
+				span.Finish()
 				continue
 			}
 
 			// If another worker is processing this conflict set, queue up this message for later processing
 			if conflictSetStat.InProgress {
 				conflictSetStat.PendingMessages = append(conflictSetStat.PendingMessages, msg)
+				span.Finish()
 				continue
 			}
 
@@ -228,7 +264,8 @@ func (gn *GossipNode) handleNewObjCh() {
 
 			// This message already existed, skip further processing
 			if !didSet {
-				gn.popPendingMessage(conflictSetStat)
+				gn.popPendingMessage(ctx, conflictSetStat)
+				span.Finish()
 				continue
 			}
 			gn.GossipReporter.Seen(gn.ID(), msg.From, msg.Key, time.Now())
@@ -236,22 +273,33 @@ func (gn *GossipNode) handleNewObjCh() {
 			messageType := msg.Type()
 
 			if messageType == MessageTypeTransaction && conflictSetStat.HasTransaction {
-				gn.popPendingMessage(conflictSetStat)
+				gn.popPendingMessage(ctx, conflictSetStat)
 				continue
 			}
 
 			conflictSetStat.InProgress = true
+			queueSpan, _ := newSpan(ctx, gn.Tracer, "QueueForProcessing", opentracing.Tag{Key: "span.kind", Value: "producer"})
+			msg.spanContext = queueSpan.Context()
 			toProcessChan <- handlerRequest{
 				responseChan:  responseChan,
 				msg:           msg,
 				conflictSetID: conflictSetID,
 			}
+			queueSpan.Finish()
+			span.Finish()
 		case resp := <-responseChan:
+			opts := []opentracing.StartSpanOption{opentracing.Tag{Key: "span.kind", Value: "consumer"}}
+			if spanContext := resp.spanContext; spanContext != nil {
+				opts = append(opts, opentracing.FollowsFrom(spanContext))
+			}
+			span, ctx := newSpan(context.Background(), gn.Tracer, "HandlingResponse", opts...)
+
 			conflictSetStat, ok := inProgressConflictSets[string(resp.ConflictSetID)]
 			if !ok {
 				panic("this should never happen")
 			}
 			if conflictSetStat.IsDone {
+				span.Finish()
 				continue
 			}
 			if resp.Error != nil {
@@ -270,39 +318,49 @@ func (gn *GossipNode) handleNewObjCh() {
 			if resp.IsDone {
 				conflictSetStat.IsDone = true
 				conflictSetStat.PendingMessages = make([]ProvideMessage, 0)
-			}
-
-			if !resp.IsDone {
+				gn.popPendingMessage(ctx, conflictSetStat)
+				conflictSetStat.InProgress = false
+			} else {
 				roundInfo, err := gn.Group.MostRecentRoundInfo(gn.Group.RoundAt(time.Now()))
 				if err != nil {
 					log.Errorf("%s could not fetch roundinfo %v", gn.ID(), err)
 				}
 
 				if roundInfo != nil && int64(conflictSetStat.SignatureCount) >= roundInfo.SuperMajorityCount() {
-					log.Debugf("%s reached super majority", gn.ID())
-					provideMessage, err := gn.checkSignatures(resp.ConflictSetID, conflictSetStat)
-
-					if err != nil {
-						log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
-					}
-
-					if provideMessage != nil {
-						log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
-						conflictSetStat.PendingMessages = append([]ProvideMessage{*provideMessage}, conflictSetStat.PendingMessages...)
-					}
+					go gn.signatureCheckWorker(ctx, resp.ConflictSetID, conflictSetStat)
+				} else {
+					gn.popPendingMessage(ctx, conflictSetStat)
+					conflictSetStat.InProgress = false
 				}
 			}
+			span.Finish()
 
-			conflictSetStat.InProgress = false
-
-			gn.popPendingMessage(conflictSetStat)
 		case <-gn.stopChan:
 			return
 		}
 	}
 }
 
-func (gn *GossipNode) popPendingMessage(conflictSetStat *conflictSetStats) bool {
+func (gn *GossipNode) signatureCheckWorker(ctx context.Context, conflictSetID []byte, conflictSetStat *conflictSetStats) {
+	log.Debugf("%s reached super majority", gn.ID())
+	provideMessage, err := gn.checkSignatures(conflictSetID, conflictSetStat)
+
+	if err != nil {
+		log.Errorf("%s error for checkSignatureCounts: %v", gn.ID(), err)
+	}
+
+	if provideMessage != nil {
+		log.Debugf("%s queueing up %v message", gn.ID(), provideMessage.Type().string())
+		conflictSetStat.PendingMessages = append([]ProvideMessage{*provideMessage}, conflictSetStat.PendingMessages...)
+	}
+
+	gn.popPendingMessage(ctx, conflictSetStat)
+	conflictSetStat.InProgress = false
+}
+
+func (gn *GossipNode) popPendingMessage(ctx context.Context, conflictSetStat *conflictSetStats) bool {
+	span, ctx := newSpan(ctx, gn.Tracer, "popPendingMessage")
+
 	if len(conflictSetStat.PendingMessages) > 0 {
 		log.Debugf("%s pending messages, queuing one", gn.ID())
 		nextMessage, remainingMessages := conflictSetStat.PendingMessages[0], conflictSetStat.PendingMessages[1:]
@@ -310,9 +368,11 @@ func (gn *GossipNode) popPendingMessage(conflictSetStat *conflictSetStats) bool 
 		go func(msg ProvideMessage) {
 			log.Debugf("%s queuing popped message: %v", gn.ID(), msg.Key)
 			gn.newObjCh <- msg
+			span.Finish()
 		}(nextMessage)
 		return true
 	}
+	span.Finish()
 	return false
 }
 

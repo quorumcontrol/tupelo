@@ -4,6 +4,7 @@ package gossip2
 import (
 	"fmt"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 )
 
@@ -61,10 +62,11 @@ func WantMessageFromDiff(objs []ibf.ObjectId) *WantMessage {
 }
 
 type ProvideMessage struct {
-	Key   []byte
-	Value []byte
-	Last  bool
-	From  string
+	Key         []byte
+	Value       []byte
+	Last        bool
+	From        string
+	spanContext opentracing.SpanContext
 }
 
 type ConflictSetQuery struct {

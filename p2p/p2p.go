@@ -22,6 +22,7 @@ import (
 	swarm "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-swarm"
 	rhost "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var log = logging.Logger("libp2play")
@@ -32,10 +33,11 @@ var ErrDialBackoff = swarm.ErrDialBackoff
 var _ Node = (*LibP2PHost)(nil)
 
 type LibP2PHost struct {
-	host      *rhost.RoutedHost
-	routing   *dht.IpfsDHT
-	publicKey *ecdsa.PublicKey
-	Reporter  metrics.Reporter
+	host            *rhost.RoutedHost
+	routing         *dht.IpfsDHT
+	publicKey       *ecdsa.PublicKey
+	Reporter        metrics.Reporter
+	bootstrapConfig *BootstrapConfig
 }
 
 const expectedKeySize = 32
@@ -72,6 +74,12 @@ func NewLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int) 
 }
 
 func newLibP2PHost(ctx context.Context, privateKey *ecdsa.PrivateKey, port int, useRelay bool) (*LibP2PHost, error) {
+	go func() {
+		<-ctx.Done()
+		if span := opentracing.SpanFromContext(ctx); span != nil {
+			span.Finish()
+		}
+	}()
 	priv, err := p2pPrivateFromEcdsaPrivate(privateKey)
 	if err != nil {
 		return nil, err
@@ -122,7 +130,30 @@ func (h *LibP2PHost) Identity() string {
 
 func (h *LibP2PHost) Bootstrap(peers []string) (io.Closer, error) {
 	bootstrapCfg := BootstrapConfigWithPeers(convertPeers(peers))
+	h.bootstrapConfig = &bootstrapCfg
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
+}
+
+func (h *LibP2PHost) WaitForBootstrap(timeout time.Duration) error {
+	if h.bootstrapConfig == nil {
+		return fmt.Errorf("error must call Bootstrap() before calling WaitForBootstrap")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	doneCh := ctx.Done()
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			connected := h.host.Network().Peers()
+			if len(connected) >= h.bootstrapConfig.MinPeerThreshold {
+				return nil
+			}
+		case <-doneCh:
+			return fmt.Errorf("timeout waiting for bootstrap")
+		}
+	}
 }
 
 func (h *LibP2PHost) SetStreamHandler(protocol protocol.ID, handler net.StreamHandler) {
