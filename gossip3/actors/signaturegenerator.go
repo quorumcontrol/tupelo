@@ -51,7 +51,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		panic(fmt.Sprintf("error marshaling bitarray: %v", err))
 	}
 
-	committee, err := ng.RewardsCommittee([]byte(msg.ConflictSetID), sg.signer)
+	committee, err := ng.RewardsCommittee([]byte(msg.Transaction.NewTip), sg.signer)
 	if err != nil {
 		panic(fmt.Sprintf("error getting committee: %v", err))
 	}

@@ -363,7 +363,7 @@ func sigToWrapper(sig *messages.Signature, ng *types.NotaryGroup, self *types.Si
 
 	conflictSetID := messages.ConflictSetID(sig.ObjectID, sig.PreviousTip)
 
-	committee, err := ng.RewardsCommittee([]byte(conflictSetID), self)
+	committee, err := ng.RewardsCommittee([]byte(sig.NewTip), self)
 	if err != nil {
 		return nil, fmt.Errorf("error getting committee: %v", err)
 	}
