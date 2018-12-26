@@ -159,7 +159,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 
 	mempoolStore.Tell(&messages.Subscribe{Subscriber: mempoolSubscriber})
 
-	committedStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CommitStore), "committedvalidator")
+	committedStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CommitStore), "committedstore")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
 	}
