@@ -138,7 +138,7 @@ func TestCommits(t *testing.T) {
 
 	var stop time.Time
 	for {
-		if (time.Now().Sub(start)) > (10 * time.Second) {
+		if (time.Now().Sub(start)) > (30 * time.Second) {
 			t.Fatal("timed out looking for done function")
 			break
 		}
