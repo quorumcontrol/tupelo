@@ -150,7 +150,7 @@ func TestLibP2PSigning(t *testing.T) {
 	middleware.Log.Infow("tests", "key", key)
 	value := bits
 
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
