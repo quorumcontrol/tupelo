@@ -121,7 +121,7 @@ func TestFastGossip(t *testing.T) {
 		Value: value,
 	})
 
-	time.Sleep(600 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 
 	// assert all nodes know last transaction added
 	for _, store := range stores {

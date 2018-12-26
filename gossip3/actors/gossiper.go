@@ -69,12 +69,14 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *actor.Started:
 	case *actor.Terminated:
 		// this is for when the pushers stop, we can queue up another push
-		if msg.Who.Equal(g.pids[currentPusherKey]) {
+		if _, ok := g.pids[currentPusherKey]; ok && msg.Who.Equal(g.pids[currentPusherKey]) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
 			delete(g.pids, currentPusherKey)
-			time.AfterFunc(200*time.Millisecond, func() {
-				context.Self().Tell(&messages.DoOneGossip{})
-			})
+			timer := time.After(200 * time.Millisecond)
+			go func(ctx actor.Context) {
+				<-timer
+				ctx.Self().Tell(&messages.DoOneGossip{})
+			}(context)
 
 			return
 		}
@@ -93,10 +95,10 @@ func (g *Gossiper) Receive(context actor.Context) {
 		})
 	case *messages.DoOneGossip:
 		if _, ok := g.pids[currentPusherKey]; ok {
-			g.Log.Infow("ignoring because in progress", "why", msg.Why)
+			g.Log.Infow("ignoring because in progress")
 			return
 		}
-		g.Log.Debugw("gossiping again", "why", msg.Why)
+		g.Log.Debugw("gossiping again")
 		localsyncer, err := context.SpawnNamed(g.pusherProps, "pushSyncer")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning: %v", err))
