@@ -91,11 +91,6 @@ func createHostsAndBridges(ctx context.Context, t *testing.T, testSet *testnotar
 		node.Bootstrap(bootAddrs)
 		nodes[i] = node
 		remote.NewRouter(node)
-		for j, insideKey := range testSet.PubKeys {
-			if i != j {
-				remote.RegisterBridge(node.Identity(), insideKey.ToEcdsaPub())
-			}
-		}
 	}
 }
 

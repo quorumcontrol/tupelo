@@ -165,7 +165,10 @@ func (h *LibP2PHost) NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, 
 	if err != nil {
 		return nil, fmt.Errorf("Could not convert public key to peer id: %v", err)
 	}
+	return h.NewStreamWithPeerID(ctx, peerID, protocol)
+}
 
+func (h *LibP2PHost) NewStreamWithPeerID(ctx context.Context, peerID peer.ID, protocol protocol.ID) (net.Stream, error) {
 	stream, err := h.host.NewStream(ctx, peerID, protocol)
 
 	switch err {

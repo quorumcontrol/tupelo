@@ -1,12 +1,13 @@
 package remote
 
 import (
-	"crypto/ecdsa"
 	"fmt"
+	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	pnet "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
@@ -33,10 +34,10 @@ func newRouterProps(host p2p.Node) *actor.Props {
 	)
 }
 
-type internalCreateBridge struct {
-	from string
-	to   *ecdsa.PublicKey
-}
+// type internalCreateBridge struct {
+// 	from string
+// 	to   *ecdsa.PublicKey
+// }
 
 func (r *router) Receive(context actor.Context) {
 	// defer func() {
@@ -45,36 +46,43 @@ func (r *router) Receive(context actor.Context) {
 	// 	}
 	// }()
 	switch msg := context.Message().(type) {
+	case *actor.Terminated:
+		split := strings.Split(msg.Who.GetId(), "/")
+		to := split[len(split)-1]
+		if _, ok := r.bridges[to]; ok {
+			delete(r.bridges, to)
+		}
 	case *actor.Started:
 		//TODO: what happens when the bridge dies?
 		r.host.SetStreamHandler(p2pProtocol, func(s pnet.Stream) {
 			context.Self().Tell(s)
 		})
-	case *internalCreateBridge:
-		peer, err := p2p.PeerFromEcdsaKey(msg.to)
-		if err != nil {
-			panic(fmt.Sprintf("error getting peer from key: %v", err))
-		}
-		bridge, err := context.SpawnNamed(newBridgeProps(r.host, msg.to), "to-"+peer.Pretty())
-		if err != nil {
-			panic(fmt.Sprintf("error spawning bridge: %v", err))
-		}
-		r.bridges[peer.Pretty()] = bridge
 	case pnet.Stream:
 		remoteGateway := msg.Conn().RemotePeer().Pretty()
 		handler, ok := r.bridges[remoteGateway]
 		if !ok {
-			r.Log.Errorw("no handler", "target", remoteGateway)
-			return
+			handler = r.createBridge(context, remoteGateway)
 		}
 		context.Forward(handler)
 	case *WireDelivery:
 		target := types.RoutableAddress(msg.Target.Address)
 		handler, ok := r.bridges[target.To()]
 		if !ok {
-			r.Log.Errorw("no handler", "target", target)
-			return
+			handler = r.createBridge(context, target.To())
 		}
 		context.Forward(handler)
 	}
+}
+
+func (r *router) createBridge(context actor.Context, to string) *actor.PID {
+	p, err := peer.IDB58Decode(to)
+	if err != nil {
+		panic(fmt.Sprintf("error decoding pretty: %s", to))
+	}
+	bridge, err := context.SpawnNamed(newBridgeProps(r.host, p), p.Pretty())
+	if err != nil {
+		panic(fmt.Sprintf("error spawning bridge: %v", err))
+	}
+	r.bridges[p.Pretty()] = bridge
+	return bridge
 }

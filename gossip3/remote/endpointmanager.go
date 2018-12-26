@@ -1,7 +1,6 @@
 package remote
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -40,13 +39,13 @@ func NewRouter(host p2p.Node) *actor.PID {
 	return router
 }
 
-func RegisterBridge(from string, to *ecdsa.PublicKey) {
-	router, ok := globalManager.gateways[from]
-	if !ok {
-		panic(fmt.Sprintf("router not found: %s", from))
-	}
-	router.Tell(&internalCreateBridge{from: from, to: to})
-}
+// func RegisterBridge(from string, to *ecdsa.PublicKey) {
+// 	router, ok := globalManager.gateways[from]
+// 	if !ok {
+// 		panic(fmt.Sprintf("router not found: %s", from))
+// 	}
+// 	router.Tell(&internalCreateBridge{from: from, to: to})
+// }
 
 func remoteHandler(pid *actor.PID) (actor.Process, bool) {
 	from := types.RoutableAddress(pid.Address).From()

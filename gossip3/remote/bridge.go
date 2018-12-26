@@ -2,12 +2,13 @@ package remote
 
 import (
 	gocontext "context"
-	"crypto/ecdsa"
 	"fmt"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	pnet "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -25,8 +26,7 @@ type Bridge struct {
 	host         p2p.Node
 	localAddress string
 
-	remoteKey     *ecdsa.PublicKey
-	remoteAddress string
+	remoteAddress peer.ID
 
 	writer       *msgp.Writer
 	streamID     uint64
@@ -35,24 +35,20 @@ type Bridge struct {
 	streamCancel gocontext.CancelFunc
 }
 
-func newBridgeProps(host p2p.Node, remoteKey *ecdsa.PublicKey) *actor.Props {
-	peer, err := p2p.PeerFromEcdsaKey(remoteKey)
-	if err != nil {
-		panic(fmt.Sprintf("error getting peer from key"))
-	}
-
+func newBridgeProps(host p2p.Node, remoteAddress peer.ID) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &Bridge{
 			host:          host,
-			localAddress:  types.NewRoutableAddress(host.Identity(), peer.Pretty()).String(),
-			remoteKey:     remoteKey,
-			remoteAddress: peer.Pretty(),
+			localAddress:  types.NewRoutableAddress(host.Identity(), remoteAddress.Pretty()).String(),
+			remoteAddress: remoteAddress,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
+
+var bridgeReceiveTimeout = 5 * time.Second
 
 func (b *Bridge) Receive(context actor.Context) {
 	// defer func() {
@@ -62,11 +58,18 @@ func (b *Bridge) Receive(context actor.Context) {
 	// 	}
 	// }()
 	switch msg := context.Message().(type) {
+	case *actor.ReceiveTimeout:
+		b.Log.Infow("terminating stream due to lack of activity")
+		context.Self().Poison()
+	case *actor.Terminated:
+		b.clearStream(b.streamID)
 	case pnet.Stream:
+		context.SetReceiveTimeout(bridgeReceiveTimeout)
 		b.handleIncomingStream(context, msg)
 	case *internalStreamDied:
 		b.handleStreamDied(context, msg)
 	case *WireDelivery:
+		context.SetReceiveTimeout(bridgeReceiveTimeout)
 		if msg.Outgoing {
 			b.handleOutgoingWireDelivery(context, msg)
 		} else {
@@ -76,10 +79,10 @@ func (b *Bridge) Receive(context actor.Context) {
 }
 
 func (b *Bridge) handleIncomingStream(context actor.Context, stream pnet.Stream) {
-	remote := stream.Conn().RemotePeer().Pretty()
+	remote := stream.Conn().RemotePeer()
 	b.Log.Debugw("handling incoming stream")
 	if remote != b.remoteAddress {
-		b.Log.Infow("ignoring stream from other peer", "peer", remote)
+		b.Log.Errorw("ignoring stream from other peer", "peer", remote)
 	}
 	b.clearStream(b.streamID)
 	ctx, cancel := gocontext.WithCancel(gocontext.Background())
@@ -161,7 +164,7 @@ func (b *Bridge) handleCreateNewStream(context actor.Context) error {
 
 	ctx, cancel := gocontext.WithCancel(gocontext.Background())
 
-	stream, err := b.host.NewStream(ctx, b.remoteKey, p2pProtocol)
+	stream, err := b.host.NewStreamWithPeerID(ctx, b.remoteAddress, p2pProtocol)
 	if err != nil {
 		b.clearStream(b.streamID)
 		cancel()

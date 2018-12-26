@@ -7,6 +7,7 @@ import (
 	"time"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	peer "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
 	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
 )
@@ -22,6 +23,7 @@ type Node interface {
 	WaitForBootstrap(timeout time.Duration) error
 	SetStreamHandler(protocol protocol.ID, handler net.StreamHandler)
 	NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error)
+	NewStreamWithPeerID(ctx context.Context, peerID peer.ID, protocol protocol.ID) (net.Stream, error)
 	Send(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) error
 	SendAndReceive(publicKey *ecdsa.PublicKey, protocol protocol.ID, payload []byte) ([]byte, error)
 }

@@ -117,15 +117,6 @@ func TestRemoteMessageSending(t *testing.T) {
 	NewRouter(host2)
 	NewRouter(host3)
 
-	RegisterBridge(host1.Identity(), host2.PublicKey())
-	RegisterBridge(host1.Identity(), host3.PublicKey())
-
-	RegisterBridge(host2.Identity(), host1.PublicKey())
-	RegisterBridge(host2.Identity(), host3.PublicKey())
-
-	RegisterBridge(host3.Identity(), host1.PublicKey())
-	RegisterBridge(host3.Identity(), host2.PublicKey())
-
 	remotePing := actor.NewPID(types.NewRoutableAddress(host1.Identity(), host3.Identity()).String(), host3Ping.GetId())
 
 	resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
