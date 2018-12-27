@@ -111,7 +111,7 @@ func TestCommits(t *testing.T) {
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
 
-		fut := actor.NewFuture(10 * time.Second)
+		fut := actor.NewFuture(20 * time.Second)
 
 		syncer := syncers[rand.Intn(len(syncers))].Actor
 
@@ -135,7 +135,7 @@ func TestCommits(t *testing.T) {
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
 
-		fut := actor.NewFuture(15 * time.Second)
+		fut := actor.NewFuture(20 * time.Second)
 
 		syncers[1].Actor.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
