@@ -52,7 +52,8 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/storage"
-  source = "git@github.com:quorumcontrol/storage.git"  
+  source = "git@github.com:quorumcontrol/storage.git"
+  version = "v1.1.0"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
