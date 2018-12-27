@@ -7,7 +7,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/google/uuid"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -127,10 +126,29 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 	if result == nil {
 		syncer.Log.Debugw("nil result")
 		if count > 0 {
-			log.Debug("requesting IBF", "remote", context.Sender().GetId(), "count", count)
-			context.Sender().Request(&messages.RequestIBF{
-				Count: count,
-			}, context.Self())
+			wantsToSend := count * 2
+			var sizeToSend int
+
+			for _, size := range standardIBFSizes {
+				if size >= wantsToSend {
+					sizeToSend = size
+					break
+				}
+			}
+			if sizeToSend == 0 {
+				syncer.Log.Errorf("estimate too large to send an IBF: %d", count)
+				syncer.syncDone(context)
+				return
+			}
+			localIBF, err := syncer.getLocalIBF(sizeToSend)
+			if err != nil {
+				panic("timeout")
+			}
+
+			context.Request(context.Sender(), &messages.ProvideBloomFilter{
+				Filter:            localIBF,
+				DestinationHolder: messages.DestinationHolder{messages.ToActorPid(syncer.storageActor)},
+			})
 		} else {
 			syncer.Log.Debugw("synced", "remote", context.Sender())
 			syncer.syncDone(context)
