@@ -3,6 +3,7 @@ package remote
 import (
 	gocontext "context"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -60,6 +61,8 @@ func (b *Bridge) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.ReceiveTimeout:
 		b.Log.Infow("terminating stream due to lack of activity")
+		context.SetBehavior(b.TerminatedState)
+		b.clearStream(b.streamID)
 		context.Self().Poison()
 	case *actor.Terminated:
 		b.clearStream(b.streamID)
@@ -78,9 +81,13 @@ func (b *Bridge) Receive(context actor.Context) {
 	}
 }
 
+func (b *Bridge) TerminatedState(context actor.Context) {
+	// do nothing
+}
+
 func (b *Bridge) handleIncomingStream(context actor.Context, stream pnet.Stream) {
 	remote := stream.Conn().RemotePeer()
-	b.Log.Debugw("handling incoming stream")
+	b.Log.Debugw("handling incoming stream", "peer", remote)
 	if remote != b.remoteAddress {
 		b.Log.Errorw("ignoring stream from other peer", "peer", remote)
 	}
@@ -116,7 +123,12 @@ func (b *Bridge) handleOutgoingWireDelivery(context actor.Context, wd *WireDeliv
 	if b.writer == nil {
 		err := b.handleCreateNewStream(context)
 		if err != nil {
-			b.Log.Errorw("error opening stream", "err", err)
+			b.Log.Infow("error opening stream", "err", err)
+			if err == p2p.ErrDialBackoff {
+				// back off dialing if we have trouble with the stream
+				// non-cryptographic random here to add jitter
+				time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond)
+			}
 			context.Forward(context.Self())
 			return
 		}
@@ -168,7 +180,7 @@ func (b *Bridge) handleCreateNewStream(context actor.Context) error {
 	if err != nil {
 		b.clearStream(b.streamID)
 		cancel()
-		return fmt.Errorf("error opening stream: %v", err)
+		return err
 	}
 
 	b.setupNewStream(ctx, cancel, context, stream)
@@ -188,8 +200,8 @@ func (b *Bridge) setupNewStream(ctx gocontext.Context, cancelFunc gocontext.Canc
 		for {
 			select {
 			case <-done:
-				b.Log.Infow("resetting stream due to done")
-				s.Reset()
+				b.Log.Debugw("resetting stream due to done")
+				s.Close()
 				return
 			default:
 				var wd WireDelivery
