@@ -84,7 +84,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 	for remoteGossiper == nil || strings.HasPrefix(context.Self().GetId(), remoteGossiper.GetId()) {
 		remoteGossiper = msg.System.GetRandomSyncer()
 	}
-	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.GetId())
+	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.Id)
 
 	resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{
 		Kind: syncer.kind,
