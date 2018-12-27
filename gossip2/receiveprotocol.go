@@ -1,11 +1,13 @@
 package gossip2
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/tinylib/msgp/msgp"
 )
@@ -16,6 +18,7 @@ type ReceiveSyncProtocolHandler struct {
 	reader     *msgp.Reader
 	writer     *msgp.Writer
 	peerID     string
+	isClosed   bool
 }
 
 func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
@@ -28,13 +31,17 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	}
 	log.Debugf("%s received sync request from %s", gn.ID(), rsph.peerID)
 	defer func() {
-		rsph.writer.Flush()
-		rsph.stream.Close()
+		if !rsph.isClosed {
+			rsph.writer.Flush()
+			rsph.stream.Close()
+		}
 	}()
+
+	ctx := context.Background()
 
 	// Step 0 (terminate if too busy)
 	// If we are already processing NumberOfSyncWorkers syncs, then send a 503
-	worker, err := rsph.Send503IfTooManyInProgress()
+	worker, err := rsph.Send503IfTooManyInProgress(ctx)
 	if err != nil {
 		return fmt.Errorf("error sending 503: %v", err)
 	}
@@ -43,14 +50,19 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 	}
 	defer func() { gn.syncPool <- *worker }()
 
+	span, ctx := newSpan(ctx, gn.Tracer, "DoReceiveSyncProtocol")
+	span.SetTag("gn", gn.ID())
+	span.SetTag("gsender", rsph.peerID)
+	defer span.Finish()
+
 	// step 1 wait for strata
-	strata, err := rsph.WaitForStrata()
+	strata, err := rsph.WaitForStrata(ctx)
 	if err != nil {
 		return fmt.Errorf("error waiting for strata: %v", err)
 	}
 
 	// step 2 estimate strata
-	estimate, diff := rsph.EstimateFromRemoteStrata(strata)
+	estimate, diff := rsph.EstimateFromRemoteStrata(ctx, strata)
 	if estimate == 0 {
 		// Send code 304 NOT MODIFIED
 		err = rsph.SendCode(304)
@@ -65,13 +77,13 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 
 	if diff == nil {
 		// step 3 - send appropriate IBF
-		err = rsph.SendBloomFilter(estimate)
+		err = rsph.SendBloomFilter(ctx, estimate)
 		if err != nil {
 			return fmt.Errorf("error sending bloom filter: %v", err)
 		}
 
 		// step 4 - wait for wants
-		remoteWants, err = rsph.WaitForWantsMessage()
+		remoteWants, err = rsph.WaitForWantsMessage(ctx)
 		if err != nil {
 			return fmt.Errorf("error waiting on wants message: %v", err)
 		}
@@ -90,7 +102,7 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 		remoteWants = WantMessageFromDiff(diff.LeftSet)
 
 		myWants := WantMessageFromDiff(diff.RightSet)
-		err = rsph.SendWantMessage(myWants)
+		err = rsph.SendWantMessage(ctx, myWants)
 		if err != nil {
 			return fmt.Errorf("error sending my wants: %v", err)
 		}
@@ -100,32 +112,43 @@ func DoReceiveSyncProtocol(gn *GossipNode, stream net.Stream) error {
 
 	wg := &sync.WaitGroup{}
 	results := make(chan error, 2)
-
+	var messages []ProvideMessage
 	wg.Add(1)
 	go func() {
 		// Step 4: handle incoming objects
-		results <- rsph.WaitForProvides()
+		msgs, err := rsph.WaitForProvides(ctx)
+		messages = msgs
+		results <- err
 		wg.Done()
 	}()
 
 	wg.Add(1)
 	go func() {
-		results <- rsph.SendWantedObjects(remoteWants)
+		results <- rsph.SendWantedObjects(ctx, remoteWants)
 		wg.Done()
 	}()
 	wg.Wait()
 	close(results)
 	for res := range results {
 		if res != nil {
-			return fmt.Errorf("error sending or waiting: %v", err)
+			return fmt.Errorf("error sending or waiting: %v", res)
 		}
+	}
+
+	rsph.writer.Flush()
+	rsph.stream.Close()
+	rsph.isClosed = true
+
+	err = rsph.QueueMessages(ctx, messages)
+	if err != nil {
+		return fmt.Errorf("error queueing: %v", err)
 	}
 
 	atomic.AddUint64(&gn.debugReceiveSync, 1)
 	return nil
 }
 
-func (rsph *ReceiveSyncProtocolHandler) SendWantMessage(want *WantMessage) error {
+func (rsph *ReceiveSyncProtocolHandler) SendWantMessage(ctx context.Context, want *WantMessage) error {
 	writer := rsph.writer
 	err := want.EncodeMsg(writer)
 	if err != nil {
@@ -143,7 +166,7 @@ func (rsph *ReceiveSyncProtocolHandler) SendCode(code int) error {
 	return pm.EncodeMsg(writer)
 }
 
-func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandlerWorker, error) {
+func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress(ctx context.Context) (*SyncHandlerWorker, error) {
 	gn := rsph.gossipNode
 	select {
 	case worker := <-gn.syncPool:
@@ -162,7 +185,7 @@ func (rsph *ReceiveSyncProtocolHandler) Send503IfTooManyInProgress() (*SyncHandl
 	}
 }
 
-func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
+func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage(ctx context.Context) (*WantMessage, error) {
 	reader := rsph.reader
 	gn := rsph.gossipNode
 	var pm ProtocolMessage
@@ -191,10 +214,12 @@ func (rsph *ReceiveSyncProtocolHandler) WaitForWantsMessage() (*WantMessage, err
 	return wants.(*WantMessage), nil
 }
 
-func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
-	//TODO: send *correct bloom filter
+func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(ctx context.Context, estimate int) error {
 	gn := rsph.gossipNode
 	writer := rsph.writer
+
+	span, _ := newSpan(ctx, gn.Tracer, "SendBloomFilter")
+	defer span.Finish()
 
 	wantsToSend := estimate * 2
 	var sizeToSend int
@@ -226,45 +251,69 @@ func (rsph *ReceiveSyncProtocolHandler) SendBloomFilter(estimate int) error {
 	return writer.Flush()
 }
 
-func (rsph *ReceiveSyncProtocolHandler) WaitForProvides() error {
+func (rsph *ReceiveSyncProtocolHandler) WaitForProvides(ctx context.Context) ([]ProvideMessage, error) {
 	gn := rsph.gossipNode
 	reader := rsph.reader
 	var isLastMessage bool
+	span, _ := newSpan(ctx, gn.Tracer, "WaitForProvides")
+	defer span.Finish()
+
+	var messages []ProvideMessage
+
 	for !isLastMessage {
 		var provideMsg ProvideMessage
 		err := provideMsg.DecodeMsg(reader)
 		if err != nil {
 			log.Errorf("%s error decoding message: %v", gn.ID(), err)
-			return fmt.Errorf("error decoding message: %v", err)
+			return nil, fmt.Errorf("error decoding message: %v", err)
 		}
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), rsph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
 			provideMsg.From = rsph.peerID
-			gn.newObjCh <- provideMsg
+			messages = append(messages, provideMsg)
 		}
 	}
 
 	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), rsph.peerID)
+	return messages, nil
+}
+
+func (rsph *ReceiveSyncProtocolHandler) QueueMessages(ctx context.Context, messages []ProvideMessage) error {
+	gn := rsph.gossipNode
+	span, _ := newSpan(ctx, gn.Tracer, "ReceiveProtocolQueueMessages", opentracing.Tag{Key: "span.kind", Value: "producer"}, opentracing.Tag{Key: "queueLength", Value: len(gn.newObjCh)})
+	defer span.Finish()
+
+	for _, msg := range messages {
+		msg.spanContext = span.Context()
+		gn.newObjCh <- msg
+	}
 	return nil
 }
 
-func (rsph *ReceiveSyncProtocolHandler) WaitForStrata() (*ibf.DifferenceStrata, error) {
+func (rsph *ReceiveSyncProtocolHandler) WaitForStrata(ctx context.Context) (*ibf.DifferenceStrata, error) {
 	reader := rsph.reader
 	gn := rsph.gossipNode
+
+	span, _ := newSpan(ctx, gn.Tracer, "WaitForStrata")
+	defer span.Finish()
 
 	var remoteStrata ibf.DifferenceStrata
 	err := remoteStrata.DecodeMsg(reader)
 	if err != nil {
-		log.Errorf("%s error decoding message", gn.ID(), err)
+		log.Errorf("%s error decoding message: %v", gn.ID(), err)
 		return &remoteStrata, fmt.Errorf("error decoding message: %v", err)
 	}
 	return &remoteStrata, nil
 }
 
-func (rsph *ReceiveSyncProtocolHandler) EstimateFromRemoteStrata(remoteStrata *ibf.DifferenceStrata) (count int, result *ibf.DecodeResults) {
+func (rsph *ReceiveSyncProtocolHandler) EstimateFromRemoteStrata(ctx context.Context, remoteStrata *ibf.DifferenceStrata) (count int, result *ibf.DecodeResults) {
 	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
 	gn := rsph.gossipNode
+
+	span, _ := newSpan(ctx, gn.Tracer, "EstimateFromRemoteStrata")
+	defer span.Finish()
+
 	gn.ibfSyncer.RLock()
 	count, result = gn.Strata.Estimate(remoteStrata)
 	gn.ibfSyncer.RUnlock()
@@ -272,9 +321,12 @@ func (rsph *ReceiveSyncProtocolHandler) EstimateFromRemoteStrata(remoteStrata *i
 	return count, result
 }
 
-func (rsph *ReceiveSyncProtocolHandler) SendWantedObjects(wants *WantMessage) error {
+func (rsph *ReceiveSyncProtocolHandler) SendWantedObjects(ctx context.Context, wants *WantMessage) error {
 	gn := rsph.gossipNode
 	writer := rsph.writer
+
+	span, _ := newSpan(ctx, gn.Tracer, "SendWantedObjects")
+	defer span.Finish()
 
 	for _, key := range wants.Keys {
 		key := uint64ToBytes(key)

@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	net "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/tinylib/msgp/msgp"
@@ -18,6 +19,7 @@ type SyncProtocolHandler struct {
 	reader     *msgp.Reader
 	writer     *msgp.Writer
 	peerID     string
+	isClosed   bool
 }
 
 func DoSyncProtocol(gn *GossipNode) error {
@@ -28,16 +30,22 @@ func DoSyncProtocol(gn *GossipNode) error {
 	}
 	log.Debugf("%s starting sync", gn.ID())
 	defer func() {
-		if sph.writer != nil {
-			sph.writer.Flush()
-		}
-		if sph.stream != nil {
-			sph.stream.Close()
+		if !sph.isClosed {
+			if sph.writer != nil {
+				sph.writer.Flush()
+			}
+			if sph.stream != nil {
+				sph.stream.Close()
+			}
 		}
 	}()
+	span, ctx := newSpan(context.Background(), gn.Tracer, "DoSyncProtocol")
+	span.SetTag("gn", gn.ID())
+	span.SetTag("peer", sph.peerID)
+	defer span.Finish()
 
 	// Step 1: get a random peer (or use the known next peer)
-	stream, err := sph.ConnectToPeer()
+	stream, err := sph.ConnectToPeer(ctx)
 	if err != nil {
 		return fmt.Errorf("error connecting to peer: %v", err)
 	}
@@ -52,7 +60,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	sph.peerID = stream.Conn().RemotePeer().Pretty()
 
 	// step 1 send strata
-	err = sph.SendStrata()
+	err = sph.SendStrata(ctx)
 	if err != nil {
 		return fmt.Errorf("error sending strata: %v", err)
 	}
@@ -60,7 +68,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	// step 2 wait for IBF (error if received 503, terminate if 304)
 	var remoteDiff *ibf.DecodeResults
 
-	code, remoteFilter, err := sph.WaitForBloomFilter()
+	code, remoteFilter, err := sph.WaitForBloomFilter(ctx)
 	if err != nil {
 		return fmt.Errorf("error waiting for bloom filter: %v", err)
 	}
@@ -74,7 +82,7 @@ func DoSyncProtocol(gn *GossipNode) error {
 	case 302:
 		// 302 means the other side decoded our strata
 		// and will instead send a wants message
-		wants, err := sph.WaitForWantsMessage()
+		wants, err := sph.WaitForWantsMessage(ctx)
 		if err != nil {
 			return fmt.Errorf("error waiting for wants")
 		}
@@ -87,14 +95,14 @@ func DoSyncProtocol(gn *GossipNode) error {
 		}
 	default:
 		// step 3 - decode IBF
-		remoteDiff, err = sph.DifferencesFromBloomFilter(remoteFilter)
+		remoteDiff, err = sph.DifferencesFromBloomFilter(ctx, remoteFilter)
 		if err != nil {
 			log.Infof("sending error message: error getting differences from bloom: %v", err)
 			err = sph.SendErrorMessage(416, fmt.Sprintf("error getting differences from bloom: %v", err))
 			return err
 		}
 		// step 4 - send wants
-		_, err = sph.SendWantMessage(remoteDiff)
+		_, err = sph.SendWantMessage(ctx, remoteDiff)
 		if err != nil {
 			return fmt.Errorf("error sending want message: %v", err)
 		}
@@ -104,16 +112,19 @@ func DoSyncProtocol(gn *GossipNode) error {
 
 	wg := &sync.WaitGroup{}
 	results := make(chan error, 2)
+	var messages []ProvideMessage
 
 	wg.Add(1)
 	go func() {
-		results <- sph.SendPeerObjects(remoteDiff)
+		results <- sph.SendPeerObjects(ctx, remoteDiff)
 		wg.Done()
 	}()
 
 	wg.Add(1)
 	go func() {
-		results <- sph.WaitForProvides()
+		msgs, err := sph.WaitForProvides(ctx)
+		messages = msgs
+		results <- err
 		wg.Done()
 	}()
 	wg.Wait()
@@ -122,6 +133,15 @@ func DoSyncProtocol(gn *GossipNode) error {
 		if res != nil {
 			return fmt.Errorf("error sending or receiving: %v", err)
 		}
+	}
+
+	sph.writer.Flush()
+	sph.stream.Close()
+	sph.isClosed = true
+
+	err = sph.QueueMessages(ctx, messages)
+	if err != nil {
+		return fmt.Errorf("error queueing messages: %v", err)
 	}
 
 	log.Debugf("%s: sync complete to %s", gn.ID(), sph.peerID)
@@ -139,7 +159,7 @@ func (sph *SyncProtocolHandler) SendErrorMessage(code int, msg string) error {
 	return pm.EncodeMsg(writer)
 }
 
-func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.InvertibleBloomFilter) (*ibf.DecodeResults, error) {
+func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(ctx context.Context, remoteIBF *ibf.InvertibleBloomFilter) (*ibf.DecodeResults, error) {
 	// log.Debugf("%s from %s received IBF (cells)", gn.ID(), peerID, ibf.HumanizeIBF(&remoteIBF))
 	gn := sph.gossipNode
 	gn.ibfSyncer.RLock()
@@ -157,7 +177,7 @@ func (sph *SyncProtocolHandler) DifferencesFromBloomFilter(remoteIBF *ibf.Invert
 	return &difference, nil
 }
 
-func (sph *SyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) (*WantMessage, error) {
+func (sph *SyncProtocolHandler) SendWantMessage(ctx context.Context, difference *ibf.DecodeResults) (*WantMessage, error) {
 	writer := sph.writer
 	gn := sph.gossipNode
 
@@ -175,7 +195,7 @@ func (sph *SyncProtocolHandler) SendWantMessage(difference *ibf.DecodeResults) (
 	return want, nil
 }
 
-func (sph *SyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
+func (sph *SyncProtocolHandler) WaitForWantsMessage(ctx context.Context) (*WantMessage, error) {
 	reader := sph.reader
 
 	var wants WantMessage
@@ -186,7 +206,7 @@ func (sph *SyncProtocolHandler) WaitForWantsMessage() (*WantMessage, error) {
 	return &wants, nil
 }
 
-func (sph *SyncProtocolHandler) WaitForBloomFilter() (int, *ibf.InvertibleBloomFilter, error) {
+func (sph *SyncProtocolHandler) WaitForBloomFilter(ctx context.Context) (int, *ibf.InvertibleBloomFilter, error) {
 	reader := sph.reader
 	gn := sph.gossipNode
 	var pm ProtocolMessage
@@ -214,7 +234,7 @@ func (sph *SyncProtocolHandler) WaitForBloomFilter() (int, *ibf.InvertibleBloomF
 	}
 }
 
-func (sph *SyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) error {
+func (sph *SyncProtocolHandler) SendPeerObjects(ctx context.Context, difference *ibf.DecodeResults) error {
 	gn := sph.gossipNode
 	writer := sph.writer
 
@@ -243,7 +263,7 @@ func (sph *SyncProtocolHandler) SendPeerObjects(difference *ibf.DecodeResults) e
 	return nil
 }
 
-func (sph *SyncProtocolHandler) SendStrata() error {
+func (sph *SyncProtocolHandler) SendStrata(ctx context.Context) error {
 	gn := sph.gossipNode
 	writer := sph.writer
 
@@ -257,7 +277,7 @@ func (sph *SyncProtocolHandler) SendStrata() error {
 	return writer.Flush()
 }
 
-func (sph *SyncProtocolHandler) SendWantedObjects(wants *WantMessage) error {
+func (sph *SyncProtocolHandler) SendWantedObjects(ctx context.Context, wants *WantMessage) error {
 	gn := sph.gossipNode
 	writer := sph.writer
 
@@ -289,7 +309,7 @@ func (sph *SyncProtocolHandler) SendWantedObjects(wants *WantMessage) error {
 // 	return nil, fmt.Errorf("peer too busy")
 // }
 
-func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
+func (sph *SyncProtocolHandler) ConnectToPeer(ctx context.Context) (net.Stream, error) {
 	gn := sph.gossipNode
 
 	peer, err := gn.getSyncTarget()
@@ -300,12 +320,11 @@ func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 
 	log.Debugf("%s: targeting peer %v", gn.ID(), peerPublicKey)
 
-	ctx := context.Background()
 	stream, err := gn.Host.NewStream(ctx, peer.DstKey.ToEcdsaPub(), syncProtocol)
 	if err != nil {
 		if err == p2p.ErrDialBackoff {
-			log.Debugf("%s: dial backoff for peer %s", gn.ID(), peerPublicKey)
-			return nil, nil
+			log.Debugf("%s: dial backoff for peer %s (triggers a sleep)", gn.ID(), peerPublicKey)
+			return nil, err
 		}
 		return nil, fmt.Errorf("error opening new stream to %s - %v", peerPublicKey, err)
 	}
@@ -313,25 +332,42 @@ func (sph *SyncProtocolHandler) ConnectToPeer() (net.Stream, error) {
 	return stream, nil
 }
 
-func (sph *SyncProtocolHandler) WaitForProvides() error {
+func (sph *SyncProtocolHandler) QueueMessages(ctx context.Context, messages []ProvideMessage) error {
+	gn := sph.gossipNode
+	span, _ := newSpan(ctx, gn.Tracer, "SendProtocolQueueMessages", opentracing.Tag{Key: "span.kind", Value: "producer"}, opentracing.Tag{Key: "queueLength", Value: len(gn.newObjCh)})
+	defer span.Finish()
+
+	for _, msg := range messages {
+		msg.spanContext = span.Context()
+		gn.newObjCh <- msg
+	}
+	return nil
+}
+
+func (sph *SyncProtocolHandler) WaitForProvides(ctx context.Context) ([]ProvideMessage, error) {
 	gn := sph.gossipNode
 	reader := sph.reader
 	var isLastMessage bool
+	span, _ := newSpan(ctx, gn.Tracer, "WaitForProvides")
+	defer span.Finish()
+
+	var messages []ProvideMessage
+
 	for !isLastMessage {
 		var provideMsg ProvideMessage
 		err := provideMsg.DecodeMsg(reader)
 		if err != nil {
 			log.Errorf("%s error decoding message: %v", gn.ID(), err)
-			return fmt.Errorf("error decoding message: %v", err)
+			return nil, fmt.Errorf("error decoding message: %v", err)
 		}
 		log.Debugf("%s HandleSync new msg from %s %s %v", gn.ID(), sph.peerID, bytesToString(provideMsg.Key), provideMsg.Key)
 		isLastMessage = provideMsg.Last
 		if !isLastMessage {
 			provideMsg.From = sph.peerID
-			gn.newObjCh <- provideMsg
+			messages = append(messages, provideMsg)
 		}
 	}
 
 	log.Debugf("%s: HandleSync received all provides from %s, moving forward", gn.ID(), sph.peerID)
-	return nil
+	return messages, nil
 }

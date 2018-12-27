@@ -211,7 +211,6 @@ func bootstrapConnect(ctx context.Context, ph host.Host, peers []pstore.PeerInfo
 			if err := ph.Connect(ctx, p); err != nil {
 				log.Event(ctx, "bootstrapDialFailed", p.ID)
 				log.Debugf("failed to bootstrap with %v: %s", p.ID, err)
-				fmt.Printf("bootstrapping %v\n", err)
 				errs <- err
 				return
 			}

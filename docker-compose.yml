@@ -19,11 +19,9 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
-      NODE_BLS_KEY_HEX: "0x062826fc0f8034ce63f160dfa30fca1c11cb66cdbdd0524b0a5103539c44e153"
-      NODE_ECDSA_KEY_HEX: "0xa457195d256894b7a44400b2ec844a5c58ecadaea5da271abdf0abad1f30c1f0"
+      NODE_BLS_KEY_HEX: "0x42662464ac1d3a623e8a8d435ebd7268e4ee607f052e900b38b4f7c7df4878d9"
+      NODE_ECDSA_KEY_HEX: "0x18a64724c46f570cbfabe3ec9fed5ce878962f9cbd92caf97c3a282abb6dffa1"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
-    networks:
-      - default
   node1:
     build: .
     volumes:
@@ -31,11 +29,9 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
-      NODE_BLS_KEY_HEX: "0x047490c1cacdc0e1da3694ce4aa7610e6c094720fe245d860bc6b950fe01af64"
-      NODE_ECDSA_KEY_HEX: "0x6ed4da1806f0c8587644e6a27ad11b2053d7b7e03d41ffec589a217fd839eae6"
+      NODE_BLS_KEY_HEX: "0x7d7a1aa1a07e2123ddf1f99577cc06cbb8538e4a081873114d0b963bd26c6476"
+      NODE_ECDSA_KEY_HEX: "0x5002ddc1fbf32885fe554499a10e97ec7feddfe9db989a81fb4f22d699fa47b3"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
-    networks:
-      - default
   node2:
     build: .
     volumes:
@@ -43,11 +39,9 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
-      NODE_BLS_KEY_HEX: "0x23d13849867754cff263189bb4b039a7f5fc6c7a63a3b95b31a807fd1a9d2a37"
-      NODE_ECDSA_KEY_HEX: "0xef8d350dffaed798e846c0b84316023e28b5128cb15158aafdafc5738b6a745b"
+      NODE_BLS_KEY_HEX: "0x5e7d734b55705fd096600f26b38cd0a4b33685d41cfc04dd4e03de27b06de53d"
+      NODE_ECDSA_KEY_HEX: "0x2273d296407e999c0f8a6970aa55cee05baf1ff5cfc5a231f99fba6200a14849"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
-    networks:
-      - default
 
 networks:
   default:
