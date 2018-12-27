@@ -19,7 +19,7 @@ import (
 )
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)

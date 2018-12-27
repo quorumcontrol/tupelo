@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ import (
 func TestSignatureGenerator(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer currentState.Poison()
@@ -43,7 +44,7 @@ func TestSignatureGenerator(t *testing.T) {
 	sender := actor.Spawn(actor.FromFunc(validatorSenderFunc))
 	defer sender.Poison()
 
-	trans := newValidTransaction(t)
+	trans := testhelpers.NewValidTransaction(t)
 	value, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)

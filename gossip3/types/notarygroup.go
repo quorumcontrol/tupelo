@@ -12,6 +12,7 @@ import (
 )
 
 type NotaryGroup struct {
+	ID        string
 	Signers   map[string]*Signer
 	sortedIds []string
 }
@@ -24,8 +25,9 @@ func (ng *NotaryGroup) GetMajorityCount() int64 {
 	return required
 }
 
-func NewNotaryGroup() *NotaryGroup {
+func NewNotaryGroup(id string) *NotaryGroup {
 	return &NotaryGroup{
+		ID:      id,
 		Signers: make(map[string]*Signer),
 	}
 }
