@@ -68,9 +68,13 @@ func (ng *NotaryGroup) QuorumCount() uint64 {
 	return uint64(math.Ceil((float64(len(ng.sortedIds)) / 3) * 2))
 }
 
-func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
+func (ng *NotaryGroup) GetRandomSigner() *Signer {
 	id := ng.sortedIds[randInt(len(ng.sortedIds))]
-	return ng.Signers[id].Actor
+	return ng.Signers[id]
+}
+
+func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
+	return ng.GetRandomSigner().Actor
 }
 
 func randInt(max int) int {
