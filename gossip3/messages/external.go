@@ -28,6 +28,7 @@ func init() {
 	RegisterEncodable(ProvideBloomFilter{})
 	RegisterEncodable(RequestKeys{})
 	RegisterEncodable(RequestIBF{})
+	RegisterEncodable(TipSubscription{})
 }
 
 type DestinationHolder struct {
@@ -75,6 +76,11 @@ type NoSyncersAvailable struct{}
 
 type SyncerAvailable struct {
 	DestinationHolder
+}
+
+type TipSubscription struct {
+	Subscriber ActorPID
+	ObjectID   []byte
 }
 
 type CurrentState struct {
