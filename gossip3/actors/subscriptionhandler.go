@@ -7,7 +7,8 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
 
-type subscriptionHolder map[string][]*actor.PID
+type subscriberPidHolder map[string]*actor.PID
+type subscriptionHolder map[string]subscriberPidHolder
 
 type SubscriptionHandler struct {
 	middleware.LogAwareHolder
@@ -28,15 +29,31 @@ func NewSubscriptionHandlerProps() *actor.Props {
 func (sh *SubscriptionHandler) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TipSubscription:
-		sh.subscribe(context, msg)
+		if msg.Unsubscribe {
+			sh.unsubscribe(context, msg)
+		} else {
+			sh.subscribe(context, msg)
+		}
 	case *messages.CurrentStateWrapper:
 		sh.notifySubscribers(context, msg)
 	}
 }
 
 func (sh *SubscriptionHandler) subscribe(context actor.Context, msg *messages.TipSubscription) {
-	subs := sh.subscriptions[string(msg.ObjectID)]
-	sh.subscriptions[string(msg.ObjectID)] = append(subs, context.Sender())
+	subs, ok := sh.subscriptions[string(msg.ObjectID)]
+	if !ok {
+		subs = make(subscriberPidHolder)
+	}
+	subs[context.Sender().String()] = context.Sender()
+	sh.subscriptions[string(msg.ObjectID)] = subs
+}
+
+func (sh *SubscriptionHandler) unsubscribe(context actor.Context, msg *messages.TipSubscription) {
+	subs, ok := sh.subscriptions[string(msg.ObjectID)]
+	if !ok {
+		return
+	}
+	delete(subs, context.Sender().String())
 }
 
 func (sh *SubscriptionHandler) notifySubscribers(context actor.Context, msg *messages.CurrentStateWrapper) {
