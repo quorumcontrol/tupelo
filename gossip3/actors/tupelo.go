@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -27,9 +26,10 @@ type TupeloNode struct {
 
 	conflictSetRouter *actor.PID
 
-	currentStateStore *actor.PID
-	mempoolStore      *actor.PID
-	committedStore    *actor.PID
+	currentStateStore   *actor.PID
+	mempoolStore        *actor.PID
+	committedStore      *actor.PID
+	subscriptionHandler *actor.PID
 
 	validatorPool *actor.PID
 	cfg           *TupeloConfig
@@ -73,12 +73,13 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		context.Forward(tn.mempoolStore)
 	case *messages.Signature:
 		context.Forward(tn.conflictSetRouter)
+	case *messages.TipSubscription:
+		context.Forward(tn.subscriptionHandler)
 	}
 }
 
 func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
-		eventstream.Publish(msg)
 		tn.committedStore.Tell(&messages.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
 		tn.currentStateStore.Tell(&messages.Store{Key: msg.CurrentState.CurrentKey(), Value: msg.Value})
 		// cleanup the transactions
@@ -87,6 +88,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 			ids[i] = trans.TransactionID
 		}
 		tn.mempoolStore.Tell(&messages.BulkRemove{ObjectIDs: ids})
+		tn.subscriptionHandler.Tell(msg)
 	} else {
 		tn.Log.Debugw("removing bad current state", "key", msg.Key)
 		tn.currentStateStore.Tell(&messages.Remove{Key: msg.Key})
@@ -215,6 +217,11 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
+	subHandler, err := context.SpawnNamed(NewSubscriptionHandlerProps(), "subscriptionHandler")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
 	tn.conflictSetRouter = router
 	tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
@@ -222,4 +229,5 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	tn.mempoolStore = mempoolStore
 	tn.committedStore = committedStore
 	tn.validatorPool = validatorPool
+	tn.subscriptionHandler = subHandler
 }

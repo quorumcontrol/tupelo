@@ -1,7 +1,6 @@
 package actors
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/eventstream"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -114,28 +112,21 @@ func TestCommits(t *testing.T) {
 		key := crypto.Keccak256(bits)
 
 		fut := actor.NewFuture(10 * time.Second)
-		sub := eventstream.Subscribe(func(evt interface{}) {
-			fut.PID().Tell(evt)
-		})
-		defer eventstream.Unsubscribe(sub)
 
-		sub.WithPredicate(func(evt interface{}) bool {
-			switch msg := evt.(type) {
-			case *messages.CurrentStateWrapper:
-				if bytes.Equal(msg.CurrentState.Signature.TransactionID, key) {
-					return true
-				}
-			}
-			return false
-		})
+		syncer := syncers[rand.Intn(len(syncers))].Actor
 
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+		syncer.Request(&messages.TipSubscription{
+			ObjectID: trans.ObjectID,
+		}, fut.PID())
+
+		syncer.Tell(&messages.Store{
 			Key:   key,
 			Value: bits,
 		})
 
-		_, err = fut.Result()
+		resp, err := fut.Result()
 		require.Nil(t, err)
+		assert.Equal(t, resp.(*messages.CurrentState).Signature.NewTip, trans.NewTip)
 	})
 
 	t.Run("reaches another node", func(t *testing.T) {
@@ -144,27 +135,24 @@ func TestCommits(t *testing.T) {
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
 
+		fut := actor.NewFuture(15 * time.Second)
+
+		syncers[1].Actor.Request(&messages.TipSubscription{
+			ObjectID: trans.ObjectID,
+		}, fut.PID())
+
+		start := time.Now()
 		syncers[0].Actor.Tell(&messages.Store{
 			Key:   key,
 			Value: bits,
 		})
 
-		start := time.Now()
-		var stop time.Time
-		for {
-			if time.Now().Sub(start) > 15*time.Second {
-				t.Fatalf("timeout looking for done")
-				break
-			}
-			val, err := syncers[0].Actor.RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 1*time.Second).Result()
-			require.Nil(t, err)
-			if len(val.([]byte)) > 0 {
-				stop = time.Now()
-				break
-			}
-		}
-		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
+		resp, err := fut.Result()
 		require.Nil(t, err)
+		assert.Equal(t, resp.(*messages.CurrentState).Signature.NewTip, trans.NewTip)
+
+		stop := time.Now()
+		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	})
 
 }
