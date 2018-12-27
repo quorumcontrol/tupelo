@@ -1115,7 +1115,6 @@
   analyzer-version = 1
   input-imports = [
     "github.com/AsynkronIT/protoactor-go/actor",
-    "github.com/AsynkronIT/protoactor-go/eventstream",
     "github.com/AsynkronIT/protoactor-go/plugin",
     "github.com/AsynkronIT/protoactor-go/router",
     "github.com/Workiva/go-datastructures/bitarray",
