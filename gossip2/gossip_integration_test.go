@@ -405,7 +405,7 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 		ObjectID:    []byte(treeDID),
 	}
 
-	require.True(t, string(transaction2.ID()) < string(transaction1.ID()))
+	require.True(t, string(transaction1.ID()) < string(transaction2.ID()))
 
 	_, err = gossipNodes[0].InitiateTransaction(transaction2)
 	require.Nil(t, err)
@@ -445,10 +445,10 @@ func TestDeadlockTransactionGossip(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	currState, err := gossipNodes[0].getCurrentState(transaction1.ObjectID)
+	currState, err := gossipNodes[0].getCurrentState(transaction2.ObjectID)
 	require.Nil(t, err)
 
-	assert.Equal(t, transaction2.NewTip, currState.Tip)
+	assert.Equal(t, transaction1.NewTip, currState.Tip)
 }
 
 func TestSubscription(t *testing.T) {

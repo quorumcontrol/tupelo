@@ -78,12 +78,6 @@ type PublicKey struct {
 	PublicKey []byte `refmt:"publicKey,omitempty" json:"publicKey,omitempty" cbor:"publicKey,omitempty"`
 }
 
-type Signature struct {
-	Signers   []bool `refmt:"signers,omitempty" json:"signers,omitempty" cbor:"signers,omitempty"`
-	Signature []byte `refmt:"signature,omitempty" json:"signature,omitempty" cbor:"signature,omitempty"`
-	Type      string `refmt:"type,omitempty" json:"type,omitempty" cbor:"type,omitempty"`
-}
-
 type StandardHeaders struct {
 	Signatures SignatureMap `refmt:"signatures,omitempty" json:"signatures,omitempty" cbor:"signatures,omitempty"`
 }

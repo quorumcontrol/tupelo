@@ -11,10 +11,8 @@ import (
 func init() {
 	cbornode.RegisterCborType(AddBlockRequest{})
 	cbornode.RegisterCborType(AddBlockResponse{})
-	cbornode.RegisterCborType(FeedbackRequest{})
 	cbornode.RegisterCborType(TipRequest{})
 	cbornode.RegisterCborType(TipResponse{})
-	cbornode.RegisterCborType(TipSignature{})
 	cbornode.RegisterCborType(GetDiffNodesRequest{})
 	cbornode.RegisterCborType(GetDiffNodesResponse{})
 }
@@ -40,6 +38,7 @@ type AddBlockRequest struct {
 	ChainId  string
 	Nodes    [][]byte
 	Tip      *cid.Cid
+	NewTip   *cid.Cid
 	NewBlock *chaintree.BlockWithHeaders
 }
 
@@ -59,10 +58,10 @@ type GetDiffNodesResponse struct {
 	Nodes [][]byte
 }
 
-type FeedbackRequest struct {
-	ChainId   string
-	Tip       *cid.Cid
-	Signature Signature
+type Signature struct {
+	Signers   []bool `refmt:"signers,omitempty" json:"signers,omitempty" cbor:"signers,omitempty"`
+	Signature []byte `refmt:"signature,omitempty" json:"signature,omitempty" cbor:"signature,omitempty"`
+	Type      string `refmt:"type,omitempty" json:"type,omitempty" cbor:"type,omitempty"`
 }
 
 type TipRequest struct {
@@ -70,12 +69,10 @@ type TipRequest struct {
 }
 
 type TipResponse struct {
-	ChainId   string
-	Tip       *cid.Cid
-	Signature Signature
-}
-
-type TipSignature struct {
-	Tip       *cid.Cid
-	Signature Signature
+	ChainId     string
+	Tip         *cid.Cid
+	PreviousTip *cid.Cid
+	Cycle       uint64
+	Epoch       uint64
+	Signature   Signature
 }
