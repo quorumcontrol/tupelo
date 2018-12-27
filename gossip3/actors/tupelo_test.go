@@ -156,3 +156,38 @@ func TestCommits(t *testing.T) {
 	})
 
 }
+
+func TestTupeloMemStorage(t *testing.T) {
+	numMembers := 3
+	ts := testnotarygroup.NewTestSet(t, numMembers)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		middleware.Log.Infow("---- tests over ----")
+		cancel()
+	}()
+	system, err := newTupeloSystem(ctx, ts)
+	require.Nil(t, err)
+
+	require.Len(t, system.Signers, numMembers)
+	syncer := system.AllSigners()[0].Actor
+
+	trans := newValidTransaction(t)
+	bits, err := trans.MarshalMsg(nil)
+	require.Nil(t, err)
+	id := crypto.Keccak256(bits)
+
+	key := id
+	value := bits
+
+	syncer.Tell(&messages.Store{
+		Key:   key,
+		Value: value,
+	})
+
+	time.Sleep(10 * time.Millisecond)
+
+	val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
+	require.Nil(t, err)
+	require.Equal(t, value, val)
+}
