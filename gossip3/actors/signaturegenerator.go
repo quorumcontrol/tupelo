@@ -22,7 +22,6 @@ type SignatureGenerator struct {
 
 const generatorConcurrency = 200
 
-// TODO: turn this into a pool
 func NewSignatureGeneratorProps(self *types.Signer, ng *types.NotaryGroup) *actor.Props {
 	return router.NewRoundRobinPool(generatorConcurrency).WithProducer(func() actor.Actor {
 		return &SignatureGenerator{

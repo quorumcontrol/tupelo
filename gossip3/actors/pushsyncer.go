@@ -117,7 +117,6 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
 	syncer.Log.Debugw("handleProvideStrata")
-	//TODO: 503 when too busy
 	localStrataInt, err := syncer.storageActor.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 	if err != nil {
 		panic("timeout")
@@ -150,11 +149,6 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 
 func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.RequestIBF) {
 	syncer.Log.Debugw("handleRequestIBF")
-	if msg.Count == 0 {
-		//TODO: this needs to cleanup and maybe queue up another sync
-		syncer.Log.Debugw("count 0")
-		return
-	}
 	wantsToSend := msg.Count * 2
 	var sizeToSend int
 

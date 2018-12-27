@@ -9,6 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
+	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -64,8 +65,6 @@ func (tv *TransactionValidator) Receive(context actor.Context) {
 	}
 }
 
-// TODO: turn this into an actor so that we can scale it
-
 func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
 	wrapper := &messages.TransactionWrapper{
 		Key:      msg.Key,
@@ -98,15 +97,19 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		currTip = currentState.Signature.NewTip
 	}
 
+	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
+		tv.Log.Errorw("invalid transaction: key did not match value")
+		context.Respond(wrapper)
+		return
+	}
+
 	st := &stateTransaction{
-		ObjectID:    t.ObjectID,
-		Transaction: t.Payload,
-		// TODO: verify transaction ID is correct
+		ObjectID:      t.ObjectID,
+		Transaction:   t.Payload,
 		TransactionID: msg.Key,
 		CurrentState:  currTip,
-		ConflictSetID: string(append(t.ObjectID, bits...)),
-		//TODO: verify payload
-		payload: msg.Value,
+		ConflictSetID: wrapper.ConflictSetID,
+		payload:       msg.Value,
 	}
 
 	nextState, accepted, err := chainTreeStateHandler(st)

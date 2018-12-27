@@ -181,8 +181,6 @@ type NeverVerifier struct {
 	middleware.LogAwareHolder
 }
 
-// TODO: this should have many workers, but a single
-// point of entry so that it is easy to gang up signatures to verify
 func NewNeverVerifierProps() *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return new(NeverVerifier)

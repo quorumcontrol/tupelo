@@ -158,7 +158,7 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 	}
 	cs.signatures[string(msg.Signature.TransactionID)] = existingMap
 	for id := range msg.Signers {
-		//TODO: this is probably a good place to look for slashable offenses
+		//Note (TB): this is probably a good place to look for slashable offenses
 		cs.signerSigs[id] = msg
 	}
 
