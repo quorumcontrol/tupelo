@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	testCommitPath  = "./.tmp/teststore/commit"
-	testCurrentPath = "./.tmp/teststore/current"
+	testRootPath    = "./.tmp"
+	testCommitPath  = testRootPath + "/teststore/commit"
+	testCurrentPath = testRootPath + "/teststore/current"
 )
 
 func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
@@ -102,11 +103,7 @@ func TestLibP2PSigning(t *testing.T) {
 	for _, path := range paths {
 		os.MkdirAll(path, 0755)
 	}
-	defer func() {
-		for _, path := range paths {
-			os.RemoveAll(path)
-		}
-	}()
+	defer os.RemoveAll(testRootPath)
 
 	remote.Start()
 	defer remote.Stop()
