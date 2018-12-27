@@ -3,7 +3,6 @@
 package gossip3
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -63,7 +62,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 	localSigner.Actor = syncer
 	go func() {
 		<-ctx.Done()
-		syncer.Poison()
+		syncer.Stop()
 	}()
 	ng.AddSigner(localSigner)
 
@@ -159,36 +158,23 @@ func TestLibP2PSigning(t *testing.T) {
 	for _, s := range localSyncers {
 		s.Tell(&messages.StartGossip{})
 	}
-	time.Sleep(100 * time.Millisecond) // give time for warmup
+	time.Sleep(200 * time.Millisecond) // give time for warmup
 
-	start := time.Now()
+	fut := actor.NewFuture(60 * time.Second)
+	localSyncers[0].Request(&messages.TipSubscription{
+		ObjectID: trans.ObjectID,
+	}, fut.PID())
 
 	localSyncers[0].Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
+	start := time.Now()
 
-	var stop time.Time
-	for {
-		if (time.Now().Sub(start)) > (60 * time.Second) {
-			t.Fatal("timed out looking for done function")
-			break
-		}
-		val, err := localSyncers[0].RequestFuture(&messages.GetTip{ObjectID: trans.ObjectID}, 5*time.Second).Result()
-		require.Nil(t, err)
-
-		if len(val.([]byte)) > 0 {
-			var currState messages.CurrentState
-			_, err := currState.UnmarshalMsg(val.([]byte))
-			require.Nil(t, err)
-			if bytes.Equal(currState.Signature.NewTip, trans.NewTip) {
-				stop = time.Now()
-				break
-			}
-		}
-
-		time.Sleep(200 * time.Millisecond)
-	}
+	resp, err := fut.Result()
+	require.Nil(t, err)
+	stop := time.Now()
+	assert.Equal(t, resp.(*messages.CurrentState).Signature.NewTip, trans.NewTip)
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 60*time.Second)
