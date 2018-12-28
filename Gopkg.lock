@@ -10,6 +10,34 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
+  branch = "dev"
+  digest = "1:ac98788a8d18ff23d51fa48f056e87b01d661b055fc6498bf9fa07f5309dc655"
+  name = "github.com/AsynkronIT/protoactor-go"
+  packages = [
+    "actor",
+    "eventstream",
+    "internal/queue/goring",
+    "internal/queue/mpsc",
+    "log",
+    "mailbox",
+    "plugin",
+    "router",
+  ]
+  pruneopts = ""
+  revision = "aa58a65b6e42e085b938ccc4cb25b06fcef8f0ee"
+
+[[projects]]
+  digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
+  name = "github.com/Workiva/go-datastructures"
+  packages = [
+    "bitarray",
+    "queue",
+  ]
+  pruneopts = ""
+  revision = "f07cbe3f82ca2fd6e5ab94afce65fe43319f675f"
+  version = "v1.0.50"
+
+[[projects]]
   digest = "1:5f3619add62f3f725265be1da3c80ae1872891197fdf69c35af05268bc1afa3f"
   name = "github.com/abiosoft/ishell"
   packages = ["."]
@@ -155,6 +183,21 @@
   revision = "bb1581babc04d5cb29a2bfa7a9ac6781c730c8dd"
 
 [[projects]]
+  digest = "1:f21c1a68814ffc02db479adbd973c710e0ece6150ddc0726655c0a2048299152"
+  name = "github.com/emirpasic/gods"
+  packages = [
+    "containers",
+    "lists",
+    "lists/singlylinkedlist",
+    "stacks",
+    "stacks/linkedliststack",
+    "utils",
+  ]
+  pruneopts = ""
+  revision = "1615341f118ae12f353cc8a983f35b584342c9b3"
+  version = "v1.12.0"
+
+[[projects]]
   digest = "1:3481e0f34cb5e05dcc76215fb6f47146793d3582c26b490631b6edee83b584eb"
   name = "github.com/ethereum/go-ethereum"
   packages = [
@@ -214,8 +257,10 @@
   digest = "1:6e73003ecd35f4487a5e88270d3ca0a81bc80dc88053ac7e4dcfec5fba30d918"
   name = "github.com/gogo/protobuf"
   packages = [
+    "gogoproto",
     "io",
     "proto",
+    "protoc-gen-gogo/descriptor",
   ]
   pruneopts = ""
   revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
@@ -275,6 +320,14 @@
   packages = ["keccakpg"]
   pruneopts = ""
   revision = "d9f6b97f8db22dd1e090fd0bbbe98f09cc7dd0a8"
+
+[[projects]]
+  digest = "1:c5466dfad4c14bf8e52a34b0eb98f1301acc1e304e0f0ff2c51c356ca1b86747"
+  name = "github.com/hashicorp/go-immutable-radix"
+  packages = ["."]
+  pruneopts = ""
+  revision = "27df80928bb34bb1b0d6d0e01b9e679902e7a6b5"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:3313a63031ae281e5f6fd7b0bbca733dfa04d2429df86519e3b4d4c016ccb836"
@@ -606,6 +659,14 @@
   version = "v1.0.2"
 
 [[projects]]
+  branch = "master"
+  digest = "1:8bceb928c2951fc833b89c2756bfcfd4886ba785654c67b6187f0b2ace3c893f"
+  name = "github.com/orcaman/concurrent-map"
+  packages = ["."]
+  pruneopts = ""
+  revision = "b28018939af9022337862b94a463abb18abb3e0e"
+
+[[projects]]
   digest = "1:894aef961c056b6d85d12bac890bf60c44e99b46292888bfa66caf529f804457"
   name = "github.com/pelletier/go-toml"
   packages = ["."]
@@ -701,13 +762,13 @@
   revision = "3f797c8b12b141e1e252cc202f43c27fce58ec9e"
 
 [[projects]]
-  digest = "1:44d999242a447d7c1fbb276bfb7c02e95cc93e7c51d2ac7416af03f8500dc233"
+  digest = "1:9fbd9b953bd8ed856f8f3e4275473a210d0b0dfa01ddd79e47f1e8eaee501d64"
   name = "github.com/quorumcontrol/storage"
   packages = ["."]
   pruneopts = ""
-  revision = "02ffa9bf3a02b122b2f7970c34d2e62a4e49bb3d"
+  revision = "3d22d28d708e4c9810bfd908c6805495b1e83b09"
   source = "git@github.com:quorumcontrol/storage.git"
-  version = "v1.0.1"
+  version = "v1.1.0"
 
 [[projects]]
   digest = "1:d518eb4bfb76545977b0be8549606e6de5c56f8887b84cc24d12f5ec1c587e3a"
@@ -734,6 +795,14 @@
   pruneopts = ""
   revision = "534765aa6277d702a0aaf99c986492dda697d48f"
   version = "v1.2.4"
+
+[[projects]]
+  branch = "master"
+  digest = "1:4176436b905cb4846fc4664cd673d7f941b9aca1ba7d407ce70fe2838695b338"
+  name = "github.com/serialx/hashring"
+  packages = ["."]
+  pruneopts = ""
+  revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
   digest = "1:633b5b39909d9d794f5543baee4971890e1866f5c082cdf4694954c1ff489a18"
@@ -862,6 +931,37 @@
   pruneopts = ""
   revision = "676cec79bd027a8a4618de0991f27cfe632978f1"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
+  name = "go.uber.org/atomic"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
+  version = "v1.3.2"
+
+[[projects]]
+  digest = "1:22c7effcb4da0eacb2bb1940ee173fac010e9ef3c691f5de4b524d538bd980f5"
+  name = "go.uber.org/multierr"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3c4937480c32f4c13a875a1829af76c98ca3d40a"
+  version = "v1.1.0"
+
+[[projects]]
+  digest = "1:246f378f80fba6fcf0f191c486b6613265abd2bc0f2fa55a36b928c67352021e"
+  name = "go.uber.org/zap"
+  packages = [
+    ".",
+    "buffer",
+    "internal/bufferpool",
+    "internal/color",
+    "internal/exit",
+    "zapcore",
+  ]
+  pruneopts = ""
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
 
 [[projects]]
   branch = "master"
@@ -1014,6 +1114,10 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/AsynkronIT/protoactor-go/actor",
+    "github.com/AsynkronIT/protoactor-go/plugin",
+    "github.com/AsynkronIT/protoactor-go/router",
+    "github.com/Workiva/go-datastructures/bitarray",
     "github.com/abiosoft/ishell",
     "github.com/awalterschulze/gographviz",
     "github.com/btcsuite/btcutil/base58",
@@ -1027,7 +1131,9 @@
     "github.com/ethereum/go-ethereum/log",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
+    "github.com/google/uuid",
     "github.com/gorilla/mux",
+    "github.com/hashicorp/go-immutable-radix",
     "github.com/hashicorp/golang-lru",
     "github.com/ipfs/go-block-format",
     "github.com/ipfs/go-cid",
@@ -1069,6 +1175,7 @@
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
     "go.elastic.co/apm/module/apmot",
+    "go.uber.org/zap",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/credentials",
