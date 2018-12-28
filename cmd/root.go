@@ -88,14 +88,6 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if bootstrapPublicKeysFile != "" {
-			var err error
-			bootstrapPublicKeys, err = loadPublicKeyFile(bootstrapPublicKeysFile)
-			if err != nil {
-				panic(fmt.Sprintf("Error loading public keys: %v", err))
-			}
-		}
-
 		logLevel, err := getLogLevel(logLvlName)
 		if err != nil {
 			panic(err.Error())
@@ -104,6 +96,17 @@ var rootCmd = &cobra.Command{
 		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
 		if err != nil {
 			fmt.Println("unkown ipfs log level")
+		}
+
+		if bootstrapPublicKeysFile != "" {
+			var err error
+			bootstrapPublicKeys, err = loadPublicKeyFile(bootstrapPublicKeysFile)
+			if err != nil {
+				panic(fmt.Sprintf("Error loading public keys: %v", err))
+			}
+			log.Info("loaded public keys", "count", len(bootstrapPublicKeys))
+		} else {
+			log.Info("no key level")
 		}
 
 	},
@@ -125,6 +128,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tupelo.yaml)")
+	rootCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

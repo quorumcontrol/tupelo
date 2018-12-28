@@ -1,24 +1,20 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
 	"sort"
+	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	protocol "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol"
-	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/bls"
-	"github.com/quorumcontrol/tupelo/consensus"
-	"github.com/quorumcontrol/tupelo/gossip2"
-	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/gossip3/client"
+	"github.com/quorumcontrol/tupelo/gossip3/remote"
+	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/spf13/cobra"
 )
@@ -43,17 +39,11 @@ var benchmarkSignersFanoutNumber int
 
 var activeCounter = 0
 
-func measureTransaction(client *gossip2client.GossipClient, did string) {
-	targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
-	targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
-	if err != nil {
-		panic("can't decode public key")
-	}
-	targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
+func measureTransaction(client *client.Client, group *types.NotaryGroup, did string) {
 
 	startTime := time.Now()
 
-	respChan, err := client.Subscribe(targetPublicKey, did, 30*time.Second)
+	respChan, err := client.Subscribe(group.GetRandomSigner(), did, 30*time.Second)
 	if err != nil {
 		results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
 		results.Failures = results.Failures + 1
@@ -64,8 +54,8 @@ func measureTransaction(client *gossip2client.GossipClient, did string) {
 	// Wait for response
 	resp := <-respChan
 
-	if resp.Error != nil {
-		results.Errors = append(results.Errors, fmt.Errorf("subscription errored %v", resp.Error).Error())
+	if resp == nil {
+		results.Errors = append(results.Errors, did)
 		results.Failures = results.Failures + 1
 		activeCounter--
 		return
@@ -78,88 +68,26 @@ func measureTransaction(client *gossip2client.GossipClient, did string) {
 	activeCounter--
 }
 
-func sendTransaction(client *gossip2client.GossipClient, shouldMeasure bool) {
-	blsKey, _ := bls.NewSignKey()
-	treeKey, _ := crypto.ToECDSA(blsKey.Bytes())
-	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
-
-	unsignedBlock := &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: "",
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "down/in/the/thing",
-						"value": string(randBytes(rand.Intn(400) + 100)),
-					},
-				},
-			},
-		},
-	}
-
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
-	emptyTip := emptyTree.Tip
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
-
-	if err != nil {
-		panic("could not create test tree")
-	}
-
-	blockWithHeaders, _ := consensus.SignBlock(unsignedBlock, treeKey)
-	testTree.ProcessBlock(blockWithHeaders)
-
-	cborNodes, _ := emptyTree.Nodes()
-	nodes := make([][]byte, len(cborNodes))
-	for i, node := range cborNodes {
-		nodes[i] = node.RawData()
-	}
-
-	req := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &emptyTree.Tip,
-		NewBlock: blockWithHeaders,
-	}
-	sw := safewrap.SafeWrap{}
-
-	trans := gossip2.Transaction{
-		PreviousTip: emptyTip.Bytes(),
-		NewTip:      testTree.Dag.Tip.Bytes(),
-		Payload:     sw.WrapObject(req).RawData(),
-		ObjectID:    []byte(treeDID),
-	}
+func sendTransaction(client *client.Client, group *types.NotaryGroup, shouldMeasure bool) {
+	fakeT := &testing.T{}
+	trans := testhelpers.NewValidTransaction(fakeT)
 
 	used := map[string]bool{}
 
 	if shouldMeasure {
-		go measureTransaction(client, treeDID)
+		go measureTransaction(client, group, string(trans.ObjectID))
 	}
 
 	tries := 0
 
 	for len(used) < benchmarkSignersFanoutNumber {
-		targetPublicKeyHex := bootstrapPublicKeys[rand.Intn(len(bootstrapPublicKeys))].EcdsaHexPublicKey
-		if used[targetPublicKeyHex] {
-			continue
-		}
-		used[targetPublicKeyHex] = true
+		target := group.GetRandomSigner()
+		used[target.ID] = true
 
-		targetPublicKeyBytes, err := hexutil.Decode(targetPublicKeyHex)
-		if err != nil {
-			panic("can't decode public key")
-		}
-		targetPublicKey := crypto.ToECDSAPub(targetPublicKeyBytes)
-
-		transBytes, err := trans.MarshalMsg(nil)
-		if err != nil {
-			panic("can't encode transaction")
-		}
-
-		err = client.Send(targetPublicKey, protocol.ID(gossip2.NewTransactionProtocol), transBytes, 30*time.Second)
+		err := client.SendTransaction(target, &trans)
 		if err != nil {
 			tries++
-			used[targetPublicKeyHex] = false
+			used[target.ID] = false
 			if tries > 5 {
 				panic(fmt.Sprintf("Couldn't add transaction, %v", err))
 			}
@@ -169,24 +97,24 @@ func sendTransaction(client *gossip2client.GossipClient, shouldMeasure bool) {
 	activeCounter++
 }
 
-func performTpsBenchmark(client *gossip2client.GossipClient) {
+func performTpsBenchmark(client *client.Client, group *types.NotaryGroup) {
 	for benchmarkIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-			go sendTransaction(client, true)
+			go sendTransaction(client, group, true)
 		}
 		benchmarkIterations--
 		time.Sleep(1 * time.Second)
 	}
 }
 
-func performTpsNoAckBenchmark(client *gossip2client.GossipClient) {
+func performTpsNoAckBenchmark(client *client.Client, group *types.NotaryGroup) {
 	for benchmarkIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
 			// measure only the final iteration
 			if benchmarkIterations <= 1 {
-				go sendTransaction(client, true)
+				go sendTransaction(client, group, true)
 			} else {
-				go sendTransaction(client, false)
+				go sendTransaction(client, group, false)
 			}
 		}
 		benchmarkIterations--
@@ -194,10 +122,10 @@ func performTpsNoAckBenchmark(client *gossip2client.GossipClient) {
 	}
 }
 
-func performLoadBenchmark(client *gossip2client.GossipClient) {
+func performLoadBenchmark(client *client.Client, group *types.NotaryGroup) {
 	for benchmarkIterations > 0 {
 		if activeCounter < benchmarkConcurrency {
-			sendTransaction(client, true)
+			sendTransaction(client, group, true)
 			benchmarkIterations--
 		}
 		time.Sleep(30 * time.Millisecond)
@@ -210,13 +138,25 @@ var benchmark = &cobra.Command{
 	Short:  "runs a set of operations against a network at specified concurrency",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		groupNodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-		group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", groupNodeStore)
-		if group.IsGenesis() {
-			testNetMembers := bootstrapMembers(bootstrapPublicKeys)
-			group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
+		remote.Start()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			panic(fmt.Sprintf("error generating key: %v", err))
 		}
-		client := gossip2client.NewGossipClient(group, p2p.BootstrapNodes())
+		p2pHost, err := p2p.NewLibP2PHost(ctx, key, 0)
+		if err != nil {
+			panic("error setting up p2p host")
+		}
+		p2pHost.Bootstrap(p2p.BootstrapNodes())
+		remote.NewRouter(p2pHost)
+
+		group := setupNotaryGroup(nil, bootstrapPublicKeys)
+		group.SetupAllRemoteActors(&key.PublicKey)
+
+		client := client.New(group)
 
 		// Give time to bootstrap
 		time.Sleep(15 * time.Second)
@@ -228,11 +168,11 @@ var benchmark = &cobra.Command{
 
 		switch benchmarkStrategy {
 		case "tps":
-			go performTpsBenchmark(client)
+			go performTpsBenchmark(client, group)
 		case "tps-no-ack":
-			go performTpsNoAckBenchmark(client)
+			go performTpsNoAckBenchmark(client, group)
 		case "load":
-			go performLoadBenchmark(client)
+			go performLoadBenchmark(client, group)
 		default:
 			panic(fmt.Sprintf("Unknown benchmark strategy: %v", benchmarkStrategy))
 		}

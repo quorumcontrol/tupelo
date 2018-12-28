@@ -2,9 +2,6 @@ version: "3"
 services:
   bootstrap:
     build: .
-    volumes:
-      # - .storage:/var/lib/tupelo/.storage:delegated
-      - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "bootstrap-node", "-p", "34001"]
     environment:
       NODE_BLS_KEY_HEX: "0x1ef1cf13d52b2dbf3134d7fff6aa617c5cdac42ed89bd20007bfc93d00f0d0c6"
@@ -14,31 +11,37 @@ services:
         ipv4_address: 172.16.238.10
   node0:
     build: .
+    depends_on: 
+      - bootstrap
     volumes:
-      # - .storage:/var/lib/tupelo/.storage:delegated
-      - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
-    command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
+      - ./cmd/testnode-local-public-keys.json:/config/tupelo/docker/public-keys.json
+    command: ["/usr/bin/tupelo", "test-node", "-k", "docker"]
     environment:
+      XDG_CONFIG_HOME: /config
       NODE_BLS_KEY_HEX: "0x42662464ac1d3a623e8a8d435ebd7268e4ee607f052e900b38b4f7c7df4878d9"
       NODE_ECDSA_KEY_HEX: "0x18a64724c46f570cbfabe3ec9fed5ce878962f9cbd92caf97c3a282abb6dffa1"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   node1:
     build: .
+    depends_on: 
+      - bootstrap
     volumes:
-      # - .storage:/var/lib/tupelo/.storage:delegated
-      - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
-    command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
+      - ./cmd/testnode-local-public-keys.json:/config/tupelo/docker/public-keys.json
+    command: ["/usr/bin/tupelo", "test-node", "-k", "docker"]
     environment:
+      XDG_CONFIG_HOME: /config
       NODE_BLS_KEY_HEX: "0x7d7a1aa1a07e2123ddf1f99577cc06cbb8538e4a081873114d0b963bd26c6476"
       NODE_ECDSA_KEY_HEX: "0x5002ddc1fbf32885fe554499a10e97ec7feddfe9db989a81fb4f22d699fa47b3"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   node2:
     build: .
+    depends_on: 
+      - bootstrap   
     volumes:
-      # - .storage:/var/lib/tupelo/.storage:delegated
-      - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
-    command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
+      - ./cmd/testnode-local-public-keys.json:/config/tupelo/docker/public-keys.json
+    command: ["/usr/bin/tupelo", "test-node", "-k", "docker"]
     environment:
+      XDG_CONFIG_HOME: /config
       NODE_BLS_KEY_HEX: "0x5e7d734b55705fd096600f26b38cd0a4b33685d41cfc04dd4e03de27b06de53d"
       NODE_ECDSA_KEY_HEX: "0x2273d296407e999c0f8a6970aa55cee05baf1ff5cfc5a231f99fba6200a14849"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
