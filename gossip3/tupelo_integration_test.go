@@ -33,7 +33,7 @@ const (
 )
 
 func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("test notary")
 
 	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal].ToEcdsaPub(), testSet.SignKeys[indexOfLocal])
 	commitPath := testCommitPath + "/" + localSigner.ID

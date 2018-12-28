@@ -1,4 +1,4 @@
-package actors
+package testhelpers
 
 import (
 	"crypto/ecdsa"
@@ -16,18 +16,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newValidTransaction(t testing.TB) messages.Transaction {
+func NewValidTransaction(t testing.TB) messages.Transaction {
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
 
-	return newValidTransactionWithKey(t, treeKey)
+	return NewValidTransactionWithKey(t, treeKey)
 }
 
-func newValidTransactionWithKey(t testing.TB, treeKey *ecdsa.PrivateKey) messages.Transaction {
-	return newValidTransactionWithPathAndValue(t, treeKey, "down/in/the/thing", "hi")
+func NewValidTransactionWithKey(t testing.TB, treeKey *ecdsa.PrivateKey) messages.Transaction {
+	return NewValidTransactionWithPathAndValue(t, treeKey, "down/in/the/thing", "hi")
 }
 
-func newValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey, path, value string) messages.Transaction {
+func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey, path, value string) messages.Transaction {
 	sw := safewrap.SafeWrap{}
 
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
@@ -84,6 +84,6 @@ func dagToByteNodes(t testing.TB, dagTree *dag.Dag) [][]byte {
 
 var nullActorFunc = func(_ actor.Context) {}
 
-func newNullActorProps() *actor.Props {
+func NewNullActorProps() *actor.Props {
 	return actor.FromFunc(nullActorFunc)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ import (
 )
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
@@ -58,7 +59,7 @@ func TestCommits(t *testing.T) {
 	t.Logf("syncer 0 id: %s", syncers[0].ID)
 
 	for i := 0; i < 100; i++ {
-		trans := newValidTransaction(t)
+		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
@@ -84,7 +85,7 @@ func TestCommits(t *testing.T) {
 	}
 
 	t.Run("removes bad transactions", func(t *testing.T) {
-		trans := newValidTransaction(t)
+		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
 		bits = append([]byte{byte(1)}, bits...) // append a bad byte
@@ -106,7 +107,7 @@ func TestCommits(t *testing.T) {
 	})
 
 	t.Run("commits a good transaction", func(t *testing.T) {
-		trans := newValidTransaction(t)
+		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
@@ -130,7 +131,7 @@ func TestCommits(t *testing.T) {
 	})
 
 	t.Run("reaches another node", func(t *testing.T) {
-		trans := newValidTransaction(t)
+		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
@@ -172,7 +173,7 @@ func TestTupeloMemStorage(t *testing.T) {
 	require.Len(t, system.Signers, numMembers)
 	syncer := system.AllSigners()[0].Actor
 
-	trans := newValidTransaction(t)
+	trans := testhelpers.NewValidTransaction(t)
 	bits, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
 	id := crypto.Keccak256(bits)
