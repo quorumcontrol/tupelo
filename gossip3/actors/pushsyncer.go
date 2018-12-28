@@ -200,8 +200,9 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 	subtracted := localIBF.Subtract(msg.Filter)
 	diff, err := subtracted.Decode()
 	if err != nil {
-		syncer.Log.Errorw("error getting diff from peer %s (remote size: %d): %v", "err", err)
+		syncer.Log.Errorw("error getting diff", "peer", context.Sender(), "diff", len(msg.Filter.Cells), "err", err)
 		syncer.syncDone(context)
+		return
 	}
 	syncer.handleDiff(context, diff, messages.FromActorPid(msg.Destination))
 }
