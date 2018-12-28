@@ -17,6 +17,8 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
+const maxBridgeBackoffs = 10
+
 type internalStreamDied struct {
 	id  uint64
 	err error
@@ -34,6 +36,7 @@ type Bridge struct {
 	stream       pnet.Stream
 	streamCtx    gocontext.Context
 	streamCancel gocontext.CancelFunc
+	backoffCount int
 }
 
 func newBridgeProps(host p2p.Node, remoteAddress peer.ID) *actor.Props {
@@ -127,7 +130,13 @@ func (b *Bridge) handleOutgoingWireDelivery(context actor.Context, wd *WireDeliv
 			if err == p2p.ErrDialBackoff {
 				// back off dialing if we have trouble with the stream
 				// non-cryptographic random here to add jitter
-				time.Sleep(time.Duration(rand.Intn(200)) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Intn(500)) * time.Millisecond)
+				b.backoffCount++
+				if b.backoffCount > maxBridgeBackoffs {
+					context.Self().Stop()
+					b.Log.Infow("maximum backoff reached - possibly dropped messages", "count", b.backoffCount)
+					return
+				}
 			}
 			context.Forward(context.Self())
 			return
