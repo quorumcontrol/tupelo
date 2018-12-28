@@ -91,9 +91,16 @@ func createHostsAndBridges(ctx context.Context, t *testing.T, bootstrap p2p.Node
 		nodes[i] = node
 		remote.NewRouter(node)
 	}
+	wg := sync.WaitGroup{}
 	for _, node := range nodes {
-		node.WaitForBootstrap(1 * time.Second)
+		wg.Add(1)
+		go func() {
+			err := node.WaitForBootstrap(1, 1*time.Second)
+			wg.Done()
+			require.Nil(t, err)
+		}()
 	}
+	wg.Wait()
 }
 
 func TestLibP2PSigning(t *testing.T) {
@@ -139,7 +146,8 @@ func TestLibP2PSigning(t *testing.T) {
 	clientHost, err := p2p.NewLibP2PHost(ctx, clientKey, 0)
 	require.Nil(t, err)
 	clientHost.Bootstrap(bootAddrs)
-	clientHost.WaitForBootstrap(1 * time.Second)
+	err = clientHost.WaitForBootstrap(1, 1*time.Second)
+	require.Nil(t, err)
 
 	remote.NewRouter(clientHost)
 	client := client.New(systems[0])

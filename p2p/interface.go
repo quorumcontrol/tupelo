@@ -20,7 +20,7 @@ type Node interface {
 	PublicKey() *ecdsa.PublicKey
 	Addresses() []ma.Multiaddr
 	Bootstrap(peers []string) (io.Closer, error)
-	WaitForBootstrap(timeout time.Duration) error
+	WaitForBootstrap(peerCount int, timeout time.Duration) error
 	SetStreamHandler(protocol protocol.ID, handler net.StreamHandler)
 	NewStream(ctx context.Context, publicKey *ecdsa.PublicKey, protocol protocol.ID) (net.Stream, error)
 	NewStreamWithPeerID(ctx context.Context, peerID peer.ID, protocol protocol.ID) (net.Stream, error)
