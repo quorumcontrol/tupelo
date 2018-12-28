@@ -1,6 +1,7 @@
 package types
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
@@ -75,6 +76,12 @@ func (ng *NotaryGroup) GetRandomSigner() *Signer {
 
 func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
 	return ng.GetRandomSigner().Actor
+}
+
+func (ng *NotaryGroup) SetupAllRemoteActors(localKey *ecdsa.PublicKey) {
+	for _, signer := range ng.AllSigners() {
+		signer.Actor = actor.NewPID(signer.ActorAddress(localKey), "tupelo-"+signer.ID)
+	}
 }
 
 func randInt(max int) int {
