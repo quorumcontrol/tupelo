@@ -20,8 +20,10 @@ type remoteManger struct {
 var globalManager *remoteManger
 
 func Start() {
-	globalManager = newRemoteManager()
-	actor.ProcessRegistry.RegisterAddressResolver(remoteHandler)
+	if globalManager == nil {
+		globalManager = newRemoteManager()
+		actor.ProcessRegistry.RegisterAddressResolver(remoteHandler)
+	}
 }
 
 func Stop() {
