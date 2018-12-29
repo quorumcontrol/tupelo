@@ -144,6 +144,5 @@ func stopOnSignal(signers ...*gossip2.GossipNode) {
 
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
-	testnodeCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
 }

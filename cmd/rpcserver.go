@@ -142,10 +142,11 @@ func panicWithoutTLSOpts() {
 }
 
 var (
-	tls                   bool
 	certFile              string
-	keyFile               string
 	localNetworkNodeCount int
+	keyFile               string
+	remote                bool
+	tls                   bool
 )
 
 var rpcServerCmd = &cobra.Command{
@@ -173,7 +174,6 @@ var rpcServerCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(rpcServerCmd)
-	rpcServerCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which public keys to bootstrap the notary groups with")
 	rpcServerCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 	rpcServerCmd.Flags().BoolVarP(&tls, "tls", "t", false, "Encrypt connections with TLS/SSL")
 	rpcServerCmd.Flags().StringVarP(&certFile, "tls-cert", "C", "", "TLS certificate file")
