@@ -16,7 +16,6 @@ var shellName string
 var shellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "Launch a Tupelo wallet shell connected to a local or remote signer network.",
-	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		var bootstrapAddrs []string = p2p.BootstrapNodes()
 		if localNetworkNodeCount > 0 {

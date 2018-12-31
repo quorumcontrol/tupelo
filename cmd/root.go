@@ -45,10 +45,12 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 	return lvl, nil
 }
 
-var logLvlName string
-var cfgFile string
-var bootstrapPublicKeysFile string
-var bootstrapPublicKeys []*PublicKeySet
+var (
+	bootstrapPublicKeys   []*PublicKeySet
+	cfgFile               string
+	logLvlName            string
+	overrideKeysFile      string
+)
 
 func configDir(namespace string) *configdir.Config {
 	conf := configdir.New("tupelo", namespace)
@@ -88,9 +90,9 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if bootstrapPublicKeysFile != "" {
+		if overrideKeysFile != "" {
 			var err error
-			bootstrapPublicKeys, err = loadPublicKeyFile(bootstrapPublicKeysFile)
+			bootstrapPublicKeys, err = loadPublicKeyFile(overrideKeysFile)
 			if err != nil {
 				panic(fmt.Sprintf("Error loading public keys: %v", err))
 			}
@@ -131,8 +133,7 @@ func init() {
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
-	rootCmd.PersistentFlags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
-
+	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "which keys to bootstrap the notary groups with")
 }
 
 // initConfig reads in config file and ENV variables if set.
