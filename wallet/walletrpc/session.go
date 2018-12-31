@@ -53,7 +53,7 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func NewSession(storagePath string, walletName string, group *consensus.NotaryGroup, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
+func NewSession(storagePath string, walletName string, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
 	path := walletPath(storagePath, walletName)
 
 	fileWallet := wallet.NewFileWallet(path)

@@ -141,10 +141,19 @@ func panicWithoutTLSOpts() {
 	}
 }
 
+func startClient(bootstrapAddrs []string) *gossip2client.GossipClient {
+	notaryGroup := setupNotaryGroup(storage.NewMemStorage())
+	return gossip2client.NewGossipClient(notaryGroup, bootstrapAddrs)
+}
+
+func walletPath() string {
+	return configDir("wallets").Path
+}
+
 var (
 	certFile              string
-	localNetworkNodeCount int
 	keyFile               string
+	localNetworkNodeCount int
 	remote                bool
 	tls                   bool
 )
@@ -153,21 +162,22 @@ var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
-		bootstrapAddrs := p2p.BootstrapNodes()
+		var bootstrapAddrs []string
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			bootstrapAddrs = setupLocalNetwork(ctx, localNetworkNodeCount)
+		} else {
+			bootstrapAddrs = p2p.BootstrapNodes()
 		}
 
-		walletStorage := configDir("wallets").Path
-		notaryGroup := setupNotaryGroup(storage.NewMemStorage())
-		client := gossip2client.NewGossipClient(notaryGroup, bootstrapAddrs)
+		walletStorage := walletPath()
+		client := startClient(bootstrapAddrs)
 		if tls {
 			panicWithoutTLSOpts()
-			walletrpc.ServeTLS(walletStorage, notaryGroup, client, certFile, keyFile)
+			walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
 		} else {
-			walletrpc.ServeInsecure(walletStorage, notaryGroup, client)
+			walletrpc.ServeInsecure(walletStorage, client)
 		}
 	},
 }
