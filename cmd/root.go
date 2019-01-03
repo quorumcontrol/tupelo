@@ -15,7 +15,9 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -25,6 +27,20 @@ import (
 	"github.com/shibukawa/configdir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	localConfig      = "local-network"
+	remoteConfig     = "remote-network"
+	bootstrapKeyFile = "bootstrap-keys.json"
+)
+
+var (
+	bootstrapPublicKeys []*PublicKeySet
+	cfgFile             string
+	logLvlName          string
+	newKeysFile         string
+	overrideKeysFile    string
 )
 
 var logLevels = map[string]log.Lvl{
@@ -44,13 +60,6 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 
 	return lvl, nil
 }
-
-var (
-	bootstrapPublicKeys   []*PublicKeySet
-	cfgFile               string
-	logLvlName            string
-	overrideKeysFile      string
-)
 
 func configDir(namespace string) *configdir.Config {
 	conf := configdir.New("tupelo", namespace)
@@ -73,6 +82,40 @@ func writeConfig(namespace string, name string, data []byte) error {
 	return folder.WriteFile(name, data)
 }
 
+func loadBootstrapKeyFile(path string) ([]*PublicKeySet, error) {
+	var keySet []*PublicKeySet
+
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading path %v: %v", path, err)
+	}
+
+	err = unmarshalKeys(keySet, file)
+
+	return keySet, err
+}
+
+func saveBootstrapKeys(keys []*PublicKeySet) error {
+	bootstrapKeyJson, err := json.Marshal(keys)
+	if err != nil {
+		return fmt.Errorf("Error marshaling bootstrap keys: %v", err)
+	}
+
+	err = writeConfig(remoteConfig, bootstrapKeyFile, bootstrapKeyJson)
+	if err != nil {
+		return fmt.Errorf("error writing bootstrap keys: %v", err)
+	}
+
+	return nil
+}
+
+func readBootstrapKeys() ([]*PublicKeySet, error) {
+	var keySet []*PublicKeySet
+	err := loadKeyFile(keySet, remoteConfig, bootstrapKeyFile)
+
+	return keySet, err
+}
+
 type PublicKeySet struct {
 	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
 	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
@@ -91,10 +134,18 @@ var rootCmd = &cobra.Command{
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if overrideKeysFile != "" {
-			var err error
-			bootstrapPublicKeys, err = loadPublicKeyFile(overrideKeysFile)
+			publicKeys, err := loadPublicKeyFile(overrideKeysFile)
 			if err != nil {
 				panic(fmt.Sprintf("Error loading public keys: %v", err))
+			}
+
+			bootstrapPublicKeys = publicKeys
+		} else {
+			publicKeys, err := readBootstrapKeys()
+			if err != nil {
+				fmt.Printf("error loading stored bootstrap keys: %v", err)
+			} else {
+				bootstrapPublicKeys = publicKeys
 			}
 		}
 
@@ -105,9 +156,22 @@ var rootCmd = &cobra.Command{
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
 		if err != nil {
-			fmt.Println("unkown ipfs log level")
+			fmt.Println("unknown ipfs log level")
 		}
 
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		if newKeysFile != "" {
+			keys, err := loadBootstrapKeyFile(newKeysFile)
+			if err != nil {
+				panic(fmt.Sprintf("Error loading bootstrap keys: %v", err))
+			}
+
+			err = saveBootstrapKeys(keys)
+			if err != nil {
+				panic(fmt.Sprintf("Error saving bootstrap keys: %v", err))
+			}
+		}
 	},
 }
 
@@ -134,6 +198,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
 	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "which keys to bootstrap the notary groups with")
+	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of key file to import")
 }
 
 // initConfig reads in config file and ENV variables if set.

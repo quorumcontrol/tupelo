@@ -15,7 +15,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const localConfig = "local-network"
+func unmarshalKeys(keySet interface{}, bytes []byte) error {
+	if bytes != nil {
+		err := json.Unmarshal(bytes, keySet)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 func loadKeyFile(keySet interface{}, namespace string, name string) error {
 	jsonBytes, err := readConfig(namespace, name)
@@ -23,14 +32,7 @@ func loadKeyFile(keySet interface{}, namespace string, name string) error {
 		return fmt.Errorf("error loading key file: %v", err)
 	}
 
-	if jsonBytes != nil {
-		err = json.Unmarshal(jsonBytes, keySet)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return unmarshalKeys(keySet, jsonBytes)
 }
 
 func loadPublicKeyFile(namespace string) ([]*PublicKeySet, error) {
@@ -51,13 +53,13 @@ func loadPrivateKeyFile(namespace string) ([]*PrivateKeySet, error) {
 	return keySet, err
 }
 
-func loadKeys(network string, num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
-	privateKeys, err := loadPrivateKeyFile(network)
+func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
+	privateKeys, err := loadPrivateKeyFile(localConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error loading private keys: %v", err)
 	}
 
-	publicKeys, err := loadPublicKeyFile(network)
+	publicKeys, err := loadPublicKeyFile(localConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error loading public keys: %v", err)
 	}
@@ -72,7 +74,7 @@ func loadKeys(network string, num int) ([]*PrivateKeySet, []*PublicKeySet, error
 		combinedPrivateKeys := append(privateKeys, extraPrivateKeys...)
 		combinedPublicKeys := append(publicKeys, extraPublicKeys...)
 
-		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, network)
+		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, localConfig)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error writing extra node keys: %v", err)
 		}
@@ -86,7 +88,7 @@ func loadKeys(network string, num int) ([]*PrivateKeySet, []*PublicKeySet, error
 }
 
 func setupLocalNetwork(ctx context.Context, nodeCount int) (bootstrapAddrs []string) {
-	privateKeys, publicKeys, err := loadKeys(localConfig, nodeCount)
+	privateKeys, publicKeys, err := loadLocalKeys(nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
 	}
