@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
@@ -30,8 +31,6 @@ import (
 )
 
 const (
-	localConfig      = "local-network"
-	remoteConfig     = "remote-network"
 	bootstrapKeyFile = "bootstrap-keys.json"
 )
 
@@ -41,6 +40,9 @@ var (
 	logLvlName          string
 	newKeysFile         string
 	overrideKeysFile    string
+
+	localConfig  = configDir("local-network")
+	remoteConfig = configDir("remote-network")
 )
 
 var logLevels = map[string]log.Lvl{
@@ -61,25 +63,29 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 	return lvl, nil
 }
 
-func configDir(namespace string) *configdir.Config {
+func configDir(namespace string) string {
 	conf := configdir.New("tupelo", namespace)
 	folders := conf.QueryFolders(configdir.Global)
 
-	return folders[0]
+	return folders[0].Path
 }
 
-func readConfig(namespace string, name string) ([]byte, error) {
-	folder := configDir(namespace)
-	if !folder.Exists(name) {
+func readConfig(path string, filename string) ([]byte, error) {
+	_, err := os.Stat(filepath.Join(path, filename))
+	if os.IsNotExist(err) {
 		return nil, nil
 	}
 
-	return folder.ReadFile(name)
+	return ioutil.ReadFile(filepath.Join(path, filename))
 }
 
-func writeConfig(namespace string, name string, data []byte) error {
-	folder := configDir(namespace)
-	return folder.WriteFile(name, data)
+func writeFile(parentDir string, filename string, data []byte) error {
+	err := os.MkdirAll(parentDir, 0755)
+	if err != nil {
+		return fmt.Errorf("error creating directory: %v", err)
+	}
+
+	return ioutil.WriteFile(filepath.Join(parentDir, filename), data, 0644)
 }
 
 func loadBootstrapKeyFile(path string) ([]*PublicKeySet, error) {
@@ -101,7 +107,7 @@ func saveBootstrapKeys(keys []*PublicKeySet) error {
 		return fmt.Errorf("Error marshaling bootstrap keys: %v", err)
 	}
 
-	err = writeConfig(remoteConfig, bootstrapKeyFile, bootstrapKeyJson)
+	err = writeFile(remoteConfig, bootstrapKeyFile, bootstrapKeyJson)
 	if err != nil {
 		return fmt.Errorf("error writing bootstrap keys: %v", err)
 	}
@@ -188,7 +194,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
-	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "which keys to bootstrap the notary groups with")
+	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "path to notary group bootstrap keys file")
 	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of a notary group key file to import")
 }
 

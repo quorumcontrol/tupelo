@@ -104,7 +104,7 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
 	log.Info("starting up a test node", "id", id)
 
-	storagePath := configDir(namespace).Path
+	storagePath := configDir(namespace)
 	os.MkdirAll(storagePath, 0700)
 
 	db := filepath.Join(storagePath, id+"-chains")

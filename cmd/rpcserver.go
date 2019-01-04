@@ -26,8 +26,8 @@ func unmarshalKeys(keySet interface{}, bytes []byte) error {
 	return nil
 }
 
-func loadKeyFile(keySet interface{}, namespace string, name string) error {
-	jsonBytes, err := readConfig(namespace, name)
+func loadKeyFile(keySet interface{}, path string, name string) error {
+	jsonBytes, err := readConfig(path, name)
 	if err != nil {
 		return fmt.Errorf("error loading key file: %v", err)
 	}
@@ -35,20 +35,20 @@ func loadKeyFile(keySet interface{}, namespace string, name string) error {
 	return unmarshalKeys(keySet, jsonBytes)
 }
 
-func loadPublicKeyFile(namespace string) ([]*PublicKeySet, error) {
+func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
 	var keySet []*PublicKeySet
 	var err error
 
-	err = loadKeyFile(&keySet, namespace, publicKeyFile)
+	err = loadKeyFile(&keySet, path, publicKeyFile)
 
 	return keySet, err
 }
 
-func loadPrivateKeyFile(namespace string) ([]*PrivateKeySet, error) {
+func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
 	var keySet []*PrivateKeySet
 	var err error
 
-	err = loadKeyFile(&keySet, namespace, privateKeyFile)
+	err = loadKeyFile(&keySet, path, privateKeyFile)
 
 	return keySet, err
 }
@@ -149,7 +149,7 @@ func startClient(bootstrapAddrs []string) *gossip2client.GossipClient {
 }
 
 func walletPath() string {
-	return configDir("wallets").Path
+	return configDir("wallets")
 }
 
 var (

@@ -67,13 +67,13 @@ const (
 	privateKeyFile = "private-keys.json"
 )
 
-func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, namespace string) error {
+func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, path string) error {
 	publicKeyJson, err := json.Marshal(publicKeys)
 	if err != nil {
 		return fmt.Errorf("Error marshaling public keys: %v", err)
 	}
 
-	err = writeConfig(namespace, publicKeyFile, publicKeyJson)
+	err = writeFile(path, publicKeyFile, publicKeyJson)
 	if err != nil {
 		return fmt.Errorf("error writing public keys: %v", err)
 	}
@@ -83,7 +83,7 @@ func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, nam
 		return fmt.Errorf("Error marshaling private keys: %v", err)
 	}
 
-	err = writeConfig(namespace, privateKeyFile, privateKeyJson)
+	err = writeFile(path, privateKeyFile, privateKeyJson)
 	if err != nil {
 		return fmt.Errorf("error writing private keys: %v", err)
 	}
