@@ -121,14 +121,4 @@ func init() {
 	generateNodeKeysCmd.Flags().IntVarP(&generateNodeKeysCount, "count", "c", 1, "how many keys to generate")
 	generateNodeKeysCmd.Flags().StringVarP(&generateNodeKeysOutput, "output", "o", "text", "format for keys output (default text): text, json-file")
 	generateNodeKeysCmd.Flags().StringVarP(&generateNodeKeysPath, "path", "p", ".", "directory to store files if using json")
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// generateNodeKeysCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// generateNodeKeysCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

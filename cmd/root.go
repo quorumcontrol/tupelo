@@ -187,18 +187,9 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tupelo.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
 	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "which keys to bootstrap the notary groups with")
-	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of key file to import")
+	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of a notary group key file to import")
 }
 
 // initConfig reads in config file and ENV variables if set.
