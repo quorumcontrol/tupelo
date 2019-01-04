@@ -151,6 +151,10 @@ var benchmark = &cobra.Command{
 			panic("error setting up p2p host")
 		}
 		p2pHost.Bootstrap(p2p.BootstrapNodes())
+		err = p2pHost.WaitForBootstrap(1, 10*time.Second)
+		if err != nil {
+			panic(fmt.Sprintf("error, timed out waiting for bootstrap"))
+		}
 		remote.NewRouter(p2pHost)
 
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
