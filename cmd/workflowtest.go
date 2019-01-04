@@ -88,5 +88,4 @@ var workflowtest = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(workflowtest)
-	workflowtest.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 }

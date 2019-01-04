@@ -15,15 +15,34 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/shibukawa/configdir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+)
+
+const (
+	bootstrapKeyFile = "bootstrap-keys.json"
+)
+
+var (
+	bootstrapPublicKeys []*PublicKeySet
+	cfgFile             string
+	logLvlName          string
+	newKeysFile         string
+	overrideKeysFile    string
+
+	localConfig  = configDir("local-network")
+	remoteConfig = configDir("remote-network")
 )
 
 var logLevels = map[string]log.Lvl{
@@ -44,10 +63,64 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 	return lvl, nil
 }
 
-var logLvlName string
-var cfgFile string
-var bootstrapPublicKeysFile string
-var bootstrapPublicKeys []*PublicKeySet
+func configDir(namespace string) string {
+	conf := configdir.New("tupelo", namespace)
+	folders := conf.QueryFolders(configdir.Global)
+
+	return folders[0].Path
+}
+
+func readConfig(path string, filename string) ([]byte, error) {
+	_, err := os.Stat(filepath.Join(path, filename))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	return ioutil.ReadFile(filepath.Join(path, filename))
+}
+
+func writeFile(parentDir string, filename string, data []byte) error {
+	err := os.MkdirAll(parentDir, 0755)
+	if err != nil {
+		return fmt.Errorf("error creating directory: %v", err)
+	}
+
+	return ioutil.WriteFile(filepath.Join(parentDir, filename), data, 0644)
+}
+
+func loadBootstrapKeyFile(path string) ([]*PublicKeySet, error) {
+	var keySet []*PublicKeySet
+
+	file, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading path %v: %v", path, err)
+	}
+
+	err = unmarshalKeys(keySet, file)
+
+	return keySet, err
+}
+
+func saveBootstrapKeys(keys []*PublicKeySet) error {
+	bootstrapKeyJson, err := json.Marshal(keys)
+	if err != nil {
+		return fmt.Errorf("Error marshaling bootstrap keys: %v", err)
+	}
+
+	err = writeFile(remoteConfig, bootstrapKeyFile, bootstrapKeyJson)
+	if err != nil {
+		return fmt.Errorf("error writing bootstrap keys: %v", err)
+	}
+
+	return nil
+}
+
+func readBootstrapKeys() ([]*PublicKeySet, error) {
+	var keySet []*PublicKeySet
+	err := loadKeyFile(keySet, remoteConfig, bootstrapKeyFile)
+
+	return keySet, err
+}
 
 type PublicKeySet struct {
 	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
@@ -63,19 +136,22 @@ type PrivateKeySet struct {
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "tupelo",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Tupelo interface",
+	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if bootstrapPublicKeysFile != "" {
-			var err error
-			bootstrapPublicKeys, err = loadPublicKeyFile(bootstrapPublicKeysFile)
+		if overrideKeysFile != "" {
+			publicKeys, err := loadPublicKeyFile(overrideKeysFile)
 			if err != nil {
-				panic("Error loading public keys file")
+				panic(fmt.Sprintf("Error loading public keys: %v", err))
+			}
+
+			bootstrapPublicKeys = publicKeys
+		} else {
+			publicKeys, err := readBootstrapKeys()
+			if err != nil {
+				fmt.Printf("error loading stored bootstrap keys: %v", err)
+			} else {
+				bootstrapPublicKeys = publicKeys
 			}
 		}
 
@@ -86,14 +162,23 @@ to quickly create a Cobra application.`,
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
 		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
 		if err != nil {
-			fmt.Println("unkown ipfs log level")
+			fmt.Println("unknown ipfs log level")
 		}
 
 	},
+	Run: func(cmd *cobra.Command, args []string) {
+		if newKeysFile != "" {
+			keys, err := loadBootstrapKeyFile(newKeysFile)
+			if err != nil {
+				panic(fmt.Sprintf("Error loading bootstrap keys: %v", err))
+			}
 
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+			err = saveBootstrapKeys(keys)
+			if err != nil {
+				panic(fmt.Sprintf("Error saving bootstrap keys: %v", err))
+			}
+		}
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -108,16 +193,9 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tupelo.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
+	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "path to notary group bootstrap keys file")
+	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of a notary group key file to import")
 }
 
 // initConfig reads in config file and ENV variables if set.

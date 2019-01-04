@@ -805,6 +805,14 @@
   revision = "49a4782e9908fe098c907022a1bd7519c79803d6"
 
 [[projects]]
+  branch = "master"
+  digest = "1:adea3123626b97cc02423f77f21d6cd85c9461c3ad3221d62af604660c17a5a6"
+  name = "github.com/shibukawa/configdir"
+  packages = ["."]
+  pruneopts = ""
+  revision = "e180dbdc8da04c4fa04272e875ce64949f38bd3e"
+
+[[projects]]
   digest = "1:633b5b39909d9d794f5543baee4971890e1866f5c082cdf4694954c1ff489a18"
   name = "github.com/spaolacci/murmur3"
   packages = ["."]
@@ -1169,6 +1177,7 @@
     "github.com/quorumcontrol/chaintree/typecaster",
     "github.com/quorumcontrol/differencedigest/ibf",
     "github.com/quorumcontrol/storage",
+    "github.com/shibukawa/configdir",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",

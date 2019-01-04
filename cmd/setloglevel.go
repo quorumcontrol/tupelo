@@ -41,5 +41,4 @@ var setloglevel = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(setloglevel)
-	setloglevel.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 }

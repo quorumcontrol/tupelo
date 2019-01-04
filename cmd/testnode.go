@@ -17,12 +17,9 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
-	"os/user"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -45,51 +42,6 @@ var (
 	EcdsaKeys    []*ecdsa.PrivateKey
 	testnodePort int
 )
-
-func expandHomePath(path string) (string, error) {
-	currentUser, err := user.Current()
-	if err != nil {
-		return "", fmt.Errorf("error getting current user: %v", err)
-	}
-	homeDir := currentUser.HomeDir
-
-	if path[:2] == "~/" {
-		path = filepath.Join(homeDir, path[2:])
-	}
-	return path, nil
-}
-
-func loadJSON(path string) ([]byte, error) {
-	if path == "" {
-		return nil, nil
-	}
-	modPath, err := expandHomePath(path)
-	if err != nil {
-		return nil, err
-	}
-	_, err = os.Stat(modPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return ioutil.ReadFile(modPath)
-}
-
-func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
-	var jsonLoadedKeys []*PublicKeySet
-
-	jsonBytes, err := loadJSON(path)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(jsonBytes, &jsonLoadedKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	return jsonLoadedKeys, nil
-}
 
 func bootstrapMembers(keys []*PublicKeySet) (members []*consensus.RemoteNode) {
 	for _, keySet := range keys {
@@ -122,7 +74,7 @@ var testnodeCmd = &cobra.Command{
 		logging.SetLogLevel("gossip", "ERROR")
 		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
-		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, testnodePort)
+		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
 		signer.Host.Bootstrap(p2p.BootstrapNodes())
 		go signer.Start()
 		stopOnSignal(signer)
@@ -141,7 +93,7 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 	return group
 }
 
-func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, port int) *gossip2.GossipNode {
+func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, namespace string, port int) *gossip2.GossipNode {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
@@ -152,8 +104,11 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
 	log.Info("starting up a test node", "id", id)
 
-	os.MkdirAll(".storage", 0700)
-	badgerStorage, err := storage.NewBadgerStorage(filepath.Join(".storage", "testnode-chains-"+id))
+	storagePath := configDir(namespace)
+	os.MkdirAll(storagePath, 0700)
+
+	db := filepath.Join(storagePath, id+"-chains")
+	badgerStorage, err := storage.NewBadgerStorage(db)
 	if err != nil {
 		panic(fmt.Sprintf("error creating storage: %v", err))
 	}
@@ -189,6 +144,5 @@ func stopOnSignal(signers ...*gossip2.GossipNode) {
 
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
-	testnodeCmd.Flags().StringVarP(&bootstrapPublicKeysFile, "bootstrap-keys", "k", "", "which keys to bootstrap the notary groups with")
 	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
 }
