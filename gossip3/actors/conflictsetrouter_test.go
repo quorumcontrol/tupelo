@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
@@ -35,7 +36,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(newNullActorProps())
+	sender := actor.Spawn(testhelpers.NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -66,7 +67,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	defer parent.Poison()
 
 	t.Run("reaches quorum", func(t *testing.T) {
-		trans := newValidTransaction(t)
+		trans := testhelpers.NewValidTransaction(t)
 		transWrapper := fakeValidateTransaction(t, &trans)
 
 		_, err = isReadyFuture.Result()
@@ -97,7 +98,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		trans := make([]*messages.TransactionWrapper, len(sigGeneratorActors))
 		var conflictSetID string
 		for i := 0; i < len(trans); i++ {
-			tr := newValidTransactionWithPathAndValue(t, treeKey, "path/to/somewhere", strconv.Itoa(i))
+			tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "path/to/somewhere", strconv.Itoa(i))
 			require.Truef(t, conflictSetID == "" || tr.ConflictSetID() == conflictSetID, "test transactions should all be in the same conflict set")
 			conflictSetID = tr.ConflictSetID()
 			trans[i] = fakeValidateTransaction(t, &tr)
@@ -147,7 +148,7 @@ func fakeValidateTransaction(t testing.TB, trans *messages.Transaction) *message
 }
 
 func newActorlessSystem(testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("actorless")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)

@@ -12,6 +12,7 @@ import (
 )
 
 type NotaryGroup struct {
+	ID        string
 	Signers   map[string]*Signer
 	sortedIds []string
 }
@@ -24,8 +25,9 @@ func (ng *NotaryGroup) GetMajorityCount() int64 {
 	return required
 }
 
-func NewNotaryGroup() *NotaryGroup {
+func NewNotaryGroup(id string) *NotaryGroup {
 	return &NotaryGroup{
+		ID:      id,
 		Signers: make(map[string]*Signer),
 	}
 }
@@ -66,9 +68,13 @@ func (ng *NotaryGroup) QuorumCount() uint64 {
 	return uint64(math.Ceil((float64(len(ng.sortedIds)) / 3) * 2))
 }
 
-func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
+func (ng *NotaryGroup) GetRandomSigner() *Signer {
 	id := ng.sortedIds[randInt(len(ng.sortedIds))]
-	return ng.Signers[id].Actor
+	return ng.Signers[id]
+}
+
+func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
+	return ng.GetRandomSigner().Actor
 }
 
 func randInt(max int) int {

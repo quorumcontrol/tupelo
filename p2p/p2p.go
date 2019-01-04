@@ -134,7 +134,7 @@ func (h *LibP2PHost) Bootstrap(peers []string) (io.Closer, error) {
 	return Bootstrap(h.host, h.routing, bootstrapCfg)
 }
 
-func (h *LibP2PHost) WaitForBootstrap(timeout time.Duration) error {
+func (h *LibP2PHost) WaitForBootstrap(peerCount int, timeout time.Duration) error {
 	if h.bootstrapConfig == nil {
 		return fmt.Errorf("error must call Bootstrap() before calling WaitForBootstrap")
 	}
@@ -147,7 +147,7 @@ func (h *LibP2PHost) WaitForBootstrap(timeout time.Duration) error {
 		select {
 		case <-ticker.C:
 			connected := h.host.Network().Peers()
-			if len(connected) >= h.bootstrapConfig.MinPeerThreshold {
+			if len(connected) >= peerCount {
 				return nil
 			}
 		case <-doneCh:

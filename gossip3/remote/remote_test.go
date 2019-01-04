@@ -19,7 +19,7 @@ import (
 )
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
@@ -71,7 +71,7 @@ func TestLocalStillWorks(t *testing.T) {
 }
 
 func TestRemoteMessageSending(t *testing.T) {
-	ts := testnotarygroup.NewTestSet(t, 3)
+	ts := testnotarygroup.NewTestSet(t, 4)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	bootstrap := newBootstrapHost(ctx, t)
@@ -88,8 +88,12 @@ func TestRemoteMessageSending(t *testing.T) {
 	require.Nil(t, err)
 	host3.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
 
-	// time to bootstrap
-	time.Sleep(500 * time.Millisecond)
+	err = host1.WaitForBootstrap(1, 1*time.Second)
+	require.Nil(t, err)
+	err = host2.WaitForBootstrap(1, 1*time.Second)
+	require.Nil(t, err)
+	err = host3.WaitForBootstrap(1, 1*time.Second)
+	require.Nil(t, err)
 
 	t.Logf("host1: %s / host2: %s / host3: %s", host1.Identity(), host2.Identity(), host3.Identity())
 
@@ -101,14 +105,17 @@ func TestRemoteMessageSending(t *testing.T) {
 		}
 	}
 
-	_, err = actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host1")
+	host1Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host1")
 	require.Nil(t, err)
+	defer host1Ping.Poison()
 
-	_, err = actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host2")
+	host2Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host2")
 	require.Nil(t, err)
+	defer host2Ping.Poison()
 
 	host3Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host3")
 	require.Nil(t, err)
+	defer host3Ping.Poison()
 
 	Start()
 	defer Stop()
@@ -117,10 +124,40 @@ func TestRemoteMessageSending(t *testing.T) {
 	NewRouter(host2)
 	NewRouter(host3)
 
-	remotePing := actor.NewPID(types.NewRoutableAddress(host1.Identity(), host3.Identity()).String(), host3Ping.GetId())
+	t.Run("ping", func(t *testing.T) {
+		remotePing := actor.NewPID(types.NewRoutableAddress(host1.Identity(), host3.Identity()).String(), host3Ping.GetId())
 
-	resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+		resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
 
-	assert.Nil(t, err)
-	assert.Equal(t, resp.(*messages.Pong).Msg, "hi")
+		assert.Nil(t, err)
+		assert.Equal(t, resp.(*messages.Pong).Msg, "hi")
+	})
+
+	t.Run("when the otherside is closed permanently", func(t *testing.T) {
+		newCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		host4, err := p2p.NewLibP2PHost(newCtx, ts.EcdsaKeys[3], 0)
+		require.Nil(t, err)
+		host4.Bootstrap(testnotarygroup.BootstrapAddresses(bootstrap))
+		err = host4.WaitForBootstrap(1, 1*time.Second)
+		require.Nil(t, err)
+		host4Ping, err := actor.SpawnNamed(actor.FromFunc(pingFunc), "ping-host4")
+		require.Nil(t, err)
+		remote4Ping := actor.NewPID(types.NewRoutableAddress(host1.Identity(), host4.Identity()).String(), host4Ping.GetId())
+
+		NewRouter(host4)
+
+		resp, err := remote4Ping.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+		assert.Equal(t, resp.(*messages.Pong).Msg, "hi")
+		assert.Nil(t, err)
+
+		host4Ping.Stop()
+		cancel()
+
+		resp, err = remote4Ping.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+		assert.NotNil(t, err)
+		assert.Nil(t, resp)
+	})
+
 }

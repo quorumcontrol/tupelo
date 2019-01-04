@@ -5,7 +5,6 @@ package gossip3
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"sync"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	libp2plogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
+	"github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/remote"
@@ -33,7 +33,7 @@ const (
 )
 
 func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
-	ng := types.NewNotaryGroup()
+	ng := types.NewNotaryGroup("test notary")
 
 	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal].ToEcdsaPub(), testSet.SignKeys[indexOfLocal])
 	commitPath := testCommitPath + "/" + localSigner.ID
@@ -78,8 +78,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 	return localSigner, ng, nil
 }
 
-func createHostsAndBridges(ctx context.Context, t *testing.T, testSet *testnotarygroup.TestSet) {
-	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+func createHostsAndBridges(ctx context.Context, t *testing.T, bootstrap p2p.Node, testSet *testnotarygroup.TestSet) {
 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
 
 	nodes := make([]p2p.Node, len(testSet.EcdsaKeys), len(testSet.EcdsaKeys))
@@ -92,6 +91,16 @@ func createHostsAndBridges(ctx context.Context, t *testing.T, testSet *testnotar
 		nodes[i] = node
 		remote.NewRouter(node)
 	}
+	wg := sync.WaitGroup{}
+	for _, node := range nodes {
+		wg.Add(1)
+		go func() {
+			err := node.WaitForBootstrap(1, 1*time.Second)
+			wg.Done()
+			require.Nil(t, err)
+		}()
+	}
+	wg.Wait()
 }
 
 func TestLibP2PSigning(t *testing.T) {
@@ -125,56 +134,50 @@ func TestLibP2PSigning(t *testing.T) {
 		signers := ng.AllSigners()
 		require.Len(t, signers, numMembers)
 	}
-	createHostsAndBridges(ctx, t, ts)
+	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
+
+	createHostsAndBridges(ctx, t, bootstrap, ts)
 	libp2plogging.SetLogLevel("swarm2", "ERROR")
 	time.Sleep(100 * time.Millisecond) // give time for bootstrap
+
+	clientKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	clientHost, err := p2p.NewLibP2PHost(ctx, clientKey, 0)
+	require.Nil(t, err)
+	clientHost.Bootstrap(bootAddrs)
+	err = clientHost.WaitForBootstrap(1, 1*time.Second)
+	require.Nil(t, err)
+
+	remote.NewRouter(clientHost)
+	client := client.New(systems[0])
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
 
-	trans := newValidTransaction(t)
-	bits, err := trans.MarshalMsg(nil)
-	require.Nil(t, err)
-	id := crypto.Keccak256(bits)
-
-	key := id
-	middleware.Log.Infow("tests", "key", key)
-	value := bits
-
 	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
+		err := client.SendTransaction(systems[0].GetRandomSigner(), &trans)
 		require.Nil(t, err)
-		key := crypto.Keccak256(bits)
-		localSyncers[rand.Intn(len(localSyncers))].Tell(&messages.Store{
-			Key:   key,
-			Value: bits,
-		})
-		if err != nil {
-			t.Fatalf("error sending transaction: %v", err)
-		}
 	}
+
+	trans := newValidTransaction(t)
 
 	for _, s := range localSyncers {
 		s.Tell(&messages.StartGossip{})
 	}
 	time.Sleep(200 * time.Millisecond) // give time for warmup
 
-	fut := actor.NewFuture(60 * time.Second)
-	localSyncers[0].Request(&messages.TipSubscription{
-		ObjectID: trans.ObjectID,
-	}, fut.PID())
+	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), 60*time.Second)
+	require.Nil(t, err)
 
-	localSyncers[0].Tell(&messages.Store{
-		Key:   key,
-		Value: value,
-	})
+	client.SendTransaction(systems[0].GetRandomSigner(), &trans)
 	start := time.Now()
 
-	resp, err := fut.Result()
-	require.Nil(t, err)
+	resp := <-ch
+	require.NotNil(t, resp)
 	stop := time.Now()
-	assert.Equal(t, resp.(*messages.CurrentState).Signature.NewTip, trans.NewTip)
+	assert.Equal(t, resp.Signature.NewTip, trans.NewTip)
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 60*time.Second)

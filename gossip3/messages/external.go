@@ -79,8 +79,8 @@ type SyncerAvailable struct {
 }
 
 type TipSubscription struct {
-	Subscriber ActorPID
-	ObjectID   []byte
+	Unsubscribe bool
+	ObjectID    []byte
 }
 
 type CurrentState struct {
