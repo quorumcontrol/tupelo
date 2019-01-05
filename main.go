@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	if os.Getenv("PPROF_ENABLED") == "true" {
+	if os.Getenv("TUPELO_PPROF_ENABLED") == "true" {
 		go func() {
 			debugR := mux.NewRouter()
 			debugR.HandleFunc("/debug/pprof/", pprof.Index)
@@ -29,7 +29,7 @@ func main() {
 			}
 		}()
 	}
-	if os.Getenv("TRACING_ENABLED") == "true" {
+	if os.Getenv("TUPELO_TRACING_ENABLED") == "true" {
 		gossip2.InitializeForTesting("tupelo")
 	}
 
