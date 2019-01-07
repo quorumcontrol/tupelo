@@ -23,10 +23,18 @@ type PushSyncer struct {
 	kind           string
 	storageActor   *actor.PID
 	gossiper       *actor.PID
+	remote         *actor.PID
 	sendingObjects bool
 }
 
+func stopDecider(reason interface{}) actor.Directive {
+	middleware.Log.Infow("actor died", "reason", reason)
+	return actor.StopDirective
+}
+
 func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
+	supervisor := actor.NewOneForOneStrategy(1, 10, stopDecider)
+
 	return actor.FromProducer(func() actor.Actor {
 		return &PushSyncer{
 			storageActor: storageActor,
@@ -35,7 +43,7 @@ func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
-	)
+	).WithSupervisor(supervisor)
 }
 
 func (syncer *PushSyncer) Receive(context actor.Context) {
@@ -43,6 +51,8 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 	// and will terminate when nothing is happening
 
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		context.SetReceiveTimeout(syncerReceiveTimeout)
 	case *actor.ReceiveTimeout:
 		syncer.Log.Infow("timeout")
 		context.Self().Poison()
@@ -67,7 +77,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.sendingObjects = false
 		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
-		syncer.Log.Debugw("sync complete", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
+		syncer.Log.Infow("sync complete", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
 		context.SetReceiveTimeout(0)
 		if !syncer.sendingObjects {
 			context.Self().Poison()
@@ -83,6 +93,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 	for remoteGossiper == nil || strings.HasPrefix(context.Self().GetId(), remoteGossiper.GetId()) {
 		remoteGossiper = msg.System.GetRandomSyncer()
 	}
+	syncer.remote = remoteGossiper
 	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.Id)
 
 	resp, err := remoteGossiper.RequestFuture(&messages.GetSyncer{
@@ -116,6 +127,10 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
 	syncer.Log.Debugw("handleProvideStrata")
+	syncer.uuid = uuid.New().String()
+	syncer.start = time.Now()
+	syncer.remote = context.Sender()
+
 	localStrataInt, err := syncer.storageActor.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 	if err != nil {
 		panic("timeout")
