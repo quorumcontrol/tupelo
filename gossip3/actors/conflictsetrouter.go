@@ -7,14 +7,17 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/hashicorp/go-immutable-radix"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 )
 
+const recentlyDoneConflictCacheSize = 100000
+
 type ConflictSetRouter struct {
 	middleware.LogAwareHolder
-
+	recentlyDone *lru.Cache
 	conflictSets *iradix.Tree
 	cfg          *ConflictSetRouterConfig
 }
@@ -28,10 +31,15 @@ type ConflictSetRouterConfig struct {
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
+	cache, err := lru.New(recentlyDoneConflictCacheSize)
+	if err != nil {
+		panic(fmt.Sprintf("error creating LRU cache: %v", err))
+	}
 	return actor.FromProducer(func() actor.Actor {
 		return &ConflictSetRouter{
 			conflictSets: iradix.New(),
 			cfg:          cfg,
+			recentlyDone: cache,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -42,28 +50,54 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
-		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID)))
+		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
 	case *messages.SignatureWrapper:
-		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID)))
+		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
 	case *messages.Signature:
-		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID())))
+		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID()))
 	case *messages.Store:
-		context.Forward(csr.getOrCreateCS(context, msg.Key))
+		csr.forwardOrIgnore(context, msg.Key)
 	case *messages.GetConflictSetView:
-		context.Forward(csr.getOrCreateCS(context, []byte(msg.ConflictSetID)))
+		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
 	case *messages.CurrentStateWrapper:
-		// TODO: cleanup here
 		if parent := context.Parent(); parent != nil {
 			context.Forward(context.Parent())
+		}
+		if msg.Verified {
+			csr.cleanupConflictSet(msg.Key)
 		}
 	}
 }
 
+func (csr *ConflictSetRouter) cleanupConflictSet(id []byte) {
+	idS := conflictSetIDToInternalID(id)
+	csr.recentlyDone.Add(idS, true)
+	sets, csActor, didDelete := csr.conflictSets.Delete([]byte(idS))
+	if didDelete {
+		csActor.(*actor.PID).Stop()
+		csr.conflictSets = sets
+	}
+}
+
+func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, id []byte) {
+	cs := csr.getOrCreateCS(context, id)
+	if cs != nil {
+		context.Forward(cs)
+	}
+}
+
+// if there is already a conflict set, then forward the message there
+// if there isn't then, look at the recently done and if it's done, return nil
+// if it's not in either set, then create the actor
 func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *actor.PID {
-	idS := hexutil.Encode(id)
+	idS := conflictSetIDToInternalID(id)
 	id = []byte(idS)
 	cs, ok := csr.conflictSets.Get(id)
 	if !ok {
+		_, ok := csr.recentlyDone.Get(idS)
+		if ok {
+			return nil
+		}
 		cs = csr.newConflictSet(context, idS)
 		sets, _, _ := csr.conflictSets.Insert(id, cs)
 		csr.conflictSets = sets
@@ -86,4 +120,8 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 	return cs
+}
+
+func conflictSetIDToInternalID(id []byte) string {
+	return hexutil.Encode(id)
 }
