@@ -52,7 +52,7 @@ func newBridgeProps(host p2p.Node, remoteAddress peer.ID) *actor.Props {
 	)
 }
 
-var bridgeReceiveTimeout = 10 * time.Second
+var bridgeReceiveTimeout = 60 * time.Second
 
 func (b *Bridge) Receive(context actor.Context) {
 	// defer func() {
