@@ -84,6 +84,17 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		msg, err := fut.Result()
 		require.Nil(t, err)
 		assert.True(t, msg.(*messages.CurrentStateWrapper).Verified)
+
+		// test that it cleans up the actor:
+		_, ok := actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
+		assert.False(t, ok)
+
+		// test that after done it won't create a new actor
+		conflictSetRouter.Tell(transWrapper)
+		time.Sleep(50 * time.Millisecond)
+
+		_, ok = actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
+		assert.False(t, ok)
 	})
 
 	t.Run("handles deadlocks", func(t *testing.T) {
