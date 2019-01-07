@@ -47,13 +47,19 @@ func newSubscriberActorProps(ch chan *messages.CurrentState, timeout time.Durati
 
 func (sa *subscriberActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
+	case *actor.Started:
+		ctx.SetReceiveTimeout(sa.timeout)
 	case *actor.ReceiveTimeout:
 		ctx.Self().Stop()
 	case *actor.Terminated:
 		close(sa.ch)
 	case *messages.CurrentState:
-		ctx.SetReceiveTimeout(sa.timeout)
 		sa.ch <- msg
+		ctx.Respond(&messages.TipSubscription{
+			ObjectID:    msg.Signature.ObjectID,
+			Unsubscribe: true,
+		})
+		ctx.Self().Poison()
 	}
 }
 
