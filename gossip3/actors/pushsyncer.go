@@ -38,6 +38,8 @@ func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
 	)
 }
 
+var syncerReceiveTimeout = 10 * time.Second
+
 func (syncer *PushSyncer) Receive(context actor.Context) {
 	// this makes sure the protocol continues along
 	// and will terminate when nothing is happening
@@ -47,19 +49,19 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.Log.Infow("timeout")
 		context.Self().Poison()
 	case *messages.DoPush:
-		context.SetReceiveTimeout(2 * time.Second)
+		context.SetReceiveTimeout(syncerReceiveTimeout)
 		syncer.handleDoPush(context, msg)
 	case *messages.ProvideStrata:
-		context.SetReceiveTimeout(2 * time.Second)
+		context.SetReceiveTimeout(syncerReceiveTimeout)
 		syncer.handleProvideStrata(context, msg)
 	case *messages.RequestIBF:
-		context.SetReceiveTimeout(2 * time.Second)
+		context.SetReceiveTimeout(syncerReceiveTimeout)
 		syncer.handleRequestIBF(context, msg)
 	case *messages.ProvideBloomFilter:
-		context.SetReceiveTimeout(2 * time.Second)
+		context.SetReceiveTimeout(syncerReceiveTimeout)
 		syncer.handleProvideBloomFilter(context, msg)
 	case *messages.RequestKeys:
-		context.SetReceiveTimeout(2 * time.Second)
+		context.SetReceiveTimeout(syncerReceiveTimeout)
 		syncer.handleRequestKeys(context, msg)
 	case *messages.Debug:
 		syncer.Log.Debugf("message: %v", msg.Message)
