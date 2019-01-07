@@ -13,7 +13,7 @@ import (
 
 type actorPIDHolder map[string]*actor.PID
 
-var subscriptionTimeout = 2 * time.Minute
+var subscriptionTimeout = 1 * time.Minute
 
 type objectSubscriptionManager struct {
 	middleware.LogAwareHolder
@@ -92,6 +92,7 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.ReceiveTimeout:
 		context.SetReceiveTimeout(0)
+		osm.Log.Debugw("killing unused subscription")
 		context.Self().Stop()
 	case *messages.TipSubscription:
 		context.SetReceiveTimeout(subscriptionTimeout)
