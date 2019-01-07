@@ -8,6 +8,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/hashicorp/golang-lru"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -23,6 +24,8 @@ func init() {
 	}
 }
 
+const recentlyRemovedCacheSize = 100000
+
 var standardIBFSizes = []int{500, 2000, 100000}
 
 type ibfMap map[int]*ibf.InvertibleBloomFilter
@@ -32,19 +35,25 @@ type ibfMap map[int]*ibf.InvertibleBloomFilter
 type Storage struct {
 	middleware.LogAwareHolder
 
-	id            string
-	ibfs          ibfMap
-	storage       storage.Storage
-	strata        *ibf.DifferenceStrata
-	subscriptions []*actor.PID
+	id              string
+	ibfs            ibfMap
+	storage         storage.Storage
+	strata          *ibf.DifferenceStrata
+	subscriptions   []*actor.PID
+	recentlyRemoved *lru.Cache
 }
 
 func NewStorageProps(store storage.Storage) *actor.Props {
+	cache, err := lru.New(recentlyRemovedCacheSize)
+	if err != nil {
+		panic(fmt.Errorf("error generating lru: %v", err))
+	}
 	return actor.FromProducer(func() actor.Actor {
 		s := &Storage{
-			ibfs:    make(ibfMap),
-			storage: store,
-			strata:  ibf.NewDifferenceStrata(),
+			ibfs:            make(ibfMap),
+			storage:         store,
+			strata:          ibf.NewDifferenceStrata(),
+			recentlyRemoved: cache,
 		}
 		for _, size := range standardIBFSizes {
 			s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
@@ -117,6 +126,9 @@ func snapshotStrata(existing *ibf.DifferenceStrata) *ibf.DifferenceStrata {
 }
 
 func (s *Storage) Add(key, value []byte) (bool, error) {
+	if s.recentlyRemoved.Contains(string(key)) {
+		return false, nil
+	}
 	didSet, err := s.storage.SetIfNotExists(key, value)
 	if err != nil {
 		s.Log.Errorf("error setting: %v", err)
@@ -141,7 +153,14 @@ func (s *Storage) addKeyToIBFs(key []byte) {
 
 func (s *Storage) Remove(key []byte) {
 	ibfObjectID := byteToIBFsObjectId(key[0:8])
-	err := s.storage.Delete(key)
+	exists, err := s.storage.Exists(key)
+	if err != nil {
+		panic("storage failed")
+	}
+	if !exists {
+		return
+	}
+	err = s.storage.Delete(key)
 	if err != nil {
 		panic("storage failed")
 	}
@@ -149,6 +168,7 @@ func (s *Storage) Remove(key []byte) {
 	for _, filter := range s.ibfs {
 		filter.Remove(ibfObjectID)
 	}
+	s.recentlyRemoved.Add(string(key), nil)
 	s.Log.Debugf("removed key %v", key)
 }
 
