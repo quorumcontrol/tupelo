@@ -7,7 +7,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/google/uuid"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -19,7 +18,6 @@ type PushSyncer struct {
 	middleware.LogAwareHolder
 
 	start          time.Time
-	uuid           string
 	kind           string
 	storageActor   *actor.PID
 	gossiper       *actor.PID
@@ -77,7 +75,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.sendingObjects = false
 		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
-		syncer.Log.Infow("sync complete", "uuid", syncer.uuid, "length", time.Now().Sub(syncer.start))
+		syncer.Log.Infow("sync complete", "remote", syncer.remote, "length", time.Now().Sub(syncer.start))
 		context.SetReceiveTimeout(0)
 		if !syncer.sendingObjects {
 			context.Self().Poison()
@@ -86,9 +84,8 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 }
 
 func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPush) {
-	syncer.uuid = uuid.New().String()
 	syncer.start = time.Now()
-	syncer.Log.Debugw("sync start", "uuid", syncer.uuid, "now", syncer.start)
+	syncer.Log.Debugw("sync start", "now", syncer.start)
 	var remoteGossiper *actor.PID
 	for remoteGossiper == nil || strings.HasPrefix(context.Self().GetId(), remoteGossiper.GetId()) {
 		remoteGossiper = msg.System.GetRandomSyncer()
@@ -127,7 +124,6 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
 	syncer.Log.Debugw("handleProvideStrata")
-	syncer.uuid = uuid.New().String()
 	syncer.start = time.Now()
 	syncer.remote = context.Sender()
 
