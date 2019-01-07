@@ -1,30 +1,39 @@
 #!/usr/bin/env bash
 
-pushd `dirname $0`/../
+pushd $(dirname $0)/../
 trap popd EXIT
 
+projectdir=$(pwd)
+releasedir=$projectdir/release/
 version=$1
-rm -rf release/
-mkdir -p release/
 
 if [ -z "$version" ]; then
   echo "Specify version (v#.#.#) as first argument"
   exit 1
 fi
 
+zipdir=$projectdir/.tmp/tupelo-$version/
+rm -rf $zipdir
+mkdir -p $zipdir
+mkdir -p $releasedir
+
 if ! [ "$(uname)" == "Darwin" ]; then
   echo "detected non mac os, skipping mac build"
 else
-  go build -o release/tupelo-${version}-darwin-amd64 -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
+  go build -o $zipdir/tupelo-${version}-darwin-amd64 -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
 fi
 
 if ! [ -x "$(command -v docker)" ]; then
   echo "docker is not installed, skipping linux build"
 else
   container_id=$(docker run -d --entrypoint=tail $(docker build -q .) -f /dev/null)
-  docker cp ${container_id}:/usr/bin/tupelo release/tupelo-${version}-linux-amd64
+  docker cp ${container_id}:/usr/bin/tupelo $zipdir/tupelo-${version}-linux-amd64
   docker rm -fv ${container_id}
 fi
 
 git tag ${version}
 git push origin ${version}
+
+cd $(dirname $zipdir)
+zip $releasedir/tupelo-$version.zip -r $(basename $zipdir)
+rm -rf $zipdir
