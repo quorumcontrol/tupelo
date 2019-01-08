@@ -3,19 +3,19 @@ services:
   bootstrap:
     environment:
       ELASTIC_APM_SERVER_URL: "http://apmserver:8200"
-      TRACING_ENABLED: "true"
+      TUPELO_TRACING_ENABLED: "true"
   node0:
     environment:
       ELASTIC_APM_SERVER_URL: "http://apmserver:8200"
-      TRACING_ENABLED: "true"
+      TUPELO_TRACING_ENABLED: "true"
   node1:
     environment:
       ELASTIC_APM_SERVER_URL: "http://apmserver:8200"
-      TRACING_ENABLED: "true"
+      TUPELO_TRACING_ENABLED: "true"
   node2:
     environment:
       ELASTIC_APM_SERVER_URL: "http://apmserver:8200"
-      TRACING_ENABLED: "true"
+      TUPELO_TRACING_ENABLED: "true"
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:6.5.3
     ports:
