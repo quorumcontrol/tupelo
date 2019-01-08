@@ -6,8 +6,10 @@ import (
 )
 
 var Log *zap.SugaredLogger
+var globalLevel zap.AtomicLevel
 
 func init() {
+	globalLevel = zap.NewAtomicLevelAt(zap.WarnLevel)
 	Log = buildLogger()
 }
 
@@ -43,9 +45,13 @@ func LoggingMiddleware(next actor.ActorFunc) actor.ActorFunc {
 	return fn
 }
 
+func SetLogLevel(level string) error {
+	return globalLevel.UnmarshalText([]byte(level))
+}
+
 func buildLogger() *zap.SugaredLogger {
 	cfg := zap.NewDevelopmentConfig()
-	cfg.Level.SetLevel(zap.InfoLevel)
+	cfg.Level = globalLevel
 
 	logger, err := cfg.Build()
 	if err != nil {
