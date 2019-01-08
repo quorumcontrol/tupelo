@@ -10,7 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -397,6 +397,7 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 
 	return resp.Tip, nil
 }
+
 func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []string, error) {
 	if rpcs.IsStopped() {
 		return nil, nil, StoppedError
