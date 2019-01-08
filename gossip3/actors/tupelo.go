@@ -88,6 +88,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 			ids[i] = trans.TransactionID
 		}
 		tn.mempoolStore.Tell(&messages.BulkRemove{ObjectIDs: ids})
+		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		tn.subscriptionHandler.Tell(msg)
 	} else {
 		tn.Log.Debugw("removing bad current state", "key", msg.Key)
