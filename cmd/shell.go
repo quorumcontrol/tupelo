@@ -2,8 +2,12 @@ package cmd
 
 import (
 	"context"
+	"fmt"
+	"os"
 
-	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/ethereum/go-ethereum/crypto"
+	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
 	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/spf13/cobra"
 )
@@ -15,17 +19,23 @@ var shellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "Launch a Tupelo wallet shell connected to a local or remote signer network.",
 	Run: func(cmd *cobra.Command, args []string) {
-		var bootstrapAddrs []string
+		gossip3remote.Start()
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			bootstrapAddrs = setupLocalNetwork(ctx, localNetworkNodeCount)
-		} else {
-			bootstrapAddrs = p2p.BootstrapNodes()
+			setupLocalNetwork(ctx, localNetworkNodeCount)
 		}
-
 		walletStorage := walletPath()
-		client := startClient(bootstrapAddrs)
+		os.MkdirAll(walletStorage, 0700)
+		group := setupNotaryGroup(nil, bootstrapPublicKeys)
+
+		key, err := crypto.GenerateKey()
+		if err != nil {
+			panic(fmt.Sprintf("error generating key: %v", err))
+		}
+		group.SetupAllRemoteActors(&key.PublicKey)
+
+		client := gossip3client.New(group)
 		walletshell.RunGossip(shellName, walletStorage, client)
 	},
 }

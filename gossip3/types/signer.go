@@ -38,8 +38,8 @@ func NewRemoteSigner(dstKey *ecdsa.PublicKey, verKey *bls.VerKey) *Signer {
 	}
 }
 
-func (s *Signer) ActorAddress(fromSigner *Signer) string {
-	fromID, err := p2p.PeerFromEcdsaKey(fromSigner.DstKey)
+func (s *Signer) ActorAddress(localKey *ecdsa.PublicKey) string {
+	fromID, err := p2p.PeerFromEcdsaKey(localKey)
 	if err != nil {
 		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
 	}

@@ -139,6 +139,16 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		logLevel, err := getLogLevel(logLvlName)
+		if err != nil {
+			panic(err.Error())
+		}
+		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
+		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
+		if err != nil {
+			fmt.Println("unknown ipfs log level")
+		}
+
 		if overrideKeysFile != "" {
 			publicKeys, err := loadPublicKeyFile(overrideKeysFile)
 			if err != nil {
@@ -154,17 +164,7 @@ var rootCmd = &cobra.Command{
 				bootstrapPublicKeys = publicKeys
 			}
 		}
-
-		logLevel, err := getLogLevel(logLvlName)
-		if err != nil {
-			panic(err.Error())
-		}
-		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
-		if err != nil {
-			fmt.Println("unknown ipfs log level")
-		}
-
+		log.Info("loaded public keys", "count", len(bootstrapPublicKeys))
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if newKeysFile != "" {

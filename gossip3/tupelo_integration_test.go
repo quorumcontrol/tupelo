@@ -71,7 +71,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 		if i != indexOfLocal {
 			// this is a remote signer
 			signer = types.NewRemoteSigner(testSet.PubKeys[i].ToEcdsaPub(), verKey)
-			signer.Actor = actor.NewPID(signer.ActorAddress(localSigner), "tupelo-"+signer.ID)
+			signer.Actor = actor.NewPID(signer.ActorAddress(localSigner.DstKey), "tupelo-"+signer.ID)
 			ng.AddSigner(signer)
 		}
 	}
