@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"os"
 
@@ -20,19 +21,22 @@ var shellCmd = &cobra.Command{
 	Short: "Launch a Tupelo wallet shell connected to a local or remote signer network.",
 	Run: func(cmd *cobra.Command, args []string) {
 		gossip3remote.Start()
+		var key *ecdsa.PrivateKey
+		var err error
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			setupLocalNetwork(ctx, localNetworkNodeCount)
+			key = setupLocalNetwork(ctx, localNetworkNodeCount)
+		} else {
+			key, err = crypto.GenerateKey()
+			if err != nil {
+				panic(fmt.Sprintf("error generating key: %v", err))
+			}
 		}
 		walletStorage := walletPath()
 		os.MkdirAll(walletStorage, 0700)
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
 
-		key, err := crypto.GenerateKey()
-		if err != nil {
-			panic(fmt.Sprintf("error generating key: %v", err))
-		}
 		group.SetupAllRemoteActors(&key.PublicKey)
 
 		client := gossip3client.New(group)

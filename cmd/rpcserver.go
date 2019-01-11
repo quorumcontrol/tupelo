@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -91,27 +92,30 @@ func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 	}
 }
 
-func setupLocalNetwork(ctx context.Context, nodeCount int) {
-	key, _ := crypto.GenerateKey()
+func setupLocalNetwork(ctx context.Context, nodeCount int) *ecdsa.PrivateKey {
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		panic(fmt.Sprintf("error generating key: %v", err))
+	}
 	bootstrapNode, err := p2p.NewLibP2PHost(ctx, key, 0)
 	if err != nil {
 		panic(fmt.Sprintf("error generating bootstrap node: %v", err))
 	}
+	bootstrapPublicKeys = publicKeys
+	addrs := bootstrapAddresses(bootstrapNode)
+	os.Setenv("TUPELO_BOOTSTRAP_NODES", strings.Join(addrs, ","))
 	bootstrapNode.Bootstrap(p2p.BootstrapNodes())
 	err = bootstrapNode.WaitForBootstrap(1, 10*time.Second)
 	if err != nil {
 		panic("error, timed out waiting for bootstrap")
 	}
 	gossip3remote.NewRouter(bootstrapNode)
-	addrs := bootstrapAddresses(bootstrapNode)
-	os.Setenv("TUPELO_BOOTSTRAP_NODES", strings.Join(addrs, ","))
 
 	privateKeys, publicKeys, err := loadLocalKeys(nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
 	}
 
-	bootstrapPublicKeys = publicKeys
 	signers := make([]*gossip3types.Signer, len(privateKeys))
 	for i, keys := range privateKeys {
 		log.Info("setting up gossip node")
@@ -123,6 +127,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) {
 			signer.Actor.Poison()
 		}
 	}()
+	return key
 }
 
 func bootstrapAddresses(bootstrapHost p2p.Node) []string {
@@ -170,19 +175,22 @@ var rpcServerCmd = &cobra.Command{
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
 		gossip3remote.Start()
+		var key *ecdsa.PrivateKey
+		var err error
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			setupLocalNetwork(ctx, localNetworkNodeCount)
+			key = setupLocalNetwork(ctx, localNetworkNodeCount)
+		} else {
+			key, err = crypto.GenerateKey()
+			if err != nil {
+				panic(fmt.Sprintf("error generating key: %v", err))
+			}
 		}
 		walletStorage := walletPath()
 		os.MkdirAll(walletStorage, 0700)
 
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
-		key, err := crypto.GenerateKey()
-		if err != nil {
-			panic(fmt.Sprintf("error generating key: %v", err))
-		}
 		group.SetupAllRemoteActors(&key.PublicKey)
 
 		client := gossip3client.New(group)
