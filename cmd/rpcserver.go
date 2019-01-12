@@ -97,24 +97,28 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *ecdsa.PrivateKey {
 	if err != nil {
 		panic(fmt.Sprintf("error generating key: %v", err))
 	}
+	log.Info("Starting bootstrap")
 	bootstrapNode, err := p2p.NewLibP2PHost(ctx, key, 0)
 	if err != nil {
 		panic(fmt.Sprintf("error generating bootstrap node: %v", err))
 	}
-	bootstrapPublicKeys = publicKeys
-	addrs := bootstrapAddresses(bootstrapNode)
-	os.Setenv("TUPELO_BOOTSTRAP_NODES", strings.Join(addrs, ","))
-	bootstrapNode.Bootstrap(p2p.BootstrapNodes())
-	err = bootstrapNode.WaitForBootstrap(1, 10*time.Second)
-	if err != nil {
-		panic("error, timed out waiting for bootstrap")
-	}
-	gossip3remote.NewRouter(bootstrapNode)
 
 	privateKeys, publicKeys, err := loadLocalKeys(nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
 	}
+
+	bootstrapPublicKeys = publicKeys
+	addrs := bootstrapAddresses(bootstrapNode)
+	os.Setenv("TUPELO_BOOTSTRAP_NODES", strings.Join(addrs, ","))
+	bootstrapNode.Bootstrap(p2p.BootstrapNodes())
+	log.Info("Waiting for bootstrap to complete")
+	err = bootstrapNode.WaitForBootstrap(0, 10*time.Second)
+	if err != nil {
+		panic("error, timed out waiting for bootstrap")
+	}
+	log.Info("Bootstrap complete")
+	gossip3remote.NewRouter(bootstrapNode)
 
 	signers := make([]*gossip3types.Signer, len(privateKeys))
 	for i, keys := range privateKeys {
