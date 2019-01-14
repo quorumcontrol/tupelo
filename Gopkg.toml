@@ -63,3 +63,11 @@
   name = "github.com/dedis/kyber"
   source = "https://github.com/quorumcontrol/kyber.git"
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
+
+[[override]]
+  name = "github.com/dgraph-io/badger"
+  revision = "10e1ee8dd41927fff4aa5cf1c205ad30f1a39e43"
+
+[[override]]
+  revision = "3eb841aa8248d7bfd1322677bb60afdcf9ed41fc"
+  name = "github.com/ipsn/go-ipfs"
