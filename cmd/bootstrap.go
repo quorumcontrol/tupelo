@@ -19,10 +19,10 @@ var bootstrapNodeCmd = &cobra.Command{
 	Short: "Run a bootstrap node",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
+		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 		if err != nil {
-			panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
+			panic("error fetching ecdsa key - set env variable TUPELO_NODE_ECDSA_KEY_HEX")
 		}
 
 		ctx := context.Background()

@@ -44,3 +44,24 @@ func TestValidator(t *testing.T) {
 	_, err = fut.Result()
 	require.Nil(t, err)
 }
+
+func BenchmarkValidator(b *testing.B) {
+	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
+	defer currentState.Poison()
+	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	defer validator.Poison()
+
+	trans := testhelpers.NewValidTransaction(b)
+	value, err := trans.MarshalMsg(nil)
+	require.Nil(b, err)
+	key := crypto.Keccak256(value)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := validator.RequestFuture(&messages.Store{
+			Key:   key,
+			Value: value,
+		}, 1*time.Second).Result()
+		require.Nil(b, err)
+	}
+}

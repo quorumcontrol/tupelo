@@ -72,8 +72,8 @@ var testnodeCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		logging.SetLogLevel("gossip", "ERROR")
-		ecdsaKeyHex := os.Getenv("NODE_ECDSA_KEY_HEX")
-		blsKeyHex := os.Getenv("NODE_BLS_KEY_HEX")
+		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
+		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
 		signer.Host.Bootstrap(p2p.BootstrapNodes())
 		go signer.Start()
@@ -96,7 +96,7 @@ func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
 func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, namespace string, port int) *gossip2.GossipNode {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
-		panic("error fetching ecdsa key - set env variable NODE_ECDSA_KEY_HEX")
+		panic("error fetching ecdsa key - set env variable TUPELO_NODE_ECDSA_KEY_HEX")
 	}
 
 	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))

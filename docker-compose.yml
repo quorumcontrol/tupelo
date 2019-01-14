@@ -7,8 +7,8 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "bootstrap-node", "-p", "34001"]
     environment:
-      NODE_BLS_KEY_HEX: "0x1ef1cf13d52b2dbf3134d7fff6aa617c5cdac42ed89bd20007bfc93d00f0d0c6"
-      NODE_ECDSA_KEY_HEX: "0xe2c0b170c56ff0bf08c7376f1ca4bd5cbe481a85f6cdb3de609863e25dce613a"
+      TUPELO_NODE_BLS_KEY_HEX: "0x1ef1cf13d52b2dbf3134d7fff6aa617c5cdac42ed89bd20007bfc93d00f0d0c6"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0xe2c0b170c56ff0bf08c7376f1ca4bd5cbe481a85f6cdb3de609863e25dce613a"
     networks:
       default:
         ipv4_address: 172.16.238.10
@@ -19,8 +19,8 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
-      NODE_BLS_KEY_HEX: "0x42662464ac1d3a623e8a8d435ebd7268e4ee607f052e900b38b4f7c7df4878d9"
-      NODE_ECDSA_KEY_HEX: "0x18a64724c46f570cbfabe3ec9fed5ce878962f9cbd92caf97c3a282abb6dffa1"
+      TUPELO_NODE_BLS_KEY_HEX: "0x42662464ac1d3a623e8a8d435ebd7268e4ee607f052e900b38b4f7c7df4878d9"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0x18a64724c46f570cbfabe3ec9fed5ce878962f9cbd92caf97c3a282abb6dffa1"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   node1:
     build: .
@@ -29,8 +29,8 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
-      NODE_BLS_KEY_HEX: "0x7d7a1aa1a07e2123ddf1f99577cc06cbb8538e4a081873114d0b963bd26c6476"
-      NODE_ECDSA_KEY_HEX: "0x5002ddc1fbf32885fe554499a10e97ec7feddfe9db989a81fb4f22d699fa47b3"
+      TUPELO_NODE_BLS_KEY_HEX: "0x7d7a1aa1a07e2123ddf1f99577cc06cbb8538e4a081873114d0b963bd26c6476"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0x5002ddc1fbf32885fe554499a10e97ec7feddfe9db989a81fb4f22d699fa47b3"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   node2:
     build: .
@@ -39,8 +39,8 @@ services:
       - ./cmd/testnode-local-public-keys.json:/bootstrap-keys.json
     command: ["/usr/bin/tupelo", "test-node", "-k", "/bootstrap-keys.json"]
     environment:
-      NODE_BLS_KEY_HEX: "0x5e7d734b55705fd096600f26b38cd0a4b33685d41cfc04dd4e03de27b06de53d"
-      NODE_ECDSA_KEY_HEX: "0x2273d296407e999c0f8a6970aa55cee05baf1ff5cfc5a231f99fba6200a14849"
+      TUPELO_NODE_BLS_KEY_HEX: "0x5e7d734b55705fd096600f26b38cd0a4b33685d41cfc04dd4e03de27b06de53d"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0x2273d296407e999c0f8a6970aa55cee05baf1ff5cfc5a231f99fba6200a14849"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
 
 networks:
