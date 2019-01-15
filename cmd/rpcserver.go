@@ -140,7 +140,6 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 	}()
 
 	group.AddSigner(signer)
-	signer.Actor.Tell(&gossip3messages.StartGossip{})
 
 	return signer
 }
@@ -225,6 +224,9 @@ var rpcServerCmd = &cobra.Command{
 		os.MkdirAll(walletStorage, 0700)
 
 		client := gossip3client.New(group)
+		for _, signer := range group.AllSigners() {
+			signer.Actor.Tell(&gossip3messages.StartGossip{})
+		}
 		if tls {
 			panicWithoutTLSOpts()
 			walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
