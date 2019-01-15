@@ -6,14 +6,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
-	"time"
+
+	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/bls"
+	"github.com/quorumcontrol/tupelo/gossip3/actors"
 
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	gossip3messages "github.com/quorumcontrol/tupelo/gossip3/messages"
 	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
@@ -92,46 +99,66 @@ func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 	}
 }
 
-func setupLocalNetwork(ctx context.Context, nodeCount int) *ecdsa.PrivateKey {
-	key, err := crypto.GenerateKey()
+func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
+	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
-		panic(fmt.Sprintf("error generating key: %v", err))
-	}
-	log.Info("Starting bootstrap")
-	bootstrapNode, err := p2p.NewLibP2PHost(ctx, key, 0)
-	if err != nil {
-		panic(fmt.Sprintf("error generating bootstrap node: %v", err))
+		panic(fmt.Sprintf("error decoding ecdsa key: %v", err))
 	}
 
-	privateKeys, publicKeys, err := loadLocalKeys(nodeCount)
+	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
+
+	signer := gossip3types.NewLocalSigner(&ecdsaKey.PublicKey, blsKey)
+
+	commitPath := filepath.Join(storagePath, signer.ID+"-commit")
+	currentPath := filepath.Join(storagePath, signer.ID+"-current")
+	os.MkdirAll(commitPath, 0755)
+	os.MkdirAll(currentPath, 0755)
+
+	commitStore, err := storage.NewBadgerStorage(commitPath)
+	if err != nil {
+		panic(fmt.Sprintf("error setting up badger storage: %v", err))
+	}
+	currenStore, err := storage.NewBadgerStorage(currentPath)
+	if err != nil {
+		panic(fmt.Sprintf("error setting up badger storage: %v", err))
+	}
+
+	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+		Self:              signer,
+		NotaryGroup:       group,
+		CommitStore:       commitStore,
+		CurrentStateStore: currenStore,
+	}), "tupelo-"+signer.ID)
+	if err != nil {
+		panic(fmt.Sprintf("error spawning actor: %v", err))
+	}
+	signer.Actor = syncer
+
+	go func() {
+		<-ctx.Done()
+		syncer.Poison()
+	}()
+
+	group.AddSigner(signer)
+	signer.Actor.Tell(&gossip3messages.StartGossip{})
+
+	return signer
+}
+
+func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryGroup {
+	privateKeys, _, err := loadLocalKeys(nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
 	}
 
-	bootstrapPublicKeys = publicKeys
-	addrs := bootstrapAddresses(bootstrapNode)
-	os.Setenv("TUPELO_BOOTSTRAP_NODES", strings.Join(addrs, ","))
-	bootstrapNode.Bootstrap(p2p.BootstrapNodes())
-	log.Info("Waiting for bootstrap to complete")
-	err = bootstrapNode.WaitForBootstrap(0, 10*time.Second)
-	if err != nil {
-		panic("error, timed out waiting for bootstrap")
-	}
-	log.Info("Bootstrap complete")
-	gossip3remote.NewRouter(bootstrapNode)
+	group := gossip3types.NewNotaryGroup("local notary group")
 
-	signers := make([]*gossip3types.Signer, len(privateKeys))
-	for i, keys := range privateKeys {
+	for _, keys := range privateKeys {
 		log.Info("setting up gossip node")
-		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, localConfig, 0)
+		setupLocalSigner(ctx, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, localConfig)
 	}
-	go func() {
-		<-ctx.Done()
-		for _, signer := range signers {
-			signer.Actor.Poison()
-		}
-	}()
-	return key
+
+	return group
 }
 
 func bootstrapAddresses(bootstrapHost p2p.Node) []string {
@@ -178,24 +205,24 @@ var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
 	Run: func(cmd *cobra.Command, args []string) {
-		gossip3remote.Start()
 		var key *ecdsa.PrivateKey
 		var err error
+		var group *gossip3types.NotaryGroup
 		if localNetworkNodeCount > 0 {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			key = setupLocalNetwork(ctx, localNetworkNodeCount)
+			group = setupLocalNetwork(ctx, localNetworkNodeCount)
 		} else {
 			key, err = crypto.GenerateKey()
 			if err != nil {
 				panic(fmt.Sprintf("error generating key: %v", err))
 			}
+			gossip3remote.Start()
+			group = setupNotaryGroup(nil, bootstrapPublicKeys)
+			group.SetupAllRemoteActors(&key.PublicKey)
 		}
 		walletStorage := walletPath()
 		os.MkdirAll(walletStorage, 0700)
-
-		group := setupNotaryGroup(nil, bootstrapPublicKeys)
-		group.SetupAllRemoteActors(&key.PublicKey)
 
 		client := gossip3client.New(group)
 		if tls {
