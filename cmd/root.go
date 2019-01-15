@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/quorumcontrol/tupelo/gossip3"
 	"github.com/shibukawa/configdir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -52,6 +53,15 @@ var logLevels = map[string]log.Lvl{
 	"info":     log.LvlInfo,
 	"debug":    log.LvlDebug,
 	"trace":    log.LvlTrace,
+}
+
+var zapLogLevels = map[string]string{
+	"critical": "panic",
+	"error":    "error",
+	"warn":     "warn",
+	"info":     "info",
+	"debug":    "debug",
+	"trace":    "debug",
 }
 
 func getLogLevel(lvlName string) (log.Lvl, error) {
@@ -164,7 +174,8 @@ var rootCmd = &cobra.Command{
 				bootstrapPublicKeys = publicKeys
 			}
 		}
-		log.Info("loaded public keys", "count", len(bootstrapPublicKeys))
+
+		gossip3.SetLogLevel(zapLogLevels[logLvlName])
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if newKeysFile != "" {
