@@ -102,3 +102,45 @@ func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Nil(t, receives)
 }
+
+func TestDecodePath(t *testing.T) {
+	dp1, err := decodePath("/some/data")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"some", "data"}, dp1)
+
+	dp2, err := decodePath("some/data")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"some", "data"}, dp2)
+
+	dp3, err := decodePath("//some/data")
+	assert.NotNil(t, err)
+	assert.Nil(t, dp3)
+
+	dp4, err := decodePath("/some//data")
+	assert.NotNil(t, err)
+	assert.Nil(t, dp4)
+
+	dp5, err := decodePath("/some/../data")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"some", "..", "data"}, dp5)
+
+	dp6, err := decodePath("")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{""}, dp6)
+
+	dp7, err := decodePath("/")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{""}, dp7)
+
+	dp8, err := decodePath("/_tupelo")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"_tupelo"}, dp8)
+
+	dp9, err := decodePath("_tupelo")
+	assert.Nil(t, err)
+	assert.Equal(t, []string{"_tupelo"}, dp9)
+
+	dp10, err := decodePath("//_tupelo")
+	assert.NotNil(t, err)
+	assert.Nil(t, dp10)
+}
