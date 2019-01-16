@@ -8,10 +8,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	"github.com/quorumcontrol/tupelo/wallet"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -24,7 +27,8 @@ type server struct {
 }
 
 func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	walletName := req.Creds.WalletName
+	session, err := NewSession(s.storagePath, walletName, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +36,11 @@ func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*Reg
 
 	err = session.CreateWallet(req.Creds.PassPhrase)
 	if err != nil {
-		return nil, err
+		if _, ok := err.(*wallet.CreateExistingWalletError); ok {
+			msg := fmt.Sprintf("wallet %v already exists", walletName)
+			return nil, status.Error(codes.AlreadyExists, msg)
+		}
+		return nil, fmt.Errorf("error creating wallet: %v", err)
 	}
 
 	return &RegisterWalletResponse{

@@ -64,3 +64,35 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 	assert.True(t, isSet)
 }
+
+func BenchmarkSignatureGenerator(b *testing.B) {
+	ts := testnotarygroup.NewTestSet(b, 1)
+	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	ng := types.NewNotaryGroup("signatureGenerator")
+	ng.AddSigner(signer)
+	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
+	defer currentState.Poison()
+	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	defer validator.Poison()
+
+	sigGnerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
+	defer sigGnerator.Poison()
+
+	trans := testhelpers.NewValidTransaction(b)
+	value, err := trans.MarshalMsg(nil)
+	require.Nil(b, err)
+	key := crypto.Keccak256(value)
+
+	transWrapper, err := validator.RequestFuture(&messages.Store{
+		Key:   key,
+		Value: value,
+	}, 1*time.Second).Result()
+	require.Nil(b, err)
+
+	second := 1 * time.Second
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := sigGnerator.RequestFuture(transWrapper, second).Result()
+		require.Nil(b, err)
+	}
+}

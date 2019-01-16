@@ -49,7 +49,7 @@ type TestSet struct {
 	SignKeysByAddress map[string]*bls.SignKey
 }
 
-func NewTestSet(t *testing.T, size int) *TestSet {
+func NewTestSet(t testing.TB, size int) *TestSet {
 	signKeys := blsKeys(size)
 	verKeys := make([]*bls.VerKey, len(signKeys))
 	pubKeys := make([]consensus.PublicKey, len(signKeys))
