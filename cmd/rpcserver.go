@@ -97,7 +97,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) (bootstrapAddrs []str
 	bootstrapPublicKeys = publicKeys
 	signers := make([]*gossip2.GossipNode, len(privateKeys))
 	for i, keys := range privateKeys {
-		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, localConfig, 0)
+		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, "local-network", 0)
 	}
 
 	// Use first signer as bootstrap node
