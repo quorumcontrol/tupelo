@@ -1,0 +1,11 @@
+.git/*
+docker-compose.yml
+docker-compose-*.yml
+Dockerfile
+.storage/*
+!.storage/.gitkeep
+.tmp/*
+!.tmp/.gitkeep
+_old
+/tupelo
+/release/
