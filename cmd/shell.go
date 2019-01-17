@@ -49,5 +49,5 @@ func init() {
 	rootCmd.AddCommand(shellCmd)
 	shellCmd.Flags().StringVarP(&shellName, "wallet", "w", "", "the name of the wallet to access")
 	shellCmd.MarkFlagRequired("wallet")
-	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
+	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 }
