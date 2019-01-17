@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/storage"
@@ -207,16 +208,30 @@ var rpcServerCmd = &cobra.Command{
 		var key *ecdsa.PrivateKey
 		var err error
 		var group *gossip3types.NotaryGroup
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		if localNetworkNodeCount > 0 {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			fmt.Printf("Setting up local network with %d nodes\n", localNetworkNodeCount)
 			group = setupLocalNetwork(ctx, localNetworkNodeCount)
 		} else {
+			fmt.Println("Using remote network")
+			gossip3remote.Start()
 			key, err = crypto.GenerateKey()
 			if err != nil {
 				panic(fmt.Sprintf("error generating key: %v", err))
 			}
-			gossip3remote.Start()
+			p2pHost, err := p2p.NewLibP2PHost(ctx, key, 0)
+			if err != nil {
+				panic(fmt.Sprintf("error setting up p2p host: %v", err))
+			}
+			fmt.Println("Bootstrapping node")
+			p2pHost.Bootstrap(p2p.BootstrapNodes())
+			fmt.Println("Waiting for bootstrap")
+			p2pHost.WaitForBootstrap(1, 10*time.Second)
+			fmt.Println("Bootstrapped!")
+
+			gossip3remote.NewRouter(p2pHost)
+
 			group = setupNotaryGroup(nil, bootstrapPublicKeys)
 			group.SetupAllRemoteActors(&key.PublicKey)
 		}
@@ -224,8 +239,10 @@ var rpcServerCmd = &cobra.Command{
 		os.MkdirAll(walletStorage, 0700)
 
 		client := gossip3client.New(group)
-		for _, signer := range group.AllSigners() {
-			signer.Actor.Tell(&gossip3messages.StartGossip{})
+		if localNetworkNodeCount > 0 {
+			for _, signer := range group.AllSigners() {
+				signer.Actor.Tell(&gossip3messages.StartGossip{})
+			}
 		}
 		if tls {
 			panicWithoutTLSOpts()

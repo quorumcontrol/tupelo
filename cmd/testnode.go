@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -122,6 +123,10 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 		panic("error setting up p2p host")
 	}
 	p2pHost.Bootstrap(p2p.BootstrapNodes())
+	err = p2pHost.WaitForBootstrap(1, 60*time.Second)
+	if err != nil {
+		panic(fmt.Sprintf("error waiting for bootstrap: %v", err))
+	}
 
 	gossip3remote.NewRouter(p2pHost)
 

@@ -151,16 +151,16 @@ var benchmark = &cobra.Command{
 		if err != nil {
 			panic(fmt.Sprintf("error setting up p2p host: %v", err))
 		}
+
 		p2pHost.Bootstrap(p2p.BootstrapNodes())
+		p2pHost.WaitForBootstrap(1, 15*time.Second)
+
 		gossip3remote.NewRouter(p2pHost)
 
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
 		group.SetupAllRemoteActors(&key.PublicKey)
 
 		client := gossip3client.New(group)
-
-		// Give time to bootstrap
-		time.Sleep(15 * time.Second)
 
 		results = ResultSet{}
 
