@@ -4,15 +4,8 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/dag"
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 )
@@ -37,15 +30,13 @@ func (e *CreateExistingWalletError) Error() string {
 var _ consensus.Wallet = (*FileWallet)(nil)
 
 type FileWallet struct {
-	path           string
-	encryptedStore storage.EncryptedStorage
-	nodeStore      nodestore.NodeStore
+	path   string
+	wallet *Wallet
 }
 
 // isExists checks if the wallet specified by `path` already exists.
 func (fw *FileWallet) isExists() bool {
 	_, err := os.Stat(fw.path)
-
 	return !os.IsNotExist(err)
 }
 
@@ -64,8 +55,7 @@ func (fw *FileWallet) CreateIfNotExists(passphrase string) {
 	}
 	encryptedStore := storage.NewEncryptedStore(store)
 	encryptedStore.Unlock(passphrase)
-
-	fw.encryptedStore = encryptedStore
+	fw.wallet = NewWallet(&WalletConfig{Storage: encryptedStore})
 }
 
 // Create creates a new wallet at the path specified by `fw`. It returns an
@@ -93,186 +83,57 @@ func (fw *FileWallet) Unlock(passphrase string) error {
 	}
 
 	fw.CreateIfNotExists(passphrase)
-
 	return nil
 }
 
 func (fw *FileWallet) Close() {
-	if fw.encryptedStore != nil {
-		fw.encryptedStore.Close()
+	if fw.wallet != nil {
+		fw.wallet.Close()
 	}
-}
-
-// NodeStore returns a NodeStore based on the underlying storage system of the wallet
-func (fw *FileWallet) NodeStore() nodestore.NodeStore {
-	if fw.nodeStore == nil { //TODO: thread safety
-		fw.nodeStore = nodestore.NewStorageBasedStore(fw.encryptedStore)
-	}
-	return fw.nodeStore
-}
-
-func (fw *FileWallet) getAllNodes(objCid []byte) ([]*cbornode.Node, error) {
-	nodes := make([]*cbornode.Node, 1)
-	nodeBytes, err := fw.encryptedStore.Get(objCid)
-	if err != nil {
-		return nil, fmt.Errorf("error getting nodes: %v", err)
-	}
-	if len(nodeBytes) == 0 {
-		id, _ := cid.Cast(objCid)
-		return nil, fmt.Errorf("error, node not stored: %s ", id.String())
-	}
-
-	sw := safewrap.SafeWrap{}
-	node := sw.Decode(nodeBytes)
-	if sw.Err != nil {
-		return nil, fmt.Errorf("error decoding: %v", err)
-	}
-	nodes[0] = node
-
-	links := node.Links()
-	for _, link := range links {
-		linkNodes, err := fw.getAllNodes(link.Cid.Bytes())
-		if err != nil {
-			return nil, fmt.Errorf("error getting links: %v", err)
-		}
-		nodes = append(nodes, linkNodes...)
-	}
-
-	return nodes, nil
 }
 
 func (fw *FileWallet) GetTip(chainId string) ([]byte, error) {
-	tip, err := fw.encryptedStore.Get(chainIdWithPrefix([]byte(chainId)))
-	if err != nil {
-		return nil, fmt.Errorf("error getting tip for chain id %v: %v", chainId, err)
-	}
-
-	return tip, nil
+	return fw.wallet.GetTip(chainId)
 }
 
 func (fw *FileWallet) GetChain(id string) (*consensus.SignedChainTree, error) {
-	tip, err := fw.GetTip(id)
-	if err != nil {
-		return nil, fmt.Errorf("error getting chain: %v", err)
-	}
+	return fw.wallet.GetChain(id)
+}
 
-	signatures, err := fw.encryptedStore.Get([]byte(id + "_signatures"))
-	if err != nil {
-		return nil, fmt.Errorf("error getting signatures: %v", err)
-	}
-
-	sigs := make(consensus.SignatureMap)
-	if len(signatures) > 0 {
-		err = cbornode.DecodeInto(signatures, &sigs)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding signatures: %v", err)
-		}
-	}
-
-	tipCid, err := cid.Cast(tip)
-	if err != nil {
-		return nil, fmt.Errorf("error casting tip: %v", err)
-	}
-
-	nodes, err := fw.getAllNodes(tip)
-	if err != nil {
-		return nil, fmt.Errorf("error getting nodes: %v", err)
-	}
-
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-
-	dagTree := dag.NewDag(tipCid, nodeStore)
-	dagTree.AddNodes(nodes...)
-
-	tree, err := chaintree.NewChainTree(dagTree, nil, consensus.DefaultTransactors)
-	if err != nil {
-		return nil, fmt.Errorf("error creating tree: %v", err)
-	}
-
-	return &consensus.SignedChainTree{
-		ChainTree:  tree,
-		Signatures: sigs,
-	}, nil
+func (fw *FileWallet) ChainExists(chainId string) bool {
+	return fw.wallet.ChainExists(chainId)
 }
 
 func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
-	nodes, err := signedChain.ChainTree.Dag.Nodes()
-	if err != nil {
-		return fmt.Errorf("error getting nodes: %v", err)
-	}
-	for _, node := range nodes {
-		fw.encryptedStore.Set(node.Cid().Bytes(), node.RawData())
-	}
-
-	sw := &safewrap.SafeWrap{}
-	signatureNode := sw.WrapObject(signedChain.Signatures)
-	if sw.Err != nil {
-		return fmt.Errorf("error wrapping signatures: %v", sw.Err)
-	}
-
-	id, err := signedChain.Id()
+	chainId, err := signedChain.Id()
 	if err != nil {
 		return fmt.Errorf("error getting signedChain id: %v", err)
 	}
 
-	fw.encryptedStore.Set([]byte(id+"_signatures"), signatureNode.RawData())
-	fw.encryptedStore.Set(chainIdWithPrefix([]byte(id)), signedChain.ChainTree.Dag.Tip.Bytes())
+	if !fw.ChainExists(chainId) {
+		fw.wallet.ConfigureChainStorage(chainId, &StorageAdapterConfig{
+			Adapter: "badger",
+			Arguments: map[string]interface{}{
+				"path": strings.TrimRight(fw.path, "/") + "-" + chainId,
+			},
+		})
+	}
 
-	return nil
+	return fw.wallet.SaveChain(signedChain)
 }
 
 func (fw *FileWallet) GetChainIds() ([]string, error) {
-	chainIds, err := fw.encryptedStore.GetKeysByPrefix(chainPrefix)
-	if err != nil {
-		return nil, fmt.Errorf("error getting saved chain tree ids; %v", err)
-	}
-
-	stringIds := make([]string, len(chainIds))
-	for i, k := range chainIds {
-		stringIds[i] = string(k[len(chainPrefix):])
-	}
-
-	return stringIds, nil
+	return fw.wallet.GetChainIds()
 }
 
 func (fw *FileWallet) GetKey(addr string) (*ecdsa.PrivateKey, error) {
-	keyBytes, err := fw.encryptedStore.Get(keyAddrWithPrefix(common.HexToAddress(addr).Bytes()))
-	if err != nil {
-		return nil, fmt.Errorf("error getting key: %v", err)
-	}
-	return crypto.ToECDSA(keyBytes)
+	return fw.wallet.GetKey(addr)
 }
 
 func (fw *FileWallet) GenerateKey() (*ecdsa.PrivateKey, error) {
-	key, err := crypto.GenerateKey()
-	if err != nil {
-		return nil, fmt.Errorf("error generating key: %v", err)
-	}
-
-	err = fw.encryptedStore.Set(keyAddrWithPrefix(crypto.PubkeyToAddress(key.PublicKey).Bytes()), crypto.FromECDSA(key))
-	if err != nil {
-		return nil, fmt.Errorf("error generating key: %v", err)
-	}
-
-	return key, nil
+	return fw.wallet.GenerateKey()
 }
 
 func (fw *FileWallet) ListKeys() ([]string, error) {
-	keys, err := fw.encryptedStore.GetKeysByPrefix(keyPrefix)
-	if err != nil {
-		return nil, fmt.Errorf("error getting keys; %v", err)
-	}
-	addrs := make([]string, len(keys))
-	for i, k := range keys {
-		addrs[i] = common.BytesToAddress(k[len(keyPrefix):]).String()
-	}
-	return addrs, nil
-}
-
-func chainIdWithPrefix(chainID []byte) []byte {
-	return append(chainPrefix, chainID...)
-}
-
-func keyAddrWithPrefix(addr []byte) []byte {
-	return append(keyPrefix, addr...)
+	return fw.wallet.ListKeys()
 }

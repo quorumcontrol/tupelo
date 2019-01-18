@@ -13,8 +13,8 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -72,7 +72,7 @@ func TestFileWallet_GetChain(t *testing.T) {
 	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
-	key, err := crypto.GenerateKey()
+	key, err := fw.GenerateKey()
 	require.Nil(t, err)
 
 	signedTree := newSavedChain(t, fw, key.PublicKey)
@@ -111,7 +111,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
-	key, err := crypto.GenerateKey()
+	key, err := fw.GenerateKey()
 	require.Nil(t, err)
 
 	signedTree := newSavedChain(t, fw, key.PublicKey)
@@ -235,7 +235,7 @@ func TestFileWallet_GetChainIds(t *testing.T) {
 	fw.CreateIfNotExists("password")
 	defer fw.Close()
 
-	key, err := crypto.GenerateKey()
+	key, err := fw.GenerateKey()
 	require.Nil(t, err)
 
 	chain := newSavedChain(t, fw, key.PublicKey)
