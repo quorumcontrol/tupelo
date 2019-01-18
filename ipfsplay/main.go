@@ -44,7 +44,7 @@ func putUpATree(ctx context.Context, dag coreiface.DagAPI) error {
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
-	path := "/some/data"
+	path := "some/data"
 	value := "is now set"
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
