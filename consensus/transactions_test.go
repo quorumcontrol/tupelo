@@ -149,7 +149,7 @@ func TestSetData(t *testing.T) {
 	linkedTree, err := testTree.Dag.Get(rootMap["tree"].(cid.Cid))
 	require.Nil(t, err)
 
-	// asser that the thing being linked to isn't a CID itself
+	// assert that the thing being linked to isn't a CID itself
 	treeCid := cid.Cid{}
 	err = cbornode.DecodeInto(linkedTree.RawData(), &treeCid)
 	assert.NotNil(t, err)
@@ -157,7 +157,7 @@ func TestSetData(t *testing.T) {
 	// assert the thing being linked to is a map
 	treeMap := make(map[string]interface{})
 	err = cbornode.DecodeInto(linkedTree.RawData(), &treeMap)
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 	_, ok := treeMap["some"]
 	assert.True(t, ok)
 }
