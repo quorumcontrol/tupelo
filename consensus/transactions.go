@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/typecaster"
@@ -54,6 +54,19 @@ func complexType(obj interface{}) bool {
 	}
 }
 
+func decodePath(path string) ([]string, error) {
+	trimmed := strings.TrimPrefix(path, "/")
+	split := strings.Split(trimmed, "/")
+	if len(split) > 1 { // []string{""} is the only valid path with an empty string
+		for _, component := range split {
+			if component == "" {
+				return nil, fmt.Errorf("malformed path string containing repeated separator: %s", path)
+			}
+		}
+	}
+	return split, nil
+}
+
 // SetDataTransaction just sets a path in a tree to arbitrary data. It makes sure no data is being changed in the _tupelo path.
 func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &SetDataPayload{}
@@ -62,14 +75,19 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	if payload.Path == "_tupelo" || strings.HasPrefix(payload.Path, "_tupelo/") {
+	path, err := decodePath(payload.Path)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
+	}
+
+	if path[0] == "_tupelo" {
 		return nil, false, &ErrorCode{Code: 999, Memo: "the path prefix _tupelo is reserved"}
 	}
 
 	if complexType(payload.Value) {
-		newTree, err = tree.SetAsLink(strings.Split(payload.Path, "/"), payload.Value)
+		newTree, err = tree.SetAsLink(path, payload.Value)
 	} else {
-		newTree, err = tree.Set(strings.Split(payload.Path, "/"), payload.Value)
+		newTree, err = tree.Set(path, payload.Value)
 	}
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
@@ -90,7 +108,12 @@ func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) 
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	newTree, err = tree.SetAsLink(strings.Split(TreePathForAuthentications, "/"), payload.Authentication)
+	path, err := decodePath(TreePathForAuthentications)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
+	}
+
+	newTree, err = tree.SetAsLink(path, payload.Authentication)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
@@ -123,7 +146,11 @@ func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction)
 	}
 
 	coinName := payload.Name
-	coinPath := append(strings.Split(TreePathForCoins, "/"), coinName)
+	path, err := decodePath(TreePathForCoins)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
+	}
+	coinPath := append(path, coinName)
 	existingCoin, _, err := tree.Resolve(coinPath)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error attempting to resolve %v: %v", coinPath, err)}
@@ -167,7 +194,11 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 	}
 
 	coinName := payload.Name
-	coinPath := append(strings.Split(TreePathForCoins, "/"), coinName)
+	path, err := decodePath(TreePathForCoins)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
+	}
+	coinPath := append(path, coinName)
 
 	uncastMonetaryPolicy, _, err := tree.Resolve(append(coinPath, "monetaryPolicy"))
 	if err != nil {
@@ -257,7 +288,12 @@ func StakeTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTre
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	newTree, err = tree.SetAsLink(strings.Split(TreePathForStake, "/"), payload)
+	path, err := decodePath(TreePathForStake)
+	if err != nil {
+		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
+	}
+
+	newTree, err = tree.SetAsLink(path, payload)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("error setting: %v", err)}
 	}
