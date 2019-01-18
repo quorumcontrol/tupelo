@@ -269,9 +269,6 @@ func (fw *FileWallet) ListKeys() ([]string, error) {
 	return addrs, nil
 }
 
-var chainPrefix = []byte("-c-")
-var keyPrefix = []byte("-k-")
-
 func chainIdWithPrefix(chainID []byte) []byte {
 	return append(chainPrefix, chainID...)
 }
