@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -175,7 +174,6 @@ var rpcServerCmd = &cobra.Command{
 		}
 
 		walletStorage := walletPath()
-		os.MkdirAll(walletStorage, 0700)
 
 		client := startClient(bootstrapAddrs)
 		if tls {
