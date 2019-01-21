@@ -19,6 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3messages "github.com/quorumcontrol/tupelo/gossip3/messages"
