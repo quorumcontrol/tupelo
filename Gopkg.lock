@@ -713,7 +713,7 @@
   revision = "1dc9a6cbc91aacc3e8b2d63db4d2e957a5394ac4"
 
 [[projects]]
-  digest = "1:82c979dc88a0ee957c07fa1f9214f34050fbaab5ebaf396619c5f2a17d855616"
+  digest = "1:6c22053d327ff0dfe7f215bcec75bab84ac87d7b339fbedc8440f80915a3f46c"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -723,9 +723,9 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "51e08e0fcca361695b1029c3db64e798206c6574"
+  revision = "c9e730f40155feb57dbbdff39814a041ab7bd4ca"
   source = "git@github.com:quorumcontrol/chaintree.git"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
 [[projects]]
   digest = "1:befcb1d98850f051869db42d12ae1ec72bb1cb7cd605ada8aa4ea3f84981bd8a"
@@ -1168,10 +1168,13 @@
     "github.com/tinylib/msgp/msgp",
     "go.elastic.co/apm/module/apmot",
     "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
+    "google.golang.org/grpc/codes",
     "google.golang.org/grpc/credentials",
     "google.golang.org/grpc/reflection",
+    "google.golang.org/grpc/status",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
