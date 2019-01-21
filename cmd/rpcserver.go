@@ -104,6 +104,18 @@ func syncerActorName(signer *gossip3types.Signer) string {
 	return "tupelo-"+signer.ID
 }
 
+func signerCommitPath(storagePath string, signer *gossip3types.Signer) (path string) {
+	path = filepath.Join(storagePath, signer.ID+"-commit")
+	os.MkdirAll(path, 0755)
+	return
+}
+
+func signerCurrentPath(storagePath string, signer *gossip3types.Signer) (path string) {
+	path = filepath.Join(storagePath, signer.ID+"-current")
+	os.MkdirAll(path, 0755)
+	return
+}
+
 func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
@@ -114,10 +126,8 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 
 	signer := gossip3types.NewLocalSigner(&ecdsaKey.PublicKey, blsKey)
 
-	commitPath := filepath.Join(storagePath, signer.ID+"-commit")
-	currentPath := filepath.Join(storagePath, signer.ID+"-current")
-	os.MkdirAll(commitPath, 0755)
-	os.MkdirAll(currentPath, 0755)
+	commitPath := signerCommitPath(storagePath, signer)
+	currentPath := signerCurrentPath(storagePath, signer)
 
 	commitStore, err := storage.NewBadgerStorage(commitPath)
 	if err != nil {

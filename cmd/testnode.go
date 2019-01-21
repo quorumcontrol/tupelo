@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -105,10 +104,9 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	log.Info("starting up a test node")
 
 	storagePath := configDir(namespace)
-	os.MkdirAll(storagePath, 0700)
 
-	commitPath := filepath.Join(storagePath, localSigner.ID+"-commit")
-	currentPath := filepath.Join(storagePath, localSigner.ID+"-current")
+	commitPath := signerCommitPath(storagePath, localSigner)
+	currentPath := signerCurrentPath(storagePath, localSigner)
 	badgerCommit, err := storage.NewBadgerStorage(commitPath)
 	if err != nil {
 		panic(fmt.Sprintf("error creating storage: %v", err))
