@@ -115,10 +115,10 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 			trans[i] = fakeValidateTransaction(t, &tr)
 			conflictSetRouter.Tell(trans[i])
 		}
-		// it's known that trans[0] is the lowest transaction,
+		// it's known that trans[2] is the lowest transaction,
 		// this is just a sanity check
-		require.True(t, string(trans[0].TransactionID) < string(trans[2].TransactionID))
-		require.True(t, string(trans[0].TransactionID) < string(trans[1].TransactionID))
+		require.True(t, string(trans[2].TransactionID) < string(trans[1].TransactionID))
+		require.True(t, string(trans[1].TransactionID) < string(trans[0].TransactionID))
 
 		// note skipping first signer here
 		for i := 1; i < len(sigGeneratorActors); i++ {

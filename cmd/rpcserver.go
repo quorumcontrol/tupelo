@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -97,7 +96,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) (bootstrapAddrs []str
 	bootstrapPublicKeys = publicKeys
 	signers := make([]*gossip2.GossipNode, len(privateKeys))
 	for i, keys := range privateKeys {
-		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, localConfig, 0)
+		signers[i] = setupGossipNode(ctx, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, "local-network", 0)
 	}
 
 	// Use first signer as bootstrap node
@@ -175,7 +174,6 @@ var rpcServerCmd = &cobra.Command{
 		}
 
 		walletStorage := walletPath()
-		os.MkdirAll(walletStorage, 0700)
 
 		client := startClient(bootstrapAddrs)
 		if tls {
