@@ -19,7 +19,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
+
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3messages "github.com/quorumcontrol/tupelo/gossip3/messages"
 	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
@@ -100,6 +100,10 @@ func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 	}
 }
 
+func syncerActorName(signer *gossip3types.Signer) string {
+	return "tupelo-"+signer.ID
+}
+
 func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
@@ -129,7 +133,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 		NotaryGroup:       group,
 		CommitStore:       commitStore,
 		CurrentStateStore: currenStore,
-	}), "tupelo-"+signer.ID)
+	}), syncerActorName(signer))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning actor: %v", err))
 	}
@@ -236,7 +240,6 @@ var rpcServerCmd = &cobra.Command{
 			group.SetupAllRemoteActors(&key.PublicKey)
 		}
 		walletStorage := walletPath()
-		os.MkdirAll(walletStorage, 0700)
 
 		client := gossip3client.New(group)
 		if localNetworkNodeCount > 0 {

@@ -76,7 +76,7 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 func configDir(namespace string) string {
 	conf := configdir.New("tupelo", namespace)
 	folders := conf.QueryFolders(configdir.Global)
-
+	os.MkdirAll(folders[0].Path, 0700)
 	return folders[0].Path
 }
 
