@@ -4,10 +4,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	cid "github.com/ipfs/go-cid"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEstablishCoinTransactionWithMaximum(t *testing.T) {
@@ -101,6 +104,62 @@ func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
 	receives, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "receives"})
 	assert.Nil(t, err)
 	assert.Nil(t, receives)
+}
+
+func TestSetData(t *testing.T) {
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	treeDID := AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := NewEmptyTree(treeDID, nodeStore)
+	path := "some/data"
+	value := "is now set"
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  path,
+						"value": value,
+					},
+				},
+			},
+		},
+	}
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+
+	// nodes, err := testTree.Dag.Nodes()
+	// require.Nil(t, err)
+
+	// assert the node the tree links to isn't itself a CID
+	root, err := testTree.Dag.Get(testTree.Dag.Tip)
+	assert.Nil(t, err)
+	rootMap := make(map[string]interface{})
+	err = cbornode.DecodeInto(root.RawData(), &rootMap)
+	require.Nil(t, err)
+	linkedTree, err := testTree.Dag.Get(rootMap["tree"].(cid.Cid))
+	require.Nil(t, err)
+
+	// assert that the thing being linked to isn't a CID itself
+	treeCid := cid.Cid{}
+	err = cbornode.DecodeInto(linkedTree.RawData(), &treeCid)
+	assert.NotNil(t, err)
+
+	// assert the thing being linked to is a map
+	treeMap := make(map[string]interface{})
+	err = cbornode.DecodeInto(linkedTree.RawData(), &treeMap)
+	assert.Nil(t, err)
+	_, ok := treeMap["some"]
+	assert.True(t, ok)
 }
 
 func TestDecodePath(t *testing.T) {
