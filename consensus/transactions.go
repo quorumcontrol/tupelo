@@ -54,7 +54,7 @@ func complexType(obj interface{}) bool {
 	}
 }
 
-func decodePath(path string) ([]string, error) {
+func DecodePath(path string) ([]string, error) {
 	trimmed := strings.TrimPrefix(path, "/")
 	split := strings.Split(trimmed, "/")
 	if len(split) > 1 { // []string{""} is the only valid path with an empty string
@@ -75,7 +75,7 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	path, err := decodePath(payload.Path)
+	path, err := DecodePath(payload.Path)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
 	}
@@ -108,7 +108,7 @@ func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) 
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	path, err := decodePath(TreePathForAuthentications)
+	path, err := DecodePath(TreePathForAuthentications)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
 	}
@@ -146,7 +146,7 @@ func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction)
 	}
 
 	coinName := payload.Name
-	path, err := decodePath(TreePathForCoins)
+	path, err := DecodePath(TreePathForCoins)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
 	}
@@ -194,7 +194,7 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 	}
 
 	coinName := payload.Name
-	path, err := decodePath(TreePathForCoins)
+	path, err := DecodePath(TreePathForCoins)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
 	}
@@ -288,7 +288,7 @@ func StakeTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTre
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
 	}
 
-	path, err := decodePath(TreePathForStake)
+	path, err := DecodePath(TreePathForStake)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
 	}
