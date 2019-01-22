@@ -12,23 +12,40 @@ if [ -z "$version" ]; then
   exit 1
 fi
 
+linux_binary="tupelo-${version}-linux-amd64"
+osx_binary="tupelo-${version}-darwin-amd64"
+
 zipdir=$projectdir/.tmp/tupelo-$version/
 rm -rf $zipdir
 mkdir -p $zipdir
 mkdir -p $releasedir
 
+generateSha256() {
+  filename=$1
+  if ! [ -x "$(command -v docker)" ]; then
+    echo "docker is not installed, can't generate sha256"
+  else
+    container_id=$(docker run -d --entrypoint=tail alpine -f /dev/null)
+    docker cp $zipdir/$filename $container_id:$filename
+    sha256=$(docker exec $container_id sha256sum $filename)
+    echo $sha256 >> $releasedir/tupelo-${version}-checksums.txt
+  fi
+}
+
 if ! [ "$(uname)" == "Darwin" ]; then
   echo "detected non mac os, skipping mac build"
 else
-  go build -o $zipdir/tupelo-${version}-darwin-amd64 -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
+  go build -o $zipdir/$osx_binary -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
+  generateSha256 $osx_binary
 fi
 
 if ! [ -x "$(command -v docker)" ]; then
   echo "docker is not installed, skipping linux build"
 else
-  container_id=$(docker run -d --entrypoint=tail $(docker build -q .) -f /dev/null)
-  docker cp ${container_id}:/usr/bin/tupelo $zipdir/tupelo-${version}-linux-amd64
+  container_id=$(docker run -d --rm --entrypoint=tail $(docker build -q .) -f /dev/null)
+  docker cp ${container_id}:/usr/bin/tupelo $zipdir/$linux_binary
   docker rm -fv ${container_id}
+  generateSha256 $linux_binary
 fi
 
 git tag ${version}
