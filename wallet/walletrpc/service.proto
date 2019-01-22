@@ -4,11 +4,6 @@ package walletrpc;
 
 option go_package = "walletrpc";
 
-message Credentials {
-  string wallet_name = 1;
-  string pass_phrase = 2;
-}
-
 message SerializableSignature {
   repeated bool signers = 1;
   bytes signature = 2;
@@ -21,7 +16,6 @@ message SerializableChainTree {
 }
 
 message RegisterWalletRequest {
-  Credentials creds = 1;
 }
 
 message RegisterWalletResponse {
@@ -29,8 +23,7 @@ message RegisterWalletResponse {
 }
 
 message GenerateChainRequest {
-  Credentials creds = 1;
-  string key_addr = 2;
+  string key_addr = 1;
 }
 
 message GenerateChainResponse {
@@ -38,8 +31,7 @@ message GenerateChainResponse {
 }
 
 message ExportChainRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
+  string chain_id = 1;
 }
 
 message ExportChainResponse {
@@ -47,9 +39,8 @@ message ExportChainResponse {
 }
 
 message ImportChainRequest {
-  Credentials creds = 1;
-  string key_addr = 2;
-  bytes chain_tree = 3;
+  string key_addr = 1;
+  bytes chain_tree = 2;
 }
 
 message ImportChainResponse {
@@ -57,7 +48,6 @@ message ImportChainResponse {
 }
 
 message GenerateKeyRequest {
-  Credentials creds = 1;
 }
 
 message GenerateKeyResponse {
@@ -65,8 +55,7 @@ message GenerateKeyResponse {
 }
 
 message GetTipRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
+  string chain_id = 1;
 }
 
 message GetTipResponse {
@@ -74,7 +63,6 @@ message GetTipResponse {
 }
 
 message ListChainIdsRequest {
-  Credentials creds = 1;
 }
 
 message ListChainIdsResponse {
@@ -82,7 +70,6 @@ message ListChainIdsResponse {
 }
 
 message ListKeysRequest {
-  Credentials creds = 1;
 }
 
 message ListKeysResponse {
@@ -90,10 +77,9 @@ message ListKeysResponse {
 }
 
 message SetOwnerRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
-  string key_addr = 3;
-  repeated string new_owner_keys = 4;
+  string chain_id = 1;
+  string key_addr = 2;
+  repeated string new_owner_keys = 3;
 }
 
 message SetOwnerResponse {
@@ -101,11 +87,10 @@ message SetOwnerResponse {
 }
 
 message SetDataRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
-  string key_addr = 3;
-  string path = 4;
-  bytes value = 5;
+  string chain_id = 1;
+  string key_addr = 2;
+  string path = 3;
+  bytes value = 4;
 }
 
 message SetDataResponse {
@@ -113,9 +98,8 @@ message SetDataResponse {
 }
 
 message ResolveRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
-  string path = 3;
+  string chain_id = 1;
+  string path = 2;
 }
 
 message ResolveResponse {
@@ -124,11 +108,10 @@ message ResolveResponse {
 }
 
 message EstablishCoinRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
-  string key_addr = 3;
-  string coin_name = 4;
-  uint64 maximum = 5;
+  string chain_id = 1;
+  string key_addr = 2;
+  string coin_name = 3;
+  uint64 maximum = 4;
 }
 
 message EstablishCoinResponse {
@@ -136,11 +119,10 @@ message EstablishCoinResponse {
 }
 
 message MintCoinRequest {
-  Credentials creds = 1;
-  string chain_id = 2;
-  string key_addr = 3;
-  string coin_name = 4;
-  uint64 amount = 5;
+  string chain_id = 1;
+  string key_addr = 2;
+  string coin_name = 3;
+  uint64 amount = 4;
 }
 
 message MintCoinResponse {

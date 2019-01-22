@@ -23,52 +23,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type Credentials struct {
-	WalletName           string   `protobuf:"bytes,1,opt,name=wallet_name,json=walletName,proto3" json:"wallet_name,omitempty"`
-	PassPhrase           string   `protobuf:"bytes,2,opt,name=pass_phrase,json=passPhrase,proto3" json:"pass_phrase,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Credentials) Reset()         { *m = Credentials{} }
-func (m *Credentials) String() string { return proto.CompactTextString(m) }
-func (*Credentials) ProtoMessage()    {}
-func (*Credentials) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{0}
-}
-func (m *Credentials) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Credentials.Unmarshal(m, b)
-}
-func (m *Credentials) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Credentials.Marshal(b, m, deterministic)
-}
-func (m *Credentials) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Credentials.Merge(m, src)
-}
-func (m *Credentials) XXX_Size() int {
-	return xxx_messageInfo_Credentials.Size(m)
-}
-func (m *Credentials) XXX_DiscardUnknown() {
-	xxx_messageInfo_Credentials.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Credentials proto.InternalMessageInfo
-
-func (m *Credentials) GetWalletName() string {
-	if m != nil {
-		return m.WalletName
-	}
-	return ""
-}
-
-func (m *Credentials) GetPassPhrase() string {
-	if m != nil {
-		return m.PassPhrase
-	}
-	return ""
-}
-
 type SerializableSignature struct {
 	Signers              []bool   `protobuf:"varint,1,rep,packed,name=signers,proto3" json:"signers,omitempty"`
 	Signature            []byte   `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
@@ -82,7 +36,7 @@ func (m *SerializableSignature) Reset()         { *m = SerializableSignature{} }
 func (m *SerializableSignature) String() string { return proto.CompactTextString(m) }
 func (*SerializableSignature) ProtoMessage()    {}
 func (*SerializableSignature) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{1}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{0}
 }
 func (m *SerializableSignature) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SerializableSignature.Unmarshal(m, b)
@@ -90,8 +44,8 @@ func (m *SerializableSignature) XXX_Unmarshal(b []byte) error {
 func (m *SerializableSignature) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SerializableSignature.Marshal(b, m, deterministic)
 }
-func (m *SerializableSignature) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SerializableSignature.Merge(m, src)
+func (dst *SerializableSignature) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SerializableSignature.Merge(dst, src)
 }
 func (m *SerializableSignature) XXX_Size() int {
 	return xxx_messageInfo_SerializableSignature.Size(m)
@@ -135,7 +89,7 @@ func (m *SerializableChainTree) Reset()         { *m = SerializableChainTree{} }
 func (m *SerializableChainTree) String() string { return proto.CompactTextString(m) }
 func (*SerializableChainTree) ProtoMessage()    {}
 func (*SerializableChainTree) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{2}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{1}
 }
 func (m *SerializableChainTree) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SerializableChainTree.Unmarshal(m, b)
@@ -143,8 +97,8 @@ func (m *SerializableChainTree) XXX_Unmarshal(b []byte) error {
 func (m *SerializableChainTree) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SerializableChainTree.Marshal(b, m, deterministic)
 }
-func (m *SerializableChainTree) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SerializableChainTree.Merge(m, src)
+func (dst *SerializableChainTree) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SerializableChainTree.Merge(dst, src)
 }
 func (m *SerializableChainTree) XXX_Size() int {
 	return xxx_messageInfo_SerializableChainTree.Size(m)
@@ -170,17 +124,16 @@ func (m *SerializableChainTree) GetSignatures() map[string]*SerializableSignatur
 }
 
 type RegisterWalletRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *RegisterWalletRequest) Reset()         { *m = RegisterWalletRequest{} }
 func (m *RegisterWalletRequest) String() string { return proto.CompactTextString(m) }
 func (*RegisterWalletRequest) ProtoMessage()    {}
 func (*RegisterWalletRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{3}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{2}
 }
 func (m *RegisterWalletRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RegisterWalletRequest.Unmarshal(m, b)
@@ -188,8 +141,8 @@ func (m *RegisterWalletRequest) XXX_Unmarshal(b []byte) error {
 func (m *RegisterWalletRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RegisterWalletRequest.Marshal(b, m, deterministic)
 }
-func (m *RegisterWalletRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RegisterWalletRequest.Merge(m, src)
+func (dst *RegisterWalletRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegisterWalletRequest.Merge(dst, src)
 }
 func (m *RegisterWalletRequest) XXX_Size() int {
 	return xxx_messageInfo_RegisterWalletRequest.Size(m)
@@ -199,13 +152,6 @@ func (m *RegisterWalletRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_RegisterWalletRequest proto.InternalMessageInfo
-
-func (m *RegisterWalletRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 type RegisterWalletResponse struct {
 	WalletName           string   `protobuf:"bytes,1,opt,name=wallet_name,json=walletName,proto3" json:"wallet_name,omitempty"`
@@ -218,7 +164,7 @@ func (m *RegisterWalletResponse) Reset()         { *m = RegisterWalletResponse{}
 func (m *RegisterWalletResponse) String() string { return proto.CompactTextString(m) }
 func (*RegisterWalletResponse) ProtoMessage()    {}
 func (*RegisterWalletResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{4}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{3}
 }
 func (m *RegisterWalletResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RegisterWalletResponse.Unmarshal(m, b)
@@ -226,8 +172,8 @@ func (m *RegisterWalletResponse) XXX_Unmarshal(b []byte) error {
 func (m *RegisterWalletResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_RegisterWalletResponse.Marshal(b, m, deterministic)
 }
-func (m *RegisterWalletResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RegisterWalletResponse.Merge(m, src)
+func (dst *RegisterWalletResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RegisterWalletResponse.Merge(dst, src)
 }
 func (m *RegisterWalletResponse) XXX_Size() int {
 	return xxx_messageInfo_RegisterWalletResponse.Size(m)
@@ -246,18 +192,17 @@ func (m *RegisterWalletResponse) GetWalletName() string {
 }
 
 type GenerateChainRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	KeyAddr              string   `protobuf:"bytes,1,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GenerateChainRequest) Reset()         { *m = GenerateChainRequest{} }
 func (m *GenerateChainRequest) String() string { return proto.CompactTextString(m) }
 func (*GenerateChainRequest) ProtoMessage()    {}
 func (*GenerateChainRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{5}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{4}
 }
 func (m *GenerateChainRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GenerateChainRequest.Unmarshal(m, b)
@@ -265,8 +210,8 @@ func (m *GenerateChainRequest) XXX_Unmarshal(b []byte) error {
 func (m *GenerateChainRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GenerateChainRequest.Marshal(b, m, deterministic)
 }
-func (m *GenerateChainRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GenerateChainRequest.Merge(m, src)
+func (dst *GenerateChainRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GenerateChainRequest.Merge(dst, src)
 }
 func (m *GenerateChainRequest) XXX_Size() int {
 	return xxx_messageInfo_GenerateChainRequest.Size(m)
@@ -276,13 +221,6 @@ func (m *GenerateChainRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GenerateChainRequest proto.InternalMessageInfo
-
-func (m *GenerateChainRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *GenerateChainRequest) GetKeyAddr() string {
 	if m != nil {
@@ -302,7 +240,7 @@ func (m *GenerateChainResponse) Reset()         { *m = GenerateChainResponse{} }
 func (m *GenerateChainResponse) String() string { return proto.CompactTextString(m) }
 func (*GenerateChainResponse) ProtoMessage()    {}
 func (*GenerateChainResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{6}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{5}
 }
 func (m *GenerateChainResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GenerateChainResponse.Unmarshal(m, b)
@@ -310,8 +248,8 @@ func (m *GenerateChainResponse) XXX_Unmarshal(b []byte) error {
 func (m *GenerateChainResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GenerateChainResponse.Marshal(b, m, deterministic)
 }
-func (m *GenerateChainResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GenerateChainResponse.Merge(m, src)
+func (dst *GenerateChainResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GenerateChainResponse.Merge(dst, src)
 }
 func (m *GenerateChainResponse) XXX_Size() int {
 	return xxx_messageInfo_GenerateChainResponse.Size(m)
@@ -330,18 +268,17 @@ func (m *GenerateChainResponse) GetChainId() string {
 }
 
 type ExportChainRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ExportChainRequest) Reset()         { *m = ExportChainRequest{} }
 func (m *ExportChainRequest) String() string { return proto.CompactTextString(m) }
 func (*ExportChainRequest) ProtoMessage()    {}
 func (*ExportChainRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{7}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{6}
 }
 func (m *ExportChainRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ExportChainRequest.Unmarshal(m, b)
@@ -349,8 +286,8 @@ func (m *ExportChainRequest) XXX_Unmarshal(b []byte) error {
 func (m *ExportChainRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ExportChainRequest.Marshal(b, m, deterministic)
 }
-func (m *ExportChainRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExportChainRequest.Merge(m, src)
+func (dst *ExportChainRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExportChainRequest.Merge(dst, src)
 }
 func (m *ExportChainRequest) XXX_Size() int {
 	return xxx_messageInfo_ExportChainRequest.Size(m)
@@ -360,13 +297,6 @@ func (m *ExportChainRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ExportChainRequest proto.InternalMessageInfo
-
-func (m *ExportChainRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *ExportChainRequest) GetChainId() string {
 	if m != nil {
@@ -386,7 +316,7 @@ func (m *ExportChainResponse) Reset()         { *m = ExportChainResponse{} }
 func (m *ExportChainResponse) String() string { return proto.CompactTextString(m) }
 func (*ExportChainResponse) ProtoMessage()    {}
 func (*ExportChainResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{8}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{7}
 }
 func (m *ExportChainResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ExportChainResponse.Unmarshal(m, b)
@@ -394,8 +324,8 @@ func (m *ExportChainResponse) XXX_Unmarshal(b []byte) error {
 func (m *ExportChainResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ExportChainResponse.Marshal(b, m, deterministic)
 }
-func (m *ExportChainResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ExportChainResponse.Merge(m, src)
+func (dst *ExportChainResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ExportChainResponse.Merge(dst, src)
 }
 func (m *ExportChainResponse) XXX_Size() int {
 	return xxx_messageInfo_ExportChainResponse.Size(m)
@@ -414,19 +344,18 @@ func (m *ExportChainResponse) GetChainTree() []byte {
 }
 
 type ImportChainRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	ChainTree            []byte       `protobuf:"bytes,3,opt,name=chain_tree,json=chainTree,proto3" json:"chain_tree,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	KeyAddr              string   `protobuf:"bytes,1,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	ChainTree            []byte   `protobuf:"bytes,2,opt,name=chain_tree,json=chainTree,proto3" json:"chain_tree,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ImportChainRequest) Reset()         { *m = ImportChainRequest{} }
 func (m *ImportChainRequest) String() string { return proto.CompactTextString(m) }
 func (*ImportChainRequest) ProtoMessage()    {}
 func (*ImportChainRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{9}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{8}
 }
 func (m *ImportChainRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ImportChainRequest.Unmarshal(m, b)
@@ -434,8 +363,8 @@ func (m *ImportChainRequest) XXX_Unmarshal(b []byte) error {
 func (m *ImportChainRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ImportChainRequest.Marshal(b, m, deterministic)
 }
-func (m *ImportChainRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ImportChainRequest.Merge(m, src)
+func (dst *ImportChainRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ImportChainRequest.Merge(dst, src)
 }
 func (m *ImportChainRequest) XXX_Size() int {
 	return xxx_messageInfo_ImportChainRequest.Size(m)
@@ -445,13 +374,6 @@ func (m *ImportChainRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ImportChainRequest proto.InternalMessageInfo
-
-func (m *ImportChainRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *ImportChainRequest) GetKeyAddr() string {
 	if m != nil {
@@ -478,7 +400,7 @@ func (m *ImportChainResponse) Reset()         { *m = ImportChainResponse{} }
 func (m *ImportChainResponse) String() string { return proto.CompactTextString(m) }
 func (*ImportChainResponse) ProtoMessage()    {}
 func (*ImportChainResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{10}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{9}
 }
 func (m *ImportChainResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ImportChainResponse.Unmarshal(m, b)
@@ -486,8 +408,8 @@ func (m *ImportChainResponse) XXX_Unmarshal(b []byte) error {
 func (m *ImportChainResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ImportChainResponse.Marshal(b, m, deterministic)
 }
-func (m *ImportChainResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ImportChainResponse.Merge(m, src)
+func (dst *ImportChainResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ImportChainResponse.Merge(dst, src)
 }
 func (m *ImportChainResponse) XXX_Size() int {
 	return xxx_messageInfo_ImportChainResponse.Size(m)
@@ -506,17 +428,16 @@ func (m *ImportChainResponse) GetChainId() string {
 }
 
 type GenerateKeyRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GenerateKeyRequest) Reset()         { *m = GenerateKeyRequest{} }
 func (m *GenerateKeyRequest) String() string { return proto.CompactTextString(m) }
 func (*GenerateKeyRequest) ProtoMessage()    {}
 func (*GenerateKeyRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{11}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{10}
 }
 func (m *GenerateKeyRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GenerateKeyRequest.Unmarshal(m, b)
@@ -524,8 +445,8 @@ func (m *GenerateKeyRequest) XXX_Unmarshal(b []byte) error {
 func (m *GenerateKeyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GenerateKeyRequest.Marshal(b, m, deterministic)
 }
-func (m *GenerateKeyRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GenerateKeyRequest.Merge(m, src)
+func (dst *GenerateKeyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GenerateKeyRequest.Merge(dst, src)
 }
 func (m *GenerateKeyRequest) XXX_Size() int {
 	return xxx_messageInfo_GenerateKeyRequest.Size(m)
@@ -535,13 +456,6 @@ func (m *GenerateKeyRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GenerateKeyRequest proto.InternalMessageInfo
-
-func (m *GenerateKeyRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 type GenerateKeyResponse struct {
 	KeyAddr              string   `protobuf:"bytes,1,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
@@ -554,7 +468,7 @@ func (m *GenerateKeyResponse) Reset()         { *m = GenerateKeyResponse{} }
 func (m *GenerateKeyResponse) String() string { return proto.CompactTextString(m) }
 func (*GenerateKeyResponse) ProtoMessage()    {}
 func (*GenerateKeyResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{12}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{11}
 }
 func (m *GenerateKeyResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GenerateKeyResponse.Unmarshal(m, b)
@@ -562,8 +476,8 @@ func (m *GenerateKeyResponse) XXX_Unmarshal(b []byte) error {
 func (m *GenerateKeyResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GenerateKeyResponse.Marshal(b, m, deterministic)
 }
-func (m *GenerateKeyResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GenerateKeyResponse.Merge(m, src)
+func (dst *GenerateKeyResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GenerateKeyResponse.Merge(dst, src)
 }
 func (m *GenerateKeyResponse) XXX_Size() int {
 	return xxx_messageInfo_GenerateKeyResponse.Size(m)
@@ -582,18 +496,17 @@ func (m *GenerateKeyResponse) GetKeyAddr() string {
 }
 
 type GetTipRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GetTipRequest) Reset()         { *m = GetTipRequest{} }
 func (m *GetTipRequest) String() string { return proto.CompactTextString(m) }
 func (*GetTipRequest) ProtoMessage()    {}
 func (*GetTipRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{13}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{12}
 }
 func (m *GetTipRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetTipRequest.Unmarshal(m, b)
@@ -601,8 +514,8 @@ func (m *GetTipRequest) XXX_Unmarshal(b []byte) error {
 func (m *GetTipRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetTipRequest.Marshal(b, m, deterministic)
 }
-func (m *GetTipRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetTipRequest.Merge(m, src)
+func (dst *GetTipRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetTipRequest.Merge(dst, src)
 }
 func (m *GetTipRequest) XXX_Size() int {
 	return xxx_messageInfo_GetTipRequest.Size(m)
@@ -612,13 +525,6 @@ func (m *GetTipRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GetTipRequest proto.InternalMessageInfo
-
-func (m *GetTipRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *GetTipRequest) GetChainId() string {
 	if m != nil {
@@ -638,7 +544,7 @@ func (m *GetTipResponse) Reset()         { *m = GetTipResponse{} }
 func (m *GetTipResponse) String() string { return proto.CompactTextString(m) }
 func (*GetTipResponse) ProtoMessage()    {}
 func (*GetTipResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{14}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{13}
 }
 func (m *GetTipResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetTipResponse.Unmarshal(m, b)
@@ -646,8 +552,8 @@ func (m *GetTipResponse) XXX_Unmarshal(b []byte) error {
 func (m *GetTipResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetTipResponse.Marshal(b, m, deterministic)
 }
-func (m *GetTipResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetTipResponse.Merge(m, src)
+func (dst *GetTipResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetTipResponse.Merge(dst, src)
 }
 func (m *GetTipResponse) XXX_Size() int {
 	return xxx_messageInfo_GetTipResponse.Size(m)
@@ -666,17 +572,16 @@ func (m *GetTipResponse) GetTip() string {
 }
 
 type ListChainIdsRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListChainIdsRequest) Reset()         { *m = ListChainIdsRequest{} }
 func (m *ListChainIdsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListChainIdsRequest) ProtoMessage()    {}
 func (*ListChainIdsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{15}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{14}
 }
 func (m *ListChainIdsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListChainIdsRequest.Unmarshal(m, b)
@@ -684,8 +589,8 @@ func (m *ListChainIdsRequest) XXX_Unmarshal(b []byte) error {
 func (m *ListChainIdsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListChainIdsRequest.Marshal(b, m, deterministic)
 }
-func (m *ListChainIdsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListChainIdsRequest.Merge(m, src)
+func (dst *ListChainIdsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListChainIdsRequest.Merge(dst, src)
 }
 func (m *ListChainIdsRequest) XXX_Size() int {
 	return xxx_messageInfo_ListChainIdsRequest.Size(m)
@@ -695,13 +600,6 @@ func (m *ListChainIdsRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ListChainIdsRequest proto.InternalMessageInfo
-
-func (m *ListChainIdsRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 type ListChainIdsResponse struct {
 	ChainIds             []string `protobuf:"bytes,1,rep,name=chain_ids,json=chainIds,proto3" json:"chain_ids,omitempty"`
@@ -714,7 +612,7 @@ func (m *ListChainIdsResponse) Reset()         { *m = ListChainIdsResponse{} }
 func (m *ListChainIdsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListChainIdsResponse) ProtoMessage()    {}
 func (*ListChainIdsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{16}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{15}
 }
 func (m *ListChainIdsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListChainIdsResponse.Unmarshal(m, b)
@@ -722,8 +620,8 @@ func (m *ListChainIdsResponse) XXX_Unmarshal(b []byte) error {
 func (m *ListChainIdsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListChainIdsResponse.Marshal(b, m, deterministic)
 }
-func (m *ListChainIdsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListChainIdsResponse.Merge(m, src)
+func (dst *ListChainIdsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListChainIdsResponse.Merge(dst, src)
 }
 func (m *ListChainIdsResponse) XXX_Size() int {
 	return xxx_messageInfo_ListChainIdsResponse.Size(m)
@@ -742,17 +640,16 @@ func (m *ListChainIdsResponse) GetChainIds() []string {
 }
 
 type ListKeysRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ListKeysRequest) Reset()         { *m = ListKeysRequest{} }
 func (m *ListKeysRequest) String() string { return proto.CompactTextString(m) }
 func (*ListKeysRequest) ProtoMessage()    {}
 func (*ListKeysRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{17}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{16}
 }
 func (m *ListKeysRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListKeysRequest.Unmarshal(m, b)
@@ -760,8 +657,8 @@ func (m *ListKeysRequest) XXX_Unmarshal(b []byte) error {
 func (m *ListKeysRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListKeysRequest.Marshal(b, m, deterministic)
 }
-func (m *ListKeysRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListKeysRequest.Merge(m, src)
+func (dst *ListKeysRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListKeysRequest.Merge(dst, src)
 }
 func (m *ListKeysRequest) XXX_Size() int {
 	return xxx_messageInfo_ListKeysRequest.Size(m)
@@ -771,13 +668,6 @@ func (m *ListKeysRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ListKeysRequest proto.InternalMessageInfo
-
-func (m *ListKeysRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 type ListKeysResponse struct {
 	KeyAddrs             []string `protobuf:"bytes,1,rep,name=key_addrs,json=keyAddrs,proto3" json:"key_addrs,omitempty"`
@@ -790,7 +680,7 @@ func (m *ListKeysResponse) Reset()         { *m = ListKeysResponse{} }
 func (m *ListKeysResponse) String() string { return proto.CompactTextString(m) }
 func (*ListKeysResponse) ProtoMessage()    {}
 func (*ListKeysResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{18}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{17}
 }
 func (m *ListKeysResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListKeysResponse.Unmarshal(m, b)
@@ -798,8 +688,8 @@ func (m *ListKeysResponse) XXX_Unmarshal(b []byte) error {
 func (m *ListKeysResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ListKeysResponse.Marshal(b, m, deterministic)
 }
-func (m *ListKeysResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListKeysResponse.Merge(m, src)
+func (dst *ListKeysResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListKeysResponse.Merge(dst, src)
 }
 func (m *ListKeysResponse) XXX_Size() int {
 	return xxx_messageInfo_ListKeysResponse.Size(m)
@@ -818,20 +708,19 @@ func (m *ListKeysResponse) GetKeyAddrs() []string {
 }
 
 type SetOwnerRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	NewOwnerKeys         []string     `protobuf:"bytes,4,rep,name=new_owner_keys,json=newOwnerKeys,proto3" json:"new_owner_keys,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	KeyAddr              string   `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	NewOwnerKeys         []string `protobuf:"bytes,3,rep,name=new_owner_keys,json=newOwnerKeys,proto3" json:"new_owner_keys,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *SetOwnerRequest) Reset()         { *m = SetOwnerRequest{} }
 func (m *SetOwnerRequest) String() string { return proto.CompactTextString(m) }
 func (*SetOwnerRequest) ProtoMessage()    {}
 func (*SetOwnerRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{19}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{18}
 }
 func (m *SetOwnerRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetOwnerRequest.Unmarshal(m, b)
@@ -839,8 +728,8 @@ func (m *SetOwnerRequest) XXX_Unmarshal(b []byte) error {
 func (m *SetOwnerRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SetOwnerRequest.Marshal(b, m, deterministic)
 }
-func (m *SetOwnerRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetOwnerRequest.Merge(m, src)
+func (dst *SetOwnerRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetOwnerRequest.Merge(dst, src)
 }
 func (m *SetOwnerRequest) XXX_Size() int {
 	return xxx_messageInfo_SetOwnerRequest.Size(m)
@@ -850,13 +739,6 @@ func (m *SetOwnerRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_SetOwnerRequest proto.InternalMessageInfo
-
-func (m *SetOwnerRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *SetOwnerRequest) GetChainId() string {
 	if m != nil {
@@ -890,7 +772,7 @@ func (m *SetOwnerResponse) Reset()         { *m = SetOwnerResponse{} }
 func (m *SetOwnerResponse) String() string { return proto.CompactTextString(m) }
 func (*SetOwnerResponse) ProtoMessage()    {}
 func (*SetOwnerResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{20}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{19}
 }
 func (m *SetOwnerResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetOwnerResponse.Unmarshal(m, b)
@@ -898,8 +780,8 @@ func (m *SetOwnerResponse) XXX_Unmarshal(b []byte) error {
 func (m *SetOwnerResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SetOwnerResponse.Marshal(b, m, deterministic)
 }
-func (m *SetOwnerResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetOwnerResponse.Merge(m, src)
+func (dst *SetOwnerResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetOwnerResponse.Merge(dst, src)
 }
 func (m *SetOwnerResponse) XXX_Size() int {
 	return xxx_messageInfo_SetOwnerResponse.Size(m)
@@ -918,21 +800,20 @@ func (m *SetOwnerResponse) GetTip() string {
 }
 
 type SetDataRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	Path                 string       `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
-	Value                []byte       `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	KeyAddr              string   `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	Path                 string   `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	Value                []byte   `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *SetDataRequest) Reset()         { *m = SetDataRequest{} }
 func (m *SetDataRequest) String() string { return proto.CompactTextString(m) }
 func (*SetDataRequest) ProtoMessage()    {}
 func (*SetDataRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{21}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{20}
 }
 func (m *SetDataRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetDataRequest.Unmarshal(m, b)
@@ -940,8 +821,8 @@ func (m *SetDataRequest) XXX_Unmarshal(b []byte) error {
 func (m *SetDataRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SetDataRequest.Marshal(b, m, deterministic)
 }
-func (m *SetDataRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetDataRequest.Merge(m, src)
+func (dst *SetDataRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetDataRequest.Merge(dst, src)
 }
 func (m *SetDataRequest) XXX_Size() int {
 	return xxx_messageInfo_SetDataRequest.Size(m)
@@ -951,13 +832,6 @@ func (m *SetDataRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_SetDataRequest proto.InternalMessageInfo
-
-func (m *SetDataRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *SetDataRequest) GetChainId() string {
 	if m != nil {
@@ -998,7 +872,7 @@ func (m *SetDataResponse) Reset()         { *m = SetDataResponse{} }
 func (m *SetDataResponse) String() string { return proto.CompactTextString(m) }
 func (*SetDataResponse) ProtoMessage()    {}
 func (*SetDataResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{22}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{21}
 }
 func (m *SetDataResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetDataResponse.Unmarshal(m, b)
@@ -1006,8 +880,8 @@ func (m *SetDataResponse) XXX_Unmarshal(b []byte) error {
 func (m *SetDataResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SetDataResponse.Marshal(b, m, deterministic)
 }
-func (m *SetDataResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetDataResponse.Merge(m, src)
+func (dst *SetDataResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetDataResponse.Merge(dst, src)
 }
 func (m *SetDataResponse) XXX_Size() int {
 	return xxx_messageInfo_SetDataResponse.Size(m)
@@ -1026,19 +900,18 @@ func (m *SetDataResponse) GetTip() string {
 }
 
 type ResolveRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	Path                 string       `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	Path                 string   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *ResolveRequest) Reset()         { *m = ResolveRequest{} }
 func (m *ResolveRequest) String() string { return proto.CompactTextString(m) }
 func (*ResolveRequest) ProtoMessage()    {}
 func (*ResolveRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{23}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{22}
 }
 func (m *ResolveRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResolveRequest.Unmarshal(m, b)
@@ -1046,8 +919,8 @@ func (m *ResolveRequest) XXX_Unmarshal(b []byte) error {
 func (m *ResolveRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResolveRequest.Marshal(b, m, deterministic)
 }
-func (m *ResolveRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResolveRequest.Merge(m, src)
+func (dst *ResolveRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResolveRequest.Merge(dst, src)
 }
 func (m *ResolveRequest) XXX_Size() int {
 	return xxx_messageInfo_ResolveRequest.Size(m)
@@ -1057,13 +930,6 @@ func (m *ResolveRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_ResolveRequest proto.InternalMessageInfo
-
-func (m *ResolveRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *ResolveRequest) GetChainId() string {
 	if m != nil {
@@ -1091,7 +957,7 @@ func (m *ResolveResponse) Reset()         { *m = ResolveResponse{} }
 func (m *ResolveResponse) String() string { return proto.CompactTextString(m) }
 func (*ResolveResponse) ProtoMessage()    {}
 func (*ResolveResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{24}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{23}
 }
 func (m *ResolveResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ResolveResponse.Unmarshal(m, b)
@@ -1099,8 +965,8 @@ func (m *ResolveResponse) XXX_Unmarshal(b []byte) error {
 func (m *ResolveResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_ResolveResponse.Marshal(b, m, deterministic)
 }
-func (m *ResolveResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ResolveResponse.Merge(m, src)
+func (dst *ResolveResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ResolveResponse.Merge(dst, src)
 }
 func (m *ResolveResponse) XXX_Size() int {
 	return xxx_messageInfo_ResolveResponse.Size(m)
@@ -1126,21 +992,20 @@ func (m *ResolveResponse) GetData() []byte {
 }
 
 type EstablishCoinRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	CoinName             string       `protobuf:"bytes,4,opt,name=coin_name,json=coinName,proto3" json:"coin_name,omitempty"`
-	Maximum              uint64       `protobuf:"varint,5,opt,name=maximum,proto3" json:"maximum,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	KeyAddr              string   `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	CoinName             string   `protobuf:"bytes,3,opt,name=coin_name,json=coinName,proto3" json:"coin_name,omitempty"`
+	Maximum              uint64   `protobuf:"varint,4,opt,name=maximum,proto3" json:"maximum,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *EstablishCoinRequest) Reset()         { *m = EstablishCoinRequest{} }
 func (m *EstablishCoinRequest) String() string { return proto.CompactTextString(m) }
 func (*EstablishCoinRequest) ProtoMessage()    {}
 func (*EstablishCoinRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{25}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{24}
 }
 func (m *EstablishCoinRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EstablishCoinRequest.Unmarshal(m, b)
@@ -1148,8 +1013,8 @@ func (m *EstablishCoinRequest) XXX_Unmarshal(b []byte) error {
 func (m *EstablishCoinRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EstablishCoinRequest.Marshal(b, m, deterministic)
 }
-func (m *EstablishCoinRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EstablishCoinRequest.Merge(m, src)
+func (dst *EstablishCoinRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EstablishCoinRequest.Merge(dst, src)
 }
 func (m *EstablishCoinRequest) XXX_Size() int {
 	return xxx_messageInfo_EstablishCoinRequest.Size(m)
@@ -1159,13 +1024,6 @@ func (m *EstablishCoinRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_EstablishCoinRequest proto.InternalMessageInfo
-
-func (m *EstablishCoinRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *EstablishCoinRequest) GetChainId() string {
 	if m != nil {
@@ -1206,7 +1064,7 @@ func (m *EstablishCoinResponse) Reset()         { *m = EstablishCoinResponse{} }
 func (m *EstablishCoinResponse) String() string { return proto.CompactTextString(m) }
 func (*EstablishCoinResponse) ProtoMessage()    {}
 func (*EstablishCoinResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{26}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{25}
 }
 func (m *EstablishCoinResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_EstablishCoinResponse.Unmarshal(m, b)
@@ -1214,8 +1072,8 @@ func (m *EstablishCoinResponse) XXX_Unmarshal(b []byte) error {
 func (m *EstablishCoinResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_EstablishCoinResponse.Marshal(b, m, deterministic)
 }
-func (m *EstablishCoinResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EstablishCoinResponse.Merge(m, src)
+func (dst *EstablishCoinResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EstablishCoinResponse.Merge(dst, src)
 }
 func (m *EstablishCoinResponse) XXX_Size() int {
 	return xxx_messageInfo_EstablishCoinResponse.Size(m)
@@ -1234,21 +1092,20 @@ func (m *EstablishCoinResponse) GetTip() string {
 }
 
 type MintCoinRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	CoinName             string       `protobuf:"bytes,4,opt,name=coin_name,json=coinName,proto3" json:"coin_name,omitempty"`
-	Amount               uint64       `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	KeyAddr              string   `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	CoinName             string   `protobuf:"bytes,3,opt,name=coin_name,json=coinName,proto3" json:"coin_name,omitempty"`
+	Amount               uint64   `protobuf:"varint,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *MintCoinRequest) Reset()         { *m = MintCoinRequest{} }
 func (m *MintCoinRequest) String() string { return proto.CompactTextString(m) }
 func (*MintCoinRequest) ProtoMessage()    {}
 func (*MintCoinRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{27}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{26}
 }
 func (m *MintCoinRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MintCoinRequest.Unmarshal(m, b)
@@ -1256,8 +1113,8 @@ func (m *MintCoinRequest) XXX_Unmarshal(b []byte) error {
 func (m *MintCoinRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MintCoinRequest.Marshal(b, m, deterministic)
 }
-func (m *MintCoinRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MintCoinRequest.Merge(m, src)
+func (dst *MintCoinRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MintCoinRequest.Merge(dst, src)
 }
 func (m *MintCoinRequest) XXX_Size() int {
 	return xxx_messageInfo_MintCoinRequest.Size(m)
@@ -1267,13 +1124,6 @@ func (m *MintCoinRequest) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_MintCoinRequest proto.InternalMessageInfo
-
-func (m *MintCoinRequest) GetCreds() *Credentials {
-	if m != nil {
-		return m.Creds
-	}
-	return nil
-}
 
 func (m *MintCoinRequest) GetChainId() string {
 	if m != nil {
@@ -1314,7 +1164,7 @@ func (m *MintCoinResponse) Reset()         { *m = MintCoinResponse{} }
 func (m *MintCoinResponse) String() string { return proto.CompactTextString(m) }
 func (*MintCoinResponse) ProtoMessage()    {}
 func (*MintCoinResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_a0b84a42fa06f626, []int{28}
+	return fileDescriptor_service_a5b193b142efe2a2, []int{27}
 }
 func (m *MintCoinResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MintCoinResponse.Unmarshal(m, b)
@@ -1322,8 +1172,8 @@ func (m *MintCoinResponse) XXX_Unmarshal(b []byte) error {
 func (m *MintCoinResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MintCoinResponse.Marshal(b, m, deterministic)
 }
-func (m *MintCoinResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MintCoinResponse.Merge(m, src)
+func (dst *MintCoinResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MintCoinResponse.Merge(dst, src)
 }
 func (m *MintCoinResponse) XXX_Size() int {
 	return xxx_messageInfo_MintCoinResponse.Size(m)
@@ -1342,7 +1192,6 @@ func (m *MintCoinResponse) GetTip() string {
 }
 
 func init() {
-	proto.RegisterType((*Credentials)(nil), "walletrpc.Credentials")
 	proto.RegisterType((*SerializableSignature)(nil), "walletrpc.SerializableSignature")
 	proto.RegisterType((*SerializableChainTree)(nil), "walletrpc.SerializableChainTree")
 	proto.RegisterMapType((map[string]*SerializableSignature)(nil), "walletrpc.SerializableChainTree.SignaturesEntry")
@@ -1842,71 +1691,66 @@ var _WalletRPCService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "service.proto",
 }
 
-func init() { proto.RegisterFile("service.proto", fileDescriptor_a0b84a42fa06f626) }
+func init() { proto.RegisterFile("service.proto", fileDescriptor_service_a5b193b142efe2a2) }
 
-var fileDescriptor_a0b84a42fa06f626 = []byte{
-	// 1006 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x57, 0x6d, 0x6b, 0x2b, 0x45,
-	0x14, 0x66, 0x9b, 0xb4, 0x49, 0x4e, 0xd2, 0x24, 0x4c, 0x5f, 0xd8, 0xee, 0xf5, 0xda, 0xb8, 0x5e,
-	0xa1, 0x82, 0xd4, 0x92, 0x2b, 0xa2, 0x82, 0xa8, 0x37, 0x96, 0x4b, 0xb9, 0xd5, 0x86, 0x4d, 0x41,
-	0x11, 0x24, 0x4c, 0xb3, 0x87, 0x74, 0x69, 0xb2, 0x59, 0x67, 0x26, 0xed, 0x8d, 0xf8, 0x4f, 0x04,
-	0x7f, 0x80, 0xdf, 0xfc, 0x3f, 0x7e, 0xf2, 0x97, 0xc8, 0xce, 0xcc, 0x66, 0x77, 0x36, 0x9b, 0x7b,
-	0xa1, 0x2d, 0xe2, 0xb7, 0x9d, 0xb7, 0xe7, 0x79, 0xce, 0x39, 0x33, 0xe7, 0x9c, 0x85, 0x6d, 0x8e,
-	0xec, 0x36, 0x18, 0xe1, 0x71, 0xc4, 0x66, 0x62, 0x46, 0x6a, 0x77, 0x74, 0x32, 0x41, 0xc1, 0xa2,
-	0x91, 0x7b, 0x01, 0xf5, 0x1e, 0x43, 0x1f, 0x43, 0x11, 0xd0, 0x09, 0x27, 0x87, 0x50, 0x57, 0x6b,
-	0xc3, 0x90, 0x4e, 0xd1, 0xb6, 0x3a, 0xd6, 0x51, 0xcd, 0x03, 0x35, 0xf5, 0x3d, 0x9d, 0x62, 0xbc,
-	0x21, 0xa2, 0x9c, 0x0f, 0xa3, 0x6b, 0x46, 0x39, 0xda, 0x1b, 0x6a, 0x43, 0x3c, 0xd5, 0x97, 0x33,
-	0xee, 0x08, 0xf6, 0x06, 0xc8, 0x02, 0x3a, 0x09, 0x7e, 0xa5, 0x57, 0x13, 0x1c, 0x04, 0xe3, 0x90,
-	0x8a, 0x39, 0x43, 0x62, 0x43, 0x85, 0x07, 0xe3, 0x10, 0x19, 0xb7, 0xad, 0x4e, 0xe9, 0xa8, 0xea,
-	0x25, 0x43, 0xf2, 0x0e, 0xd4, 0x78, 0xb2, 0x4d, 0x22, 0x36, 0xbc, 0x74, 0x82, 0x10, 0x28, 0x8b,
-	0x45, 0x84, 0x76, 0x49, 0x52, 0xc9, 0x6f, 0xf7, 0x6f, 0xcb, 0x64, 0xe9, 0x5d, 0xd3, 0x20, 0xbc,
-	0x64, 0x88, 0xa4, 0x0d, 0x25, 0x9f, 0x8e, 0x25, 0x43, 0xc3, 0x8b, 0x3f, 0x49, 0x1f, 0x60, 0x09,
-	0xc6, 0xed, 0x8d, 0x4e, 0xe9, 0xa8, 0xde, 0x3d, 0x39, 0x5e, 0x7a, 0xe0, 0xb8, 0x10, 0xe7, 0x78,
-	0xa9, 0x9b, 0x9f, 0x86, 0x82, 0x2d, 0xbc, 0x0c, 0x86, 0x33, 0x84, 0x56, 0x6e, 0x39, 0xa6, 0xbd,
-	0xc1, 0x85, 0xf6, 0x57, 0xfc, 0x49, 0x3e, 0x85, 0xcd, 0x5b, 0x3a, 0x99, 0x2b, 0x83, 0xea, 0xdd,
-	0xce, 0x1a, 0xc6, 0x25, 0x90, 0xa7, 0xb6, 0x7f, 0xb1, 0xf1, 0x99, 0xe5, 0x9e, 0xc2, 0x9e, 0x87,
-	0xe3, 0x80, 0x0b, 0x64, 0x3f, 0xc8, 0x53, 0x1e, 0xfe, 0x32, 0x47, 0x2e, 0xc8, 0x47, 0xb0, 0x39,
-	0x62, 0xe8, 0x73, 0x49, 0x54, 0xef, 0xee, 0x67, 0x40, 0x33, 0x51, 0xf4, 0xd4, 0x26, 0xf7, 0x73,
-	0xd8, 0xcf, 0xc3, 0xf0, 0x68, 0x16, 0x72, 0x7c, 0x6b, 0x98, 0xdd, 0x21, 0xec, 0xbe, 0xc4, 0x10,
-	0x19, 0x15, 0xca, 0x27, 0xf7, 0x12, 0x40, 0x0e, 0xa0, 0x7a, 0x83, 0x8b, 0x21, 0xf5, 0x7d, 0xa6,
-	0x6f, 0x4a, 0xe5, 0x06, 0x17, 0xdf, 0xf8, 0x3e, 0x73, 0xbb, 0xb0, 0x97, 0x23, 0xd0, 0xd2, 0x0e,
-	0xa0, 0x3a, 0x8a, 0x27, 0x86, 0x81, 0xaf, 0x75, 0x55, 0xe4, 0xf8, 0xcc, 0x77, 0x7f, 0x06, 0x72,
-	0xfa, 0x3a, 0x9a, 0x31, 0xf1, 0x30, 0x49, 0x4b, 0xf8, 0x0d, 0x13, 0xfe, 0x13, 0xd8, 0x31, 0xe0,
-	0xb5, 0xa0, 0xa7, 0x00, 0xea, 0x84, 0x60, 0xa8, 0x5c, 0xd5, 0xf0, 0x6a, 0xa3, 0xe4, 0xa2, 0xb8,
-	0xbf, 0x01, 0x39, 0x9b, 0x3e, 0x5c, 0xd4, 0x1a, 0x3f, 0xe5, 0xd8, 0x4b, 0x79, 0xf6, 0x13, 0xd8,
-	0x31, 0xd8, 0xdf, 0xee, 0xc4, 0x17, 0x40, 0x12, 0xc7, 0xbf, 0xc2, 0xc5, 0xfd, 0x2e, 0xd6, 0x09,
-	0xec, 0x18, 0x18, 0x29, 0xeb, 0xd2, 0x0c, 0xcb, 0x0c, 0xf7, 0x8f, 0xb0, 0xfd, 0x12, 0xc5, 0x65,
-	0x10, 0x3d, 0x7a, 0xd4, 0x5c, 0x68, 0x26, 0xc8, 0x5a, 0x46, 0x1b, 0x4a, 0x22, 0x88, 0x92, 0xb7,
-	0x28, 0x82, 0xc8, 0xed, 0xc1, 0xce, 0x79, 0xc0, 0x95, 0x8f, 0xce, 0x7c, 0x7e, 0x3f, 0xa3, 0x9f,
-	0xc3, 0xae, 0x09, 0xa2, 0xe9, 0x9e, 0x40, 0x2d, 0xd1, 0xa6, 0x32, 0x5b, 0xcd, 0xab, 0x6a, 0x71,
-	0xdc, 0xfd, 0x0a, 0x5a, 0xf1, 0xa1, 0x57, 0xb8, 0xb8, 0x27, 0xeb, 0xc7, 0xd0, 0x4e, 0x01, 0x52,
-	0xc6, 0xc4, 0xcf, 0x4b, 0x46, 0xed, 0x68, 0xee, 0xfe, 0x6e, 0x41, 0x6b, 0x80, 0xe2, 0xe2, 0x2e,
-	0x44, 0xf6, 0xd8, 0xce, 0x36, 0x22, 0x5c, 0x32, 0x2f, 0xea, 0x33, 0x68, 0x86, 0x78, 0x37, 0x9c,
-	0xc5, 0xbc, 0xc3, 0x1b, 0x5c, 0x70, 0xbb, 0x2c, 0x95, 0x35, 0x42, 0xbc, 0x93, 0x62, 0x62, 0x13,
-	0xdc, 0x67, 0xd0, 0x4e, 0xc5, 0xad, 0x8d, 0xd7, 0x1f, 0x16, 0x34, 0x07, 0x28, 0xbe, 0xa5, 0x82,
-	0xfe, 0x97, 0x26, 0x10, 0x28, 0x47, 0x54, 0x5c, 0xdb, 0x65, 0x55, 0x69, 0xe2, 0x6f, 0xb2, 0x9b,
-	0xa4, 0xf1, 0x4d, 0xf9, 0xf4, 0xd4, 0xc0, 0x7d, 0x5f, 0xfa, 0x58, 0xe9, 0x5b, 0x6b, 0xc5, 0x14,
-	0x9a, 0x1e, 0xf2, 0xd9, 0xe4, 0x16, 0x1f, 0xdd, 0x88, 0x44, 0x69, 0x29, 0x55, 0xea, 0x9e, 0x43,
-	0x6b, 0x49, 0xa7, 0x35, 0x7d, 0x00, 0x4d, 0x86, 0x53, 0x1a, 0x84, 0x41, 0x38, 0x1e, 0xca, 0x03,
-	0x4a, 0xde, 0xf6, 0x72, 0xb6, 0x1f, 0xdb, 0x48, 0xa0, 0xec, 0x53, 0x41, 0x75, 0xe9, 0x95, 0xdf,
-	0xee, 0x5f, 0x16, 0xec, 0x9e, 0x72, 0x41, 0xaf, 0x26, 0x01, 0xbf, 0xee, 0xcd, 0x1e, 0x3f, 0xdd,
-	0xbe, 0x29, 0x10, 0xf1, 0x93, 0x9a, 0x05, 0xa1, 0x2a, 0x4e, 0x2a, 0x1a, 0xd5, 0x78, 0x42, 0x76,
-	0x20, 0x36, 0x54, 0xa6, 0xf4, 0x75, 0x30, 0x9d, 0x4f, 0x65, 0x4c, 0xca, 0x5e, 0x32, 0x74, 0x3f,
-	0x84, 0xbd, 0x9c, 0xe4, 0xb5, 0xb1, 0xf9, 0xd3, 0x82, 0xd6, 0x77, 0x41, 0x28, 0xfe, 0x57, 0x96,
-	0xed, 0xc3, 0x16, 0x9d, 0xce, 0xe6, 0xa1, 0xd0, 0x86, 0xe9, 0x51, 0xfc, 0x68, 0x52, 0xad, 0xeb,
-	0x4c, 0xea, 0xfe, 0x53, 0x81, 0xb6, 0x2e, 0xf3, 0xfd, 0xde, 0x40, 0xf5, 0x7b, 0xe4, 0x02, 0xaa,
-	0x49, 0x0b, 0x40, 0xb2, 0x2d, 0x48, 0x61, 0x7b, 0xe1, 0xbc, 0xf7, 0x86, 0x1d, 0x9a, 0xf7, 0x1c,
-	0xea, 0x99, 0xd4, 0x4f, 0x9e, 0x66, 0x4e, 0xac, 0x96, 0x15, 0xe7, 0xdd, 0x75, 0xcb, 0x1a, 0xed,
-	0x12, 0x5a, 0x3d, 0x86, 0x49, 0x0f, 0x20, 0x1b, 0xb8, 0xc3, 0x82, 0x23, 0xd9, 0xd2, 0xea, 0x74,
-	0xd6, 0x6f, 0xd0, 0xa8, 0x7d, 0x68, 0x65, 0x0a, 0xb9, 0x44, 0xcd, 0xea, 0x5c, 0xed, 0x21, 0x0c,
-	0x9d, 0x45, 0x3d, 0x40, 0x1f, 0x5a, 0x99, 0x32, 0xbb, 0x82, 0xb8, 0xda, 0x00, 0x18, 0x88, 0x45,
-	0x15, 0xfa, 0x4b, 0xd8, 0x52, 0x65, 0x8b, 0xd8, 0x86, 0x3d, 0x99, 0x1a, 0xe9, 0x1c, 0x14, 0xac,
-	0xe8, 0xe3, 0x17, 0xd0, 0xc8, 0x16, 0x23, 0x92, 0xa5, 0x2b, 0x28, 0x75, 0xce, 0xe1, 0xda, 0x75,
-	0x0d, 0xd8, 0x83, 0x6a, 0x52, 0x67, 0x88, 0x93, 0xdb, 0x9c, 0xa9, 0x5e, 0xce, 0x93, 0xc2, 0xb5,
-	0x14, 0x24, 0xc9, 0xee, 0x06, 0x48, 0xae, 0x1e, 0x19, 0x20, 0x2b, 0xe5, 0xe0, 0x6b, 0xa8, 0xe8,
-	0xdc, 0x4a, 0x0e, 0xcc, 0x7d, 0x99, 0x7a, 0xe0, 0x38, 0x45, 0x4b, 0x29, 0x82, 0xce, 0x84, 0x06,
-	0x82, 0x99, 0x8c, 0x0d, 0x84, 0x7c, 0xe2, 0xf4, 0x60, 0xdb, 0xc8, 0x24, 0xc6, 0xad, 0x2c, 0x4a,
-	0x8b, 0xc6, 0xad, 0x2c, 0x4e, 0x42, 0x3d, 0xa8, 0x26, 0xaf, 0xd8, 0x70, 0x4e, 0x2e, 0x0d, 0x19,
-	0xce, 0xc9, 0x3f, 0xfb, 0x17, 0xf5, 0x9f, 0xd2, 0x7f, 0xb7, 0xab, 0x2d, 0xf9, 0x37, 0xf7, 0xfc,
-	0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x2b, 0x6e, 0x9d, 0x76, 0xde, 0x0d, 0x00, 0x00,
+var fileDescriptor_service_a5b193b142efe2a2 = []byte{
+	// 925 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x5b, 0x6f, 0xe3, 0x44,
+	0x14, 0x56, 0x2e, 0xb4, 0xc9, 0x49, 0x9a, 0x84, 0x69, 0xb2, 0xa4, 0x5e, 0x96, 0x06, 0xb3, 0x48,
+	0x85, 0x87, 0x6e, 0xe9, 0x22, 0x04, 0x48, 0x88, 0x4b, 0xa8, 0x56, 0xd5, 0x96, 0x6d, 0xe4, 0x54,
+	0x42, 0xe2, 0x25, 0x9a, 0xc6, 0x47, 0xe9, 0xa8, 0xf1, 0x85, 0x99, 0x49, 0xbb, 0x41, 0xbc, 0xf1,
+	0x37, 0x79, 0xe2, 0x97, 0x20, 0xdb, 0x33, 0xb1, 0xc7, 0xb1, 0xb7, 0x95, 0x10, 0x6f, 0x73, 0x3b,
+	0xdf, 0xf7, 0x9d, 0xe3, 0x99, 0xef, 0x18, 0xf6, 0x04, 0xf2, 0x3b, 0x36, 0xc7, 0xe3, 0x90, 0x07,
+	0x32, 0x20, 0xcd, 0x7b, 0xba, 0x5c, 0xa2, 0xe4, 0xe1, 0xdc, 0x9e, 0xc3, 0x60, 0x8a, 0x9c, 0xd1,
+	0x25, 0xfb, 0x83, 0x5e, 0x2f, 0x71, 0xca, 0x16, 0x3e, 0x95, 0x2b, 0x8e, 0x64, 0x08, 0xbb, 0x82,
+	0x2d, 0x7c, 0xe4, 0x62, 0x58, 0x19, 0xd5, 0x8e, 0x1a, 0x8e, 0x9e, 0x92, 0x0f, 0xa1, 0x29, 0xf4,
+	0xb1, 0x61, 0x75, 0x54, 0x39, 0x6a, 0x3b, 0xe9, 0x02, 0x21, 0x50, 0x97, 0xeb, 0x10, 0x87, 0xb5,
+	0x51, 0xe5, 0xa8, 0xe9, 0xc4, 0x63, 0xfb, 0xef, 0x8a, 0xc9, 0x32, 0xbe, 0xa1, 0xcc, 0xbf, 0xe2,
+	0x88, 0xa4, 0x07, 0x35, 0x97, 0x2e, 0x62, 0x86, 0xb6, 0x13, 0x0d, 0xc9, 0x04, 0x60, 0x03, 0x26,
+	0x86, 0xd5, 0x51, 0xed, 0xa8, 0x75, 0x7a, 0x72, 0xbc, 0x11, 0x7c, 0x5c, 0x88, 0x73, 0xbc, 0xd1,
+	0x2d, 0xce, 0x7c, 0xc9, 0xd7, 0x4e, 0x06, 0xc3, 0x9a, 0x41, 0x37, 0xb7, 0x1d, 0xd1, 0xde, 0xe2,
+	0x7a, 0x58, 0x89, 0x35, 0x46, 0x43, 0xf2, 0x15, 0xbc, 0x77, 0x47, 0x97, 0xab, 0x24, 0xa1, 0xd6,
+	0xe9, 0xa8, 0x84, 0x71, 0x03, 0xe4, 0x24, 0xc7, 0xbf, 0xad, 0x7e, 0x5d, 0xb1, 0x3f, 0x80, 0x81,
+	0x83, 0x0b, 0x26, 0x24, 0xf2, 0x5f, 0xe3, 0x28, 0x07, 0x7f, 0x5f, 0xa1, 0x90, 0xf6, 0x37, 0xf0,
+	0x24, 0xbf, 0x21, 0xc2, 0xc0, 0x17, 0x48, 0x0e, 0xa1, 0x95, 0x10, 0xcc, 0x7c, 0xea, 0xa1, 0x12,
+	0x02, 0xc9, 0xd2, 0x1b, 0xea, 0xa1, 0xfd, 0x05, 0xf4, 0x5f, 0xa1, 0x8f, 0x9c, 0xca, 0x24, 0x4b,
+	0x05, 0x49, 0x0e, 0xa0, 0x71, 0x8b, 0xeb, 0x19, 0x75, 0x5d, 0xae, 0xa2, 0x76, 0x6f, 0x71, 0xfd,
+	0xa3, 0xeb, 0x72, 0xfb, 0x14, 0x06, 0xb9, 0x10, 0x45, 0x76, 0x00, 0x8d, 0x79, 0xb4, 0x30, 0x63,
+	0xae, 0x8e, 0x89, 0xe7, 0xe7, 0xae, 0xfd, 0x02, 0xc8, 0xd9, 0xdb, 0x30, 0xe0, 0x32, 0x4f, 0x52,
+	0x16, 0xf0, 0x25, 0xec, 0x1b, 0x01, 0x8a, 0xe2, 0x19, 0x40, 0x12, 0x21, 0x39, 0x26, 0xe9, 0xb4,
+	0x9d, 0xe6, 0x5c, 0x7f, 0x1e, 0xfb, 0x0d, 0x90, 0x73, 0xaf, 0x88, 0xa6, 0x24, 0x97, 0x1c, 0x5e,
+	0x35, 0x8f, 0x77, 0x02, 0xfb, 0x06, 0xde, 0xc3, 0x89, 0xf6, 0x81, 0xe8, 0xe2, 0xbc, 0xc6, 0xb5,
+	0xfe, 0x40, 0x27, 0xb0, 0x6f, 0xac, 0xa6, 0x38, 0x65, 0x45, 0xfe, 0x1c, 0xf6, 0x5e, 0xa1, 0xbc,
+	0x62, 0xe1, 0x23, 0x6a, 0x65, 0x43, 0x47, 0x9f, 0x55, 0xc0, 0x3d, 0xa8, 0x49, 0x16, 0xea, 0x7b,
+	0x27, 0x59, 0x68, 0x0f, 0x60, 0xff, 0x82, 0x89, 0x24, 0x8f, 0x73, 0x57, 0x68, 0x61, 0x2f, 0xa1,
+	0x6f, 0x2e, 0x2b, 0x80, 0xa7, 0xd0, 0xd4, 0x6c, 0xc9, 0xbb, 0x6c, 0x3a, 0x0d, 0x45, 0x27, 0xec,
+	0xf7, 0xa1, 0x1b, 0x05, 0xbd, 0xc6, 0xf5, 0x06, 0xe7, 0x05, 0xf4, 0xd2, 0xa5, 0x14, 0x43, 0x67,
+	0xb7, 0xc1, 0x50, 0xe9, 0x09, 0xdb, 0x83, 0xee, 0x14, 0xe5, 0xe5, 0xbd, 0x8f, 0xfc, 0xe1, 0x0c,
+	0x8d, 0x42, 0x55, 0xcd, 0x2f, 0xf8, 0x1c, 0x3a, 0x3e, 0xde, 0xcf, 0x82, 0x08, 0x69, 0x76, 0x8b,
+	0x6b, 0x31, 0xac, 0xc5, 0x54, 0x6d, 0x1f, 0xef, 0x63, 0xf8, 0x48, 0x93, 0xfd, 0x1c, 0x7a, 0x29,
+	0x5d, 0x69, 0x91, 0x42, 0xe8, 0x4c, 0x51, 0xfe, 0x4c, 0x25, 0xfd, 0x6f, 0x9a, 0x08, 0xd4, 0x43,
+	0x2a, 0x6f, 0xb4, 0x37, 0x45, 0x63, 0xd2, 0xd7, 0x0f, 0xbf, 0x1e, 0x5f, 0xb2, 0x64, 0x62, 0x7f,
+	0x12, 0x97, 0x21, 0x61, 0x2c, 0x95, 0xf5, 0x3d, 0x74, 0x1c, 0x14, 0xc1, 0xf2, 0x0e, 0x1f, 0x21,
+	0x4b, 0x73, 0x57, 0x53, 0x6e, 0xfb, 0x02, 0xba, 0x1b, 0x00, 0xc5, 0xf2, 0x29, 0x74, 0x38, 0x7a,
+	0x94, 0xf9, 0xcc, 0x5f, 0xcc, 0xe2, 0x80, 0x04, 0x67, 0x6f, 0xb3, 0x3a, 0x89, 0x54, 0x13, 0xa8,
+	0xbb, 0x54, 0x52, 0xf5, 0x32, 0xe2, 0xb1, 0xfd, 0x57, 0x05, 0xfa, 0x67, 0x42, 0xd2, 0xeb, 0x25,
+	0x13, 0x37, 0xe3, 0xe0, 0x31, 0xcf, 0xf9, 0x5d, 0xc5, 0x8a, 0xae, 0x5a, 0xc0, 0xfc, 0xc4, 0xa0,
+	0x92, 0x8a, 0x35, 0xa2, 0x85, 0xc8, 0x9e, 0xa2, 0xee, 0xe0, 0xd1, 0xb7, 0xcc, 0x5b, 0x79, 0x71,
+	0xdd, 0xea, 0x8e, 0x9e, 0xda, 0x9f, 0xc1, 0x20, 0x27, 0xa2, 0xb4, 0x7e, 0x7f, 0x42, 0xf7, 0x17,
+	0xe6, 0xcb, 0xff, 0x59, 0xea, 0x13, 0xd8, 0xa1, 0x5e, 0xb0, 0xf2, 0xa5, 0x52, 0xaa, 0x66, 0xd1,
+	0xd5, 0x4b, 0xd9, 0xcb, 0x34, 0x9e, 0xfe, 0xb3, 0x0b, 0x3d, 0xe5, 0xdd, 0x93, 0xf1, 0x34, 0xe9,
+	0xa2, 0xe4, 0x12, 0x1a, 0xda, 0xd7, 0x49, 0xb6, 0x53, 0x14, 0x76, 0x01, 0xeb, 0xe3, 0x77, 0x9c,
+	0x50, 0xbc, 0x17, 0xd0, 0xca, 0xf8, 0x10, 0x79, 0x96, 0x89, 0xd8, 0x76, 0x2d, 0xeb, 0xa3, 0xb2,
+	0x6d, 0x85, 0x76, 0x05, 0xdd, 0x31, 0x47, 0xdd, 0x06, 0xe2, 0x3e, 0x7b, 0x58, 0x10, 0x92, 0xf5,
+	0x62, 0x6b, 0x54, 0x7e, 0x40, 0xa1, 0x4e, 0xa0, 0x9b, 0x71, 0xfe, 0x18, 0x35, 0xab, 0x73, 0xbb,
+	0x8d, 0x18, 0x3a, 0x8b, 0x9a, 0xc6, 0x04, 0xba, 0x19, 0x17, 0xdf, 0x42, 0xdc, 0xee, 0x18, 0x06,
+	0x62, 0x51, 0x03, 0xf8, 0x0e, 0x76, 0x12, 0xc7, 0x25, 0x43, 0x23, 0x9f, 0x8c, 0x61, 0x5b, 0x07,
+	0x05, 0x3b, 0x2a, 0xfc, 0x12, 0xda, 0x59, 0xd7, 0x25, 0x59, 0xba, 0x02, 0x97, 0xb6, 0x0e, 0x4b,
+	0xf7, 0x15, 0xe0, 0x18, 0x1a, 0xda, 0x7e, 0x89, 0x95, 0x3b, 0x9c, 0xb1, 0x69, 0xeb, 0x69, 0xe1,
+	0x5e, 0x0a, 0xa2, 0x3d, 0xd2, 0x00, 0xc9, 0xf9, 0xb4, 0x01, 0xb2, 0x65, 0xaa, 0x3f, 0xc0, 0xae,
+	0x32, 0x34, 0x72, 0x60, 0x9e, 0xcb, 0xd8, 0xaa, 0x65, 0x15, 0x6d, 0xa5, 0x08, 0xca, 0xac, 0x0c,
+	0x04, 0xd3, 0x01, 0x0d, 0x84, 0xbc, 0xb7, 0x39, 0xb0, 0x67, 0x58, 0x83, 0x71, 0x2b, 0x8b, 0x9c,
+	0xcb, 0xb8, 0x95, 0xc5, 0xae, 0x32, 0x86, 0x86, 0x7e, 0xc5, 0x46, 0x71, 0x72, 0xc6, 0x62, 0x14,
+	0x27, 0xff, 0xec, 0x7f, 0x6a, 0xfd, 0x96, 0xfe, 0x11, 0x5f, 0xef, 0xc4, 0xff, 0xc8, 0x2f, 0xff,
+	0x0d, 0x00, 0x00, 0xff, 0xff, 0xc4, 0x93, 0x4b, 0x99, 0x34, 0x0b, 0x00, 0x00,
 }

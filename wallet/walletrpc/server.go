@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -22,39 +23,75 @@ const (
 )
 
 type server struct {
-	Client      *gossip2client.GossipClient
+	client      *gossip2client.GossipClient
 	storagePath string
 }
 
+type walletCredentials struct {
+	wallet     string
+	passphrase string
+}
+
+func getWalletCredentials(ctx context.Context) (*walletCredentials, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("error getting wallet credentials")
+	}
+
+	w, ok := meta["wallet"]
+	if !ok {
+		return nil, fmt.Errorf("no wallet name in credentials")
+	}
+
+	p, ok := meta["passphrase"]
+	if !ok {
+		return nil, fmt.Errorf("no passphrase in credentials")
+	}
+
+	return &walletCredentials{
+		wallet:     w[0],
+		passphrase: p[0],
+	}, nil
+}
+
 func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
-	walletName := req.Creds.WalletName
-	session, err := NewSession(s.storagePath, walletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
 	if err != nil {
 		return nil, err
 	}
 	defer session.Stop()
 
-	err = session.CreateWallet(req.Creds.PassPhrase)
+	err = session.CreateWallet(creds.passphrase)
 	if err != nil {
 		if _, ok := err.(*wallet.CreateExistingWalletError); ok {
-			msg := fmt.Sprintf("wallet %v already exists", walletName)
+			msg := fmt.Sprintf("wallet %v already exists", creds.wallet)
 			return nil, status.Error(codes.AlreadyExists, msg)
 		}
 		return nil, fmt.Errorf("error creating wallet: %v", err)
 	}
 
 	return &RegisterWalletResponse{
-		WalletName: req.Creds.WalletName,
+		WalletName: creds.wallet,
 	}, nil
 }
 
 func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -73,12 +110,17 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 }
 
 func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -96,12 +138,17 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 }
 
 func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -124,12 +171,17 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 }
 
 func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -147,12 +199,17 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 }
 
 func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -175,12 +232,17 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 }
 
 func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -198,12 +260,17 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 }
 
 func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -221,12 +288,17 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 }
 
 func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -244,12 +316,17 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 }
 
 func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -267,12 +344,17 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 }
 
 func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -299,12 +381,17 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 }
 
 func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -322,12 +409,17 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 }
 
 func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -354,7 +446,7 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip2cli
 	}
 
 	s := &server{
-		Client:      client,
+		client:      client,
 		storagePath: storagePath,
 	}
 

@@ -1,4 +1,3 @@
-
 # Gopkg.toml example
 #
 # Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
@@ -19,6 +18,10 @@
 # [[override]]
 #  name = "github.com/x/y"
 #  version = "2.4.0"
+
+required = [
+  "github.com/golang/protobuf/protoc-gen-go"
+]
 
 [[constraint]]
   branch = "master"
@@ -44,7 +47,7 @@
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
   version = "v3.0.2"
-  source = "git@github.com:quorumcontrol/chaintree.git"  
+  source = "git@github.com:quorumcontrol/chaintree.git"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
