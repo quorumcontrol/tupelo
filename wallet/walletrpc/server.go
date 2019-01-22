@@ -5,6 +5,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/quorumcontrol/tupelo/consensus"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
@@ -279,7 +281,10 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 
 	defer session.Stop()
 
-	pathSegments := strings.Split(req.Path, "/")
+	pathSegments, err := consensus.DecodePath(req.Path)
+	if err != nil {
+		return nil, fmt.Errorf("bad path: %v", err)
+	}
 
 	data, remainingSegments, err := session.Resolve(req.ChainId, pathSegments)
 	if err != nil {

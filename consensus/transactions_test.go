@@ -163,43 +163,43 @@ func TestSetData(t *testing.T) {
 }
 
 func TestDecodePath(t *testing.T) {
-	dp1, err := decodePath("/some/data")
+	dp1, err := DecodePath("/some/data")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"some", "data"}, dp1)
 
-	dp2, err := decodePath("some/data")
+	dp2, err := DecodePath("some/data")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"some", "data"}, dp2)
 
-	dp3, err := decodePath("//some/data")
+	dp3, err := DecodePath("//some/data")
 	assert.NotNil(t, err)
 	assert.Nil(t, dp3)
 
-	dp4, err := decodePath("/some//data")
+	dp4, err := DecodePath("/some//data")
 	assert.NotNil(t, err)
 	assert.Nil(t, dp4)
 
-	dp5, err := decodePath("/some/../data")
+	dp5, err := DecodePath("/some/../data")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"some", "..", "data"}, dp5)
 
-	dp6, err := decodePath("")
+	dp6, err := DecodePath("")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{""}, dp6)
 
-	dp7, err := decodePath("/")
+	dp7, err := DecodePath("/")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{""}, dp7)
 
-	dp8, err := decodePath("/_tupelo")
+	dp8, err := DecodePath("/_tupelo")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"_tupelo"}, dp8)
 
-	dp9, err := decodePath("_tupelo")
+	dp9, err := DecodePath("_tupelo")
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"_tupelo"}, dp9)
 
-	dp10, err := decodePath("//_tupelo")
+	dp10, err := DecodePath("//_tupelo")
 	assert.NotNil(t, err)
 	assert.Nil(t, dp10)
 }

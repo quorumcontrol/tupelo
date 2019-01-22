@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/quorumcontrol/tupelo/consensus"
+
 	"github.com/abiosoft/ishell"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -288,7 +290,12 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			path := strings.Split(c.Args[1], "/")
+			path, err := consensus.DecodePath(c.Args[1])
+			if err != nil {
+				c.Printf("bad path: %v\n", err)
+				return
+			}
+
 			data, remaining, err := session.Resolve(c.Args[0], path)
 			if err != nil {
 				c.Printf("error resolving data: %v\n", err)
