@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
-	"github.com/quorumcontrol/tupelo/gossip2client"
+	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 
@@ -33,7 +33,7 @@ func confirmPassword(c *ishell.Context) (string, error) {
 	return "", errors.New("can't confirm password")
 }
 
-func RunGossip(name string, storagePath string, client *gossip2client.GossipClient) {
+func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 

@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
-	"github.com/quorumcontrol/tupelo/gossip2client"
+	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -23,7 +23,7 @@ const (
 )
 
 type server struct {
-	Client      *gossip2client.GossipClient
+	Client      *gossip3client.Client
 	storagePath string
 }
 
@@ -348,7 +348,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	}, nil
 }
 
-func startServer(grpcServer *grpc.Server, storagePath string, client *gossip2client.GossipClient) (*grpc.Server, error) {
+func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
 	fmt.Println("Listening on port", defaultPort)
@@ -372,13 +372,13 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip2cli
 	return grpcServer, nil
 }
 
-func ServeInsecure(storagePath string, client *gossip2client.GossipClient) (*grpc.Server, error) {
+func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
 	grpcServer := grpc.NewServer()
 
 	return startServer(grpcServer, storagePath, client)
 }
 
-func ServeTLS(storagePath string, client *gossip2client.GossipClient, certFile string, keyFile string) (*grpc.Server, error) {
+func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
 		return nil, err
