@@ -28,7 +28,7 @@ generateSha256() {
     container_id=$(docker run -d --entrypoint=tail alpine -f /dev/null)
     docker cp $zipdir/$filename $container_id:$filename
     sha256=$(docker exec $container_id sha256sum $filename)
-    echo $sha256 > $zipdir/$filename.sha256.checksum
+    echo $sha256 >> $releasedir/tupelo-${version}-checksums.txt
   fi
 }
 
