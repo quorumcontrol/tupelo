@@ -82,7 +82,7 @@ func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3
 		verKeyBytes := hexutil.MustDecode(keySet.BlsHexPublicKey)
 		signer := gossip3types.NewRemoteSigner(crypto.ToECDSAPub(ecdsaBytes), bls.BytesToVerKey(verKeyBytes))
 		if local != nil {
-			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), "tupelo-"+signer.ID)
+			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
 		}
 		group.AddSigner(signer)
 	}
