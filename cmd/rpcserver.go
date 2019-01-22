@@ -173,6 +173,10 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 		setupLocalSigner(ctx, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, localConfig)
 	}
 
+	for _, signer := range group.AllSigners() {
+		signer.Actor.Tell(&gossip3messages.StartGossip{})
+	}
+
 	return group
 }
 
@@ -253,11 +257,7 @@ var rpcServerCmd = &cobra.Command{
 		walletStorage := walletPath()
 
 		client := gossip3client.New(group)
-		if localNetworkNodeCount > 0 {
-			for _, signer := range group.AllSigners() {
-				signer.Actor.Tell(&gossip3messages.StartGossip{})
-			}
-		}
+
 		if tls {
 			panicWithoutTLSOpts()
 			walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
