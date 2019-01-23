@@ -15,24 +15,26 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
-	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
-	"github.com/quorumcontrol/tupelo/consensus"
-	"github.com/quorumcontrol/tupelo/gossip2"
+	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
+	gossip3messages "github.com/quorumcontrol/tupelo/gossip3/messages"
+	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
+	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/spf13/cobra"
 )
@@ -42,26 +44,6 @@ var (
 	EcdsaKeys    []*ecdsa.PrivateKey
 	testnodePort int
 )
-
-func bootstrapMembers(keys []*PublicKeySet) (members []*consensus.RemoteNode) {
-	for _, keySet := range keys {
-		blsPubKey := consensus.PublicKey{
-			PublicKey: hexutil.MustDecode(keySet.BlsHexPublicKey),
-			Type:      consensus.KeyTypeBLSGroupSig,
-		}
-		blsPubKey.Id = consensus.PublicKeyToAddr(&blsPubKey)
-
-		ecdsaPubKey := consensus.PublicKey{
-			PublicKey: hexutil.MustDecode(keySet.EcdsaHexPublicKey),
-			Type:      consensus.KeyTypeSecp256k1,
-		}
-		ecdsaPubKey.Id = consensus.PublicKeyToAddr(&ecdsaPubKey)
-
-		members = append(members, consensus.NewRemoteNode(blsPubKey, ecdsaPubKey))
-	}
-
-	return members
-}
 
 // testnodeCmd represents the testnode command
 var testnodeCmd = &cobra.Command{
@@ -75,40 +57,61 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
-		signer.Host.Bootstrap(p2p.BootstrapNodes())
-		go signer.Start()
+		signer.Actor.Tell(&gossip3messages.StartGossip{})
 		stopOnSignal(signer)
 	},
 }
 
-func setupNotaryGroup(storageAdapter storage.Storage) *consensus.NotaryGroup {
-	nodeStore := nodestore.NewStorageBasedStore(storageAdapter)
-	group := consensus.NewNotaryGroup("hardcodedprivatekeysareunsafe", nodeStore)
-	if group.IsGenesis() {
-		testNetMembers := bootstrapMembers(bootstrapPublicKeys)
-		log.Debug("Creating gensis state", "nodes", len(testNetMembers))
-		group.CreateGenesisState(group.RoundAt(time.Now()), testNetMembers...)
+func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3types.NotaryGroup {
+	if len(keys) == 0 {
+		panic(fmt.Sprintf("no keys provided"))
+	}
+
+	group := gossip3types.NewNotaryGroup("hardcodedprivatekeysareunsafe")
+
+	if local != nil {
+		group.AddSigner(local)
+	}
+
+	for _, keySet := range keys {
+		ecdsaBytes := hexutil.MustDecode(keySet.EcdsaHexPublicKey)
+		if local != nil && bytes.Equal(crypto.FromECDSAPub(local.DstKey), ecdsaBytes) {
+			continue
+		}
+
+		verKeyBytes := hexutil.MustDecode(keySet.BlsHexPublicKey)
+		signer := gossip3types.NewRemoteSigner(crypto.ToECDSAPub(ecdsaBytes), bls.BytesToVerKey(verKeyBytes))
+		if local != nil {
+			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
+		}
+		group.AddSigner(signer)
 	}
 
 	return group
 }
 
-func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, namespace string, port int) *gossip2.GossipNode {
+func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, namespace string, port int) *gossip3types.Signer {
+	gossip3remote.Start()
+
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic("error fetching ecdsa key - set env variable TUPELO_NODE_ECDSA_KEY_HEX")
 	}
 
 	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
+	localSigner := gossip3types.NewLocalSigner(&ecdsaKey.PublicKey, blsKey)
 
-	id := consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).Id
-	log.Info("starting up a test node", "id", id)
+	log.Info("starting up a test node")
 
 	storagePath := configDir(namespace)
-	os.MkdirAll(storagePath, 0700)
 
-	db := filepath.Join(storagePath, id+"-chains")
-	badgerStorage, err := storage.NewBadgerStorage(db)
+	commitPath := signerCommitPath(storagePath, localSigner)
+	currentPath := signerCurrentPath(storagePath, localSigner)
+	badgerCommit, err := storage.NewBadgerStorage(commitPath)
+	if err != nil {
+		panic(fmt.Sprintf("error creating storage: %v", err))
+	}
+	badgerCurrent, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		panic(fmt.Sprintf("error creating storage: %v", err))
 	}
@@ -117,15 +120,31 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	if err != nil {
 		panic("error setting up p2p host")
 	}
-	group := setupNotaryGroup(storage.NewMemStorage())
+	p2pHost.Bootstrap(p2p.BootstrapNodes())
+	err = p2pHost.WaitForBootstrap(1, 60*time.Second)
+	if err != nil {
+		panic(fmt.Sprintf("error waiting for bootstrap: %v", err))
+	}
 
-	gossipedSigner := gossip2.NewGossipNode(ecdsaKey, blsKey, p2pHost, badgerStorage)
-	gossipedSigner.Group = group
+	gossip3remote.NewRouter(p2pHost)
 
-	return gossipedSigner
+	group := setupNotaryGroup(localSigner, bootstrapPublicKeys)
+
+	act, err := actor.SpawnNamed(gossip3actors.NewTupeloNodeProps(&gossip3actors.TupeloConfig{
+		Self:              localSigner,
+		NotaryGroup:       group,
+		CommitStore:       badgerCommit,
+		CurrentStateStore: badgerCurrent,
+	}), syncerActorName(localSigner))
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	localSigner.Actor = act
+	return localSigner
 }
 
-func stopOnSignal(signers ...*gossip2.GossipNode) {
+func stopOnSignal(signers ...*gossip3types.Signer) {
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -133,7 +152,8 @@ func stopOnSignal(signers ...*gossip2.GossipNode) {
 		sig := <-sigs
 		fmt.Println(sig)
 		for _, signer := range signers {
-			signer.Stop()
+			log.Info("gracefully stopping signer")
+			signer.Actor.GracefulStop()
 		}
 		done <- true
 	}()

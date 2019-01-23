@@ -66,3 +66,11 @@ required = [
   name = "github.com/dedis/kyber"
   source = "https://github.com/quorumcontrol/kyber.git"
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
+
+# [[constraint]]
+#   name = "github.com/grpc-ecosystem/grpc-gateway"
+#   branch = "master"
+
+# [[override]]
+#   name = "github.com/google/protobuf"
+#   version = "3.6.1"

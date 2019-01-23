@@ -8,8 +8,9 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo/gossip2client"
+	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/tupelo/consensus"
+	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 
@@ -32,7 +33,7 @@ func confirmPassword(c *ishell.Context) (string, error) {
 	return "", errors.New("can't confirm password")
 }
 
-func RunGossip(name string, storagePath string, client *gossip2client.GossipClient) {
+func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
@@ -288,7 +289,12 @@ func RunGossip(name string, storagePath string, client *gossip2client.GossipClie
 				return
 			}
 
-			path := strings.Split(c.Args[1], "/")
+			path, err := consensus.DecodePath(c.Args[1])
+			if err != nil {
+				c.Printf("bad path: %v\n", err)
+				return
+			}
+
 			data, remaining, err := session.Resolve(c.Args[0], path)
 			if err != nil {
 				c.Printf("error resolving data: %v\n", err)

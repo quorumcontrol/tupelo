@@ -15,12 +15,13 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/tupelo/consensus"
-	"github.com/quorumcontrol/tupelo/gossip2client"
+	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 )
 
 type RPCSession struct {
-	client    *gossip2client.GossipClient
+	client    *gossip3client.Client
 	wallet    *wallet.FileWallet
 	isStarted bool
 }
@@ -46,14 +47,14 @@ func (rpcs *RPCSession) IsStopped() bool {
 
 type NilTipError struct {
 	chainId     string
-	notaryGroup *consensus.NotaryGroup
+	notaryGroup *gossip3types.NotaryGroup
 }
 
 func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func NewSession(storagePath string, walletName string, gossipClient *gossip2client.GossipClient) (*RPCSession, error) {
+func NewSession(storagePath string, walletName string, gossipClient *gossip3client.Client) (*RPCSession, error) {
 	path := walletPath(storagePath, walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
@@ -293,14 +294,14 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 		return nil, err
 	}
 
-	if len(tipResp.Tip) == 0 {
+	if len(tipResp.Signature.NewTip) == 0 {
 		return nil, &NilTipError{
 			chainId:     id,
 			notaryGroup: rpcs.client.Group,
 		}
 	}
 
-	tip, err := cid.Cast(tipResp.Tip)
+	tip, err := cid.Cast(tipResp.Signature.NewTip)
 	if err != nil {
 		return nil, err
 	}

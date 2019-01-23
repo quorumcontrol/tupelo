@@ -6,8 +6,9 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo/gossip2client"
+	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/tupelo/consensus"
+	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -23,7 +24,7 @@ const (
 )
 
 type server struct {
-	client      *gossip2client.GossipClient
+	client      *gossip3client.Client
 	storagePath string
 }
 
@@ -361,7 +362,10 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 
 	defer session.Stop()
 
-	pathSegments := strings.Split(req.Path, "/")
+	pathSegments, err := consensus.DecodePath(req.Path)
+	if err != nil {
+		return nil, fmt.Errorf("bad path: %v", err)
+	}
 
 	data, remainingSegments, err := session.Resolve(req.ChainId, pathSegments)
 	if err != nil {
@@ -436,7 +440,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	}, nil
 }
 
-func startServer(grpcServer *grpc.Server, storagePath string, client *gossip2client.GossipClient) (*grpc.Server, error) {
+func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
 	fmt.Println("Listening on port", defaultPort)
@@ -460,13 +464,13 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip2cli
 	return grpcServer, nil
 }
 
-func ServeInsecure(storagePath string, client *gossip2client.GossipClient) (*grpc.Server, error) {
+func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
 	grpcServer := grpc.NewServer()
 
 	return startServer(grpcServer, storagePath, client)
 }
 
-func ServeTLS(storagePath string, client *gossip2client.GossipClient, certFile string, keyFile string) (*grpc.Server, error) {
+func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
 		return nil, err
