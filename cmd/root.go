@@ -127,7 +127,7 @@ func saveBootstrapKeys(keys []*PublicKeySet) error {
 
 func readBootstrapKeys() ([]*PublicKeySet, error) {
 	var keySet []*PublicKeySet
-	err := loadKeyFile(keySet, remoteConfig, bootstrapKeyFile)
+	err := loadKeyFile(&keySet, remoteConfig, bootstrapKeyFile)
 
 	return keySet, err
 }
