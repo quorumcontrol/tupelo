@@ -24,7 +24,7 @@ var shellCmd = &cobra.Command{
 		var key *ecdsa.PrivateKey
 		var err error
 		var group *gossip3types.NotaryGroup
-		if localNetworkNodeCount > 0 {
+		if localNetworkNodeCount > 0 && !remoteNetwork {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			group = setupLocalNetwork(ctx, localNetworkNodeCount)
@@ -49,5 +49,4 @@ func init() {
 	rootCmd.AddCommand(shellCmd)
 	shellCmd.Flags().StringVarP(&shellName, "wallet", "w", "", "the name of the wallet to access")
 	shellCmd.MarkFlagRequired("wallet")
-	shellCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 }
