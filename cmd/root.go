@@ -127,7 +127,7 @@ func saveBootstrapKeys(keys []*PublicKeySet) error {
 
 func readBootstrapKeys() ([]*PublicKeySet, error) {
 	var keySet []*PublicKeySet
-	err := loadKeyFile(keySet, remoteConfig, bootstrapKeyFile)
+	err := loadKeyFile(&keySet, remoteConfig, bootstrapKeyFile)
 
 	return keySet, err
 }
@@ -149,6 +149,10 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if localNetworkNodeCount > 0 && remoteNetwork {
+			panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
+		}
+
 		logLevel, err := getLogLevel(logLvlName)
 		if err != nil {
 			panic(err.Error())
@@ -160,6 +164,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if overrideKeysFile != "" {
+			remoteNetwork = true
 			publicKeys, err := loadPublicKeyFile(overrideKeysFile)
 			if err != nil {
 				panic(fmt.Sprintf("Error loading public keys: %v", err))
@@ -205,7 +210,9 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
-	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "path to notary group bootstrap keys file")
+	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument (default: 3). Mutually exlusive with bootstrap-*")
+	rootCmd.PersistentFlags().BoolVarP(&remoteNetwork, "remote-network", "r", false, "connect to a remote network (mutually exclusive with -l / --local-network)")
+	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "path to notary group bootstrap keys file (implies -r / --remote-network)")
 	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of a notary group key file to import")
 }
 

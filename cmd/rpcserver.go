@@ -216,7 +216,7 @@ var (
 	certFile              string
 	keyFile               string
 	localNetworkNodeCount int
-	remote                bool
+	remoteNetwork         bool
 	tls                   bool
 )
 
@@ -229,7 +229,7 @@ var rpcServerCmd = &cobra.Command{
 		var group *gossip3types.NotaryGroup
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		if localNetworkNodeCount > 0 {
+		if localNetworkNodeCount > 0 && !remoteNetwork {
 			fmt.Printf("Setting up local network with %d nodes\n", localNetworkNodeCount)
 			group = setupLocalNetwork(ctx, localNetworkNodeCount)
 		} else {
@@ -269,7 +269,6 @@ var rpcServerCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(rpcServerCmd)
-	rpcServerCmd.Flags().IntVarP(&localNetworkNodeCount, "local-network", "l", 0, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exlusive with bootstrap-*")
 	rpcServerCmd.Flags().BoolVarP(&tls, "tls", "t", false, "Encrypt connections with TLS/SSL")
 	rpcServerCmd.Flags().StringVarP(&certFile, "tls-cert", "C", "", "TLS certificate file")
 	rpcServerCmd.Flags().StringVarP(&keyFile, "tls-key", "K", "", "TLS private key file")
