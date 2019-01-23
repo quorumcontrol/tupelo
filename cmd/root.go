@@ -149,6 +149,10 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if localNetworkNodeCount > 0 && remoteNetwork {
+			panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
+		}
+
 		logLevel, err := getLogLevel(logLvlName)
 		if err != nil {
 			panic(err.Error())
