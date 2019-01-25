@@ -222,8 +222,6 @@ func (w *Wallet) GetKey(addr string) (*ecdsa.PrivateKey, error) {
 func (w *Wallet) GenerateKey() (*ecdsa.PrivateKey, error) {
 	key, err := crypto.GenerateKey()
 
-	fmt.Println(len(key.D.Bytes()))
-
 	if err != nil {
 		return nil, fmt.Errorf("error generating key: %v", err)
 	}

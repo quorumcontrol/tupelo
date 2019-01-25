@@ -97,7 +97,7 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 }
 
 type SetOwnershipPayload struct {
-	Authentication []*PublicKey
+	Authentication []string
 }
 
 // SetOwnershipTransaction changes the ownership of a tree by adding a public key array to /_tupelo/authentications

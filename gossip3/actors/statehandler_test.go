@@ -1,7 +1,6 @@
-package gossip2
+package actors
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -29,7 +28,6 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 
 func TestChainTreeStateHandler(t *testing.T) {
 	sw := safewrap.SafeWrap{}
-	ctx := context.Background()
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -64,13 +62,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	stateTrans := StateTransaction{
+	stateTrans := &stateTransaction{
 		CurrentState: nil,
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(ctx, stateTrans)
+	newState, isAccepted, err := chainTreeStateHandler(stateTrans)
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -80,13 +78,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	testTree.ProcessBlock(blockWithHeaders)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-	stateTrans2 := StateTransaction{
+	stateTrans2 := &stateTransaction{
 		CurrentState: newState,
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, stateTrans2)
+	newState, isAccepted, err = chainTreeStateHandler(stateTrans2)
 	assert.NotNil(t, err)
 
 	// playing a new transaction should work when there are no auths
@@ -116,13 +114,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	stateTrans3 := StateTransaction{
+	stateTrans3 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, stateTrans3)
+	newState, isAccepted, err = chainTreeStateHandler(stateTrans3)
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -161,13 +159,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	stateTrans4 := StateTransaction{
+	stateTrans4 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, stateTrans4)
+	newState, isAccepted, err = chainTreeStateHandler(stateTrans4)
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -205,13 +203,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	stateTrans5 := StateTransaction{
+	stateTrans5 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, stateTrans5)
+	newState, isAccepted, err = chainTreeStateHandler(stateTrans5)
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
@@ -224,13 +222,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	stateTrans6 := StateTransaction{
+	stateTrans6 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, stateTrans6)
+	newState, isAccepted, err = chainTreeStateHandler(stateTrans6)
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -271,21 +269,21 @@ func TestChainTreeStateHandler(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	stateTrans7 := StateTransaction{
+	stateTrans7 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
 		Transaction:  sw.WrapObject(req).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, stateTrans7)
+	newState, isAccepted, err = chainTreeStateHandler(stateTrans7)
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
 }
 
-func reqToStateTrans(t *testing.T, did string, tip cid.Cid, req consensus.AddBlockRequest) StateTransaction {
+func reqToStateTrans(t *testing.T, did string, tip cid.Cid, req consensus.AddBlockRequest) *stateTransaction {
 	sw := safewrap.SafeWrap{}
-	return StateTransaction{
+	return &stateTransaction{
 		CurrentState: tip.Bytes(),
 		Transaction:  sw.WrapObject(req).RawData(),
 		ObjectID:     []byte(did),
@@ -293,7 +291,6 @@ func reqToStateTrans(t *testing.T, did string, tip cid.Cid, req consensus.AddBlo
 }
 
 func TestSigner_CoinTransactions(t *testing.T) {
-	ctx := context.Background()
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -330,7 +327,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, cid.Undef, req))
+	newState, isAccepted, err := chainTreeStateHandler(reqToStateTrans(t, treeDID, cid.Undef, req))
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -342,7 +339,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	tip, err := cid.Cast(newState)
 	require.Nil(t, err)
-	newState, isAccepted, err = chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, tip, req))
+	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, tip, req))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -374,7 +371,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			NewBlock: blockWithHeaders,
 		}
 
-		newState, isAccepted, err := chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+		newState, isAccepted, err := chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
 		assert.Nil(t, err)
 		assert.True(t, isAccepted)
 
@@ -414,7 +411,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -445,13 +442,12 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }
 
 func TestSigner_NextBlockValidation(t *testing.T) {
-	ctx := context.Background()
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
@@ -487,7 +483,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders,
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+	newState, isAccepted, err := chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -521,7 +517,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders2,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, testTree.Dag.Tip, req2))
+	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req2))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -557,7 +553,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		NewBlock: blockWithHeaders3,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(ctx, reqToStateTrans(t, treeDID, testTree.Dag.Tip, req3))
+	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req3))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }
