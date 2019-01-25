@@ -346,21 +346,11 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddr
 		return nil, StoppedError
 	}
 
-	newOwnerKeys := make([]*consensus.PublicKey, len(newOwnerKeyAddrs))
-	for i, addr := range newOwnerKeyAddrs {
-		k, err := rpcs.getKey(addr)
-		if err != nil {
-			return nil, err
-		}
-		pubKey := consensus.EcdsaToPublicKey(&k.PublicKey)
-		newOwnerKeys[i] = &pubKey
-	}
-
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetOwnership,
 			Payload: consensus.SetOwnershipPayload{
-				Authentication: newOwnerKeys,
+				Authentication: newOwnerKeyAddrs,
 			},
 		},
 	})

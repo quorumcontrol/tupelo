@@ -11,8 +11,8 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -134,6 +134,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 
 	newOwner := consensus.EcdsaToPublicKey(&newOwnerKey.PublicKey)
+	newOwnerAddr := consensus.PublicKeyToAddr(&newOwner)
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -142,8 +143,8 @@ func TestChainTreeStateHandler(t *testing.T) {
 				{
 					Type: "SET_OWNERSHIP",
 					Payload: map[string]interface{}{
-						"authentication": []*consensus.PublicKey{
-							&newOwner,
+						"authentication": []string{
+							newOwnerAddr,
 						},
 					},
 				},
