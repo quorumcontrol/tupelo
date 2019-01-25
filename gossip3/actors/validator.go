@@ -207,15 +207,9 @@ func isOwner(tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool,
 	if uncastAuths == nil {
 		addrs = []string{consensus.DidToAddr(id.(string))}
 	} else {
-		var authentications []*consensus.PublicKey
-		err = typecaster.ToType(uncastAuths, &authentications)
+		err = typecaster.ToType(uncastAuths, &addrs)
 		if err != nil {
 			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
-		}
-
-		addrs = make([]string, len(authentications))
-		for i, key := range authentications {
-			addrs[i] = consensus.PublicKeyToAddr(key)
 		}
 	}
 
