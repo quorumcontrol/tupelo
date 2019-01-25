@@ -4,13 +4,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 
-	"github.com/quorumcontrol/storage"
-
-	"github.com/quorumcontrol/chaintree/nodestore"
-
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 )
 
 const (

@@ -14,6 +14,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
@@ -174,9 +175,7 @@ func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
 
 func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
 	chainId := consensus.EcdsaPubkeyToDid(key)
-	tip, _ := rpcs.wallet.GetTip(chainId)
-
-	return tip != nil && len(tip) > 0
+	return rpcs.wallet.ChainExists(chainId)
 }
 
 func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree, error) {
@@ -193,7 +192,9 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 		return nil, ExistingChainError{publicKey: &key.PublicKey}
 	}
 
-	chain, err := consensus.NewSignedChainTree(key.PublicKey, rpcs.wallet.NodeStore())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodeStore)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +244,9 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*co
 		return nil, err
 	}
 
-	dag, err := decodeDag(decodedChain.Dag, rpcs.wallet.NodeStore())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	dag, err := decodeDag(decodedChain.Dag, nodeStore)
 	if err != nil {
 		return nil, err
 	}
