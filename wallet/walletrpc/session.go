@@ -6,6 +6,7 @@ import (
 	fmt "fmt"
 	"path/filepath"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	blocks "github.com/ipfs/go-block-format"
@@ -201,19 +202,19 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 	return chain, nil
 }
 
-func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
+func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	if rpcs.IsStopped() {
-		return nil, StoppedError
+		return "", StoppedError
 	}
 
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	dagBytes, err := serializeDag(chain.ChainTree.Dag)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	serializedSigs := serializeSignatures(chain.Signatures)
@@ -225,10 +226,10 @@ func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
 
 	serializedChain, err := proto.Marshal(&serializableChain)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return serializedChain, nil
+	return base58.Encode(serializedChain), nil
 }
 
 func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*consensus.SignedChainTree, error) {

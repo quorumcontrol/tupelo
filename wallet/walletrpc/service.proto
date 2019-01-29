@@ -43,7 +43,7 @@ message ExportChainRequest {
 }
 
 message ExportChainResponse {
-  bytes chain_tree = 1;
+  string chain_tree = 1;
 }
 
 message ImportChainRequest {
