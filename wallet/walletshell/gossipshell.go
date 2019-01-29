@@ -172,13 +172,12 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			chain, err := session.ExportChain(c.Args[0])
+			encodedChain, err := session.ExportChain(c.Args[0])
 			if err != nil {
 				c.Printf("error exporting chain tree: %v\n", err)
 				return
 			}
 
-			encodedChain := base58.Encode(chain)
 			c.Printf("serialized chain tree: %v\n", encodedChain)
 		},
 	})
