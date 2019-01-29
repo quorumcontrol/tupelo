@@ -100,6 +100,33 @@ func TestPlayTransactions(t *testing.T) {
 	})
 	require.Nil(t, err)
 	assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
+
+	t.Run("works on 2nd set", func(t *testing.T) {
+		resp, err := client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
+			{
+				Type: "SET_DATA",
+				Payload: map[string]string{
+					"path":  "down/in/the/thing",
+					"value": "sometestvalue",
+				},
+			},
+		})
+		require.Nil(t, err)
+		assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
+
+		// and works a third time
+		resp, err = client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
+			{
+				Type: "SET_DATA",
+				Payload: map[string]string{
+					"path":  "down/in/the/thing",
+					"value": "sometestvalue",
+				},
+			},
+		})
+		require.Nil(t, err)
+		assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
+	})
 }
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
