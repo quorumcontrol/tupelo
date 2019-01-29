@@ -11,7 +11,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -113,6 +113,9 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	}
 
 	nextState, accepted, err := chainTreeStateHandler(st)
+	if err != nil {
+		tv.Log.Errorw("error processing state handler", "err", err)
+	}
 
 	if accepted && bytes.Equal(nextState, t.NewTip) {
 		tv.Log.Debugw("accepted", "key", msg.Key)

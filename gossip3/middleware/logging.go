@@ -9,7 +9,7 @@ var Log *zap.SugaredLogger
 var globalLevel zap.AtomicLevel
 
 func init() {
-	globalLevel = zap.NewAtomicLevelAt(zap.WarnLevel)
+	globalLevel = zap.NewAtomicLevelAt(zap.DebugLevel)
 	Log = buildLogger()
 }
 

@@ -47,6 +47,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	return ng, nil
 }
 func TestCommits(t *testing.T) {
+	l := middleware.Log.Named("test-commits")
 	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -60,7 +61,7 @@ func TestCommits(t *testing.T) {
 
 	syncers := system.AllSigners()
 	require.Len(t, system.Signers, numMembers)
-	t.Logf("syncer 0 id: %s", syncers[0].ID)
+	l.Debugw("sending transactions", "syncer", syncers[0].ID)
 
 	// for i := 0; i < 100; i++ {
 	// 	trans := testhelpers.NewValidTransaction(t)
@@ -196,6 +197,7 @@ func TestCommits(t *testing.T) {
 			ObjectID: trans.ObjectID,
 		}, fut.PID())
 
+		l.Debugw("send transaction 1", "id", key)
 		syncer.Tell(&messages.Store{
 			Key:   key,
 			Value: bits,
@@ -209,7 +211,7 @@ func TestCommits(t *testing.T) {
 
 		unsignedBlock2 := &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
-				PreviousTip: string(trans.NewTip),
+				PreviousTip: testTree.Dag.Tip.String(),
 				Transactions: []*chaintree.Transaction{
 					{
 						Type: "SET_DATA",
@@ -227,8 +229,8 @@ func TestCommits(t *testing.T) {
 
 		oldTip := testTree.Dag.Tip
 
-		testTree.ProcessBlock(blockWithHeaders)
 		nodes2 := dagToByteNodes(t, testTree.Dag)
+		testTree.ProcessBlock(blockWithHeaders2)
 
 		req2 := &consensus.AddBlockRequest{
 			Nodes:    nodes2,
@@ -253,6 +255,8 @@ func TestCommits(t *testing.T) {
 		syncer2.Request(&messages.TipSubscription{
 			ObjectID: trans2.ObjectID,
 		}, fut2.PID())
+
+		l.Debugw("send transaction 2", "id", key2)
 
 		syncer2.Tell(&messages.Store{
 			Key:   key2,
