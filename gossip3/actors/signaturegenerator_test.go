@@ -21,8 +21,7 @@ func TestSignatureGenerator(t *testing.T) {
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
-	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
-	defer currentState.Poison()
+	currentState := storage.NewMemStorage()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
@@ -70,8 +69,7 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
-	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
-	defer currentState.Poison()
+	currentState := storage.NewMemStorage()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 

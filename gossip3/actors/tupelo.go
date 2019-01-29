@@ -26,7 +26,6 @@ type TupeloNode struct {
 
 	conflictSetRouter *actor.PID
 
-	currentStateStore   *actor.PID
 	mempoolStore        *actor.PID
 	committedStore      *actor.PID
 	subscriptionHandler *actor.PID
@@ -81,7 +80,10 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
 		tn.committedStore.Tell(&messages.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
-		tn.currentStateStore.Tell(&messages.Store{Key: msg.CurrentState.CurrentKey(), Value: msg.Value})
+		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CommittedKey(), msg.Value)
+		if err != nil {
+			panic(fmt.Errorf("error setting current state: %v", err))
+		}
 		// cleanup the transactions
 		ids := make([][]byte, len(msg.CleanupTransactions), len(msg.CleanupTransactions))
 		for i, trans := range msg.CleanupTransactions {
@@ -92,7 +94,10 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		tn.subscriptionHandler.Tell(msg)
 	} else {
 		tn.Log.Debugw("removing bad current state", "key", msg.Key)
-		tn.currentStateStore.Tell(&messages.Remove{Key: msg.Key})
+		err := tn.cfg.CurrentStateStore.Delete(msg.Key)
+		if err != nil {
+			panic(fmt.Errorf("error deleting bad current state: %v", err))
+		}
 	}
 }
 
@@ -130,7 +135,11 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 }
 
 func (tn *TupeloNode) handleGetTip(context actor.Context, msg *messages.GetTip) {
-	tn.currentStateStore.Request(&messages.Get{Key: msg.ObjectID}, context.Sender())
+	tip, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
+	if err != nil {
+		panic(fmt.Errorf("error getting tip: %v", err))
+	}
+	context.Respond(tip)
 }
 
 func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSyncer) {
@@ -145,11 +154,6 @@ func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSy
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	currentStateStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CurrentStateStore), "currentStateStore")
-	if err != nil {
-		panic(fmt.Sprintf("err: %v", err))
-	}
-
 	mempoolStore, err := context.SpawnNamed(NewStorageProps(storage.NewLockFreeMemStorage()), "mempoolvalidator")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
@@ -186,7 +190,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
-	validatorPool, err := context.SpawnNamed(NewTransactionValidatorProps(currentStateStore), "validator")
+	validatorPool, err := context.SpawnNamed(NewTransactionValidatorProps(tn.cfg.CurrentStateStore), "validator")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
@@ -226,7 +230,6 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	tn.conflictSetRouter = router
 	tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
-	tn.currentStateStore = currentStateStore
 	tn.mempoolStore = mempoolStore
 	tn.committedStore = committedStore
 	tn.validatorPool = validatorPool
