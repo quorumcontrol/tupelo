@@ -80,7 +80,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
 		tn.committedStore.Tell(&messages.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
-		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CommittedKey(), msg.Value)
+		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.Value)
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
