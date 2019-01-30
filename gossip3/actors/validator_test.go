@@ -13,8 +13,7 @@ import (
 )
 
 func TestValidator(t *testing.T) {
-	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
-	defer currentState.Poison()
+	currentState := storage.NewMemStorage()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
@@ -46,8 +45,7 @@ func TestValidator(t *testing.T) {
 }
 
 func BenchmarkValidator(b *testing.B) {
-	currentState := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
-	defer currentState.Poison()
+	currentState := storage.NewMemStorage()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 

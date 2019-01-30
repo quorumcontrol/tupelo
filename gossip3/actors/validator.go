@@ -34,16 +34,15 @@ type stateTransaction struct {
 
 type TransactionValidator struct {
 	middleware.LogAwareHolder
-	currentStateActor *actor.PID
-	reader            storage.Reader
+	reader storage.Reader
 }
 
 const maxValidatorConcurrency = 100
 
-func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
+func NewTransactionValidatorProps(currentStateStore storage.Storage) *actor.Props {
 	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
-			currentStateActor: currentState,
+			reader: currentStateStore,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -53,12 +52,6 @@ func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
 
 func (tv *TransactionValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *actor.Started:
-		reader, err := tv.currentStateActor.RequestFuture(&messages.GetThreadsafeReader{}, 500*time.Millisecond).Result()
-		if err != nil {
-			panic(fmt.Sprintf("timeout waiting: %v", err))
-		}
-		tv.reader = reader.(storage.Reader)
 	case *messages.Store:
 		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
 		tv.handleStore(context, msg)

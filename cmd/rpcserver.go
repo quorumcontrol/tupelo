@@ -134,7 +134,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 	if err != nil {
 		panic(fmt.Sprintf("error setting up badger storage: %v", err))
 	}
-	currenStore, err := storage.NewBadgerStorage(currentPath)
+	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		panic(fmt.Sprintf("error setting up badger storage: %v", err))
 	}
@@ -143,7 +143,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 		Self:              signer,
 		NotaryGroup:       group,
 		CommitStore:       commitStore,
-		CurrentStateStore: currenStore,
+		CurrentStateStore: currentStore,
 	}), syncerActorName(signer))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning actor: %v", err))
