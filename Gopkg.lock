@@ -705,7 +705,7 @@
   revision = "1dc9a6cbc91aacc3e8b2d63db4d2e957a5394ac4"
 
 [[projects]]
-  digest = "1:6c22053d327ff0dfe7f215bcec75bab84ac87d7b339fbedc8440f80915a3f46c"
+  digest = "1:dccdabede640cee249bb796a6742308c99e0bf8a1d9614d3d22bb7caee1242b2"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -715,9 +715,9 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "c9e730f40155feb57dbbdff39814a041ab7bd4ca"
+  revision = "0b3a473443c5ac5fbe186a1f0a5462047f4dd640"
   source = "git@github.com:quorumcontrol/chaintree.git"
-  version = "v3.0.2"
+  version = "v3.0.4"
 
 [[projects]]
   digest = "1:befcb1d98850f051869db42d12ae1ec72bb1cb7cd605ada8aa4ea3f84981bd8a"
