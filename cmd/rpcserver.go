@@ -15,7 +15,7 @@ import (
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 
-	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
+	"github.com/quorumcontrol/tupelo/wallet/rpc"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -102,7 +102,7 @@ func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 }
 
 func syncerActorName(signer *gossip3types.Signer) string {
-	return "tupelo-"+signer.ID
+	return "tupelo-" + signer.ID
 }
 
 func signerCommitPath(storagePath string, signer *gossip3types.Signer) (path string) {
@@ -260,9 +260,9 @@ var rpcServerCmd = &cobra.Command{
 
 		if tls {
 			panicWithoutTLSOpts()
-			walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
+			rpc.ServeTLS(walletStorage, client, certFile, keyFile)
 		} else {
-			walletrpc.ServeInsecure(walletStorage, client)
+			rpc.ServeInsecure(walletStorage, client)
 		}
 	},
 }

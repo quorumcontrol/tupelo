@@ -10,7 +10,7 @@ import (
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/wallet/walletshell"
+	"github.com/quorumcontrol/tupelo/wallet/shell"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +41,7 @@ var shellCmd = &cobra.Command{
 		os.MkdirAll(walletStorage, 0700)
 
 		client := gossip3client.New(group)
-		walletshell.RunGossip(shellName, walletStorage, client)
+		shell.RunGossip(shellName, walletStorage, client)
 	},
 }
 

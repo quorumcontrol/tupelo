@@ -1,4 +1,4 @@
-package walletrpc
+package rpc
 
 import (
 	"fmt"

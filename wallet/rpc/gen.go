@@ -1,4 +1,4 @@
-package walletrpc
+package rpc
 
 //go:generate protoc -I=. -I=$GOPATH/src --go_out=plugins=grpc:. service.proto
 

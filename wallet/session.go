@@ -1,4 +1,4 @@
-package walletrpc
+package wallet
 
 import (
 	"crypto/ecdsa"
@@ -7,7 +7,6 @@ import (
 	fmt "fmt"
 	"path/filepath"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
@@ -19,22 +18,12 @@ import (
 	"github.com/quorumcontrol/tupelo/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/wallet"
 )
 
 type RPCSession struct {
 	client    *gossip3client.Client
-	wallet    *wallet.FileWallet
+	wallet    *FileWallet
 	isStarted bool
-}
-
-type ExistingChainError struct {
-	publicKey *ecdsa.PublicKey
-}
-
-func (e ExistingChainError) Error() string {
-	keyAddr := crypto.PubkeyToAddress(*e.publicKey).String()
-	return fmt.Sprintf("A chain tree for public key %v has already been created.", keyAddr)
 }
 
 func walletPath(parent string, name string) string {
@@ -59,7 +48,7 @@ func (e *NilTipError) Error() string {
 func NewSession(storagePath string, walletName string, gossipClient *gossip3client.Client) (*RPCSession, error) {
 	path := walletPath(storagePath, walletName)
 
-	fileWallet := wallet.NewFileWallet(path)
+	fileWallet := NewFileWallet(path)
 
 	return &RPCSession{
 		client:    gossipClient,
