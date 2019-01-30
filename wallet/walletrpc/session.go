@@ -2,6 +2,7 @@ package walletrpc
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"errors"
 	fmt "fmt"
 	"path/filepath"
@@ -203,19 +204,19 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 	return chain, nil
 }
 
-func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
+func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	if rpcs.IsStopped() {
-		return nil, StoppedError
+		return "", StoppedError
 	}
 
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	dagBytes, err := serializeDag(chain.ChainTree.Dag)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	serializedSigs := serializeSignatures(chain.Signatures)
@@ -227,26 +228,31 @@ func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
 
 	serializedChain, err := proto.Marshal(&serializableChain)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return serializedChain, nil
+	return base64.StdEncoding.EncodeToString(serializedChain), nil
 }
 
-func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
-	decodedChain := &SerializableChainTree{}
-	err := proto.Unmarshal(serializedChain, decodedChain)
+	decodedChain, err := base64.StdEncoding.DecodeString(serializedChain)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding chain: %v", err)
+	}
+
+	unmarshalledChain := &SerializableChainTree{}
+	err = proto.Unmarshal(decodedChain, unmarshalledChain)
 	if err != nil {
 		return nil, err
 	}
 
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
-	dag, err := decodeDag(decodedChain.Dag, nodeStore)
+	dag, err := decodeDag(unmarshalledChain.Dag, nodeStore)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +262,7 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*co
 		return nil, err
 	}
 
-	sigs, err := decodeSignatures(decodedChain.Signatures)
+	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
 	if err != nil {
 		return nil, err
 	}

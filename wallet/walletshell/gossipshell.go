@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/abiosoft/ishell"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
@@ -172,13 +171,12 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			chain, err := session.ExportChain(c.Args[0])
+			encodedChain, err := session.ExportChain(c.Args[0])
 			if err != nil {
 				c.Printf("error exporting chain tree: %v\n", err)
 				return
 			}
 
-			encodedChain := base58.Encode(chain)
 			c.Printf("serialized chain tree: %v\n", encodedChain)
 		},
 	})
@@ -192,8 +190,7 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			chainBytes := base58.Decode(c.Args[1])
-			chain, err := session.ImportChain(c.Args[0], chainBytes)
+			chain, err := session.ImportChain(c.Args[0], c.Args[1])
 			if err != nil {
 				c.Printf("error importing chain tree: %v\n", err)
 				return
