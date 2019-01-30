@@ -2,11 +2,12 @@ package walletrpc
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"errors"
 	fmt "fmt"
+	"github.com/quorumcontrol/storage"
 	"path/filepath"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	blocks "github.com/ipfs/go-block-format"
@@ -229,7 +230,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 		return "", err
 	}
 
-	return base58.Encode(serializedChain), nil
+	return base64.StdEncoding.EncodeToString(serializedChain), nil
 }
 
 func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*consensus.SignedChainTree, error) {
@@ -237,13 +238,20 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*co
 		return nil, StoppedError
 	}
 
-	decodedChain := &SerializableChainTree{}
-	err := proto.Unmarshal(base58.Decode(serializedChain), decodedChain)
+	decodedChain, err := base64.StdEncoding.DecodeString(serializedChain)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding chain: %v", err)
+	}
+
+	unmarshalledChain := &SerializableChainTree{}
+	err = proto.Unmarshal(decodedChain, unmarshalledChain)
 	if err != nil {
 		return nil, err
 	}
 
-	dag, err := decodeDag(decodedChain.Dag, rpcs.wallet.NodeStore())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	dag, err := decodeDag(unmarshalledChain.Dag, nodeStore)
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +261,7 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*co
 		return nil, err
 	}
 
-	sigs, err := decodeSignatures(decodedChain.Signatures)
+	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
 	if err != nil {
 		return nil, err
 	}
