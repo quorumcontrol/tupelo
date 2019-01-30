@@ -43,13 +43,13 @@ message ExportChainRequest {
 }
 
 message ExportChainResponse {
-  bytes chain_tree = 1;
+  string chain_tree = 1;
 }
 
 message ImportChainRequest {
   Credentials creds = 1;
   string key_addr = 2;
-  bytes chain_tree = 3;
+  string chain_tree = 3;
 }
 
 message ImportChainResponse {
