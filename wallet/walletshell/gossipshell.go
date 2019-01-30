@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/abiosoft/ishell"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
@@ -191,8 +190,7 @@ func RunGossip(name string, storagePath string, client *gossip2client.GossipClie
 				return
 			}
 
-			chainBytes := base58.Decode(c.Args[1])
-			chain, err := session.ImportChain(c.Args[0], chainBytes)
+			chain, err := session.ImportChain(c.Args[0], c.Args[1])
 			if err != nil {
 				c.Printf("error importing chain tree: %v\n", err)
 				return
