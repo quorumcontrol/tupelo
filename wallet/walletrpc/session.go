@@ -234,13 +234,13 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	return base58.Encode(serializedChain), nil
 }
 
-func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	decodedChain := &SerializableChainTree{}
-	err := proto.Unmarshal(serializedChain, decodedChain)
+	err := proto.Unmarshal(base58.Decode(serializedChain), decodedChain)
 	if err != nil {
 		return nil, err
 	}

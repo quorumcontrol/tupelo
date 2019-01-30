@@ -49,7 +49,7 @@ message ExportChainResponse {
 message ImportChainRequest {
   Credentials creds = 1;
   string key_addr = 2;
-  bytes chain_tree = 3;
+  string chain_tree = 3;
 }
 
 message ImportChainResponse {
