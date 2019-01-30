@@ -45,8 +45,8 @@ else
   generateSha256 ${windows_binary}
 fi
 
-# git tag ${version}
-# git push origin ${version}
+git tag ${version}
+git push origin ${version}
 
 cd $(dirname $zipdir)
 zip $releasedir/tupelo-$version.zip -r $(basename $zipdir)
