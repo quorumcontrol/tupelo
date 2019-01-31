@@ -10,7 +10,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -88,6 +88,8 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
 		currTip = currentState.Signature.NewTip
+		currTipCid, _ := cid.Cast(currTip)
+		fmt.Printf("currTip: %s\n", currTipCid.String())
 	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {

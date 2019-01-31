@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-cid"
 	"testing"
 	"time"
 
@@ -53,7 +54,8 @@ func TestClientSubscribe(t *testing.T) {
 	client := New(ng)
 	defer client.Stop()
 
-	ch, err := client.Subscribe(ng.GetRandomSigner(), string(trans.ObjectID), 5*time.Second)
+	newTip, _ := cid.Cast(trans.NewTip)
+	ch, err := client.Subscribe(ng.GetRandomSigner(), string(trans.ObjectID), newTip.String(), 5*time.Second)
 	require.Nil(t, err)
 
 	err = client.SendTransaction(ng.GetRandomSigner(), &trans)
@@ -89,6 +91,7 @@ func TestPlayTransactions(t *testing.T) {
 		remoteTip = chain.Tip().String()
 	}
 
+	fmt.Printf("playing first tx w/ remoteTip: %s\n", remoteTip)
 	resp, err := client.PlayTransactions(chain, treeKey, remoteTip, []*chaintree.Transaction{
 		{
 			Type: "SET_DATA",
@@ -102,6 +105,7 @@ func TestPlayTransactions(t *testing.T) {
 	assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 
 	t.Run("works on 2nd set", func(t *testing.T) {
+		fmt.Printf("playing second tx w/ remoteTip: %s\n", chain.Tip().String())
 		resp, err := client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",
@@ -115,6 +119,7 @@ func TestPlayTransactions(t *testing.T) {
 		assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 
 		// and works a third time
+		fmt.Printf("playing third tx w/ remoteTip: %s\n", chain.Tip().String())
 		resp, err = client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",

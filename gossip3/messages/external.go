@@ -81,6 +81,7 @@ type SyncerAvailable struct {
 type TipSubscription struct {
 	Unsubscribe bool
 	ObjectID    []byte
+	TipValue    string
 }
 
 type CurrentState struct {

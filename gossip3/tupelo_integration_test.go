@@ -24,6 +24,7 @@ import (
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	cid "github.com/ipfs/go-cid"
 )
 
 const (
@@ -45,7 +46,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
-	currenStore, err := storage.NewBadgerStorage(currentPath)
+	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
@@ -54,7 +55,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 		Self:              localSigner,
 		NotaryGroup:       ng,
 		CommitStore:       commitStore,
-		CurrentStateStore: currenStore,
+		CurrentStateStore: currentStore,
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -168,7 +169,8 @@ func TestLibP2PSigning(t *testing.T) {
 	}
 	time.Sleep(200 * time.Millisecond) // give time for warmup
 
-	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), 60*time.Second)
+	newTip, _ := cid.Cast(trans.NewTip)
+	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip.String(), 60*time.Second)
 	require.Nil(t, err)
 
 	client.SendTransaction(systems[0].GetRandomSigner(), &trans)
