@@ -54,12 +54,18 @@ func BenchmarkValidator(b *testing.B) {
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
+	futures := make([]*actor.Future, b.N, b.N)
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := validator.RequestFuture(&messages.Store{
+		f := validator.RequestFuture(&messages.Store{
 			Key:   key,
 			Value: value,
-		}, 1*time.Second).Result()
+		}, 5*time.Second)
+		futures[i] = f
+	}
+	for _, f := range futures {
+		_, err := f.Result()
 		require.Nil(b, err)
 	}
 }
