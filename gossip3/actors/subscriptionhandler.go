@@ -77,7 +77,6 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 			delete(sh.subscriptionManagers, objectID)
 		}
 	case *messages.TipSubscription:
-		fmt.Printf("sh got tip sub for %s\n", tipSubscriptionKey(msg))
 		manager, ok := sh.subscriptionManagers[tipSubscriptionKey(msg)]
 		if msg.Unsubscribe && !ok {
 			return
@@ -88,7 +87,6 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 
 		context.Forward(manager)
 	case *messages.CurrentStateWrapper:
-		fmt.Printf("sh got current state change for %s\n", tipSubscriptionKey(msg))
 		manager, ok := sh.subscriptionManagers[tipSubscriptionKey(msg)]
 		if ok {
 			fmt.Println("found sub manager to forward to")

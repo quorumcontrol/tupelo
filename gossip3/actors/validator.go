@@ -88,8 +88,6 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
 		currTip = currentState.Signature.NewTip
-		currTipCid, _ := cid.Cast(currTip)
-		fmt.Printf("currTip: %s\n", currTipCid.String())
 	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {

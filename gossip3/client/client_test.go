@@ -91,7 +91,6 @@ func TestPlayTransactions(t *testing.T) {
 		remoteTip = chain.Tip().String()
 	}
 
-	fmt.Printf("playing first tx w/ remoteTip: %s\n", remoteTip)
 	resp, err := client.PlayTransactions(chain, treeKey, remoteTip, []*chaintree.Transaction{
 		{
 			Type: "SET_DATA",
@@ -105,7 +104,6 @@ func TestPlayTransactions(t *testing.T) {
 	assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 
 	t.Run("works on 2nd set", func(t *testing.T) {
-		fmt.Printf("playing second tx w/ remoteTip: %s\n", chain.Tip().String())
 		resp, err := client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",
@@ -119,7 +117,6 @@ func TestPlayTransactions(t *testing.T) {
 		assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 
 		// and works a third time
-		fmt.Printf("playing third tx w/ remoteTip: %s\n", chain.Tip().String())
 		resp, err = client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",

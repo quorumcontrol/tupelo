@@ -95,7 +95,6 @@ func (c *Client) TipRequest(chainID string) (*messages.CurrentState, error) {
 }
 
 func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip string, timeout time.Duration) (chan *messages.CurrentState, error) {
-	fmt.Printf("subscribing to tip changes to: %s-%s\n", treeDid, expectedTip)
 	ch := make(chan *messages.CurrentState, 1)
 	act, err := actor.SpawnPrefix(newSubscriberActorProps(ch, timeout), "sub-"+treeDid)
 	if err != nil {
