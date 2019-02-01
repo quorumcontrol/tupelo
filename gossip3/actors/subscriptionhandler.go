@@ -64,8 +64,9 @@ func tipSubscriptionKey(uncastMsg interface{}) string {
 			panic(fmt.Errorf("error casting new tip to CID: %v", err))
 		}
 		return string(msg.CurrentState.Signature.ObjectID)+"-"+newTip.String()
+	default:
+		return "" // shouldn't get here; seems nicer than having to deal with an error
 	}
-	return "" // shouldn't get here; seems nicer than having to deal with an error
 }
 
 func (sh *SubscriptionHandler) Receive(context actor.Context) {
