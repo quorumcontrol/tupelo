@@ -94,7 +94,6 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 	case *messages.CurrentStateWrapper:
 		manager, ok := sh.subscriptionManagers[tipSubscriptionKey(msg)]
 		if ok {
-			fmt.Println("found sub manager to forward to")
 			context.Forward(manager)
 		}
 	}
