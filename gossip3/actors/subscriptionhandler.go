@@ -138,14 +138,6 @@ func (osm *objectSubscriptionManager) unsubscribe(context actor.Context, msg *me
 
 func (osm *objectSubscriptionManager) notifySubscribers(context actor.Context, msg *messages.CurrentStateWrapper) {
 	for _, sub := range osm.subscriptions {
-		//tipValue := strings.Split(key, "-")[1]
-		//newTip, err := cid.Cast(msg.CurrentState.Signature.NewTip)
-		//if err != nil {
-		//	panic(fmt.Errorf("error casting new tip to CID: %v", err))
-		//}
-		//if newTip.String() == tipValue {
-		//	context.Request(sub, msg.CurrentState)
-		//}
 		context.Request(sub, msg.CurrentState)
 	}
 }
