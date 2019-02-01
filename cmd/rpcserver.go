@@ -102,7 +102,7 @@ func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 }
 
 func syncerActorName(signer *gossip3types.Signer) string {
-	return "tupelo-"+signer.ID
+	return "tupelo-" + signer.ID
 }
 
 func signerCommitPath(storagePath string, signer *gossip3types.Signer) (path string) {
@@ -262,7 +262,10 @@ var rpcServerCmd = &cobra.Command{
 			panicWithoutTLSOpts()
 			walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
 		} else {
-			walletrpc.ServeInsecure(walletStorage, client)
+			_, err := walletrpc.ServeInsecure(walletStorage, client)
+			if err != nil {
+				panic(err)
+			}
 		}
 	},
 }
