@@ -1,19 +1,18 @@
 package walletrpc
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/base64"
+	"encoding/gob"
 	"errors"
 	fmt "fmt"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/gogo/protobuf/proto"
-	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
@@ -66,65 +65,6 @@ func NewSession(storagePath string, walletName string, gossipClient *gossip3clie
 		wallet:    fileWallet,
 		isStarted: false,
 	}, nil
-}
-
-func decodeDag(encodedDag [][]byte, store nodestore.NodeStore) (*dag.Dag, error) {
-	dagNodes := make([]*cbornode.Node, len(encodedDag))
-
-	for i, rawNode := range encodedDag {
-		block := blocks.NewBlock(rawNode)
-		node, err := cbornode.DecodeBlock(block)
-		if err != nil {
-			return nil, err
-		}
-
-		dagNodes[i] = node.(*cbornode.Node)
-	}
-
-	return dag.NewDagWithNodes(store, dagNodes...)
-}
-
-func serializeDag(dag *dag.Dag) ([][]byte, error) {
-	dagNodes, err := dag.Nodes()
-	if err != nil {
-		return nil, err
-	}
-
-	dagBytes := make([][]byte, len(dagNodes))
-	for i, node := range dagNodes {
-		dagBytes[i] = node.RawData()
-	}
-
-	return dagBytes, nil
-}
-
-func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.SignatureMap, error) {
-	signatures := make(consensus.SignatureMap)
-
-	for k, encodedSig := range encodedSigs {
-		signature := consensus.Signature{
-			Type:      encodedSig.Type,
-			Signers:   encodedSig.Signers,
-			Signature: encodedSig.Signature,
-		}
-
-		signatures[k] = signature
-	}
-
-	return signatures, nil
-}
-
-func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializableSignature {
-	serializedSigs := make(map[string]*SerializableSignature)
-	for k, sig := range sigs {
-		serializedSigs[k] = &SerializableSignature{
-			Signers:   sig.Signers,
-			Signature: sig.Signature,
-			Type:      sig.Type,
-		}
-	}
-
-	return serializedSigs
 }
 
 func (rpcs *RPCSession) CreateWallet(passPhrase string) error {
@@ -204,6 +144,17 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 	return chain, nil
 }
 
+func serializeChain(chain *consensus.SignedChainTree) (string, error) {
+	var chainBuffer bytes.Buffer
+	encoder := gob.NewEncoder(&chainBuffer)
+	err := encoder.Encode(chain)
+	if err != nil {
+		return "", fmt.Errorf("error encoding chain: %v", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(chainBuffer.Bytes()), nil
+}
+
 func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	if rpcs.IsStopped() {
 		return "", StoppedError
@@ -214,24 +165,30 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 		return "", err
 	}
 
-	dagBytes, err := serializeDag(chain.ChainTree.Dag)
+	serializedChain, err := serializeChain(chain)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error serializing chain: %v", err)
 	}
 
-	serializedSigs := serializeSignatures(chain.Signatures)
+	return serializedChain, nil
+}
 
-	serializableChain := SerializableChainTree{
-		Dag:        dagBytes,
-		Signatures: serializedSigs,
-	}
-
-	serializedChain, err := proto.Marshal(&serializableChain)
+func deserializeChain(serializedChain string) (*consensus.SignedChainTree, error) {
+	decodedChain, err := base64.StdEncoding.DecodeString(serializedChain)
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("error decoding chain: %v", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(serializedChain), nil
+	chainBuffer := bytes.NewBuffer(decodedChain)
+	decoder := gob.NewDecoder(chainBuffer)
+	var chain consensus.SignedChainTree
+
+	err = decoder.Decode(&chain)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding chain: %v", err)
+	}
+
+	return &chain, nil
 }
 
 func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*consensus.SignedChainTree, error) {
@@ -239,42 +196,14 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*co
 		return nil, StoppedError
 	}
 
-	decodedChain, err := base64.StdEncoding.DecodeString(serializedChain)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding chain: %v", err)
-	}
-
-	unmarshalledChain := &SerializableChainTree{}
-	err = proto.Unmarshal(decodedChain, unmarshalledChain)
+	chain, err := deserializeChain(serializedChain)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	rpcs.wallet.SaveChain(chain)
 
-	dag, err := decodeDag(unmarshalledChain.Dag, nodeStore)
-	if err != nil {
-		return nil, err
-	}
-
-	chainTree, err := chaintree.NewChainTree(dag, nil, consensus.DefaultTransactors)
-	if err != nil {
-		return nil, err
-	}
-
-	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
-	if err != nil {
-		return nil, err
-	}
-
-	signedChainTree := &consensus.SignedChainTree{
-		ChainTree:  chainTree,
-		Signatures: sigs,
-	}
-
-	rpcs.wallet.SaveChain(signedChainTree)
-
-	return signedChainTree, nil
+	return chain, nil
 }
 
 func (rpcs *RPCSession) GetChainIds() ([]string, error) {
@@ -376,8 +305,8 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 		return nil, StoppedError
 	}
 
-	var decodedVal interface{}
-	err := cbornode.DecodeInto(value, &decodedVal)
+	var deserializedVal interface{}
+	err := cbornode.DecodeInto(value, &deserializedVal)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding value: %v", err)
 	}
@@ -387,7 +316,7 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 			Type: consensus.TransactionTypeSetData,
 			Payload: consensus.SetDataPayload{
 				Path:  path,
-				Value: decodedVal,
+				Value: deserializedVal,
 			},
 		},
 	})
