@@ -9,17 +9,6 @@ message Credentials {
   string pass_phrase = 2;
 }
 
-message SerializableSignature {
-  repeated bool signers = 1;
-  bytes signature = 2;
-  string type = 3;
-}
-
-message SerializableChainTree {
-  repeated bytes dag = 1;
-  map<string, SerializableSignature> signatures = 2;
-}
-
 message RegisterWalletRequest {
   Credentials creds = 1;
 }
