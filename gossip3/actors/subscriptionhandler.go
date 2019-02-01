@@ -57,7 +57,11 @@ func NewSubscriptionHandlerProps() *actor.Props {
 func tipSubscriptionKey(uncastMsg interface{}) string {
 	switch msg := uncastMsg.(type) {
 	case *messages.TipSubscription:
-		return string(msg.ObjectID)+"-"+msg.TipValue
+		newTip, err := cid.Cast(msg.TipValue)
+		if err != nil {
+			panic(fmt.Errorf("error casting new tip to CID: %v", err))
+		}
+		return string(msg.ObjectID)+"-"+newTip.String()
 	case *messages.CurrentStateWrapper:
 		newTip, err := cid.Cast(msg.CurrentState.Signature.NewTip)
 		if err != nil {
@@ -126,11 +130,11 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 }
 
 func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *messages.TipSubscription) {
-	osm.subscriptions[context.Sender().String()+"-"+msg.TipValue] = context.Sender()
+	osm.subscriptions[context.Sender().String()+"-"+string(msg.TipValue)] = context.Sender()
 }
 
 func (osm *objectSubscriptionManager) unsubscribe(context actor.Context, msg *messages.TipSubscription) {
-	delete(osm.subscriptions, context.Sender().String()+"-"+msg.TipValue)
+	delete(osm.subscriptions, context.Sender().String()+"-"+string(msg.TipValue))
 	if len(osm.subscriptions) == 0 {
 		context.Self().Stop()
 	}

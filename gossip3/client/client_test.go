@@ -55,7 +55,7 @@ func TestClientSubscribe(t *testing.T) {
 	defer client.Stop()
 
 	newTip, _ := cid.Cast(trans.NewTip)
-	ch, err := client.Subscribe(ng.GetRandomSigner(), string(trans.ObjectID), newTip.String(), 5*time.Second)
+	ch, err := client.Subscribe(ng.GetRandomSigner(), string(trans.ObjectID), newTip, 5*time.Second)
 	require.Nil(t, err)
 
 	err = client.SendTransaction(ng.GetRandomSigner(), &trans)

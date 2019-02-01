@@ -46,9 +46,12 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	startTime := time.Now()
 
 	did := string(trans.ObjectID)
-	newTip, _ := cid.Cast(trans.NewTip)
+	newTip, err := cid.Cast(trans.NewTip)
+	if err != nil {
+		results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
+	}
 
-	respChan, err := client.Subscribe(group.GetRandomSigner(), did, newTip.String(), 30*time.Second)
+	respChan, err := client.Subscribe(group.GetRandomSigner(), did, newTip, 30*time.Second)
 	if err != nil {
 		results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
 		results.Failures = results.Failures + 1

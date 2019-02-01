@@ -32,7 +32,7 @@ func TestSubscribe(t *testing.T) {
 
 	s.Request(&messages.TipSubscription{
 		ObjectID: objectID,
-		TipValue: tipValue.String(),
+		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
 	currentState := &messages.CurrentState{
@@ -69,13 +69,13 @@ func TestUnsubscribe(t *testing.T) {
 
 	s.Request(&messages.TipSubscription{
 		ObjectID: objectID,
-		TipValue: tipValue.String(),
+		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
 	s.Request(&messages.TipSubscription{
 		Unsubscribe: true,
 		ObjectID:    objectID,
-		TipValue:    tipValue.String(),
+		TipValue:    tipValue.Bytes(),
 	}, fut.PID())
 
 	currentState := &messages.CurrentState{

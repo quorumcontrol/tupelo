@@ -120,7 +120,7 @@ func TestCommits(t *testing.T) {
 		newTip, _ := cid.Cast(trans.NewTip)
 		syncer.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
-			TipValue: newTip.String(),
+			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		syncer.Tell(&messages.Store{
@@ -144,7 +144,7 @@ func TestCommits(t *testing.T) {
 		newTip, _ := cid.Cast(trans.NewTip)
 		syncers[1].Actor.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
-			TipValue: newTip.String(),
+			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		start := time.Now()

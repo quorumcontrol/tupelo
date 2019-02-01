@@ -2382,7 +2382,7 @@ func (z *TipSubscription) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "TipValue":
-			z.TipValue, err = dc.ReadString()
+			z.TipValue, err = dc.ReadBytes(z.TipValue)
 			if err != nil {
 				err = msgp.WrapError(err, "TipValue")
 				return
@@ -2426,7 +2426,7 @@ func (z *TipSubscription) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteString(z.TipValue)
+	err = en.WriteBytes(z.TipValue)
 	if err != nil {
 		err = msgp.WrapError(err, "TipValue")
 		return
@@ -2446,7 +2446,7 @@ func (z *TipSubscription) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.AppendBytes(o, z.ObjectID)
 	// string "TipValue"
 	o = append(o, 0xa8, 0x54, 0x69, 0x70, 0x56, 0x61, 0x6c, 0x75, 0x65)
-	o = msgp.AppendString(o, z.TipValue)
+	o = msgp.AppendBytes(o, z.TipValue)
 	return
 }
 
@@ -2481,7 +2481,7 @@ func (z *TipSubscription) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "TipValue":
-			z.TipValue, bts, err = msgp.ReadStringBytes(bts)
+			z.TipValue, bts, err = msgp.ReadBytesBytes(bts, z.TipValue)
 			if err != nil {
 				err = msgp.WrapError(err, "TipValue")
 				return
@@ -2500,7 +2500,7 @@ func (z *TipSubscription) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *TipSubscription) Msgsize() (s int) {
-	s = 1 + 12 + msgp.BoolSize + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 9 + msgp.StringPrefixSize + len(z.TipValue)
+	s = 1 + 12 + msgp.BoolSize + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 9 + msgp.BytesPrefixSize + len(z.TipValue)
 	return
 }
 

@@ -55,13 +55,9 @@ func (sa *subscriberActor) Receive(ctx actor.Context) {
 		close(sa.ch)
 	case *messages.CurrentState:
 		sa.ch <- msg
-		newTip, err := cid.Cast(msg.Signature.NewTip)
-		if err != nil {
-			panic(fmt.Errorf("error casting new tip to CID: %v", err))
-		}
 		ctx.Respond(&messages.TipSubscription{
 			ObjectID:    msg.Signature.ObjectID,
-			TipValue:    newTip.String(),
+			TipValue:    msg.Signature.NewTip,
 			Unsubscribe: true,
 		})
 		ctx.Self().Poison()
@@ -94,7 +90,7 @@ func (c *Client) TipRequest(chainID string) (*messages.CurrentState, error) {
 	return res.(*messages.CurrentState), nil
 }
 
-func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip string, timeout time.Duration) (chan *messages.CurrentState, error) {
+func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip cid.Cid, timeout time.Duration) (chan *messages.CurrentState, error) {
 	ch := make(chan *messages.CurrentState, 1)
 	act, err := actor.SpawnPrefix(newSubscriberActorProps(ch, timeout), "sub-"+treeDid)
 	if err != nil {
@@ -103,7 +99,7 @@ func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip str
 	c.subscriberActors = append(c.subscriberActors, act)
 	signer.Actor.Request(&messages.TipSubscription{
 		ObjectID: []byte(treeDid),
-		TipValue: expectedTip,
+		TipValue: expectedTip.Bytes(),
 	}, act)
 	return ch, nil
 }
@@ -174,7 +170,7 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 
 	target := c.Group.GetRandomSigner()
 
-	respChan, err := c.Subscribe(target, tree.MustId(), expectedTip.String(), 60*time.Second)
+	respChan, err := c.Subscribe(target, tree.MustId(), expectedTip, 60*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("error subscribing: %v", err)
 	}
