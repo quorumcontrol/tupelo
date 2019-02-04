@@ -23,7 +23,8 @@ var _ consensus.Wallet = (*Wallet)(nil)
 
 // Wallet stores keys and metadata about a chaintree (id, signatures, storage adapter / config)
 type Wallet struct {
-	storage storage.Storage
+	storage  storage.Storage
+	adapters *adapters.AdapterSingletonFactory
 }
 
 type WalletConfig struct {
@@ -40,11 +41,15 @@ func (e ExistingChainError) Error() string {
 }
 
 func NewWallet(config *WalletConfig) *Wallet {
-	return &Wallet{storage: config.Storage}
+	return &Wallet{
+		storage:  config.Storage,
+		adapters: adapters.NewAdapterSingletonFactory(),
+	}
 }
 
 func (w *Wallet) Close() {
 	w.storage.Close()
+	w.adapters.Close()
 }
 
 func (w *Wallet) GetTip(chainId string) ([]byte, error) {
@@ -84,7 +89,6 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error fetching adapter: %v", err)
 	}
-	defer adapter.Close()
 	storedTree := dag.NewDag(tipCid, adapter.Store())
 
 	nodes, err := storedTree.Nodes()
@@ -158,7 +162,6 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 	if err != nil {
 		return fmt.Errorf("error fetching adapter: %v", err)
 	}
-	defer adapter.Close()
 
 	nodes, err := signedChain.ChainTree.Dag.Nodes()
 	if err != nil {
@@ -259,7 +262,7 @@ func (w *Wallet) storageAdapterForChain(chainId string) (adapters.Adapter, error
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse storage adapter %v", err)
 	}
-	return adapters.New(&config)
+	return w.adapters.New(&config)
 }
 
 var chainPrefix = []byte("-c-")
