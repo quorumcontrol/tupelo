@@ -5,11 +5,8 @@ import (
 	"crypto/ecdsa"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/p2p"
@@ -74,22 +71,6 @@ func NewTestSet(t testing.TB, size int) *TestSet {
 		EcdsaKeys:         ecdsaKeys,
 		SignKeysByAddress: signKeysByAddress,
 	}
-}
-
-func GroupFromTestSet(t *testing.T, set *TestSet) *consensus.NotaryGroup {
-	members := make([]*consensus.RemoteNode, len(set.SignKeys))
-	for i := range set.SignKeys {
-		rn := consensus.NewRemoteNode(consensus.BlsKeyToPublicKey(set.VerKeys[i]), consensus.EcdsaToPublicKey(&set.EcdsaKeys[i].PublicKey))
-		members[i] = rn
-	}
-
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-	group := consensus.NewNotaryGroup("notarygroupid", nodeStore)
-	err := group.CreateGenesisState(group.RoundAt(time.Now()), members...)
-	if err != nil {
-		t.Fatalf("error generating group: %v", err)
-	}
-	return group
 }
 
 func blsKeys(size int) []*bls.SignKey {
