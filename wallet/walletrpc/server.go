@@ -13,6 +13,7 @@ import (
 	"github.com/quorumcontrol/tupelo/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/wallet"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -100,6 +101,33 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 	}, nil
 }
 
+func (s *server) parseStorageAdapter(c *StorageAdapterConfig) (*adapters.Config, error) {
+	// Default adapters.Config is set in session.go
+	if c == nil {
+		return nil, nil
+	}
+
+	switch config := c.AdapterConfig.(type) {
+	case *StorageAdapterConfig_Badger:
+		return &adapters.Config{
+			Adapter: adapters.BadgerStorageAdapterName,
+			Arguments: map[string]interface{}{
+				"path": config.Badger.Path,
+			},
+		}, nil
+	case *StorageAdapterConfig_Ipld:
+		return &adapters.Config{
+			Adapter: adapters.IpldStorageAdapterName,
+			Arguments: map[string]interface{}{
+				"path":   config.Ipld.Path,
+				"online": !config.Ipld.Offline,
+			},
+		}, nil
+	default:
+		return nil, fmt.Errorf("Unsupported storage adapter sepcified")
+	}
+}
+
 func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
@@ -113,7 +141,12 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 
 	defer session.Stop()
 
-	chain, err := session.CreateChain(req.KeyAddr)
+	storageAdapterConfig, err := s.parseStorageAdapter(req.StorageAdapter)
+	if err != nil {
+		return nil, err
+	}
+
+	chain, err := session.CreateChain(req.KeyAddr, storageAdapterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +197,13 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 
 	defer session.Stop()
 
-	chain, err := session.ImportChain(req.ChainTree)
+	storageAdapterConfig, err := s.parseStorageAdapter(req.StorageAdapter)
+	if err != nil {
+		return nil, err
+	}
+
+	chain, err := session.ImportChain(req.ChainTree, storageAdapterConfig)
+
 	if err != nil {
 		return nil, err
 	}

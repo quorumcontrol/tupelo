@@ -20,6 +20,7 @@ import (
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
 type RPCSession struct {
@@ -177,7 +178,16 @@ func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
 	return rpcs.wallet.ChainExists(chainId)
 }
 
-func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) defaultChainStorage(chainId string) *adapters.Config {
+	return &adapters.Config{
+		Adapter: "badger",
+		Arguments: map[string]interface{}{
+			"path": rpcs.wallet.Path() + "-" + chainId,
+		},
+	}
+}
+
+func (rpcs *RPCSession) CreateChain(keyAddr string, storageAdapterConfig *adapters.Config) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -191,15 +201,12 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 		return nil, ExistingChainError{publicKey: &key.PublicKey}
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-
-	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodeStore)
-	if err != nil {
-		return nil, err
+	if storageAdapterConfig == nil {
+		chainId := consensus.EcdsaPubkeyToDid(key.PublicKey)
+		storageAdapterConfig = rpcs.defaultChainStorage(chainId)
 	}
 
-	rpcs.wallet.SaveChain(chain)
-	return chain, nil
+	return rpcs.wallet.CreateChain(keyAddr, storageAdapterConfig)
 }
 
 func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
@@ -233,7 +240,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	return base64.StdEncoding.EncodeToString(serializedChain), nil
 }
 
-func (rpcs *RPCSession) ImportChain(serializedChain string) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig *adapters.Config) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -278,6 +285,11 @@ func (rpcs *RPCSession) ImportChain(serializedChain string) (*consensus.SignedCh
 		Signatures: sigs,
 	}
 
+	if storageAdapterConfig == nil {
+		storageAdapterConfig = rpcs.defaultChainStorage(signedChainTree.MustId())
+	}
+
+	rpcs.wallet.ConfigureChainStorage(signedChainTree.MustId(), storageAdapterConfig)
 	rpcs.wallet.SaveChain(signedChainTree)
 
 	return signedChainTree, nil
