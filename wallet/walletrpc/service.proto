@@ -18,6 +18,9 @@ message SerializableSignature {
 message SerializableChainTree {
   repeated bytes dag = 1;
   map<string, SerializableSignature> signatures = 2;
+  // tip is a string because of compatability with the javascript layer
+  // which cannot seem to parse a golang cid.Bytes()
+  string tip = 3;
 }
 
 message RegisterWalletRequest {
@@ -48,7 +51,7 @@ message ExportChainResponse {
 
 message ImportChainRequest {
   Credentials creds = 1;
-  string key_addr = 2;
+  // index 2 is a deleted key, intentionally omitted
   string chain_tree = 3;
 }
 
