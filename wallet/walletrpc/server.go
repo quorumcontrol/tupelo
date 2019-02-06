@@ -372,7 +372,7 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 		fmt.Println("Listening on port", defaultPort)
 		err := grpcServer.Serve(listener)
 		if err != nil {
-			log.Fatalf("error serving: %v", err)
+			log.Printf("error serving: %v", err)
 		}
 	}()
 	return grpcServer, nil
@@ -383,10 +383,55 @@ func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Serv
 	if err != nil {
 		return nil, fmt.Errorf("error starting: %v", err)
 	}
+	return grpcServer, nil
+}
+
+func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
+	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	credsOption := grpc.Creds(creds)
+	grpcServer := grpc.NewServer(credsOption)
+
+	return startServer(grpcServer, storagePath, client)
+}
+
+func ServeWebInsecure(grpcServer *grpc.Server) (*http.Server, error) {
+	s, err := createGrpcWeb(grpcServer, defaultWebPort)
+	if err != nil {
+		return nil, fmt.Errorf("error creating GRPC server: %v", err)
+	}
+	go func() {
+		fmt.Println("grpc-web listening on port", defaultWebPort)
+		err := s.ListenAndServe()
+		if err != nil {
+			log.Printf("error listening: %v", err)
+		}
+	}()
+	return s, nil
+}
+
+func ServeWebTLS(grpcServer *grpc.Server, certFile string, keyFile string) (*http.Server, error) {
+	s, err := createGrpcWeb(grpcServer, defaultWebPort)
+	if err != nil {
+		return nil, fmt.Errorf("error creating GRPC server: %v", err)
+	}
+	go func() {
+		fmt.Println("grpc-web listening on port", defaultWebPort)
+		err := s.ListenAndServeTLS(certFile, keyFile)
+		if err != nil {
+			log.Printf("error listening: %v", err)
+		}
+	}()
+	return s, nil
+}
+
+func createGrpcWeb(grpcServer *grpc.Server, port string) (*http.Server, error) {
 	wrappedGrpc := grpcweb.WrapServer(grpcServer)
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if wrappedGrpc.IsGrpcWebRequest(req) {
-			log.Printf("grpcweb request")
 			wrappedGrpc.ServeHTTP(resp, req)
 			return
 		}
@@ -404,22 +449,8 @@ func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Serv
 
 	})
 	s := &http.Server{
-		Addr:    defaultWebPort,
+		Addr:    port,
 		Handler: handler,
 	}
-	fmt.Println("grpc-web Listening on port", defaultWebPort)
-	go log.Fatal(s.ListenAndServe())
-	return grpcServer, nil
-}
-
-func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
-	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
-	if err != nil {
-		return nil, err
-	}
-
-	credsOption := grpc.Creds(creds)
-	grpcServer := grpc.NewServer(credsOption)
-
-	return startServer(grpcServer, storagePath, client)
+	return s, nil
 }
