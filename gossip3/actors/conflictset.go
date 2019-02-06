@@ -1,7 +1,12 @@
 package actors
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/storage"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -39,6 +44,8 @@ type ConflictSet struct {
 	transactions transactionMap
 	view         uint64
 	updates      uint64
+
+	reader storage.Reader
 }
 
 type ConflictSetConfig struct {
@@ -48,6 +55,7 @@ type ConflictSetConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
@@ -62,6 +70,7 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
+			reader:             cfg.CurrentStateStore,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -87,7 +96,11 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	case *messages.CurrentStateWrapper:
 		cs.handleCurrentStateWrapper(context, msg)
 	case *messages.Store:
-		cs.handleStore(context, msg)
+		if context.Sender() == nil {
+			cs.handleStoreCurrentState(context, msg)
+		} else {
+			cs.handleStoreTransaction(context, msg)
+		}
 	case *checkStateMsg:
 		cs.checkState(context, msg)
 	case *messages.GetConflictSetView:
@@ -95,21 +108,97 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	}
 }
 
-func (cs *ConflictSet) handleStore(context actor.Context, msg *messages.Store) {
-	cs.Log.Debugw("handleStore")
+func (cs *ConflictSet) handleStoreCurrentState(context actor.Context, msg *messages.Store) {
 	var currState messages.CurrentState
 	_, err := currState.UnmarshalMsg(msg.Value)
 	if err != nil {
-		panic(fmt.Errorf("error unmarshaling: %v", err))
+		cs.Log.Errorw("error unmarshaling", "err", err)
+	} else {
+		currStateWrapper := &messages.CurrentStateWrapper{
+			CurrentState: &currState,
+			Internal:     false,
+			Key:          msg.Key,
+			Value:        msg.Value,
+			Metadata:     messages.MetadataMap{"seen": time.Now()},
+		}
+		cs.handleCurrentStateWrapper(context, currStateWrapper)
 	}
-	wrapper := &messages.CurrentStateWrapper{
-		CurrentState: &currState,
-		Internal:     false,
-		Key:          msg.Key,
-		Value:        msg.Value,
-		Metadata:     messages.MetadataMap{"seen": time.Now()},
+}
+
+func (cs *ConflictSet) handleStoreTransaction(context actor.Context, msg *messages.Store) {
+	wrapper := &messages.TransactionWrapper{
+		Key:      msg.Key,
+		Value:    msg.Value,
+		Accepted: false,
+		Metadata: messages.MetadataMap{"seen": time.Now()},
 	}
-	cs.handleCurrentStateWrapper(context, wrapper)
+	var t messages.Transaction
+	_, err := t.UnmarshalMsg(msg.Value)
+	if err != nil {
+		cs.Log.Errorw("error unmarshaling", "err", err)
+		context.Respond(wrapper)
+		return
+	}
+	wrapper.ConflictSetID = t.ConflictSetID()
+	wrapper.Transaction = &t
+	wrapper.TransactionID = msg.Key
+
+	bits, err := cs.reader.Get(t.ObjectID)
+	if err != nil {
+		panic(fmt.Errorf("error getting current state: %v", err))
+	}
+
+	var currTip []byte
+	if len(bits) > 0 {
+		var currentState messages.CurrentState
+		_, err := currentState.UnmarshalMsg(bits)
+		if err != nil {
+			panic(fmt.Sprintf("error unmarshaling: %v", err))
+		}
+		currTip = currentState.Signature.NewTip
+	}
+
+	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
+		cs.Log.Errorw("invalid transaction: key did not match value")
+		context.Respond(wrapper)
+		return
+	}
+
+	block := &chaintree.BlockWithHeaders{}
+	err = cbornode.DecodeInto(t.Payload, block)
+	if err != nil {
+		cs.Log.Errorw("invalid transaction: payload is not a block")
+		context.Respond(wrapper)
+		return
+	}
+
+	st := &stateTransaction{
+		ObjectID:      t.ObjectID,
+		Transaction:   &t,
+		TransactionID: msg.Key,
+		CurrentState:  currTip,
+		ConflictSetID: wrapper.ConflictSetID,
+		Block:         block,
+		payload:       msg.Value,
+	}
+
+	nextState, accepted, err := chainTreeStateHandler(st)
+
+	if accepted && bytes.Equal(nextState, t.NewTip) {
+		cs.Log.Debugw("accepted", "key", msg.Key)
+		wrapper.Accepted = true
+		err = cs.createCurrentStateFromTrans(context, wrapper)
+		if err != nil {
+			cs.Log.Errorw("error creating current state from transaction", "err", err)
+			wrapper.Accepted = false
+		}
+		context.Respond(wrapper)
+		return
+	}
+
+	cs.Log.Debugw("rejected", "err", err)
+
+	context.Respond(wrapper)
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {

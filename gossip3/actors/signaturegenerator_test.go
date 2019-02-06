@@ -22,21 +22,37 @@ func TestSignatureGenerator(t *testing.T) {
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
-	defer validator.Poison()
 
-	sigGnerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
-	defer sigGnerator.Poison()
+	sigGenerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
+	defer sigGenerator.Poison()
+
+	sigSender := actor.Spawn(NewSignatureSenderProps())
+	defer sigSender.Poison()
+
+	sigChecker := actor.Spawn(NewSignatureVerifier())
+	defer sigChecker.Poison()
+
+	conflictSetCfg := ConflictSetConfig{
+		ID: "test-sig-gen",
+		NotaryGroup: ng,
+		Signer: signer,
+		SignatureGenerator: sigGenerator,
+		SignatureSender: sigSender,
+		SignatureChecker: sigChecker,
+		CurrentStateStore: currentState,
+	}
+	conflictSet := actor.Spawn(NewConflictSetProps(&conflictSetCfg))
+	defer conflictSet.Poison()
 
 	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
-			context.Request(validator, msg)
+			context.Request(conflictSet, msg)
 		case *messages.SignatureWrapper:
 			fut.PID().Tell(msg)
 		case *messages.TransactionWrapper:
-			context.Request(sigGnerator, msg)
+			context.Request(sigGenerator, msg)
 		}
 	}
 
@@ -70,18 +86,34 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
-	defer validator.Poison()
 
-	sigGnerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
-	defer sigGnerator.Poison()
+	sigGenerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
+	defer sigGenerator.Poison()
+
+	sigSender := actor.Spawn(NewSignatureSenderProps())
+	defer sigSender.Poison()
+
+	sigChecker := actor.Spawn(NewSignatureVerifier())
+	defer sigChecker.Poison()
+
+	conflictSetCfg := ConflictSetConfig{
+		ID: "test-sig-gen",
+		NotaryGroup: ng,
+		Signer: signer,
+		SignatureGenerator: sigGenerator,
+		SignatureSender: sigSender,
+		SignatureChecker: sigChecker,
+		CurrentStateStore: currentState,
+	}
+	conflictSet := actor.Spawn(NewConflictSetProps(&conflictSetCfg))
+	defer conflictSet.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)
 	value, err := trans.MarshalMsg(nil)
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
-	transWrapper, err := validator.RequestFuture(&messages.Store{
+	transWrapper, err := conflictSet.RequestFuture(&messages.Store{
 		Key:   key,
 		Value: value,
 	}, 1*time.Second).Result()
@@ -90,7 +122,7 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	second := 1 * time.Second
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := sigGnerator.RequestFuture(transWrapper, second).Result()
+		_, err := sigGenerator.RequestFuture(transWrapper, second).Result()
 		require.Nil(b, err)
 	}
 }

@@ -1,17 +1,9 @@
 package actors
 
 import (
-	"bytes"
 	"fmt"
-	"strings"
-	"time"
-
-	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/AsynkronIT/protoactor-go/router"
-	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
-	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -20,7 +12,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
+	"strings"
 )
 
 type stateTransaction struct {
@@ -31,103 +23,6 @@ type stateTransaction struct {
 	ConflictSetID string
 	Block         *chaintree.BlockWithHeaders
 	payload       []byte
-}
-
-type TransactionValidator struct {
-	middleware.LogAwareHolder
-	reader storage.Reader
-}
-
-const maxValidatorConcurrency = 10
-
-func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props {
-	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
-		return &TransactionValidator{
-			reader: currentStateStore,
-		}
-	}).WithMiddleware(
-		middleware.LoggingMiddleware,
-		plugin.Use(&middleware.LogPlugin{}),
-	)
-}
-
-func (tv *TransactionValidator) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
-	case *messages.Store:
-		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
-		tv.handleStore(context, msg)
-	}
-}
-
-func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
-	wrapper := &messages.TransactionWrapper{
-		Key:      msg.Key,
-		Value:    msg.Value,
-		Accepted: false,
-		Metadata: messages.MetadataMap{"seen": time.Now()},
-	}
-	var t messages.Transaction
-	_, err := t.UnmarshalMsg(msg.Value)
-	if err != nil {
-		tv.Log.Errorw("error unmarshaling", "err", err)
-		context.Respond(wrapper)
-		return
-	}
-	wrapper.ConflictSetID = t.ConflictSetID()
-	wrapper.Transaction = &t
-	wrapper.TransactionID = msg.Key
-
-	bits, err := tv.reader.Get(t.ObjectID)
-	if err != nil {
-		panic(fmt.Errorf("error getting current state: %v", err))
-	}
-
-	var currTip []byte
-	if len(bits) > 0 {
-		var currentState messages.CurrentState
-		_, err := currentState.UnmarshalMsg(bits)
-		if err != nil {
-			panic(fmt.Sprintf("error unmarshaling: %v", err))
-		}
-		currTip = currentState.Signature.NewTip
-	}
-
-	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
-		tv.Log.Errorw("invalid transaction: key did not match value")
-		context.Respond(wrapper)
-		return
-	}
-
-	block := &chaintree.BlockWithHeaders{}
-	err = cbornode.DecodeInto(t.Payload, block)
-	if err != nil {
-		tv.Log.Errorw("invalid transaction: payload is not a block")
-		context.Respond(wrapper)
-		return
-	}
-
-	st := &stateTransaction{
-		ObjectID:      t.ObjectID,
-		Transaction:   &t,
-		TransactionID: msg.Key,
-		CurrentState:  currTip,
-		ConflictSetID: wrapper.ConflictSetID,
-		Block:         block,
-		payload:       msg.Value,
-	}
-
-	nextState, accepted, err := chainTreeStateHandler(st)
-
-	if accepted && bytes.Equal(nextState, t.NewTip) {
-		tv.Log.Debugw("accepted", "key", msg.Key)
-		wrapper.Accepted = true
-		context.Respond(wrapper)
-		return
-	}
-
-	tv.Log.Debugw("rejected", "err", err)
-
-	context.Respond(wrapper)
 }
 
 func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {

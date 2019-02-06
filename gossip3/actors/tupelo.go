@@ -29,8 +29,7 @@ type TupeloNode struct {
 	mempoolStore        *actor.PID
 	committedStore      *actor.PID
 	subscriptionHandler *actor.PID
-
-	validatorPool *actor.PID
+	
 	cfg           *TupeloConfig
 }
 
@@ -106,11 +105,9 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.Store:
 		tn.Log.Debugw("new transaction", "msg", msg)
-		context.Request(tn.validatorPool, msg)
+		context.Request(tn.conflictSetRouter, msg)
 	case *messages.TransactionWrapper:
-		if msg.Accepted {
-			tn.conflictSetRouter.Tell(msg)
-		} else {
+		if !msg.Accepted {
 			tn.Log.Debugw("removing bad transaction", "msg", msg)
 			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
 		}
@@ -190,11 +187,6 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
-	validatorPool, err := context.SpawnNamed(NewTransactionValidatorProps(tn.cfg.CurrentStateStore), "validator")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
-
 	sender, err := context.SpawnNamed(NewSignatureSenderProps(), "signatureSender")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -216,6 +208,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		SignatureGenerator: sigGenerator,
 		SignatureChecker:   sigChecker,
 		SignatureSender:    sender,
+		CurrentStateStore:  tn.cfg.CurrentStateStore,
 	}
 	router, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "conflictSetRouter")
 	if err != nil {
@@ -232,6 +225,5 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	tn.committedGossiper = committedGossiper
 	tn.mempoolStore = mempoolStore
 	tn.committedStore = committedStore
-	tn.validatorPool = validatorPool
 	tn.subscriptionHandler = subHandler
 }

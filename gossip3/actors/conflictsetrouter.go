@@ -2,6 +2,7 @@ package actors
 
 import (
 	"fmt"
+	"github.com/quorumcontrol/storage"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -28,6 +29,7 @@ type ConflictSetRouterConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -115,6 +117,7 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 		SignatureChecker:   cfg.SignatureChecker,
 		SignatureGenerator: cfg.SignatureGenerator,
 		SignatureSender:    cfg.SignatureSender,
+		CurrentStateStore:  cfg.CurrentStateStore,
 	}), id)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))

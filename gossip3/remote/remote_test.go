@@ -127,7 +127,7 @@ func TestRemoteMessageSending(t *testing.T) {
 	t.Run("ping", func(t *testing.T) {
 		remotePing := actor.NewPID(types.NewRoutableAddress(host1.Identity(), host3.Identity()).String(), host3Ping.GetId())
 
-		resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+		resp, err := remotePing.RequestFuture(&messages.Ping{Msg: "hi"}, 300*time.Millisecond).Result()
 
 		assert.Nil(t, err)
 		assert.Equal(t, resp.(*messages.Pong).Msg, "hi")
@@ -148,14 +148,14 @@ func TestRemoteMessageSending(t *testing.T) {
 
 		NewRouter(host4)
 
-		resp, err := remote4Ping.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+		resp, err := remote4Ping.RequestFuture(&messages.Ping{Msg: "hi"}, 300*time.Millisecond).Result()
 		assert.Equal(t, resp.(*messages.Pong).Msg, "hi")
 		assert.Nil(t, err)
 
 		host4Ping.Stop()
 		cancel()
 
-		resp, err = remote4Ping.RequestFuture(&messages.Ping{Msg: "hi"}, 100*time.Millisecond).Result()
+		resp, err = remote4Ping.RequestFuture(&messages.Ping{Msg: "hi"}, 300*time.Millisecond).Result()
 		assert.NotNil(t, err)
 		assert.Nil(t, resp)
 	})
