@@ -47,16 +47,11 @@ func newValidTransaction(t *testing.T) messages.Transaction {
 
 	testTree.ProcessBlock(blockWithHeaders)
 	nodes := dagToByteNodes(t, emptyTree)
-
-	req := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &emptyTree.Tip,
-		NewBlock: blockWithHeaders,
-	}
 	return messages.Transaction{
+		State:       nodes,
 		PreviousTip: emptyTip.Bytes(),
 		NewTip:      testTree.Dag.Tip.Bytes(),
-		Payload:     sw.WrapObject(req).RawData(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		ObjectID:    []byte(treeDID),
 	}
 }
