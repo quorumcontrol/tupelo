@@ -14,9 +14,9 @@ func TestServerStartup(t *testing.T) {
 	// just a simple sanity check to make sure
 	// startups don't error
 	path := ".tmp/servertest"
-	os.RemoveAll(path)
+	os.RemoveAll(".tmp")
 	os.MkdirAll(path, 0755)
-	defer os.RemoveAll(path)
+	defer os.RemoveAll(".tmp")
 
 	ng := types.NewNotaryGroup("ohhijusttesting")
 	cli := client.New(ng)
