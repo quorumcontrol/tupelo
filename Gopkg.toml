@@ -58,3 +58,7 @@
   name = "github.com/dedis/kyber"
   source = "https://github.com/quorumcontrol/kyber.git"
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
+
+[[constraint]]
+  name = "github.com/tinylib/msgp"
+  version = "v1.1.0"

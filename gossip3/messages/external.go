@@ -141,6 +141,7 @@ type Transaction struct {
 	PreviousTip []byte
 	NewTip      []byte
 	Payload     []byte
+	State       [][]byte
 }
 
 func (t *Transaction) ConflictSetID() string {
