@@ -69,7 +69,7 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	var t messages.Transaction
 	_, err := t.UnmarshalMsg(msg.Value)
 	if err != nil {
-		tv.Log.Errorw("error unmarshaling", "err", err)
+		tv.Log.Infow("error unmarshaling", "err", err)
 		context.Respond(wrapper)
 		return
 	}
