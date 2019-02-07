@@ -113,16 +113,16 @@ func (cs *ConflictSet) handleStoreCurrentState(context actor.Context, msg *messa
 	_, err := currState.UnmarshalMsg(msg.Value)
 	if err != nil {
 		cs.Log.Errorw("error unmarshaling", "err", err)
-	} else {
-		currStateWrapper := &messages.CurrentStateWrapper{
-			CurrentState: &currState,
-			Internal:     false,
-			Key:          msg.Key,
-			Value:        msg.Value,
-			Metadata:     messages.MetadataMap{"seen": time.Now()},
-		}
-		cs.handleCurrentStateWrapper(context, currStateWrapper)
+		return
 	}
+	currStateWrapper := &messages.CurrentStateWrapper{
+		CurrentState: &currState,
+		Internal:     false,
+		Key:          msg.Key,
+		Value:        msg.Value,
+		Metadata:     messages.MetadataMap{"seen": time.Now()},
+	}
+	cs.handleCurrentStateWrapper(context, currStateWrapper)
 }
 
 func (cs *ConflictSet) handleStoreTransaction(context actor.Context, msg *messages.Store) {
