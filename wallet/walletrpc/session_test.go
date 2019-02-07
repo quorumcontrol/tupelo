@@ -1,12 +1,15 @@
 package walletrpc
 
 import (
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/gossip2client"
+	"github.com/quorumcontrol/tupelo/p2p"
 	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo/gossip3/client"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,8 +19,9 @@ func TestImportExport(t *testing.T) {
 	os.RemoveAll(path)
 	os.MkdirAll(path, 0755)
 	defer os.RemoveAll(path)
-	ng := types.NewNotaryGroup("importtest")
-	client := client.New(ng)
+	ns := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	ng := consensus.NewNotaryGroup("importtest", ns)
+	client := gossip2client.NewGossipClient(ng, p2p.BootstrapNodes())
 	sess, err := NewSession(path, "test-only", client)
 	require.Nil(t, err)
 
