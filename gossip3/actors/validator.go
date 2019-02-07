@@ -2,8 +2,10 @@ package actors
 
 import (
 	"fmt"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	"strings"
+
+	cid "github.com/ipfs/go-cid"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -12,7 +14,6 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"strings"
 )
 
 type stateTransaction struct {
