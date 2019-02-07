@@ -65,14 +65,6 @@
   revision = "9a2f9524024889e129a5422aca2cff73cb3eabf6"
 
 [[projects]]
-  branch = "master"
-  digest = "1:56b87c786a316d6e9b9c7ba8f3dd64e3199ca3b33a55cc596c633023bed20264"
-  name = "github.com/btcsuite/btcutil"
-  packages = ["base58"]
-  pruneopts = ""
-  revision = "ab6388e0c60ae4834a1f57511e20c17b5f78be4b"
-
-[[projects]]
   digest = "1:8e9e9b413d0d42246340a89debd1d2c2ae0284774462c11a7ea1b1e25d913700"
   name = "github.com/chzyer/readline"
   packages = ["."]
@@ -142,30 +134,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "2de33835d10275975374b37b2dcfd22c9020a1f5"
-
-[[projects]]
-  branch = "master"
-  digest = "1:2b44aef19ab88400705f78885f109e2082948d6dd7b0a71bcd3024bf362e9312"
-  name = "github.com/elastic/go-sysinfo"
-  packages = [
-    ".",
-    "internal/registry",
-    "providers/darwin",
-    "providers/linux",
-    "providers/shared",
-    "providers/windows",
-    "types",
-  ]
-  pruneopts = ""
-  revision = "7b021494a9562d0c3f0422d49b9980709c5650e9"
-
-[[projects]]
-  branch = "master"
-  digest = "1:63509fc7f9aac866d56904b62131b2d1e71291d36513e072c560c3deaad704a0"
-  name = "github.com/elastic/go-windows"
-  packages = ["."]
-  pruneopts = ""
-  revision = "bb1581babc04d5cb29a2bfa7a9ac6781c730c8dd"
 
 [[projects]]
   digest = "1:f21c1a68814ffc02db479adbd973c710e0ece6150ddc0726655c0a2048299152"
@@ -544,14 +512,6 @@
   revision = "aac704a3f4f27190b4ccc05f303a4931fd1241ff"
 
 [[projects]]
-  branch = "master"
-  digest = "1:521a4970efd87aee222f294b7f0c281266fd4325a3e5c31bda725dff082d120a"
-  name = "github.com/joeshaw/multierror"
-  packages = ["."]
-  pruneopts = ""
-  revision = "69b34d4ec901851247ae7e77d33909caf9df99ed"
-
-[[projects]]
   digest = "1:961dc3b1d11f969370533390fdf203813162980c858e1dabe827b60940c909a5"
   name = "github.com/magiconair/properties"
   packages = ["."]
@@ -700,19 +660,6 @@
   revision = "54ef854b7d9bc97e65cf6d8c8f7c8845107eaefe"
 
 [[projects]]
-  branch = "master"
-  digest = "1:2a434946be9f2f5498b2405a8607768aab439237ea13deff2edc59d9a44f8891"
-  name = "github.com/prometheus/procfs"
-  packages = [
-    ".",
-    "internal/util",
-    "nfs",
-    "xfs",
-  ]
-  pruneopts = ""
-  revision = "1dc9a6cbc91aacc3e8b2d63db4d2e957a5394ac4"
-
-[[projects]]
   digest = "1:dccdabede640cee249bb796a6742308c99e0bf8a1d9614d3d22bb7caee1242b2"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
@@ -754,32 +701,6 @@
   revision = "3d22d28d708e4c9810bfd908c6805495b1e83b09"
   source = "git@github.com:quorumcontrol/storage.git"
   version = "v1.1.0"
-
-[[projects]]
-  digest = "1:d518eb4bfb76545977b0be8549606e6de5c56f8887b84cc24d12f5ec1c587e3a"
-  name = "github.com/rs/zerolog"
-  packages = [
-    ".",
-    "internal/cbor",
-    "internal/json",
-  ]
-  pruneopts = ""
-  revision = "8747b7b3a51b5d08ee7ac50eaf4869edaf9f714a"
-  version = "v1.11.0"
-
-[[projects]]
-  digest = "1:4b73a0659a08dd32fb042bfee9e62f4481bddf18cfc4dbff7dc68084e6ea4460"
-  name = "github.com/santhosh-tekuri/jsonschema"
-  packages = [
-    ".",
-    "decoders",
-    "formats",
-    "loader",
-    "mediatypes",
-  ]
-  pruneopts = ""
-  revision = "534765aa6277d702a0aaf99c986492dda697d48f"
-  version = "v1.2.4"
 
 [[projects]]
   branch = "master"
@@ -868,12 +789,12 @@
   version = "v1.2.2"
 
 [[projects]]
-  digest = "1:cae65c1f3471b1f456a9d8a160440f4824ad50c718a15da4144490fbc3b12e49"
+  digest = "1:23ed2a28cfc147d46f7fbf4d85f83f6d659e15eac4ad1c16c4d32b19da5bd2fa"
   name = "github.com/tinylib/msgp"
   packages = ["msgp"]
   pruneopts = ""
-  revision = "b2b6a672cf1e5b90748f79b8b81fc8c5cf0571a1"
-  version = "1.0.2"
+  revision = "af6442a0fcf6e2a1b824f70dd0c734f01e817751"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -890,40 +811,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "0457bb6b88fc1973573aaf6b5145d8d3ae972390"
-
-[[projects]]
-  digest = "1:82d2436976cf0c5c7ac5124c3623fc253914c9b82d8411f45c79ff788dd36c49"
-  name = "go.elastic.co/apm"
-  packages = [
-    ".",
-    "internal/apmconfig",
-    "internal/apmcontext",
-    "internal/apmhostutil",
-    "internal/apmhttputil",
-    "internal/apmlog",
-    "internal/apmschema",
-    "internal/apmstrings",
-    "internal/iochan",
-    "internal/radix",
-    "internal/ringbuffer",
-    "internal/wildcard",
-    "model",
-    "module/apmhttp",
-    "module/apmot",
-    "stacktrace",
-    "transport",
-  ]
-  pruneopts = ""
-  revision = "9abbae55c7bd7ca842776a2e09dfca01eaf41ce3"
-  version = "v1.1.0"
-
-[[projects]]
-  digest = "1:e05c654acb77a3d7c00aecaf64fdb66310f5f063f896a0d749be8a8d1fb168df"
-  name = "go.elastic.co/fastjson"
-  packages = ["."]
-  pruneopts = ""
-  revision = "676cec79bd027a8a4618de0991f27cfe632978f1"
-  version = "v1.0.0"
 
 [[projects]]
   digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
@@ -1002,7 +889,6 @@
     "cpu",
     "unix",
     "windows",
-    "windows/registry",
   ]
   pruneopts = ""
   revision = "bd9dbc187b6e1dacfdd2722a87e83093c2d7bd6e"
@@ -1095,14 +981,6 @@
   revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
   version = "v2.2.1"
 
-[[projects]]
-  branch = "master"
-  digest = "1:e43acd1190dde7223727f1f8aeac537156d33bf87776d5637e672e1c6b354be4"
-  name = "howett.net/plist"
-  packages = ["."]
-  pruneopts = ""
-  revision = "591f970eefbbeb04d7b37f334a0c4c3256e32876"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -1112,7 +990,6 @@
     "github.com/AsynkronIT/protoactor-go/router",
     "github.com/Workiva/go-datastructures/bitarray",
     "github.com/abiosoft/ishell",
-    "github.com/btcsuite/btcutil/base58",
     "github.com/dedis/kyber",
     "github.com/dedis/kyber/pairing/bn256",
     "github.com/dedis/kyber/sign/bls",
@@ -1126,7 +1003,6 @@
     "github.com/gorilla/mux",
     "github.com/hashicorp/go-immutable-radix",
     "github.com/hashicorp/golang-lru",
-    "github.com/ipfs/go-block-format",
     "github.com/ipfs/go-cid",
     "github.com/ipfs/go-ipld-cbor",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore",
@@ -1166,7 +1042,6 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
-    "go.elastic.co/apm/module/apmot",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",
     "golang.org/x/net/context",

@@ -160,7 +160,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 
 	defer session.Stop()
 
-	chain, err := session.ImportChain(req.KeyAddr, req.ChainTree)
+	chain, err := session.ImportChain(req.ChainTree)
 	if err != nil {
 		return nil, err
 	}

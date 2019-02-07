@@ -59,15 +59,14 @@ func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey
 	testTree.ProcessBlock(blockWithHeaders)
 	nodes := dagToByteNodes(t, emptyTree)
 
-	req := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &emptyTree.Tip,
-		NewBlock: blockWithHeaders,
-	}
+	bits := sw.WrapObject(blockWithHeaders).RawData()
+	require.Nil(t, sw.Err)
+
 	return messages.Transaction{
 		PreviousTip: emptyTip.Bytes(),
 		NewTip:      testTree.Dag.Tip.Bytes(),
-		Payload:     sw.WrapObject(req).RawData(),
+		Payload:     bits,
+		State:       nodes,
 		ObjectID:    []byte(treeDID),
 	}
 }

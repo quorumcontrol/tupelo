@@ -50,7 +50,7 @@ func (sa *subscriberActor) Receive(ctx actor.Context) {
 	case *actor.Started:
 		ctx.SetReceiveTimeout(sa.timeout)
 	case *actor.ReceiveTimeout:
-		ctx.Self().Stop()
+		ctx.Self().Poison()
 	case *actor.Terminated:
 		close(sa.ch)
 	case *messages.CurrentState:
@@ -139,14 +139,7 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 	for i, node := range cborNodes {
 		nodes[i] = node.RawData()
 	}
-
 	storedTip := tree.Tip()
-	addBlockRequest := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		NewBlock: blockWithHeaders,
-		Tip:      &storedTip,
-		ChainId:  tree.MustId(),
-	}
 
 	newTree, err := chaintree.NewChainTree(tree.ChainTree.Dag, tree.ChainTree.BlockValidators, tree.ChainTree.Transactors)
 	if err != nil {
@@ -160,10 +153,11 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 	expectedTip := newTree.Dag.Tip
 
 	transaction := messages.Transaction{
-		PreviousTip: []byte(remoteTip),
-		Payload:     sw.WrapObject(addBlockRequest).RawData(),
+		PreviousTip: storedTip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		NewTip:      expectedTip.Bytes(),
 		ObjectID:    []byte(tree.MustId()),
+		State:       nodes,
 	}
 
 	target := c.Group.GetRandomSigner()
