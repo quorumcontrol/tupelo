@@ -298,7 +298,7 @@ var rpcServeWebGrpc bool
 
 func init() {
 	rootCmd.AddCommand(rpcServerCmd)
-	rpcServerCmd.Flags().BoolVarP(&rpcServeWebGrpc, "web", "w", false, "Open up a grpc-web interface as well")
+	rpcServerCmd.Flags().BoolVar(&rpcServeWebGrpc, "web", false, "Open up a grpc-web interface as well")
 	rpcServerCmd.Flags().BoolVarP(&tls, "tls", "t", false, "Encrypt connections with TLS/SSL")
 	rpcServerCmd.Flags().StringVarP(&certFile, "tls-cert", "C", "", "TLS certificate file")
 	rpcServerCmd.Flags().StringVarP(&keyFile, "tls-key", "K", "", "TLS private key file")
