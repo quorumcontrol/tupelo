@@ -113,19 +113,18 @@
   source = "https://github.com/quorumcontrol/kyber.git"
 
 [[projects]]
-  digest = "1:81d49e94365e7f1ed77edddf9a5482ab4ced461dab56fbf8fc2834da6c295de5"
+  digest = "1:d53187f2546fa50fd6dc8a13c32a70de0233ce2a2f6ef189e87c8dd8dad0882c"
   name = "github.com/dgraph-io/badger"
   packages = [
     ".",
     "options",
-    "protos",
+    "pb",
     "skl",
     "table",
     "y",
   ]
   pruneopts = ""
-  revision = "99233d725dbdd26d156c61b2f42ae1671b794656"
-  version = "v1.5.4"
+  revision = "10e1ee8dd41927fff4aa5cf1c205ad30f1a39e43"
 
 [[projects]]
   branch = "master"
@@ -134,6 +133,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "2de33835d10275975374b37b2dcfd22c9020a1f5"
+
+[[projects]]
+  digest = "1:f1a75a8e00244e5ea77ff274baa9559eb877437b240ee7b278f3fc560d9f08bf"
+  name = "github.com/dustin/go-humanize"
+  packages = ["."]
+  pruneopts = ""
+  revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:f21c1a68814ffc02db479adbd973c710e0ece6150ddc0726655c0a2048299152"
@@ -694,13 +701,13 @@
   revision = "3f797c8b12b141e1e252cc202f43c27fce58ec9e"
 
 [[projects]]
-  digest = "1:9fbd9b953bd8ed856f8f3e4275473a210d0b0dfa01ddd79e47f1e8eaee501d64"
+  digest = "1:8a59c2e0db52780c3222e32d9d239d348e2f4711193053e0b8dde57575084e5f"
   name = "github.com/quorumcontrol/storage"
   packages = ["."]
   pruneopts = ""
-  revision = "3d22d28d708e4c9810bfd908c6805495b1e83b09"
+  revision = "c5e9df97b7f4aa63a9de7f3c30405f5acac9b4d9"
   source = "git@github.com:quorumcontrol/storage.git"
-  version = "v1.1.0"
+  version = "v1.1.1"
 
 [[projects]]
   branch = "master"
