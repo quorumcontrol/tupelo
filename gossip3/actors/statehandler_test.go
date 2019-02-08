@@ -6,12 +6,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -56,16 +58,17 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req := &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &emptyTree.Tip,
-		NewBlock: blockWithHeaders,
+	trans := &messages.Transaction{
+		State:       nodes,
+		PreviousTip: emptyTree.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
 	stateTrans := &stateTransaction{
 		CurrentState: nil,
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err := chainTreeStateHandler(stateTrans)
@@ -81,7 +84,8 @@ func TestChainTreeStateHandler(t *testing.T) {
 	stateTrans2 := &stateTransaction{
 		CurrentState: newState,
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans2)
@@ -108,16 +112,17 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req = &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
 	stateTrans3 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans3)
@@ -153,16 +158,18 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 	nodes = dagToByteNodes(t, testTree.Dag)
-	req = &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
 	stateTrans4 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans4)
@@ -197,16 +204,17 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	nodes = dagToByteNodes(t, testTree.Dag)
 
-	req = &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
 	stateTrans5 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans5)
@@ -216,16 +224,17 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
 	assert.Nil(t, err)
 
-	req = &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
 	stateTrans6 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans6)
@@ -263,16 +272,17 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	nodes = dagToByteNodes(t, testTree.Dag)
 
-	req = &consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
 	stateTrans7 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
 		ObjectID:     []byte(treeDID),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Transaction:  trans,
+		Block:        blockWithHeaders,
 	}
 
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans7)
@@ -281,11 +291,16 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 }
 
-func reqToStateTrans(t *testing.T, did string, tip cid.Cid, req consensus.AddBlockRequest) *stateTransaction {
-	sw := safewrap.SafeWrap{}
+func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Transaction) *stateTransaction {
+	block := &chaintree.BlockWithHeaders{}
+	err := cbornode.DecodeInto(trans.Payload, block)
+	if err != nil {
+		panic(fmt.Errorf("invalid block in transaction: %v", err))
+	}
 	return &stateTransaction{
 		CurrentState: tip.Bytes(),
-		Transaction:  sw.WrapObject(req).RawData(),
+		Block:        block,
+		Transaction:  trans,
 		ObjectID:     []byte(did),
 	}
 }
@@ -321,13 +336,14 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	require.Nil(t, err)
 
-	req := consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &emptyTree.Tip,
-		NewBlock: blockWithHeaders,
+	sw := &safewrap.SafeWrap{}
+	trans := &messages.Transaction{
+		State:       nodes,
+		PreviousTip: emptyTree.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(reqToStateTrans(t, treeDID, cid.Undef, req))
+	newState, isAccepted, err := chainTreeStateHandler(transToStateTrans(t, treeDID, cid.Undef, trans))
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -339,7 +355,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	tip, err := cid.Cast(newState)
 	require.Nil(t, err)
-	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, tip, req))
+	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -365,13 +381,13 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 		assert.Nil(t, err)
 
-		req = consensus.AddBlockRequest{
-			Nodes:    nodes,
-			Tip:      &testTree.Dag.Tip,
-			NewBlock: blockWithHeaders,
+		trans = &messages.Transaction{
+			State:       nodes,
+			PreviousTip: testTree.Dag.Tip.Bytes(),
+			Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		}
 
-		newState, isAccepted, err := chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+		newState, isAccepted, err := chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 		assert.Nil(t, err)
 		assert.True(t, isAccepted)
 
@@ -405,13 +421,13 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req = consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -436,13 +452,13 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req = consensus.AddBlockRequest{
-		Nodes:    nodes,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }
@@ -477,13 +493,15 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	req := consensus.AddBlockRequest{
-		Nodes:    nodes1,
-		Tip:      &testTree.Dag.Tip,
-		NewBlock: blockWithHeaders,
+	sw := &safewrap.SafeWrap{}
+
+	trans := &messages.Transaction{
+		State:       nodes1,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req))
+	newState, isAccepted, err := chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -511,13 +529,13 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	blockWithHeaders2, err := consensus.SignBlock(unsignedBlock2, treeKey)
 	assert.Nil(t, err)
 
-	req2 := consensus.AddBlockRequest{
-		Nodes:    nodes2,
-		Tip:      &tip,
-		NewBlock: blockWithHeaders2,
+	trans2 := &messages.Transaction{
+		State:       nodes2,
+		PreviousTip: tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders2).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req2))
+	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans2))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -547,13 +565,13 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	nodesCombined := append(append(nodes1, nodes2...), nodes3...)
 
-	req3 := consensus.AddBlockRequest{
-		Nodes:    nodesCombined,
-		Tip:      &savedcid,
-		NewBlock: blockWithHeaders3,
+	trans3 := &messages.Transaction{
+		State:       nodesCombined,
+		PreviousTip: savedcid.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders3).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(reqToStateTrans(t, treeDID, testTree.Dag.Tip, req3))
+	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans3))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }

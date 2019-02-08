@@ -9,12 +9,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
-	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
@@ -71,14 +71,12 @@ func NewSession(storagePath string, walletName string, gossipClient *gossip3clie
 func decodeDag(encodedDag [][]byte, store nodestore.NodeStore) (*dag.Dag, error) {
 	dagNodes := make([]*cbornode.Node, len(encodedDag))
 
+	sw := &safewrap.SafeWrap{}
 	for i, rawNode := range encodedDag {
-		block := blocks.NewBlock(rawNode)
-		node, err := cbornode.DecodeBlock(block)
-		if err != nil {
-			return nil, err
-		}
-
-		dagNodes[i] = node.(*cbornode.Node)
+		dagNodes[i] = sw.Decode(rawNode)
+	}
+	if sw.Err != nil {
+		return nil, fmt.Errorf("error decoding: %v", sw.Err)
 	}
 
 	return dag.NewDagWithNodes(store, dagNodes...)
@@ -224,6 +222,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	serializableChain := SerializableChainTree{
 		Dag:        dagBytes,
 		Signatures: serializedSigs,
+		Tip:        chain.ChainTree.Dag.Tip.String(),
 	}
 
 	serializedChain, err := proto.Marshal(&serializableChain)
@@ -234,7 +233,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	return base64.StdEncoding.EncodeToString(serializedChain), nil
 }
 
-func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(serializedChain string) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -252,14 +251,21 @@ func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain string) (*co
 
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
-	dag, err := decodeDag(unmarshalledChain.Dag, nodeStore)
+	chainDAG, err := decodeDag(unmarshalledChain.Dag, nodeStore)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding dag: %v", err)
 	}
 
-	chainTree, err := chaintree.NewChainTree(dag, nil, consensus.DefaultTransactors)
+	tip, err := cid.Decode(unmarshalledChain.Tip)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding tip CID: %v", err)
+	}
+
+	chainDAG = chainDAG.WithNewTip(tip)
+
+	chainTree, err := chaintree.NewChainTree(chainDAG, nil, consensus.DefaultTransactors)
+	if err != nil {
+		return nil, fmt.Errorf("error getting new chaintree: %v", err)
 	}
 
 	sigs, err := decodeSignatures(unmarshalledChain.Signatures)

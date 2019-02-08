@@ -132,13 +132,13 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			chainId, err := chain.Id()
+			chainID, err := chain.Id()
 			if err != nil {
 				c.Printf("error fetching chain id: %v\n", err)
 				return
 			}
 
-			c.Printf("chain-id: %v\n", chainId)
+			c.Printf("chain-id: %s\n", chainID)
 		},
 	})
 
@@ -185,18 +185,18 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 		Name: "import-chain",
 		Help: "import a chain tree",
 		Func: func(c *ishell.Context) {
-			if len(c.Args) < 2 {
-				c.Println("not enough arguments passed to import-chain")
+			if len(c.Args) != 1 {
+				c.Println("incorrect number of arguments passed to import-chain")
 				return
 			}
 
-			chain, err := session.ImportChain(c.Args[0], c.Args[1])
+			chain, err := session.ImportChain(c.Args[0])
 			if err != nil {
 				c.Printf("error importing chain tree: %v\n", err)
 				return
 			}
 
-			c.Printf("chain id: %v\n", chain.Id)
+			c.Printf("chain id: %v\n", chain.MustId())
 		},
 	})
 

@@ -37,9 +37,9 @@
   revision = "1e67410e88d2685bc54611a7c9f75c327b553ccc"
 
 [[constraint]]
-  source = "git@github.com:quorumcontrol/chaintree.git"  
   name = "github.com/quorumcontrol/chaintree"
-  version = "4.0.0"
+  source = "git@github.com:quorumcontrol/chaintree.git"  
+  version = "v4.0.1"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
@@ -66,3 +66,7 @@
   name = "github.com/dedis/kyber"
   source = "https://github.com/quorumcontrol/kyber.git"
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
+
+[[constraint]]
+  name = "github.com/tinylib/msgp"
+  version = "v1.1.0"
