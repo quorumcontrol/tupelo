@@ -49,8 +49,11 @@ else
 #  generateSha256 ${windows_binary}
 fi
 
-git tag ${version}
-git push origin ${version}
+if [ -z "${LOCAL}" ]; then
+  echo "Tagging ${version} and pushing to GitHub"
+  git tag ${version}
+  git push origin ${version}
+fi
 
 cd $(dirname $zipdir)
 zip $releasedir/tupelo-$version.zip -r $(basename $zipdir)
