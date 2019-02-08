@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 pushd $(dirname $0)/../
 trap popd EXIT
 
