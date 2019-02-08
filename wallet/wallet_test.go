@@ -1,7 +1,6 @@
 package wallet
 
 import (
-	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -10,34 +9,86 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
 	"github.com/ipfs/go-ipld-cbor"
+	ipfsconfig "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config"
+	"github.com/ipsn/go-ipfs/plugin/loader"
+	"github.com/ipsn/go-ipfs/repo/fsrepo"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestWallet_GetChain(t *testing.T) {
-	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
-	defer w.Close()
-
+func TestBadgerWallet(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
 	defer os.RemoveAll("testtmp")
+
+	storageConfig := &adapters.Config{
+		Adapter: "badger",
+		Arguments: map[string]interface{}{
+			"path": "testtmp/adapter",
+		},
+	}
+
+	SubtestAll(t, storageConfig)
+}
+func TestIpldWallet(t *testing.T) {
+	os.RemoveAll("testtmp")
+	os.MkdirAll("testtmp", 0700)
+	defer os.RemoveAll("testtmp")
+
+	storageConfig := &adapters.Config{
+		Adapter: "ipld",
+		Arguments: map[string]interface{}{
+			"path": "testtmp/ipld",
+		},
+	}
+
+	plugins, err := loader.NewPluginLoader("")
+	require.Nil(t, err)
+	plugins.Initialize()
+	plugins.Run()
+
+	conf, err := ipfsconfig.Init(os.Stdout, 2048)
+	require.Nil(t, err, "error initializing IPFS")
+
+	for _, profile := range []string{"server", "badgerds"} {
+		transformer, ok := ipfsconfig.Profiles[profile]
+		require.True(t, ok, "error fetching IPFS profile")
+
+		err := transformer.Transform(conf)
+		require.Nil(t, err, "error transforming IPFS profile")
+	}
+
+	err = fsrepo.Init("testtmp/ipld", conf)
+	require.Nil(t, err, "error initializing IPFS repo")
+
+	SubtestAll(t, storageConfig)
+}
+
+func SubtestAll(t *testing.T, storageConfig *adapters.Config) {
+	SubtestWallet_GetChain(t, storageConfig)
+	SubtestWallet_SaveChain(t, storageConfig)
+	SubtestWallet_GetChainIds(t, storageConfig)
+	SubtestWallet_ChainExists(t, storageConfig)
+	SubtestWallet_GetKey(t, storageConfig)
+	SubtestWallet_ChainExists(t, storageConfig)
+}
+
+func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
+	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
+	defer w.Close()
 
 	key, err := w.GenerateKey()
 	require.Nil(t, err)
 
 	keyAddr := crypto.PubkeyToAddress(key.PublicKey).String()
 
-	newChain, err := w.CreateChain(keyAddr, &StorageAdapterConfig{
-		Adapter: "badger",
-		Arguments: map[string]interface{}{
-			"path": "testtmp/adapter",
-		},
-	})
+	newChain, err := w.CreateChain(keyAddr, storageConfig)
 	require.Nil(t, err)
 
 	err = w.SaveChain(newChain)
@@ -71,25 +122,16 @@ func TestWallet_GetChain(t *testing.T) {
 	assert.Equal(t, origCids, newCids)
 }
 
-func TestWallet_SaveChain(t *testing.T) {
+func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
-
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
-	defer os.RemoveAll("testtmp")
 
 	key, err := w.GenerateKey()
 	require.Nil(t, err)
 
 	keyAddr := crypto.PubkeyToAddress(key.PublicKey).String()
 
-	signedTree, err := w.CreateChain(keyAddr, &StorageAdapterConfig{
-		Adapter: "badger",
-		Arguments: map[string]interface{}{
-			"path": "testtmp/adapter",
-		},
-	})
+	signedTree, err := w.CreateChain(keyAddr, storageConfig)
 	require.Nil(t, err)
 
 	err = w.SaveChain(signedTree)
@@ -201,13 +243,9 @@ func TestWallet_SaveChain(t *testing.T) {
 
 }
 
-func TestWallet_GetChainIds(t *testing.T) {
+func SubtestWallet_GetChainIds(t *testing.T, storageConfig *adapters.Config) {
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
-
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
-	defer os.RemoveAll("testtmp")
 
 	createdChains := make([]string, 3, 3)
 
@@ -216,12 +254,7 @@ func TestWallet_GetChainIds(t *testing.T) {
 		require.Nil(t, err)
 
 		keyAddr := crypto.PubkeyToAddress(key.PublicKey).String()
-		signedTree, err := w.CreateChain(keyAddr, &StorageAdapterConfig{
-			Adapter: "badger",
-			Arguments: map[string]interface{}{
-				"path": fmt.Sprintf("testtmp/db-%d", i),
-			},
-		})
+		signedTree, err := w.CreateChain(keyAddr, storageConfig)
 		createdChains[i] = signedTree.MustId()
 		require.Nil(t, err)
 	}
@@ -232,7 +265,7 @@ func TestWallet_GetChainIds(t *testing.T) {
 	assert.ElementsMatch(t, createdChains, ids)
 }
 
-func TestWallet_GetKey(t *testing.T) {
+func SubtestWallet_GetKey(t *testing.T, storageConfig *adapters.Config) {
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
 
@@ -243,13 +276,9 @@ func TestWallet_GetKey(t *testing.T) {
 	assert.Equal(t, retKey, key)
 }
 
-func TestWallet_ChainExists(t *testing.T) {
+func SubtestWallet_ChainExists(t *testing.T, storageConfig *adapters.Config) {
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
-
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
-	defer os.RemoveAll("testtmp")
 
 	key, err := w.GenerateKey()
 	require.Nil(t, err)
@@ -260,12 +289,7 @@ func TestWallet_ChainExists(t *testing.T) {
 	assert.False(t, w.ChainExistsForKey(keyAddr))
 	assert.False(t, w.ChainExists(chainId))
 
-	signedTree, err := w.CreateChain(keyAddr, &StorageAdapterConfig{
-		Adapter: "badger",
-		Arguments: map[string]interface{}{
-			"path": "testtmp/adapter",
-		},
-	})
+	signedTree, err := w.CreateChain(keyAddr, storageConfig)
 	require.Nil(t, err)
 
 	assert.True(t, w.ChainExistsForKey(keyAddr))
