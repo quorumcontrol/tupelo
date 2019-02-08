@@ -719,32 +719,6 @@
   version = "v1.6.0"
 
 [[projects]]
-  digest = "1:d518eb4bfb76545977b0be8549606e6de5c56f8887b84cc24d12f5ec1c587e3a"
-  name = "github.com/rs/zerolog"
-  packages = [
-    ".",
-    "internal/cbor",
-    "internal/json",
-  ]
-  pruneopts = ""
-  revision = "8747b7b3a51b5d08ee7ac50eaf4869edaf9f714a"
-  version = "v1.11.0"
-
-[[projects]]
-  digest = "1:4b73a0659a08dd32fb042bfee9e62f4481bddf18cfc4dbff7dc68084e6ea4460"
-  name = "github.com/santhosh-tekuri/jsonschema"
-  packages = [
-    ".",
-    "decoders",
-    "formats",
-    "loader",
-    "mediatypes",
-  ]
-  pruneopts = ""
-  revision = "534765aa6277d702a0aaf99c986492dda697d48f"
-  version = "v1.2.4"
-
-[[projects]]
   branch = "master"
   digest = "1:4176436b905cb4846fc4664cd673d7f941b9aca1ba7d407ce70fe2838695b338"
   name = "github.com/serialx/hashring"
@@ -1046,7 +1020,6 @@
     "github.com/hashicorp/go-immutable-radix",
     "github.com/hashicorp/golang-lru",
     "github.com/improbable-eng/grpc-web/go/grpcweb",
-    "github.com/ipfs/go-block-format",
     "github.com/ipfs/go-cid",
     "github.com/ipfs/go-ipld-cbor",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore",
