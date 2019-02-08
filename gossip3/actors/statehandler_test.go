@@ -37,7 +37,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -94,7 +94,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	// playing a new transaction should work when there are no auths
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -141,7 +141,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_OWNERSHIP",
@@ -186,7 +186,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -254,7 +254,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	// Should not be able to assign an authentication directly through SET_DATA
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -313,7 +313,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "ESTABLISH_COIN",
@@ -363,7 +363,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
-				PreviousTip: testTree.Dag.Tip.String(),
+				PreviousTip: &testTree.Dag.Tip,
 				Transactions: []*chaintree.Transaction{
 					{
 						Type: "MINT_COIN",
@@ -403,7 +403,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	// Can't mint more than the monetary policy maximum
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "MINT_COIN",
@@ -434,7 +434,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	// Can't mint a negative amount
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "MINT_COIN",
@@ -475,7 +475,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -511,7 +511,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	tip, _ := cid.Cast(newState)
 	unsignedBlock2 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: tip.String(),
+			PreviousTip: &tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -547,7 +547,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	unsignedBlock3 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",

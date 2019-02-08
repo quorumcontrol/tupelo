@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-cid"
 	"testing"
 	"time"
 
@@ -84,12 +85,12 @@ func TestPlayTransactions(t *testing.T) {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	chain, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
 
-	var remoteTip string
+	var remoteTip cid.Cid
 	if !chain.IsGenesis() {
-		remoteTip = chain.Tip().String()
+		remoteTip = chain.Tip()
 	}
 
-	resp, err := client.PlayTransactions(chain, treeKey, remoteTip, []*chaintree.Transaction{
+	resp, err := client.PlayTransactions(chain, treeKey, &remoteTip, []*chaintree.Transaction{
 		{
 			Type: "SET_DATA",
 			Payload: map[string]string{
@@ -102,7 +103,8 @@ func TestPlayTransactions(t *testing.T) {
 	assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 
 	t.Run("works on 2nd set", func(t *testing.T) {
-		resp, err := client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
+		remoteTip := chain.Tip()
+		resp, err := client.PlayTransactions(chain, treeKey, &remoteTip, []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",
 				Payload: map[string]string{
@@ -115,7 +117,8 @@ func TestPlayTransactions(t *testing.T) {
 		assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
 
 		// and works a third time
-		resp, err = client.PlayTransactions(chain, treeKey, chain.Tip().String(), []*chaintree.Transaction{
+		remoteTip = chain.Tip()
+		resp, err = client.PlayTransactions(chain, treeKey, &remoteTip, []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",
 				Payload: map[string]string{
