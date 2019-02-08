@@ -42,8 +42,10 @@ var (
 	newKeysFile         string
 	overrideKeysFile    string
 
-	localConfig  = configDir("local-network")
-	remoteConfig = configDir("remote-network")
+	configNamespace string
+
+	localConfigName  = "local-network"
+	remoteConfigName = "remote-network"
 )
 
 var logLevels = map[string]log.Lvl{
@@ -74,7 +76,7 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 }
 
 func configDir(namespace string) string {
-	conf := configdir.New("tupelo", namespace)
+	conf := configdir.New("tupelo", filepath.Join(configNamespace, namespace))
 	folders := conf.QueryFolders(configdir.Global)
 	os.MkdirAll(folders[0].Path, 0700)
 	return folders[0].Path
@@ -117,7 +119,7 @@ func saveBootstrapKeys(keys []*PublicKeySet) error {
 		return fmt.Errorf("Error marshaling bootstrap keys: %v", err)
 	}
 
-	err = writeFile(remoteConfig, bootstrapKeyFile, bootstrapKeyJson)
+	err = writeFile(configDir(remoteConfigName), bootstrapKeyFile, bootstrapKeyJson)
 	if err != nil {
 		return fmt.Errorf("error writing bootstrap keys: %v", err)
 	}
@@ -127,7 +129,7 @@ func saveBootstrapKeys(keys []*PublicKeySet) error {
 
 func readBootstrapKeys() ([]*PublicKeySet, error) {
 	var keySet []*PublicKeySet
-	err := loadKeyFile(&keySet, remoteConfig, bootstrapKeyFile)
+	err := loadKeyFile(&keySet, configDir(remoteConfigName), bootstrapKeyFile)
 
 	return keySet, err
 }
@@ -214,6 +216,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&remoteNetwork, "remote-network", "r", false, "Connect to a remote network. Mutually exclusive with -l / --local-network.")
 	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "Path to notary group bootstrap keys file. Implies -r / --remote-network.")
 	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of a notary group key file to import")
+	rootCmd.PersistentFlags().StringVar(&configNamespace, "namespace", "default", "a global config namespace (useful for tests). All configs will be separated using this")
 }
 
 // initConfig reads in config file and ENV variables if set.
