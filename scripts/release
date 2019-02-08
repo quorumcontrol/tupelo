@@ -36,13 +36,15 @@ generateSha256() {
 if ! [ -x "$(command -v xgo)" ]; then
   echo "xgo is required; run 'go get -u github.com/karalabe/xgo'"
 else
-  xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 --out tupelo-${version} ./
+# Windows builds disabled until we can figure out badger storage bug there
+#  xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 --out tupelo-${version} ./
+  xgo --targets=darwin-10.10/amd64,linux/amd64 --out tupelo-${version} ./
   mv tupelo-${version}-linux* ${zipdir}/${linux_binary}
   mv tupelo-${version}-darwin* ${zipdir}/${macos_binary}
-  mv tupelo-${version}-windows* ${zipdir}/${windows_binary}
+#  mv tupelo-${version}-windows* ${zipdir}/${windows_binary}
   generateSha256 ${linux_binary}
   generateSha256 ${macos_binary}
-  generateSha256 ${windows_binary}
+#  generateSha256 ${windows_binary}
 fi
 
 git tag ${version}
