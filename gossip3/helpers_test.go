@@ -23,7 +23,7 @@ func newValidTransaction(t *testing.T) messages.Transaction {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",

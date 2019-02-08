@@ -8,8 +8,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
@@ -151,7 +150,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: consensus.TransactionTypeSetData,
@@ -200,15 +199,9 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	wrappedBlock := sw.WrapObject(blockWithHeaders)
 	require.Nil(t, sw.Err)
 
-	lastEntry := &chaintree.ChainEntry{
-		PreviousTip:       "",
-		BlocksWithHeaders: []cid.Cid{wrappedBlock.Cid()},
-	}
-	entryNode := sw.WrapObject(lastEntry)
-	chainMap["end"] = entryNode.Cid()
+	chainMap["end"] = wrappedBlock.Cid()
 	newChainNode := sw.WrapObject(chainMap)
 
-	signedTree.ChainTree.Dag.AddNodes(entryNode)
 	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
 	signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
 
