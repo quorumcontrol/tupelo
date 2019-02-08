@@ -8,6 +8,7 @@ import (
 
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
 type UnlockInexistentWalletError struct {
@@ -111,7 +112,7 @@ func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 	}
 
 	if !fw.ChainExists(chainId) {
-		fw.wallet.ConfigureChainStorage(chainId, &StorageAdapterConfig{
+		fw.wallet.ConfigureChainStorage(chainId, &adapters.Config{
 			Adapter: "badger",
 			Arguments: map[string]interface{}{
 				"path": strings.TrimRight(fw.path, "/") + "-" + chainId,
