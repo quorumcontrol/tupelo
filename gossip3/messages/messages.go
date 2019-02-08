@@ -101,6 +101,7 @@ type TransactionWrapper struct {
 	ConflictSetID string
 	TransactionID []byte
 	Transaction   *Transaction
+	PreFlight     bool
 	Accepted      bool
 	Key           []byte
 	Value         []byte

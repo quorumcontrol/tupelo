@@ -119,8 +119,8 @@ func (cs *ConflictSet) DoneReceive(context actor.Context) {
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
-	if !msg.Accepted {
-		panic(fmt.Sprintf("we should only handle accepted transactions at this level"))
+	if !msg.PreFlight {
+		panic(fmt.Sprintf("we should only handle pre-flight transactions at this level"))
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
 	// do this as a message to make sure we're doing it after all the updates have come in
