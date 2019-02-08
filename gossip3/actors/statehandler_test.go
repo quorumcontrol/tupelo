@@ -58,9 +58,12 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
+	transHeight := uint64(0) // do we keep track of this ourselves or derive it from something else?
+
 	trans := &messages.Transaction{
 		State:       nodes,
 		PreviousTip: emptyTree.Tip.Bytes(),
+		Height:      transHeight,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -91,10 +94,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans2)
 	assert.NotNil(t, err)
 
+	transHeight++
+
 	// playing a new transaction should work when there are no auths
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
+			Height: transHeight, // seems redundant w/ Transaction below
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -112,9 +118,11 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
+	fmt.Println("transaction height:", transHeight)
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      transHeight, // have to set this here and in the block??
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -139,9 +147,12 @@ func TestChainTreeStateHandler(t *testing.T) {
 	newOwner := consensus.EcdsaToPublicKey(&newOwnerKey.PublicKey)
 	newOwnerAddr := consensus.PublicKeyToAddr(&newOwner)
 
+	transHeight++
+
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
+			Height: transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_OWNERSHIP",
@@ -162,6 +173,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      transHeight,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -182,11 +194,14 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
+	transHeight++
+
 	// now that the owners are changed, we shouldn't be able to sign with the TreeKey
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
+			Height: transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -207,6 +222,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      transHeight,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -227,6 +243,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      transHeight,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -251,10 +268,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "test", val)
 
+	transHeight++
+
 	// Should not be able to assign an authentication directly through SET_DATA
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
+			Height: transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -275,6 +295,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      transHeight,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
