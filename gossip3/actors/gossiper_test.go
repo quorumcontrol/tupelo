@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"bytes"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -100,37 +101,59 @@ func TestFastGossip(t *testing.T) {
 	}
 	system.actors = nodes
 
-	for _, node := range nodes {
-		node.Tell(&messages.StartGossip{})
-	}
-
-	for i := 0; i < 100; i++ {
+	// run 1000 transactions in before the one we check
+	// just to make sure it doesn't clog up the system
+	for i := 0; i < 1000; i++ {
 		value := []byte(strconv.Itoa(i))
 		key := crypto.Keccak256(value)
-		nodes[rand.Intn(len(nodes))].Tell(&messages.Store{
+		stores[rand.Intn(len(stores))].Tell(&messages.Store{
 			Key:   key,
 			Value: value,
 		})
 	}
+	for _, node := range nodes {
+		node.Tell(&messages.StartGossip{})
+	}
 
 	value := []byte("hi")
 	key := crypto.Keccak256(value)
+
+	var actorsToKill []*actor.PID
+	subscribe := func(key []byte, store *actor.PID) *actor.Future {
+		fut := actor.NewFuture(1 * time.Second)
+		subActor := func(context actor.Context) {
+			switch msg := context.Message().(type) {
+			case *messages.Store:
+				if bytes.Equal(msg.Key, key) {
+					fut.PID().Tell(msg)
+				}
+			}
+		}
+		act := actor.Spawn(actor.FromFunc(subActor))
+		store.Tell(&messages.Subscribe{Subscriber: act})
+
+		actorsToKill = append(actorsToKill, act)
+		return fut
+	}
+
+	futures := make([]*actor.Future, len(stores)-1, len(stores)-1)
+	for i := 1; i < len(stores); i++ {
+		futures[i-1] = subscribe(key, stores[i])
+	}
+	defer func() {
+		for _, act := range actorsToKill {
+			act.Poison()
+		}
+	}()
 
 	stores[0].Tell(&messages.Store{
 		Key:   key,
 		Value: value,
 	})
 
-	time.Sleep(1000 * time.Millisecond)
-
-	// assert all nodes know last transaction added
-	for _, store := range stores {
-		val, err := store.RequestFuture(&messages.Get{
-			Key: key,
-		}, 1*time.Second).Result()
-
+	for _, future := range futures {
+		res, err := future.Result()
 		require.Nil(t, err)
-		assert.Equal(t, value, val)
+		assert.Equal(t, key, res.(*messages.Store).Key)
 	}
-
 }
