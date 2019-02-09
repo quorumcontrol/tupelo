@@ -69,12 +69,12 @@ func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
 }
 
 func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
-	privateKeys, err := loadPrivateKeyFile(localConfig)
+	privateKeys, err := loadPrivateKeyFile(configDir(localConfigName))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error loading private keys: %v", err)
 	}
 
-	publicKeys, err := loadPublicKeyFile(localConfig)
+	publicKeys, err := loadPublicKeyFile(configDir(localConfigName))
 	if err != nil {
 		return nil, nil, fmt.Errorf("error loading public keys: %v", err)
 	}
@@ -89,7 +89,7 @@ func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
 		combinedPrivateKeys := append(privateKeys, extraPrivateKeys...)
 		combinedPublicKeys := append(publicKeys, extraPublicKeys...)
 
-		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, localConfig)
+		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, configDir(localConfigName))
 		if err != nil {
 			return nil, nil, fmt.Errorf("error writing extra node keys: %v", err)
 		}
@@ -171,7 +171,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 
 	for _, keys := range privateKeys {
 		log.Info("setting up gossip node")
-		setupLocalSigner(ctx, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, localConfig)
+		setupLocalSigner(ctx, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
 	}
 
 	for _, signer := range group.AllSigners() {
