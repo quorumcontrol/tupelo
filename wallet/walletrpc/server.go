@@ -2,10 +2,13 @@ package walletrpc
 
 import (
 	"fmt"
+	"log"
 	"net"
+	"net/http"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
@@ -20,7 +23,8 @@ import (
 )
 
 const (
-	defaultPort = ":50051"
+	defaultPort    = ":50051"
+	defaultWebPort = ":50050"
 )
 
 type server struct {
@@ -217,7 +221,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 
 	defer session.Stop()
 
-	chain, err := session.ImportChain(req.KeyAddr, req.ChainTree)
+	chain, err := session.ImportChain(req.ChainTree)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +447,6 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
-	fmt.Println("Listening on port", defaultPort)
 	listener, err := net.Listen("tcp", defaultPort)
 	if err != nil {
 		return nil, err
@@ -457,17 +460,22 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	RegisterWalletRPCServiceServer(grpcServer, s)
 	reflection.Register(grpcServer)
 
-	if err := grpcServer.Serve(listener); err != nil {
-		return nil, err
-	}
-
+	go func() {
+		fmt.Println("Listening on port", defaultPort)
+		err := grpcServer.Serve(listener)
+		if err != nil {
+			log.Printf("error serving: %v", err)
+		}
+	}()
 	return grpcServer, nil
 }
 
 func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
-	grpcServer := grpc.NewServer()
-
-	return startServer(grpcServer, storagePath, client)
+	grpcServer, err := startServer(grpc.NewServer(), storagePath, client)
+	if err != nil {
+		return nil, fmt.Errorf("error starting: %v", err)
+	}
+	return grpcServer, nil
 }
 
 func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
@@ -480,4 +488,61 @@ func ServeTLS(storagePath string, client *gossip3client.Client, certFile string,
 	grpcServer := grpc.NewServer(credsOption)
 
 	return startServer(grpcServer, storagePath, client)
+}
+
+func ServeWebInsecure(grpcServer *grpc.Server) (*http.Server, error) {
+	s, err := createGrpcWeb(grpcServer, defaultWebPort)
+	if err != nil {
+		return nil, fmt.Errorf("error creating GRPC server: %v", err)
+	}
+	go func() {
+		fmt.Println("grpc-web listening on port", defaultWebPort)
+		err := s.ListenAndServe()
+		if err != nil {
+			log.Printf("error listening: %v", err)
+		}
+	}()
+	return s, nil
+}
+
+func ServeWebTLS(grpcServer *grpc.Server, certFile string, keyFile string) (*http.Server, error) {
+	s, err := createGrpcWeb(grpcServer, defaultWebPort)
+	if err != nil {
+		return nil, fmt.Errorf("error creating GRPC server: %v", err)
+	}
+	go func() {
+		fmt.Println("grpc-web listening on port", defaultWebPort)
+		err := s.ListenAndServeTLS(certFile, keyFile)
+		if err != nil {
+			log.Printf("error listening: %v", err)
+		}
+	}()
+	return s, nil
+}
+
+func createGrpcWeb(grpcServer *grpc.Server, port string) (*http.Server, error) {
+	wrappedGrpc := grpcweb.WrapServer(grpcServer)
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if wrappedGrpc.IsGrpcWebRequest(req) {
+			wrappedGrpc.ServeHTTP(resp, req)
+			return
+		}
+
+		if req.Method == "OPTIONS" {
+			headers := resp.Header()
+			headers.Add("Access-Control-Allow-Origin", "*")
+			headers.Add("Access-Control-Allow-Headers", "*")
+			headers.Add("Access-Control-Allow-Methods", "GET, POST,OPTIONS")
+			resp.WriteHeader(http.StatusOK)
+		} else {
+			//TODO: this is a good place to stick in the UI
+			log.Printf("unkown route: %v", req)
+		}
+
+	})
+	s := &http.Server{
+		Addr:    port,
+		Handler: handler,
+	}
+	return s, nil
 }

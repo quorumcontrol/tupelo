@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/quorumcontrol/tupelo/cmd"
-	"github.com/quorumcontrol/tupelo/gossip2"
 )
 
 func main() {
@@ -28,9 +27,6 @@ func main() {
 				fmt.Println(err.Error())
 			}
 		}()
-	}
-	if os.Getenv("TUPELO_TRACING_ENABLED") == "true" {
-		gossip2.InitializeForTesting("tupelo")
 	}
 
 	cmd.Execute()

@@ -24,10 +24,6 @@ required = [
 ]
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/btcsuite/btcutil"
-
-[[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.2.0"
 
@@ -46,17 +42,25 @@ required = [
 
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  version = "v3.0.2"
   source = "git@github.com:quorumcontrol/chaintree.git"
+  version = "v4.0.1"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
   version = "v0.0.2"
 
 [[constraint]]
-  name = "github.com/quorumcontrol/storage"
   source = "git@github.com:quorumcontrol/storage.git"
-  version = "v1.1.0"
+  name = "github.com/quorumcontrol/storage"
+  version = "1.1.1"
+
+[[constraint]]
+  name = "github.com/ipfs/go-ipld-cbor"
+  revision = "5a60a3a4a7ccddcc717bbac9f8e0a65dd982ad46"
+
+[[constraint]]
+  name = "github.com/ipsn/go-ipfs"
+  revision = "4b3ab38e3ef37ded722bab7ee9f3c4cf69fbaeff"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
@@ -66,6 +70,10 @@ required = [
   name = "github.com/dedis/kyber"
   source = "https://github.com/quorumcontrol/kyber.git"
   revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
+
+[[constraint]]
+  name = "github.com/tinylib/msgp"
+  version = "v1.1.0"
 
 # [[constraint]]
 #   name = "github.com/grpc-ecosystem/grpc-gateway"

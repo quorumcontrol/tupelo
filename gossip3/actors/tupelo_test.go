@@ -99,7 +99,7 @@ func TestCommits(t *testing.T) {
 		assert.Equal(t, ret, bits)
 
 		// wait for it to get removed in the sync
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 
 		ret, err = syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 5*time.Second).Result()
 		require.Nil(t, err)

@@ -15,6 +15,7 @@ import (
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
 // just make sure that implementation conforms to the interface
@@ -22,12 +23,8 @@ var _ consensus.Wallet = (*Wallet)(nil)
 
 // Wallet stores keys and metadata about a chaintree (id, signatures, storage adapter / config)
 type Wallet struct {
-	storage storage.Storage
-}
-
-type StorageAdapterConfig struct {
-	Adapter   string
-	Arguments map[string]interface{}
+	storage  storage.Storage
+	adapters *adapters.AdapterSingletonFactory
 }
 
 type WalletConfig struct {
@@ -44,11 +41,15 @@ func (e ExistingChainError) Error() string {
 }
 
 func NewWallet(config *WalletConfig) *Wallet {
-	return &Wallet{storage: config.Storage}
+	return &Wallet{
+		storage:  config.Storage,
+		adapters: adapters.NewAdapterSingletonFactory(),
+	}
 }
 
 func (w *Wallet) Close() {
 	w.storage.Close()
+	w.adapters.Close()
 }
 
 func (w *Wallet) GetTip(chainId string) ([]byte, error) {
@@ -84,10 +85,11 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 		return nil, fmt.Errorf("error casting tip: %v", err)
 	}
 
-	storageAdapter, err := w.storageAdapterForChain(chainId)
-	defer storageAdapter.Close()
-	nodeStore := nodestore.NewStorageBasedStore(storageAdapter)
-	storedTree := dag.NewDag(tipCid, nodeStore)
+	adapter, err := w.storageAdapterForChain(chainId)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching adapter: %v", err)
+	}
+	storedTree := dag.NewDag(tipCid, adapter.Store())
 
 	nodes, err := storedTree.Nodes()
 	if err != nil {
@@ -109,7 +111,7 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 	}, nil
 }
 
-func (w *Wallet) CreateChain(keyAddr string, storageConfig *StorageAdapterConfig) (*consensus.SignedChainTree, error) {
+func (w *Wallet) CreateChain(keyAddr string, storageConfig *adapters.Config) (*consensus.SignedChainTree, error) {
 	key, err := w.GetKey(keyAddr)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting key: %v", err)
@@ -142,12 +144,11 @@ func (w *Wallet) CreateChain(keyAddr string, storageConfig *StorageAdapterConfig
 	return chain, err
 }
 
-func (w *Wallet) ConfigureChainStorage(chainId string, storageConfig *StorageAdapterConfig) error {
+func (w *Wallet) ConfigureChainStorage(chainId string, storageConfig *adapters.Config) error {
 	storageConfigBytes, err := json.Marshal(storageConfig)
 	if err != nil {
-		return fmt.Errorf("Could not marshal storage config into json: %v", err)
+		return err
 	}
-
 	return w.storage.Set(datastoreConfigStorageKey([]byte(chainId)), storageConfigBytes)
 }
 
@@ -157,18 +158,17 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error getting signedChain id: %v", err)
 	}
 
-	storageAdapter, err := w.storageAdapterForChain(chainId)
+	adapter, err := w.storageAdapterForChain(chainId)
 	if err != nil {
-		return fmt.Errorf("error fetching storage adapter: %v", err)
+		return fmt.Errorf("error fetching adapter: %v", err)
 	}
-	defer storageAdapter.Close()
 
 	nodes, err := signedChain.ChainTree.Dag.Nodes()
 	if err != nil {
 		return fmt.Errorf("error getting nodes: %v", err)
 	}
 	for _, node := range nodes {
-		storageAdapter.Set(node.Cid().Bytes(), node.RawData())
+		adapter.Store().StoreNode(node)
 	}
 
 	sw := &safewrap.SafeWrap{}
@@ -222,8 +222,6 @@ func (w *Wallet) GetKey(addr string) (*ecdsa.PrivateKey, error) {
 func (w *Wallet) GenerateKey() (*ecdsa.PrivateKey, error) {
 	key, err := crypto.GenerateKey()
 
-	fmt.Println(len(key.D.Bytes()))
-
 	if err != nil {
 		return nil, fmt.Errorf("error generating key: %v", err)
 	}
@@ -248,7 +246,7 @@ func (w *Wallet) ListKeys() ([]string, error) {
 	return addrs, nil
 }
 
-func (w *Wallet) storageAdapterForChain(chainId string) (storage.Storage, error) {
+func (w *Wallet) storageAdapterForChain(chainId string) (adapters.Adapter, error) {
 	configB, err := w.storage.Get(datastoreConfigStorageKey([]byte(chainId)))
 
 	if err != nil {
@@ -259,29 +257,12 @@ func (w *Wallet) storageAdapterForChain(chainId string) (storage.Storage, error)
 		return nil, fmt.Errorf("No storage configured for chaintree %v", chainId)
 	}
 
-	var config StorageAdapterConfig
-
+	var config adapters.Config
 	err = json.Unmarshal(configB, &config)
 	if err != nil {
 		return nil, fmt.Errorf("Could not parse storage adapter %v", err)
 	}
-
-	return w.storageAdapterFromConfig(&config)
-}
-
-func (w *Wallet) storageAdapterFromConfig(storageConfig *StorageAdapterConfig) (storage.Storage, error) {
-	switch storageConfig.Adapter {
-	case "badger":
-		path, ok := storageConfig.Arguments["path"]
-
-		if !ok {
-			return nil, fmt.Errorf("Badger requires path in StorageConfig")
-		}
-
-		return storage.NewBadgerStorage(path.(string))
-	default:
-		return nil, fmt.Errorf("Unknown storage adapter: %v", storageConfig.Adapter)
-	}
+	return w.adapters.New(&config)
 }
 
 var chainPrefix = []byte("-c-")

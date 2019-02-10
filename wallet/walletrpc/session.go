@@ -2,18 +2,20 @@ package walletrpc
 
 import (
 	"crypto/ecdsa"
+	"encoding/base64"
 	"errors"
 	fmt "fmt"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
-	blocks "github.com/ipfs/go-block-format"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
 	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
@@ -69,14 +71,12 @@ func NewSession(storagePath string, walletName string, gossipClient *gossip3clie
 func decodeDag(encodedDag [][]byte, store nodestore.NodeStore) (*dag.Dag, error) {
 	dagNodes := make([]*cbornode.Node, len(encodedDag))
 
+	sw := &safewrap.SafeWrap{}
 	for i, rawNode := range encodedDag {
-		block := blocks.NewBlock(rawNode)
-		node, err := cbornode.DecodeBlock(block)
-		if err != nil {
-			return nil, err
-		}
-
-		dagNodes[i] = node.(*cbornode.Node)
+		dagNodes[i] = sw.Decode(rawNode)
+	}
+	if sw.Err != nil {
+		return nil, fmt.Errorf("error decoding: %v", sw.Err)
 	}
 
 	return dag.NewDagWithNodes(store, dagNodes...)
@@ -174,9 +174,7 @@ func (rpcs *RPCSession) getKey(keyAddr string) (*ecdsa.PrivateKey, error) {
 
 func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
 	chainId := consensus.EcdsaPubkeyToDid(key)
-	tip, _ := rpcs.wallet.GetTip(chainId)
-
-	return tip != nil && len(tip) > 0
+	return rpcs.wallet.ChainExists(chainId)
 }
 
 func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree, error) {
@@ -193,7 +191,9 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 		return nil, ExistingChainError{publicKey: &key.PublicKey}
 	}
 
-	chain, err := consensus.NewSignedChainTree(key.PublicKey, rpcs.wallet.NodeStore())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodeStore)
 	if err != nil {
 		return nil, err
 	}
@@ -202,19 +202,19 @@ func (rpcs *RPCSession) CreateChain(keyAddr string) (*consensus.SignedChainTree,
 	return chain, nil
 }
 
-func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
+func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	if rpcs.IsStopped() {
-		return nil, StoppedError
+		return "", StoppedError
 	}
 
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	dagBytes, err := serializeDag(chain.ChainTree.Dag)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	serializedSigs := serializeSignatures(chain.Signatures)
@@ -222,38 +222,53 @@ func (rpcs *RPCSession) ExportChain(chainId string) ([]byte, error) {
 	serializableChain := SerializableChainTree{
 		Dag:        dagBytes,
 		Signatures: serializedSigs,
+		Tip:        chain.ChainTree.Dag.Tip.String(),
 	}
 
 	serializedChain, err := proto.Marshal(&serializableChain)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return serializedChain, nil
+	return base64.StdEncoding.EncodeToString(serializedChain), nil
 }
 
-func (rpcs *RPCSession) ImportChain(keyAddr string, serializedChain []byte) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(serializedChain string) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
-	decodedChain := &SerializableChainTree{}
-	err := proto.Unmarshal(serializedChain, decodedChain)
+	decodedChain, err := base64.StdEncoding.DecodeString(serializedChain)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding chain: %v", err)
+	}
+
+	unmarshalledChain := &SerializableChainTree{}
+	err = proto.Unmarshal(decodedChain, unmarshalledChain)
 	if err != nil {
 		return nil, err
 	}
 
-	dag, err := decodeDag(decodedChain.Dag, rpcs.wallet.NodeStore())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	chainDAG, err := decodeDag(unmarshalledChain.Dag, nodeStore)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding dag: %v", err)
 	}
 
-	chainTree, err := chaintree.NewChainTree(dag, nil, consensus.DefaultTransactors)
+	tip, err := cid.Decode(unmarshalledChain.Tip)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding tip CID: %v", err)
 	}
 
-	sigs, err := decodeSignatures(decodedChain.Signatures)
+	chainDAG = chainDAG.WithNewTip(tip)
+
+	chainTree, err := chaintree.NewChainTree(chainDAG, nil, consensus.DefaultTransactors)
+	if err != nil {
+		return nil, fmt.Errorf("error getting new chaintree: %v", err)
+	}
+
+	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
 	if err != nil {
 		return nil, err
 	}
@@ -347,21 +362,11 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddr
 		return nil, StoppedError
 	}
 
-	newOwnerKeys := make([]*consensus.PublicKey, len(newOwnerKeyAddrs))
-	for i, addr := range newOwnerKeyAddrs {
-		k, err := rpcs.getKey(addr)
-		if err != nil {
-			return nil, err
-		}
-		pubKey := consensus.EcdsaToPublicKey(&k.PublicKey)
-		newOwnerKeys[i] = &pubKey
-	}
-
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetOwnership,
 			Payload: consensus.SetOwnershipPayload{
-				Authentication: newOwnerKeys,
+				Authentication: newOwnerKeyAddrs,
 			},
 		},
 	})

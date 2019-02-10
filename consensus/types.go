@@ -3,13 +3,11 @@ package consensus
 import (
 	"crypto/ecdsa"
 
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/chaintree/chaintree"
+	cid "github.com/ipfs/go-cid"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 )
 
 func init() {
-	cbornode.RegisterCborType(AddBlockRequest{})
 	cbornode.RegisterCborType(AddBlockResponse{})
 	cbornode.RegisterCborType(FeedbackRequest{})
 	cbornode.RegisterCborType(TipRequest{})
@@ -34,13 +32,6 @@ type Wallet interface {
 	GetKey(addr string) (*ecdsa.PrivateKey, error)
 	GenerateKey() (*ecdsa.PrivateKey, error)
 	ListKeys() ([]string, error)
-}
-
-type AddBlockRequest struct {
-	ChainId  string
-	Nodes    [][]byte
-	Tip      *cid.Cid
-	NewBlock *chaintree.BlockWithHeaders
 }
 
 type AddBlockResponse struct {

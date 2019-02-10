@@ -160,6 +160,107 @@ func TestSetData(t *testing.T) {
 	assert.Nil(t, err)
 	_, ok := treeMap["some"]
 	assert.True(t, ok)
+
+	// make sure the original data is still there after setting new data
+	path = "other/data"
+	value = "is also set"
+
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  path,
+						"value": value,
+					},
+				},
+			},
+		},
+	}
+
+	blockWithHeaders, err = SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+
+	dp, err := DecodePath("/tree/" + path)
+	require.Nil(t, err)
+	resp, remain, err := testTree.Dag.Resolve(dp)
+	require.Nil(t, err)
+	require.Len(t, remain, 0)
+	require.Equal(t, value, resp)
+
+	dp, err = DecodePath("/tree/some/data")
+	require.Nil(t, err)
+	resp, remain, err = testTree.Dag.Resolve(dp)
+	require.Nil(t, err)
+	require.Len(t, remain, 0)
+	require.Equal(t, "is now set", resp)
+}
+
+func TestSetOwnership(t *testing.T) {
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	keyAddr := crypto.PubkeyToAddress(treeKey.PublicKey).String()
+	treeDID := AddrToDid(keyAddr)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := NewEmptyTree(treeDID, nodeStore)
+	path := "some/data"
+	value := "is now set"
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  path,
+						"value": value,
+					},
+				},
+			},
+		},
+	}
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+
+	dp, err := DecodePath("/tree/" + path)
+	require.Nil(t, err)
+	resp, remain, err := testTree.Dag.Resolve(dp)
+	require.Nil(t, err)
+	require.Len(t, remain, 0)
+	require.Equal(t, value, resp)
+
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: "",
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_OWNERSHIP",
+					Payload: &SetOwnershipPayload{
+						Authentication: []string{keyAddr},
+					},
+				},
+			},
+		},
+	}
+	blockWithHeaders, err = SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+
+	resp, remain, err = testTree.Dag.Resolve(dp)
+	require.Nil(t, err)
+	assert.Len(t, remain, 0)
+	assert.Equal(t, value, resp)
 }
 
 func TestDecodePath(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -25,25 +25,25 @@ import (
 
 type stateTransaction struct {
 	ObjectID      []byte
-	Transaction   []byte
+	Transaction   *messages.Transaction
 	CurrentState  []byte
 	TransactionID []byte
 	ConflictSetID string
+	Block         *chaintree.BlockWithHeaders
 	payload       []byte
 }
 
 type TransactionValidator struct {
 	middleware.LogAwareHolder
-	currentStateActor *actor.PID
-	reader            storage.Reader
+	reader storage.Reader
 }
 
-const maxValidatorConcurrency = 100
+const maxValidatorConcurrency = 10
 
-func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
+func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props {
 	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
-			currentStateActor: currentState,
+			reader: currentStateStore,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -53,12 +53,6 @@ func NewTransactionValidatorProps(currentState *actor.PID) *actor.Props {
 
 func (tv *TransactionValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *actor.Started:
-		reader, err := tv.currentStateActor.RequestFuture(&messages.GetThreadsafeReader{}, 500*time.Millisecond).Result()
-		if err != nil {
-			panic(fmt.Sprintf("timeout waiting: %v", err))
-		}
-		tv.reader = reader.(storage.Reader)
 	case *messages.Store:
 		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
 		tv.handleStore(context, msg)
@@ -75,6 +69,7 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	var t messages.Transaction
 	_, err := t.UnmarshalMsg(msg.Value)
 	if err != nil {
+		tv.Log.Infow("error unmarshaling", "err", err)
 		context.Respond(wrapper)
 		return
 	}
@@ -103,12 +98,21 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		return
 	}
 
+	block := &chaintree.BlockWithHeaders{}
+	err = cbornode.DecodeInto(t.Payload, block)
+	if err != nil {
+		tv.Log.Errorw("invalid transaction: payload is not a block")
+		context.Respond(wrapper)
+		return
+	}
+
 	st := &stateTransaction{
 		ObjectID:      t.ObjectID,
-		Transaction:   t.Payload,
+		Transaction:   &t,
 		TransactionID: msg.Key,
 		CurrentState:  currTip,
 		ConflictSetID: wrapper.ConflictSetID,
+		Block:         block,
 		payload:       msg.Value,
 	}
 
@@ -120,6 +124,8 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		context.Respond(wrapper)
 		return
 	}
+
+	tv.Log.Debugw("rejected", "err", err)
 
 	context.Respond(wrapper)
 }
@@ -133,31 +139,30 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 		}
 	}
 
-	addBlockrequest := &consensus.AddBlockRequest{}
-	err = cbornode.DecodeInto(stateTrans.Transaction, addBlockrequest)
+	var transPreviousTip cid.Cid
+	transPreviousTip, err = cid.Cast(stateTrans.Transaction.PreviousTip)
 	if err != nil {
-		return nil, false, fmt.Errorf("error getting payload: %v", err)
+		return nil, false, fmt.Errorf("error casting CID: %v", err)
 	}
 
 	if currentTip.Defined() {
-		if !currentTip.Equals(*addBlockrequest.Tip) {
-			// log.Errorf("unmatching tips %s, %s", currentTip.String(), addBlockrequest.Tip.String())
+		if !currentTip.Equals(transPreviousTip) {
 			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
 	} else {
-		currentTip = *addBlockrequest.Tip
+		currentTip = transPreviousTip
 	}
 
-	cborNodes := make([]*cbornode.Node, len(addBlockrequest.Nodes))
+	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
 
 	sw := &safewrap.SafeWrap{}
 
-	for i, node := range addBlockrequest.Nodes {
+	for i, node := range stateTrans.Transaction.State {
 		cborNodes[i] = sw.Decode(node)
 	}
 
 	if sw.Err != nil {
-		return nil, false, fmt.Errorf("error decoding: %v", sw.Err)
+		return nil, false, fmt.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
 	}
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	tree := dag.NewDag(currentTip, nodeStore)
@@ -172,10 +177,10 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 	)
 
 	if err != nil {
-		return nil, false, fmt.Errorf("error creating chaintree: %v", err)
+		return nil, false, fmt.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", currentTip.String(), len(cborNodes), err)
 	}
 
-	isValid, err := chainTree.ProcessBlock(addBlockrequest.NewBlock)
+	isValid, err := chainTree.ProcessBlock(stateTrans.Block)
 	if !isValid || err != nil {
 		return nil, false, fmt.Errorf("error processing: %v", err)
 	}
@@ -207,15 +212,9 @@ func isOwner(tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool,
 	if uncastAuths == nil {
 		addrs = []string{consensus.DidToAddr(id.(string))}
 	} else {
-		var authentications []*consensus.PublicKey
-		err = typecaster.ToType(uncastAuths, &authentications)
+		err = typecaster.ToType(uncastAuths, &addrs)
 		if err != nil {
 			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
-		}
-
-		addrs = make([]string, len(authentications))
-		for i, key := range authentications {
-			addrs[i] = consensus.PublicKeyToAddr(key)
 		}
 	}
 
