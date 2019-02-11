@@ -11,6 +11,7 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo/consensus"
@@ -121,16 +122,18 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 	if remoteTip != nil && cid.Undef.Equals(*remoteTip) {
 		remoteTip = nil
 	}
-	//TODO: fix up this height calculation
-	var height uint64
-	heightInter, remain, err := tree.ChainTree.Dag.Resolve([]string{"chain", "end", "height"})
+
+	root, err := getRoot(tree)
 	if err != nil {
-		return nil, fmt.Errorf("error resolving the latest height")
+		return nil, fmt.Errorf("error getting root: %v", err)
 	}
-	fmt.Println(tree.ChainTree.Dag.Resolve([]string{"chain", "end"}))
-	fmt.Println("height: ", heightInter, " remain: ", remain)
-	if len(remain) == 0 {
-		height = heightInter.(uint64)
+
+	var height uint64
+
+	if tree.IsGenesis() {
+		height = 0
+	} else {
+		height = root.Height + 1
 	}
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
@@ -250,4 +253,20 @@ func toConsensusSig(sig *messages.Signature, ng *types.NotaryGroup) (*consensus.
 		Signature: sig.Signature,
 		Type:      consensus.KeyTypeBLSGroupSig,
 	}, nil
+}
+
+func getRoot(sct *consensus.SignedChainTree) (*chaintree.RootNode, error) {
+	ct := sct.ChainTree
+	unmarshaledRoot, err := ct.Dag.Get(ct.Dag.Tip)
+	if unmarshaledRoot == nil || err != nil {
+		return nil, fmt.Errorf("error,missing root: %v", err)
+	}
+
+	root := &chaintree.RootNode{}
+
+	err = cbornode.DecodeInto(unmarshaledRoot.RawData(), root)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding root: %v", err)
+	}
+	return root, nil
 }
