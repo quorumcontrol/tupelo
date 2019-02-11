@@ -74,11 +74,3 @@ required = [
 [[constraint]]
   name = "github.com/tinylib/msgp"
   version = "v1.1.0"
-
-# [[constraint]]
-#   name = "github.com/grpc-ecosystem/grpc-gateway"
-#   branch = "master"
-
-# [[override]]
-#   name = "github.com/google/protobuf"
-#   version = "3.6.1"

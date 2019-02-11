@@ -4,6 +4,8 @@ package walletrpc;
 
 option go_package = "walletrpc";
 
+import "google/api/annotations.proto";
+
 message SerializableSignature {
   repeated bool signers = 1;
   bytes signature = 2;
@@ -133,17 +135,99 @@ message MintCoinResponse {
 }
 
 service WalletRPCService {
-  rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse);
-  rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
-  rpc CreateChainTree (GenerateChainRequest) returns (GenerateChainResponse);
-  rpc ExportChainTree (ExportChainRequest) returns (ExportChainResponse);
-  rpc ImportChainTree (ImportChainRequest) returns (ImportChainResponse);
-  rpc GetTip (GetTipRequest) returns (GetTipResponse);
-  rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
-  rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
-  rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
-  rpc SetData (SetDataRequest) returns (SetDataResponse);
-  rpc Resolve (ResolveRequest) returns (ResolveResponse);
-  rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse);
-  rpc MintCoin (MintCoinRequest) returns (MintCoinResponse);
+  rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse) {
+    option (google.api.http) =
+      {
+       post: "/api/v1/wallets"
+      };
+  };
+
+  rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse){
+    option (google.api.http) =
+      {
+       post: "/api/v1/keys"
+      };
+  };
+
+  rpc CreateChainTree (GenerateChainRequest) returns (GenerateChainResponse){
+    option (google.api.http) =
+      {
+       post: "/api/v1/keys/{key_addr}/chains"
+      };
+  };
+
+  rpc ExportChainTree (ExportChainRequest) returns (ExportChainResponse){
+    option (google.api.http) =
+      {
+       get: "/api/v1/chains/{chain_id}"
+      };
+  };
+
+  rpc ImportChainTree (ImportChainRequest) returns (ImportChainResponse){
+    option (google.api.http) =
+      {
+       post: "/api/v1/chains"
+       body: "*"
+      };
+  };
+
+  rpc GetTip (GetTipRequest) returns (GetTipResponse){
+    option (google.api.http) =
+      {
+       get: "/api/v1/chains/{chain_id}/tip"
+      };
+  };
+
+  rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse){
+    option (google.api.http) =
+      {
+       get: "/api/v1/chains"
+      };
+  };
+
+  rpc ListKeys (ListKeysRequest) returns (ListKeysResponse){
+    option (google.api.http) =
+      {
+       get: "/api/v1/keys"
+      };
+  };
+
+  rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse){
+    option (google.api.http) =
+      {
+       put: "/api/v1/chains/{chain_id}/owner"
+       body: "*"
+      };
+  };
+
+  rpc SetData (SetDataRequest) returns (SetDataResponse){
+    option (google.api.http) =
+      {
+       put: "/api/v1/chains/{chain_id}/data"
+       body: "*"
+      };
+  };
+
+  rpc Resolve (ResolveRequest) returns (ResolveResponse){
+    option (google.api.http) =
+      {
+       get: "/api/v1/chains/{chain_id}/data"
+      };
+  };
+
+  rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse){
+    option (google.api.http) =
+      {
+       post: "/api/v1/chains/{chain_id}/tokens"
+       body: "*"
+      };
+  };
+
+  rpc MintCoin (MintCoinRequest) returns (MintCoinResponse){
+    option (google.api.http) =
+      {
+       put: "/api/v1/chains/{chain_id}/tokens/{coin_name}"
+       body: "*"
+      };
+  };
 }
