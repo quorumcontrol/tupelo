@@ -26,7 +26,7 @@ message RegisterWalletResponse {
 }
 
 message GenerateChainRequest {
-  string key_addr = 1;
+  string key_addr = 2;
 }
 
 message GenerateChainResponse {
@@ -34,7 +34,7 @@ message GenerateChainResponse {
 }
 
 message ExportChainRequest {
-  string chain_id = 1;
+  string chain_id = 2;
 }
 
 message ExportChainResponse {
@@ -58,7 +58,7 @@ message GenerateKeyResponse {
 }
 
 message GetTipRequest {
-  string chain_id = 1;
+  string chain_id = 2;
 }
 
 message GetTipResponse {
@@ -80,9 +80,9 @@ message ListKeysResponse {
 }
 
 message SetOwnerRequest {
-  string chain_id = 1;
-  string key_addr = 2;
-  repeated string new_owner_keys = 3;
+  string chain_id = 2;
+  string key_addr = 3;
+  repeated string new_owner_keys = 4;
 }
 
 message SetOwnerResponse {
@@ -90,10 +90,10 @@ message SetOwnerResponse {
 }
 
 message SetDataRequest {
-  string chain_id = 1;
-  string key_addr = 2;
-  string path = 3;
-  bytes value = 4;
+  string chain_id = 2;
+  string key_addr = 3;
+  string path = 4;
+  bytes value = 5;
 }
 
 message SetDataResponse {
@@ -101,8 +101,8 @@ message SetDataResponse {
 }
 
 message ResolveRequest {
-  string chain_id = 1;
-  string path = 2;
+  string chain_id = 2;
+  string path = 3;
 }
 
 message ResolveResponse {
@@ -111,10 +111,10 @@ message ResolveResponse {
 }
 
 message EstablishCoinRequest {
-  string chain_id = 1;
-  string key_addr = 2;
-  string coin_name = 3;
-  uint64 maximum = 4;
+  string chain_id = 2;
+  string key_addr = 3;
+  string coin_name = 4;
+  uint64 maximum = 5;
 }
 
 message EstablishCoinResponse {
@@ -122,10 +122,10 @@ message EstablishCoinResponse {
 }
 
 message MintCoinRequest {
-  string chain_id = 1;
-  string key_addr = 2;
-  string coin_name = 3;
-  uint64 amount = 4;
+  string chain_id = 2;
+  string key_addr = 3;
+  string coin_name = 4;
+  uint64 amount = 5;
 }
 
 message MintCoinResponse {
