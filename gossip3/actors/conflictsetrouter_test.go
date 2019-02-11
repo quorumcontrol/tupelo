@@ -160,10 +160,10 @@ func TestHandlesDeadlocks(t *testing.T) {
 		trans[i] = fakeValidateTransaction(t, &tr)
 		conflictSetRouter.Tell(trans[i])
 	}
-	// it's known that trans[0] is the lowest transaction,
+	// it's known that trans[1] is the lowest transaction,
 	// this is just a sanity check
-	require.True(t, string(trans[2].TransactionID) < string(trans[1].TransactionID))
-	require.True(t, string(trans[0].TransactionID) < string(trans[2].TransactionID))
+	require.True(t, string(trans[1].TransactionID) < string(trans[2].TransactionID))
+	require.True(t, string(trans[2].TransactionID) < string(trans[0].TransactionID))
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
@@ -175,7 +175,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	// at this point the first signer should have 3 transactions with 1 signature each and be in a deadlocked state
 	// which means it should sign the lowest transaction (a different one than it did before)
 	// one more signature on that same transaction should get it to quorum in the new view
-	sig, err := sigGeneratorActors[1].RequestFuture(trans[0], 1*time.Second).Result()
+	sig, err := sigGeneratorActors[1].RequestFuture(trans[1], 1*time.Second).Result()
 	require.Nil(t, err)
 	conflictSetRouter.Tell(sig)
 
@@ -183,7 +183,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
 	assert.True(t, wrap.Verified)
-	assert.Equal(t, trans[0].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
+	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 
 func fakeValidateTransaction(t testing.TB, trans *messages.Transaction) *messages.TransactionWrapper {
