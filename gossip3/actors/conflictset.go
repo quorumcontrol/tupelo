@@ -17,7 +17,6 @@ type signatureMap map[string]*messages.SignatureWrapper
 type signaturesByTransaction map[string]signatureMap
 type signaturesBySigner map[string]*messages.SignatureWrapper
 type transactionMap map[string]*messages.TransactionWrapper
-type pendingTransactionsMap map[uint64][]*messages.TransactionWrapper
 
 type checkStateMsg struct {
 	atUpdate uint64
@@ -33,15 +32,14 @@ type ConflictSet struct {
 	signatureSender    *actor.PID
 	signer             *types.Signer
 
-	done                bool
-	signatures          signaturesByTransaction
-	signerSigs          signaturesBySigner
-	didSign             bool
-	transactions        transactionMap
-	view                uint64
-	updates             uint64
-	nextHeight          uint64
-	pendingTransactions pendingTransactionsMap
+	done         bool
+	signatures   signaturesByTransaction
+	signerSigs   signaturesBySigner
+	didSign      bool
+	transactions transactionMap
+	view         uint64
+	updates      uint64
+	active       bool
 }
 
 type ConflictSetConfig struct {
@@ -56,16 +54,16 @@ type ConflictSetConfig struct {
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &ConflictSet{
-			ID:                  cfg.ID,
-			notaryGroup:         cfg.NotaryGroup,
-			signer:              cfg.Signer,
-			signatureGenerator:  cfg.SignatureGenerator,
-			signatureChecker:    cfg.SignatureChecker,
-			signatureSender:     cfg.SignatureSender,
-			signatures:          make(signaturesByTransaction),
-			signerSigs:          make(signaturesBySigner),
-			transactions:        make(transactionMap),
-			pendingTransactions: make(pendingTransactionsMap),
+			ID:                 cfg.ID,
+			notaryGroup:        cfg.NotaryGroup,
+			signer:             cfg.Signer,
+			signatureGenerator: cfg.SignatureGenerator,
+			signatureChecker:   cfg.SignatureChecker,
+			signatureSender:    cfg.SignatureSender,
+			signatures:         make(signaturesByTransaction),
+			signerSigs:         make(signaturesBySigner),
+			transactions:       make(transactionMap),
+			active:             true, // TODO: here is where we will change when handling future transactions
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -126,18 +124,7 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 	if !msg.PreFlight {
 		panic(fmt.Sprintf("we should only handle pre-flight transactions at this level"))
 	}
-	transHeight := msg.Transaction.Height
-	if transHeight == cs.nextHeight {
-		// process transaction
-		fmt.Println("processing transaction at height", transHeight)
-		cs.processTransaction(context, msg)
-	} else if transHeight > cs.nextHeight {
-		// store for later processing
-		fmt.Println("storing transaction at height", transHeight)
-		cs.pendingTransactions[msg.Transaction.Height] = append(cs.pendingTransactions[msg.Transaction.Height], msg)
-	} else {
-		panic("error: transaction height was less than next processable height")
-	}
+	cs.processTransaction(context, msg)
 }
 
 func (cs *ConflictSet) processTransaction(context actor.Context, transaction *messages.TransactionWrapper) {
@@ -148,6 +135,7 @@ func (cs *ConflictSet) processTransaction(context actor.Context, transaction *me
 		cs.didSign = true
 	}
 	cs.updates++
+	//TODO: check active state and if not active then just store this transaction
 	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 }
 
@@ -179,15 +167,6 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 	for id := range msg.Signers {
 		//Note (TB): this is probably a good place to look for slashable offenses
 		cs.signerSigs[id] = msg
-	}
-
-	cs.nextHeight = msg.Signature.Height
-
-	// process any pending transactions for this height
-	transactions := cs.pendingTransactions[cs.nextHeight]
-	delete(cs.pendingTransactions, cs.nextHeight)
-	for _, transaction := range transactions {
-		cs.processTransaction(context, transaction)
 	}
 
 	cs.updates++

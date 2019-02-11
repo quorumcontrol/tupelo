@@ -100,7 +100,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
-			Height: transHeight, // seems redundant w/ Transaction below
+			Height:      transHeight, // seems redundant w/ Transaction below
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -152,7 +152,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
-			Height: transHeight,
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_OWNERSHIP",
@@ -201,7 +201,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
-			Height: transHeight,
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -274,7 +274,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
-			Height: transHeight,
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -335,6 +335,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: nil,
+			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "ESTABLISH_COIN",
@@ -360,6 +361,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	sw := &safewrap.SafeWrap{}
 	trans := &messages.Transaction{
 		State:       nodes,
+		Height:      0,
 		PreviousTip: emptyTree.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
@@ -385,6 +387,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
 				PreviousTip: &testTree.Dag.Tip,
+				Height:      uint64(testIndex) + 1,
 				Transactions: []*chaintree.Transaction{
 					{
 						Type: "MINT_COIN",
@@ -405,6 +408,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		trans = &messages.Transaction{
 			State:       nodes,
 			PreviousTip: testTree.Dag.Tip.Bytes(),
+			Height:      1,
 			Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		}
 
@@ -518,6 +522,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	trans := &messages.Transaction{
 		State:       nodes1,
+		Height:      0,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
@@ -533,6 +538,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	unsignedBlock2 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &tip,
+			Height:      1,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -552,6 +558,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	trans2 := &messages.Transaction{
 		State:       nodes2,
+		Height:      1,
 		PreviousTip: tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders2).RawData(),
 	}
@@ -569,6 +576,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	unsignedBlock3 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: nil,
+			Height:      3,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -588,6 +596,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	trans3 := &messages.Transaction{
 		State:       nodesCombined,
+		Height:      3,
 		PreviousTip: savedcid.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders3).RawData(),
 	}
