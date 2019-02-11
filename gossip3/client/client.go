@@ -118,8 +118,24 @@ func (c *Client) SendTransaction(signer *types.Signer, trans *messages.Transacti
 func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, remoteTip *cid.Cid, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
 	sw := safewrap.SafeWrap{}
 
+	if remoteTip != nil && cid.Undef.Equals(*remoteTip) {
+		remoteTip = nil
+	}
+	//TODO: fix up this height calculation
+	var height uint64
+	heightInter, remain, err := tree.ChainTree.Dag.Resolve([]string{"chain", "end", "height"})
+	if err != nil {
+		return nil, fmt.Errorf("error resolving the latest height")
+	}
+	fmt.Println(tree.ChainTree.Dag.Resolve([]string{"chain", "end"}))
+	fmt.Println("height: ", heightInter, " remain: ", remain)
+	if len(remain) == 0 {
+		height = heightInter.(uint64)
+	}
+
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
+			Height:       height,
 			PreviousTip:  remoteTip,
 			Transactions: transactions,
 		},
@@ -154,6 +170,7 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 
 	transaction := messages.Transaction{
 		PreviousTip: storedTip.Bytes(),
+		Height:      height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		NewTip:      expectedTip.Bytes(),
 		ObjectID:    []byte(tree.MustId()),
