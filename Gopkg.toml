@@ -70,3 +70,7 @@
 [[constraint]]
   name = "github.com/tinylib/msgp"
   version = "v1.1.0"
+
+[[constraint]]
+  name = "github.com/golang/protobuf"
+  version = "v1.2.0"

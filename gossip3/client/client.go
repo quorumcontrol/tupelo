@@ -173,7 +173,7 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 
 	transaction := messages.Transaction{
 		PreviousTip: storedTip.Bytes(),
-		Height:      height,
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		NewTip:      expectedTip.Bytes(),
 		ObjectID:    []byte(tree.MustId()),

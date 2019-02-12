@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"github.com/quorumcontrol/storage"
 	"strconv"
 	"testing"
 	"time"
@@ -45,6 +46,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
+		CurrentStateStore:  storage.NewMemStorage(),
 	}
 
 	var conflictSetRouter *actor.PID
@@ -123,6 +125,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
+		CurrentStateStore:  storage.NewMemStorage(),
 	}
 
 	var conflictSetRouter *actor.PID
@@ -154,7 +157,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	trans := make([]*messages.TransactionWrapper, len(sigGeneratorActors))
 	var conflictSetID string
 	for i := 0; i < len(trans); i++ {
-		tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "path/to/somewhere", strconv.Itoa(i))
+		tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey,"path/to/somewhere", strconv.Itoa(i))
 		require.Truef(t, conflictSetID == "" || tr.ConflictSetID() == conflictSetID, "test transactions should all be in the same conflict set")
 		conflictSetID = tr.ConflictSetID()
 		trans[i] = fakeValidateTransaction(t, &tr)
@@ -198,7 +201,7 @@ func fakeValidateTransaction(t testing.TB, trans *messages.Transaction) *message
 		Value:         bits,
 		ConflictSetID: trans.ConflictSetID(),
 		PreFlight:     true,
-		Accepted:      false,
+		Accepted:      true,
 		Metadata:      messages.MetadataMap{"seen": time.Now()},
 	}
 	return wrapper

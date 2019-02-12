@@ -58,7 +58,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	transHeight := uint64(0) // do we keep track of this ourselves or derive it from something else?
+	transHeight := uint64(0)
 
 	trans := &messages.Transaction{
 		State:       nodes,
@@ -100,7 +100,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: &testTree.Dag.Tip,
-			Height:      transHeight, // seems redundant w/ Transaction below
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -118,11 +118,10 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	fmt.Println("transaction height:", transHeight)
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Height:      transHeight, // have to set this here and in the block??
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -173,7 +172,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Height:      transHeight,
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -222,7 +221,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Height:      transHeight,
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -243,7 +242,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Height:      transHeight,
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -295,7 +294,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Height:      transHeight,
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 

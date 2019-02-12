@@ -14,12 +14,14 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 	var zb0001 uint32
 	zb0001, err = dc.ReadMapHeader()
 	if err != nil {
+		err = msgp.WrapError(err)
 		return
 	}
 	for zb0001 > 0 {
 		zb0001--
 		field, err = dc.ReadMapKeyPtr()
 		if err != nil {
+			err = msgp.WrapError(err)
 			return
 		}
 		switch msgp.UnsafeString(field) {
@@ -27,6 +29,7 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 			var zb0002 uint32
 			zb0002, err = dc.ReadMapHeader()
 			if err != nil {
+				err = msgp.WrapError(err, "Header")
 				return
 			}
 			if z.Header == nil {
@@ -42,10 +45,12 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 				var za0002 string
 				za0001, err = dc.ReadString()
 				if err != nil {
+					err = msgp.WrapError(err, "Header")
 					return
 				}
 				za0002, err = dc.ReadString()
 				if err != nil {
+					err = msgp.WrapError(err, "Header", za0001)
 					return
 				}
 				z.Header[za0001] = za0002
@@ -53,17 +58,20 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 		case "Message":
 			z.Message, err = dc.ReadBytes(z.Message)
 			if err != nil {
+				err = msgp.WrapError(err, "Message")
 				return
 			}
 		case "Type":
 			z.Type, err = dc.ReadInt8()
 			if err != nil {
+				err = msgp.WrapError(err, "Type")
 				return
 			}
 		case "Target":
 			if dc.IsNil() {
 				err = dc.ReadNil()
 				if err != nil {
+					err = msgp.WrapError(err, "Target")
 					return
 				}
 				z.Target = nil
@@ -73,6 +81,7 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 				}
 				err = z.Target.DecodeMsg(dc)
 				if err != nil {
+					err = msgp.WrapError(err, "Target")
 					return
 				}
 			}
@@ -80,6 +89,7 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 			if dc.IsNil() {
 				err = dc.ReadNil()
 				if err != nil {
+					err = msgp.WrapError(err, "Sender")
 					return
 				}
 				z.Sender = nil
@@ -89,12 +99,14 @@ func (z *WireDelivery) DecodeMsg(dc *msgp.Reader) (err error) {
 				}
 				err = z.Sender.DecodeMsg(dc)
 				if err != nil {
+					err = msgp.WrapError(err, "Sender")
 					return
 				}
 			}
 		default:
 			err = dc.Skip()
 			if err != nil {
+				err = msgp.WrapError(err)
 				return
 			}
 		}
@@ -112,15 +124,18 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 	}
 	err = en.WriteMapHeader(uint32(len(z.Header)))
 	if err != nil {
+		err = msgp.WrapError(err, "Header")
 		return
 	}
 	for za0001, za0002 := range z.Header {
 		err = en.WriteString(za0001)
 		if err != nil {
+			err = msgp.WrapError(err, "Header")
 			return
 		}
 		err = en.WriteString(za0002)
 		if err != nil {
+			err = msgp.WrapError(err, "Header", za0001)
 			return
 		}
 	}
@@ -131,6 +146,7 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 	}
 	err = en.WriteBytes(z.Message)
 	if err != nil {
+		err = msgp.WrapError(err, "Message")
 		return
 	}
 	// write "Type"
@@ -140,6 +156,7 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 	}
 	err = en.WriteInt8(z.Type)
 	if err != nil {
+		err = msgp.WrapError(err, "Type")
 		return
 	}
 	// write "Target"
@@ -155,6 +172,7 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 	} else {
 		err = z.Target.EncodeMsg(en)
 		if err != nil {
+			err = msgp.WrapError(err, "Target")
 			return
 		}
 	}
@@ -171,6 +189,7 @@ func (z *WireDelivery) EncodeMsg(en *msgp.Writer) (err error) {
 	} else {
 		err = z.Sender.EncodeMsg(en)
 		if err != nil {
+			err = msgp.WrapError(err, "Sender")
 			return
 		}
 	}
@@ -201,6 +220,7 @@ func (z *WireDelivery) MarshalMsg(b []byte) (o []byte, err error) {
 	} else {
 		o, err = z.Target.MarshalMsg(o)
 		if err != nil {
+			err = msgp.WrapError(err, "Target")
 			return
 		}
 	}
@@ -211,6 +231,7 @@ func (z *WireDelivery) MarshalMsg(b []byte) (o []byte, err error) {
 	} else {
 		o, err = z.Sender.MarshalMsg(o)
 		if err != nil {
+			err = msgp.WrapError(err, "Sender")
 			return
 		}
 	}
@@ -224,12 +245,14 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var zb0001 uint32
 	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
 	if err != nil {
+		err = msgp.WrapError(err)
 		return
 	}
 	for zb0001 > 0 {
 		zb0001--
 		field, bts, err = msgp.ReadMapKeyZC(bts)
 		if err != nil {
+			err = msgp.WrapError(err)
 			return
 		}
 		switch msgp.UnsafeString(field) {
@@ -237,6 +260,7 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			var zb0002 uint32
 			zb0002, bts, err = msgp.ReadMapHeaderBytes(bts)
 			if err != nil {
+				err = msgp.WrapError(err, "Header")
 				return
 			}
 			if z.Header == nil {
@@ -252,10 +276,12 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				zb0002--
 				za0001, bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
+					err = msgp.WrapError(err, "Header")
 					return
 				}
 				za0002, bts, err = msgp.ReadStringBytes(bts)
 				if err != nil {
+					err = msgp.WrapError(err, "Header", za0001)
 					return
 				}
 				z.Header[za0001] = za0002
@@ -263,11 +289,13 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 		case "Message":
 			z.Message, bts, err = msgp.ReadBytesBytes(bts, z.Message)
 			if err != nil {
+				err = msgp.WrapError(err, "Message")
 				return
 			}
 		case "Type":
 			z.Type, bts, err = msgp.ReadInt8Bytes(bts)
 			if err != nil {
+				err = msgp.WrapError(err, "Type")
 				return
 			}
 		case "Target":
@@ -283,6 +311,7 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				}
 				bts, err = z.Target.UnmarshalMsg(bts)
 				if err != nil {
+					err = msgp.WrapError(err, "Target")
 					return
 				}
 			}
@@ -299,12 +328,14 @@ func (z *WireDelivery) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				}
 				bts, err = z.Sender.UnmarshalMsg(bts)
 				if err != nil {
+					err = msgp.WrapError(err, "Sender")
 					return
 				}
 			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
+				err = msgp.WrapError(err)
 				return
 			}
 		}

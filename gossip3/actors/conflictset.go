@@ -2,6 +2,7 @@ package actors
 
 import (
 	"fmt"
+	"github.com/quorumcontrol/storage"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -26,6 +27,7 @@ type ConflictSet struct {
 	middleware.LogAwareHolder
 
 	ID                 string
+	currentStateStore  storage.Reader
 	notaryGroup        *types.NotaryGroup
 	signatureGenerator *actor.PID
 	signatureChecker   *actor.PID
@@ -49,12 +51,14 @@ type ConflictSetConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &ConflictSet{
 			ID:                 cfg.ID,
+			currentStateStore:  cfg.CurrentStateStore,
 			notaryGroup:        cfg.NotaryGroup,
 			signer:             cfg.Signer,
 			signatureGenerator: cfg.SignatureGenerator,
@@ -63,7 +67,7 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
-			active:             true, // TODO: here is where we will change when handling future transactions
+			active:             false,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -71,9 +75,16 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 	)
 }
 
+func (cs *ConflictSet) nextHeight(objectID []byte) uint64 {
+	return nextHeight(cs.currentStateStore, objectID)
+}
+
 func (cs *ConflictSet) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
+		if msg.Transaction.Height == cs.nextHeight(msg.Transaction.ObjectID) {
+			cs.active = true
+		}
 		cs.handleNewTransaction(context, msg)
 	// this will be an external signature
 	case *messages.Signature:
@@ -90,10 +101,17 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleCurrentStateWrapper(context, msg)
 	case *messages.Store:
 		cs.handleStore(context, msg)
+	case *commitNotification:
+		if cs.active {
+			cs.handleStore(context, msg.store)
+		} else {
+			cs.active = true
+			for _, transaction := range cs.transactions {
+				cs.processTransaction(context, transaction)
+			}
+		}
 	case *checkStateMsg:
 		cs.checkState(context, msg)
-	case *messages.GetConflictSetView:
-		context.Respond(cs.view)
 	}
 }
 
@@ -124,10 +142,15 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 	if !msg.PreFlight {
 		panic(fmt.Sprintf("we should only handle pre-flight transactions at this level"))
 	}
-	cs.processTransaction(context, msg)
+	if cs.active {
+		cs.processTransaction(context, msg)
+	}
 }
 
 func (cs *ConflictSet) processTransaction(context actor.Context, transaction *messages.TransactionWrapper) {
+	if !cs.active {
+		panic(fmt.Errorf("error: processTransaction called on inactive ConflictSet"))
+	}
 	cs.transactions[string(transaction.TransactionID)] = transaction
 	// do this as a message to make sure we're doing it after all the updates have come in
 	if !cs.didSign {
@@ -135,7 +158,6 @@ func (cs *ConflictSet) processTransaction(context actor.Context, transaction *me
 		cs.didSign = true
 	}
 	cs.updates++
-	//TODO: check active state and if not active then just store this transaction
 	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 }
 
@@ -325,7 +347,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	return nil
 }
 
-// returns true if one of the transactions has enough signatures
+// returns a transaction with enough signatures or nil if none yet exist
 func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 	count := cs.notaryGroup.QuorumCount()
 	for tID, sigList := range cs.signatures {

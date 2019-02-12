@@ -2,7 +2,6 @@ package actors
 
 import (
 	"fmt"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
@@ -80,7 +79,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
 		tn.committedStore.Tell(&messages.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
-		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CommittedKey(), msg.Value)
+		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.Value)
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
@@ -106,7 +105,10 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.Store:
 		tn.Log.Debugw("new transaction", "msg", msg)
-		context.Request(tn.validatorPool, msg)
+		context.Request(tn.validatorPool, &validationRequest{
+			key:       msg.Key,
+			value:     msg.Value,
+		})
 	case *messages.TransactionWrapper:
 		if msg.PreFlight {
 			tn.conflictSetRouter.Tell(msg)
@@ -122,7 +124,15 @@ func (tn *TupeloNode) handleNewCommit(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.Store:
 		tn.Log.Debugw("new commit")
-		tn.conflictSetRouter.Tell(msg)
+		var currState messages.CurrentState
+		_, err := currState.UnmarshalMsg(msg.Value)
+		if err != nil {
+			panic(fmt.Errorf("error unmarshaling: %v", err))
+		}
+		tn.conflictSetRouter.Tell(&commitNotification{
+			store:    msg,
+			objectID: currState.Signature.ObjectID,
+		})
 	}
 }
 
@@ -216,6 +226,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		SignatureGenerator: sigGenerator,
 		SignatureChecker:   sigChecker,
 		SignatureSender:    sender,
+		CurrentStateStore:  tn.cfg.CurrentStateStore,
 	}
 	router, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "conflictSetRouter")
 	if err != nil {

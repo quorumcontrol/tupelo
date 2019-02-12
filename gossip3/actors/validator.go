@@ -38,6 +38,11 @@ type TransactionValidator struct {
 	reader storage.Reader
 }
 
+type validationRequest struct {
+	key       []byte
+	value     []byte
+}
+
 const maxValidatorConcurrency = 10
 
 func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props {
@@ -53,22 +58,22 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 
 func (tv *TransactionValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.Store:
-		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
-		tv.handleStore(context, msg)
+	case *validationRequest:
+		tv.Log.Debugw("stateHandler initial", "key", msg.key)
+		tv.handleRequest(context, msg)
 	}
 }
 
-func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
+func (tv *TransactionValidator) handleRequest(context actor.Context, msg *validationRequest) {
 	wrapper := &messages.TransactionWrapper{
-		Key:       msg.Key,
-		Value:     msg.Value,
+		Key:       msg.key,
+		Value:     msg.value,
 		PreFlight: false,
 		Accepted:  false,
 		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
 	var t messages.Transaction
-	_, err := t.UnmarshalMsg(msg.Value)
+	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
 		tv.Log.Infow("error unmarshaling", "err", err)
 		context.Respond(wrapper)
@@ -76,9 +81,9 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	}
 	wrapper.ConflictSetID = t.ConflictSetID()
 	wrapper.Transaction = &t
-	wrapper.TransactionID = msg.Key
+	wrapper.TransactionID = msg.key
 
-	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
+	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
 		context.Respond(wrapper)
 		return
@@ -88,6 +93,12 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	err = cbornode.DecodeInto(t.Payload, block)
 	if err != nil {
 		tv.Log.Errorw("invalid transaction: payload is not a block")
+		context.Respond(wrapper)
+		return
+	}
+
+	if block.Height != t.Height {
+		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Height, "transHeight", t.Height, "transaction", msg.key)
 		context.Respond(wrapper)
 		return
 	}

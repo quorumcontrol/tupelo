@@ -2,12 +2,12 @@ package actors
 
 import (
 	"fmt"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/hashicorp/go-immutable-radix"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/golang-lru"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -17,9 +17,9 @@ const recentlyDoneConflictCacheSize = 100000
 
 type ConflictSetRouter struct {
 	middleware.LogAwareHolder
-	recentlyDone *lru.Cache
-	conflictSets *iradix.Tree
-	cfg          *ConflictSetRouterConfig
+	recentlyDone        *lru.Cache
+	conflictSets        *iradix.Tree
+	cfg                 *ConflictSetRouterConfig
 }
 
 type ConflictSetRouterConfig struct {
@@ -28,6 +28,12 @@ type ConflictSetRouterConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
+}
+
+type commitNotification struct {
+	store    *messages.Store
+	objectID []byte
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -47,6 +53,10 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 	)
 }
 
+func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {
+	return nextHeight(csr.cfg.CurrentStateStore, objectID)
+}
+
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
@@ -57,8 +67,9 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID()))
 	case *messages.Store:
 		csr.forwardOrIgnore(context, msg.Key)
-	case *messages.GetConflictSetView:
-		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
+	case *commitNotification:
+		csr.forwardOrIgnore(context, msg.store.Key)
+		csr.activateSnoozingConflictSets(context, msg.objectID)
 	case *messages.CurrentStateWrapper:
 		if parent := context.Parent(); parent != nil {
 			context.Forward(context.Parent())
@@ -110,6 +121,7 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 	cfg := csr.cfg
 	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
 		ID:                 id,
+		CurrentStateStore:  cfg.CurrentStateStore,
 		NotaryGroup:        cfg.NotaryGroup,
 		Signer:             cfg.Signer,
 		SignatureChecker:   cfg.SignatureChecker,
@@ -122,6 +134,28 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 	return cs
 }
 
+func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
+	conflictSetID := messages.ConflictSetID(objectID, csr.nextHeight(objectID))
+	csr.forwardOrIgnore(context, []byte(conflictSetID))
+}
+
 func conflictSetIDToInternalID(id []byte) string {
 	return hexutil.Encode(id)
+}
+
+func nextHeight(currentStateStore storage.Reader, objectID []byte) uint64 {
+	currStateBits, err := currentStateStore.Get(objectID)
+	if err != nil {
+		panic(fmt.Errorf("error getting current state: %v", err))
+	}
+	if len(currStateBits) > 0 {
+		var currState messages.CurrentState
+		_, err = currState.UnmarshalMsg(currStateBits)
+		if err != nil {
+			panic(fmt.Errorf("error unmarshaling: %v", err))
+		}
+		return currState.Signature.Height + 1
+	} else {
+		return 0
+	}
 }
