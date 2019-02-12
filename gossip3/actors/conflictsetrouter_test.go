@@ -129,7 +129,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	}
 
 	var conflictSetRouter *actor.PID
-	fut := actor.NewFuture(5 * time.Second)
+	fut := actor.NewFuture(10 * time.Second)
 
 	isReadyFuture := actor.NewFuture(5 * time.Second)
 	parentFunc := func(context actor.Context) {
