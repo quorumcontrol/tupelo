@@ -16,4 +16,4 @@ phases:
       - /go/bin/dep ensure
   build:
     commands:
-      - go test ./... -tags=integration
+      - for i in 1..12; do echo "Test run $i" && env GOCACHE=off go test ./... -tags=integration -timeout 2m || exit 1; done
