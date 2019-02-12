@@ -108,7 +108,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		tn.Log.Debugw("new transaction", "msg", msg)
 		context.Request(tn.validatorPool, msg)
 	case *messages.TransactionWrapper:
-		if msg.PreFlight {
+		if msg.Accepted {
 			tn.conflictSetRouter.Tell(msg)
 		} else {
 			tn.Log.Debugw("removing bad transaction", "msg", msg)

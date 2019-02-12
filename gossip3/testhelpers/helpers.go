@@ -35,6 +35,7 @@ func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: nil,
+			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -63,6 +64,7 @@ func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey
 	require.Nil(t, sw.Err)
 
 	return messages.Transaction{
+		Height:      0,
 		PreviousTip: emptyTip.Bytes(),
 		NewTip:      testTree.Dag.Tip.Bytes(),
 		Payload:     bits,

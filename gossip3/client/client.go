@@ -136,6 +136,8 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 		height = root.Height + 1
 	}
 
+	c.log.Debugw("play transactions", "height", height, "root", root)
+
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			Height:       height,

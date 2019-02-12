@@ -3,18 +3,19 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/go-cid"
 	"testing"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -66,6 +67,7 @@ func TestClientSubscribe(t *testing.T) {
 }
 
 func TestPlayTransactions(t *testing.T) {
+	l := middleware.Log.Named("TestPlayTransactions")
 	ts := testnotarygroup.NewTestSet(t, 3)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -101,9 +103,13 @@ func TestPlayTransactions(t *testing.T) {
 	})
 	require.Nil(t, err)
 	assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
+	l.Debugw("first transaction done", "chainTip", chain.Tip().Bytes())
 
 	t.Run("works on 2nd set", func(t *testing.T) {
 		remoteTip := chain.Tip()
+		height, _, _ := chain.ChainTree.Dag.Resolve([]string{"height"})
+		l.Debugw("sending second transaction", "chainTip", chain.Tip().Bytes(), "height", height)
+
 		resp, err := client.PlayTransactions(chain, treeKey, &remoteTip, []*chaintree.Transaction{
 			{
 				Type: "SET_DATA",
@@ -115,6 +121,7 @@ func TestPlayTransactions(t *testing.T) {
 		})
 		require.Nil(t, err)
 		assert.Equal(t, resp.Tip.Bytes(), chain.Tip().Bytes())
+		l.Debugw("second transaction done", "respTip", resp.Tip.Bytes(), "chainTip", chain.Tip().Bytes())
 
 		// and works a third time
 		remoteTip = chain.Tip()

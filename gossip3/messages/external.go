@@ -123,6 +123,7 @@ type Signature struct {
 	Signature     []byte
 }
 
+//TODO: include height here
 func (sig *Signature) GetSignable() []byte {
 	return append(append(sig.ObjectID, append(sig.PreviousTip, sig.NewTip...)...), append(uint64ToBytes(sig.View), uint64ToBytes(sig.Cycle)...)...)
 }

@@ -61,11 +61,10 @@ func (tv *TransactionValidator) Receive(context actor.Context) {
 
 func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
 	wrapper := &messages.TransactionWrapper{
-		Key:       msg.Key,
-		Value:     msg.Value,
-		PreFlight: false,
-		Accepted:  false,
-		Metadata:  messages.MetadataMap{"seen": time.Now()},
+		Key:      msg.Key,
+		Value:    msg.Value,
+		Accepted: false,
+		Metadata: messages.MetadataMap{"seen": time.Now()},
 	}
 	var t messages.Transaction
 	_, err := t.UnmarshalMsg(msg.Value)
@@ -74,9 +73,25 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		context.Respond(wrapper)
 		return
 	}
+	tv.Log.Debugw("handleStore unmarshaled", "tx", msg.Key, "values", t)
 	wrapper.ConflictSetID = t.ConflictSetID()
 	wrapper.Transaction = &t
 	wrapper.TransactionID = msg.Key
+
+	bits, err := tv.reader.Get(t.ObjectID)
+	if err != nil {
+		panic(fmt.Errorf("error getting current state: %v", err))
+	}
+
+	var currTip []byte
+	if len(bits) > 0 {
+		var currentState messages.CurrentState
+		_, err := currentState.UnmarshalMsg(bits)
+		if err != nil {
+			panic(fmt.Sprintf("error unmarshaling: %v", err))
+		}
+		currTip = currentState.Signature.NewTip
+	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
@@ -92,7 +107,33 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		return
 	}
 
-	wrapper.PreFlight = true
+	if block.Block.Height != t.Height {
+		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Block.Height, "transHeight", t.Height, "transaction", msg.Key)
+		context.Respond(wrapper)
+		return
+	}
+
+	st := &stateTransaction{
+		ObjectID:      t.ObjectID,
+		Transaction:   &t,
+		TransactionID: msg.Key,
+		CurrentState:  currTip,
+		ConflictSetID: wrapper.ConflictSetID,
+		Block:         block,
+		payload:       msg.Value,
+	}
+
+	nextState, accepted, err := chainTreeStateHandler(st)
+
+	if accepted && bytes.Equal(nextState, t.NewTip) {
+		tv.Log.Debugw("accepted", "key", msg.Key)
+		wrapper.Accepted = true
+		context.Respond(wrapper)
+		return
+	}
+
+	tv.Log.Debugw("rejected", "err", err)
+
 	context.Respond(wrapper)
 }
 

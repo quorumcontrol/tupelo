@@ -198,7 +198,7 @@ func fakeValidateTransaction(t testing.TB, trans *messages.Transaction) *message
 		Value:         bits,
 		ConflictSetID: trans.ConflictSetID(),
 		PreFlight:     true,
-		Accepted:      false,
+		Accepted:      true,
 		Metadata:      messages.MetadataMap{"seen": time.Now()},
 	}
 	return wrapper
