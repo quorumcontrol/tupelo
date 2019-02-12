@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/Workiva/go-datastructures/bitarray"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/bls"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
@@ -26,6 +27,7 @@ type ConflictSet struct {
 	middleware.LogAwareHolder
 
 	ID                 string
+	currentStateStore  storage.Reader
 	notaryGroup        *types.NotaryGroup
 	signatureGenerator *actor.PID
 	signatureChecker   *actor.PID
@@ -49,12 +51,14 @@ type ConflictSetConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &ConflictSet{
 			ID:                 cfg.ID,
+			currentStateStore:  cfg.CurrentStateStore,
 			notaryGroup:        cfg.NotaryGroup,
 			signer:             cfg.Signer,
 			signatureGenerator: cfg.SignatureGenerator,
@@ -63,13 +67,19 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
-			active:             true, // TODO: here is where we will change when handling future transactions
+			active:             false,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
+
+// TODO: when the first thing comes in,
+// see if it's the next height from CurrentStateStore and if so
+// then become active and set the height on this conflictset (or is it already set?)
+// when it commits, then send a message to the router to trigger the next conflict set
+// to start processing
 
 func (cs *ConflictSet) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
@@ -92,8 +102,6 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleStore(context, msg)
 	case *checkStateMsg:
 		cs.checkState(context, msg)
-	case *messages.GetConflictSetView:
-		context.Respond(cs.view)
 	}
 }
 
@@ -121,10 +129,12 @@ func (cs *ConflictSet) DoneReceive(context actor.Context) {
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
-	if !msg.Accepted {
-		panic(fmt.Sprintf("we should only handle accepted transactions at this level"))
+	if !msg.PreFlight {
+		panic(fmt.Sprintf("we should only handle preflight transactions at this level"))
 	}
-	cs.processTransaction(context, msg)
+	if cs.active {
+		cs.processTransaction(context, msg)
+	}
 }
 
 func (cs *ConflictSet) processTransaction(context actor.Context, transaction *messages.TransactionWrapper) {

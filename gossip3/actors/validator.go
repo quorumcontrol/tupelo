@@ -38,6 +38,12 @@ type TransactionValidator struct {
 	reader storage.Reader
 }
 
+type validationRequest struct {
+	preflight bool
+	key       []byte
+	value     []byte
+}
+
 const maxValidatorConcurrency = 10
 
 func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props {
@@ -53,47 +59,50 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 
 func (tv *TransactionValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.Store:
-		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
-		tv.handleStore(context, msg)
+	case *validationRequest:
+		tv.Log.Debugw("stateHandler initial", "key", msg.key)
+		tv.handleRequest(context, msg)
 	}
 }
 
-func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
+func (tv *TransactionValidator) handleRequest(context actor.Context, msg *validationRequest) {
 	wrapper := &messages.TransactionWrapper{
-		Key:      msg.Key,
-		Value:    msg.Value,
-		Accepted: false,
-		Metadata: messages.MetadataMap{"seen": time.Now()},
+		Key:       msg.key,
+		Value:     msg.value,
+		Accepted:  false,
+		PreFlight: false,
+		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
 	var t messages.Transaction
-	_, err := t.UnmarshalMsg(msg.Value)
+	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
 		tv.Log.Infow("error unmarshaling", "err", err)
 		context.Respond(wrapper)
 		return
 	}
-	tv.Log.Debugw("handleStore unmarshaled", "tx", msg.Key, "values", t)
+	tv.Log.Debugw("handleStore unmarshaled", "tx", msg.key, "values", t)
 	wrapper.ConflictSetID = t.ConflictSetID()
 	wrapper.Transaction = &t
-	wrapper.TransactionID = msg.Key
-
-	bits, err := tv.reader.Get(t.ObjectID)
-	if err != nil {
-		panic(fmt.Errorf("error getting current state: %v", err))
-	}
+	wrapper.TransactionID = msg.key
 
 	var currTip []byte
-	if len(bits) > 0 {
-		var currentState messages.CurrentState
-		_, err := currentState.UnmarshalMsg(bits)
+	if !msg.preflight {
+		objectIDBits, err := tv.reader.Get(t.ObjectID)
 		if err != nil {
-			panic(fmt.Sprintf("error unmarshaling: %v", err))
+			panic(fmt.Errorf("error getting current state: %v", err))
 		}
-		currTip = currentState.Signature.NewTip
+
+		if len(objectIDBits) > 0 {
+			var currentState messages.CurrentState
+			_, err := currentState.UnmarshalMsg(objectIDBits)
+			if err != nil {
+				panic(fmt.Sprintf("error unmarshaling: %v", err))
+			}
+			currTip = currentState.Signature.NewTip
+		}
 	}
 
-	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
+	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
 		context.Respond(wrapper)
 		return
@@ -108,7 +117,7 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	}
 
 	if block.Block.Height != t.Height {
-		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Block.Height, "transHeight", t.Height, "transaction", msg.Key)
+		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Block.Height, "transHeight", t.Height, "transaction", msg.key)
 		context.Respond(wrapper)
 		return
 	}
@@ -116,18 +125,22 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	st := &stateTransaction{
 		ObjectID:      t.ObjectID,
 		Transaction:   &t,
-		TransactionID: msg.Key,
+		TransactionID: msg.key,
 		CurrentState:  currTip,
 		ConflictSetID: wrapper.ConflictSetID,
 		Block:         block,
-		payload:       msg.Value,
+		payload:       msg.value,
 	}
 
 	nextState, accepted, err := chainTreeStateHandler(st)
 
 	if accepted && bytes.Equal(nextState, t.NewTip) {
-		tv.Log.Debugw("accepted", "key", msg.Key)
-		wrapper.Accepted = true
+		tv.Log.Debugw("accepted", "key", msg.key)
+		if msg.preflight {
+			wrapper.PreFlight = true
+		} else {
+			wrapper.Accepted = true
+		}
 		context.Respond(wrapper)
 		return
 	}

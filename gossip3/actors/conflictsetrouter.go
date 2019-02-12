@@ -6,8 +6,9 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/hashicorp/go-immutable-radix"
+	iradix "github.com/hashicorp/go-immutable-radix"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/types"
@@ -28,6 +29,7 @@ type ConflictSetRouterConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -57,8 +59,6 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID()))
 	case *messages.Store:
 		csr.forwardOrIgnore(context, msg.Key)
-	case *messages.GetConflictSetView:
-		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
 	case *messages.CurrentStateWrapper:
 		if parent := context.Parent(); parent != nil {
 			context.Forward(context.Parent())
@@ -110,6 +110,7 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 	cfg := csr.cfg
 	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
 		ID:                 id,
+		CurrentStateStore:  csr.cfg.CurrentStateStore,
 		NotaryGroup:        cfg.NotaryGroup,
 		Signer:             cfg.Signer,
 		SignatureChecker:   cfg.SignatureChecker,

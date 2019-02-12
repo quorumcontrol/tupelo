@@ -20,10 +20,6 @@ type SubscribeValidatorWorking struct {
 	Actor *actor.PID `msg:"-"`
 }
 
-type GetConflictSetView struct {
-	ConflictSetID string
-}
-
 type Subscribe struct {
 	Subscriber *actor.PID
 }
