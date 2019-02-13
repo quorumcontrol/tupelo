@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 pushd $(dirname $0)/../
 trap popd EXIT
 
@@ -13,7 +15,8 @@ if [ -z "$version" ]; then
 fi
 
 linux_binary="tupelo-${version}-linux-amd64"
-osx_binary="tupelo-${version}-darwin-amd64"
+macos_binary="tupelo-${version}-darwin-amd64"
+windows_binary="tupelo-${version}-windows-amd64.exe"
 
 zipdir=$projectdir/.tmp/tupelo-$version/
 rm -rf $zipdir
@@ -32,24 +35,25 @@ generateSha256() {
   fi
 }
 
-if ! [ "$(uname)" == "Darwin" ]; then
-  echo "detected non mac os, skipping mac build"
+if ! [ -x "$(command -v xgo)" ]; then
+  echo "xgo is required; run 'go get -u github.com/karalabe/xgo'"
 else
-  go build -o $zipdir/$osx_binary -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH .
-  generateSha256 $osx_binary
+# Windows builds disabled until we can figure out badger storage bug there
+#  xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 --out tupelo-${version} ./
+  xgo --targets=darwin-10.10/amd64,linux/amd64 --out tupelo-${version} ./
+  mv tupelo-${version}-linux* ${zipdir}/${linux_binary}
+  mv tupelo-${version}-darwin* ${zipdir}/${macos_binary}
+#  mv tupelo-${version}-windows* ${zipdir}/${windows_binary}
+  generateSha256 ${linux_binary}
+  generateSha256 ${macos_binary}
+#  generateSha256 ${windows_binary}
 fi
 
-if ! [ -x "$(command -v docker)" ]; then
-  echo "docker is not installed, skipping linux build"
-else
-  container_id=$(docker run -d --rm --entrypoint=tail $(docker build -q .) -f /dev/null)
-  docker cp ${container_id}:/usr/bin/tupelo $zipdir/$linux_binary
-  docker rm -fv ${container_id}
-  generateSha256 $linux_binary
+if [ -z "${LOCAL}" ]; then
+  echo "Tagging ${version} and pushing to GitHub"
+  git tag ${version}
+  git push origin ${version}
 fi
-
-git tag ${version}
-git push origin ${version}
 
 cd $(dirname $zipdir)
 zip $releasedir/tupelo-$version.zip -r $(basename $zipdir)

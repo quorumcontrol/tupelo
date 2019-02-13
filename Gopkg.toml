@@ -50,9 +50,9 @@ required = [
   version = "v0.0.2"
 
 [[constraint]]
-  source = "git@github.com:quorumcontrol/storage.git"
   name = "github.com/quorumcontrol/storage"
-  version = "1.1.1"
+  source = "git@github.com:quorumcontrol/storage.git"
+  version = "v1.1.1"
 
 [[constraint]]
   name = "github.com/ipfs/go-ipld-cbor"
