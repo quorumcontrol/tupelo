@@ -23,10 +23,12 @@ var ErrAdapterNotFound = fmt.Errorf("adapter not found")
 
 func New(config *Config) (Adapter, error) {
 	switch config.Adapter {
-	case "badger":
+	case BadgerStorageAdapterName:
 		return NewBadgerStorage(config.Arguments)
-	case "ipld":
+	case IpldStorageAdapterName:
 		return NewIpldStorage(config.Arguments)
+	case MockStorageAdapterName:
+		return NewMockStorage(config.Arguments)
 	default:
 		return nil, ErrAdapterNotFound
 	}

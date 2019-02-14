@@ -31,9 +31,26 @@ message RegisterWalletResponse {
   string wallet_name = 1;
 }
 
+message StorageAdapterConfigForBadger {
+  string path = 1;
+}
+
+message StorageAdapterConfigForIpld {
+  string path = 1;
+  bool offline = 2;
+}
+
+message StorageAdapterConfig {
+  oneof adapter_config {
+    StorageAdapterConfigForBadger badger = 1;
+    StorageAdapterConfigForIpld ipld = 2;
+  }
+}
+
 message GenerateChainRequest {
   Credentials creds = 1;
   string key_addr = 2;
+  StorageAdapterConfig storage_adapter = 3;
 }
 
 message GenerateChainResponse {
@@ -53,6 +70,7 @@ message ImportChainRequest {
   Credentials creds = 1;
   // index 2 is a deleted key, intentionally omitted
   string chain_tree = 3;
+  StorageAdapterConfig storage_adapter = 4;
 }
 
 message ImportChainResponse {

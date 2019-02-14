@@ -10,6 +10,8 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 )
 
+const IpldStorageAdapterName = "ipld"
+
 type IpldStorageAdapter struct {
 	store *nodestore.IpldStore
 	node  *core.IpfsNode

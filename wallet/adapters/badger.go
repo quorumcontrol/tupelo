@@ -7,6 +7,8 @@ import (
 	"github.com/quorumcontrol/storage"
 )
 
+const BadgerStorageAdapterName = "badger"
+
 type BadgerStorageAdapter struct {
 	store *nodestore.StorageBasedStore
 }
