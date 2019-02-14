@@ -39,6 +39,7 @@ type TransactionValidator struct {
 }
 
 type validationRequest struct {
+	preflight bool
 	key       []byte
 	value     []byte
 }
@@ -83,6 +84,23 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	wrapper.Transaction = &t
 	wrapper.TransactionID = msg.key
 
+	var currTip []byte
+	if !msg.preflight {
+		objectIDBits, err := tv.reader.Get(t.ObjectID)
+		if err != nil {
+			panic(fmt.Errorf("error getting current state: %v", err))
+		}
+
+		if len(objectIDBits) > 0 {
+			var currentState messages.CurrentState
+			_, err := currentState.UnmarshalMsg(objectIDBits)
+			if err != nil {
+				panic(fmt.Sprintf("error unmarshaling: %v", err))
+			}
+			currTip = currentState.Signature.NewTip
+		}
+	}
+
 	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
 		context.Respond(wrapper)
@@ -103,7 +121,31 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		return
 	}
 
-	wrapper.PreFlight = true
+	st := &stateTransaction{
+		ObjectID:      t.ObjectID,
+		Transaction:   &t,
+		TransactionID: msg.key,
+		CurrentState:  currTip,
+		ConflictSetID: wrapper.ConflictSetID,
+		Block:         block,
+		payload:       msg.value,
+	}
+
+	nextState, accepted, err := chainTreeStateHandler(st)
+
+	if accepted && bytes.Equal(nextState, t.NewTip) {
+		tv.Log.Debugw("accepted", "key", msg.key)
+		if msg.preflight {
+			wrapper.PreFlight = true
+		} else {
+			wrapper.Accepted = true
+		}
+		context.Respond(wrapper)
+		return
+	}
+
+	tv.Log.Debugw("rejected", "err", err)
+
 	context.Respond(wrapper)
 }
 

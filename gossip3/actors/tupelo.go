@@ -106,6 +106,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	case *messages.Store:
 		tn.Log.Debugw("new transaction", "msg", msg)
 		context.Request(tn.validatorPool, &validationRequest{
+			preflight: true,
 			key:       msg.Key,
 			value:     msg.Value,
 		})
