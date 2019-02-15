@@ -180,7 +180,7 @@ func (rpcs *RPCSession) chainExists(key ecdsa.PublicKey) bool {
 
 func (rpcs *RPCSession) defaultChainStorage(chainId string) *adapters.Config {
 	return &adapters.Config{
-		Adapter: "badger",
+		Adapter: adapters.BadgerStorageAdapterName,
 		Arguments: map[string]interface{}{
 			"path": rpcs.wallet.Path() + "-" + chainId,
 		},
