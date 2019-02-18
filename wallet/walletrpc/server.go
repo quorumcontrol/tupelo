@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	defaultPort    = ":50051"
-	defaultWebPort = ":50050"
+	defaultWebPort  = ":50050"
+	defaultRpcPort  = ":50051"
+	defaultHttpPort = ":50052"
 )
 
 type server struct {
@@ -447,7 +448,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
-	listener, err := net.Listen("tcp", defaultPort)
+	listener, err := net.Listen("tcp", defaultRpcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +462,7 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	reflection.Register(grpcServer)
 
 	go func() {
-		fmt.Println("Listening on port", defaultPort)
+		fmt.Println("Listening on port", defaultRpcPort)
 		err := grpcServer.Serve(listener)
 		if err != nil {
 			log.Printf("error serving: %v", err)

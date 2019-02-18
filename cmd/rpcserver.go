@@ -213,14 +213,6 @@ func walletPath() string {
 	return configDir("wallets")
 }
 
-var (
-	certFile              string
-	keyFile               string
-	localNetworkNodeCount int
-	remoteNetwork         bool
-	tls                   bool
-)
-
 var rpcServerCmd = &cobra.Command{
 	Use:   "rpc-server",
 	Short: "Launches a Tupelo RPC Server",
@@ -294,11 +286,20 @@ var rpcServerCmd = &cobra.Command{
 	},
 }
 
-var rpcServeWebGrpc bool
+var (
+	certFile              string
+	keyFile               string
+	localNetworkNodeCount int
+	remoteNetwork         bool
+	rpcServeHttp          bool
+	rpcServeWebGrpc       bool
+	tls                   bool
+)
 
 func init() {
 	rootCmd.AddCommand(rpcServerCmd)
 	rpcServerCmd.Flags().BoolVar(&rpcServeWebGrpc, "web", false, "Open up a grpc-web interface as well")
+	rpcServerCmd.Flags().BoolVarP(&rpcServeHttp, "http", "H", false, "Listen for HTTP requests")
 	rpcServerCmd.Flags().BoolVarP(&tls, "tls", "t", false, "Encrypt connections with TLS/SSL")
 	rpcServerCmd.Flags().StringVarP(&certFile, "tls-cert", "C", "", "TLS certificate file")
 	rpcServerCmd.Flags().StringVarP(&keyFile, "tls-key", "K", "", "TLS private key file")
