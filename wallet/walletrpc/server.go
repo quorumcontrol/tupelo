@@ -5,9 +5,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/tupelo/consensus"
@@ -446,7 +450,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 }
 
 func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
-	fmt.Println("Starting Tupelo RPC server")
+	log.Printf("Starting Tupelo RPC server, listening on port %v\n", defaultRpcPort)
 
 	listener, err := net.Listen("tcp", defaultRpcPort)
 	if err != nil {
@@ -462,7 +466,6 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	reflection.Register(grpcServer)
 
 	go func() {
-		fmt.Println("Listening on port", defaultRpcPort)
 		err := grpcServer.Serve(listener)
 		if err != nil {
 			log.Printf("error serving: %v", err)
@@ -546,4 +549,85 @@ func createGrpcWeb(grpcServer *grpc.Server, port string) (*http.Server, error) {
 		Handler: handler,
 	}
 	return s, nil
+}
+
+func ServeHttpInsecure(ctx context.Context) (*http.Server, error) {
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+
+	srv, err := createHTTP(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error creating http server: %v", err)
+	}
+
+	go func() {
+		log.Printf("Starting Tupelo HTTP server, listening on port %v\n", defaultHttpPort)
+
+		err = srv.ListenAndServe()
+		if err != nil {
+			log.Printf("error listening for HTTP: %v", err)
+		}
+	}()
+
+	return srv, err
+}
+
+func ServeHttpTLS(ctx context.Context, certFile, keyFile string) (*http.Server, error) {
+	creds, err := credentials.NewClientTLSFromFile(grpcHost(), certFile)
+	if err != nil {
+		return nil, fmt.Errorf("error loading TLS credentials: %v", err)
+	}
+
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+
+	srv, err := createHTTP(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error creating http server: %v", err)
+	}
+
+	go func() {
+		log.Printf("Starting Tupelo HTTP server, listening on port %v\n", defaultHttpPort)
+
+		err = srv.ListenAndServeTLS(certFile, keyFile)
+		if err != nil {
+			log.Printf("error listening for HTTP: %v", err)
+		}
+	}()
+
+	return srv, err
+}
+
+func createHTTP(ctx context.Context, opts []grpc.DialOption) (*http.Server, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	mux := runtime.NewServeMux()
+	rpc := grpcHost()
+
+	err := RegisterWalletRPCServiceHandlerFromEndpoint(ctx, mux, rpc, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error starting HTTP server: %v", err)
+	}
+
+	srv := &http.Server{
+		Addr:    defaultHttpPort,
+		Handler: mux,
+	}
+
+	// Shut down server upon receipt of interrupt signal
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		for range c {
+			_, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			_ = srv.Shutdown(ctx)
+		}
+	}()
+
+	return srv, err
+}
+
+func grpcHost() string {
+	return "localhost:" + defaultRpcPort
 }

@@ -282,6 +282,20 @@ var rpcServerCmd = &cobra.Command{
 			}
 		}
 
+		if rpcServeHttp {
+			if tls {
+				_, err := walletrpc.ServeHttpTLS(ctx, certFile, keyFile)
+				if err != nil {
+					panic(err)
+				}
+			} else {
+				_, err := walletrpc.ServeHttpInsecure(ctx)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+
 		select {}
 	},
 }
