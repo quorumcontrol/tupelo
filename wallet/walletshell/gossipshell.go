@@ -126,7 +126,7 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			chain, err := session.CreateChain(c.Args[0])
+			chain, err := session.CreateChain(c.Args[0], nil)
 			if err != nil {
 				c.Printf("error creating chain tree: %v\n", err)
 				return
@@ -190,7 +190,7 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 
-			chain, err := session.ImportChain(c.Args[0])
+			chain, err := session.ImportChain(c.Args[0], nil)
 			if err != nil {
 				c.Printf("error importing chain tree: %v\n", err)
 				return

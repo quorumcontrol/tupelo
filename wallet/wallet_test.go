@@ -22,6 +22,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMockAdapterWallet(t *testing.T) {
+	storageConfig := &adapters.Config{Adapter: "mock"}
+	SubtestAll(t, storageConfig)
+}
+
 func TestBadgerWallet(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
@@ -36,6 +41,7 @@ func TestBadgerWallet(t *testing.T) {
 
 	SubtestAll(t, storageConfig)
 }
+
 func TestIpldWallet(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)

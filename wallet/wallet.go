@@ -47,6 +47,10 @@ func NewWallet(config *WalletConfig) *Wallet {
 	}
 }
 
+func (w *Wallet) Storage() storage.Storage {
+	return w.storage
+}
+
 func (w *Wallet) Close() {
 	w.storage.Close()
 	w.adapters.Close()

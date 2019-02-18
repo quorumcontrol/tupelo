@@ -47,6 +47,11 @@ func NewFileWallet(path string) *FileWallet {
 	}
 }
 
+// Path returns the path to the wallet storage
+func (fw *FileWallet) Path() string {
+	return strings.TrimRight(fw.path, "/")
+}
+
 // CreateIfNotExists creates a new wallet at the path specified by `fw` if one
 // hasn't already been created at that path.
 func (fw *FileWallet) CreateIfNotExists(passphrase string) {
@@ -105,21 +110,15 @@ func (fw *FileWallet) ChainExists(chainId string) bool {
 	return fw.wallet.ChainExists(chainId)
 }
 
+func (fw *FileWallet) CreateChain(keyAddr string, storageConfig *adapters.Config) (*consensus.SignedChainTree, error) {
+	return fw.wallet.CreateChain(keyAddr, storageConfig)
+}
+
+func (fw *FileWallet) ConfigureChainStorage(chainId string, storageConfig *adapters.Config) error {
+	return fw.wallet.ConfigureChainStorage(chainId, storageConfig)
+}
+
 func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
-	chainId, err := signedChain.Id()
-	if err != nil {
-		return fmt.Errorf("error getting signedChain id: %v", err)
-	}
-
-	if !fw.ChainExists(chainId) {
-		fw.wallet.ConfigureChainStorage(chainId, &adapters.Config{
-			Adapter: "badger",
-			Arguments: map[string]interface{}{
-				"path": strings.TrimRight(fw.path, "/") + "-" + chainId,
-			},
-		})
-	}
-
 	return fw.wallet.SaveChain(signedChain)
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +24,9 @@ func newSavedChain(t *testing.T, fw *FileWallet, key ecdsa.PublicKey) *consensus
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 
 	signedTree, err := consensus.NewSignedChainTree(key, nodeStore)
+	require.Nil(t, err)
+
+	err = fw.ConfigureChainStorage(signedTree.MustId(), &adapters.Config{Adapter: adapters.MockStorageAdapterName})
 	require.Nil(t, err)
 
 	err = fw.SaveChain(signedTree)
