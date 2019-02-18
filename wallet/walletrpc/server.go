@@ -5,10 +5,7 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -612,18 +609,6 @@ func createHTTP(ctx context.Context, opts []grpc.DialOption) (*http.Server, erro
 		Addr:    defaultHttpPort,
 		Handler: mux,
 	}
-
-	// Shut down server upon receipt of interrupt signal
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	go func() {
-		for range c {
-			_, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-
-			_ = srv.Shutdown(ctx)
-		}
-	}()
 
 	return srv, err
 }
