@@ -105,13 +105,22 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		if cs.active {
 			cs.handleStore(context, msg.store)
 		} else {
-			cs.active = true
-			for _, transaction := range cs.transactions {
-				cs.processTransaction(context, transaction)
+			snoozedTransactions := len(cs.transactions)
+			if snoozedTransactions > 0 {
+				panic(fmt.Errorf("received commit notification with %d snoozed transactions; this should not happen", snoozedTransactions))
 			}
 		}
 	case *checkStateMsg:
 		cs.checkState(context, msg)
+	case *messages.ProcessSnoozedTransactions:
+		if parent := context.Parent(); parent != nil {
+			for _, transaction := range cs.transactions {
+				context.Request(parent, &messages.ValidateTransaction{
+					Key:   transaction.Key,
+					Value: transaction.Value,
+				})
+			}
+		}
 	}
 }
 
@@ -139,26 +148,34 @@ func (cs *ConflictSet) DoneReceive(context actor.Context) {
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
-	if !msg.PreFlight {
-		panic(fmt.Sprintf("we should only handle pre-flight transactions at this level"))
+	if !msg.PreFlight && !msg.Accepted {
+		panic(fmt.Sprintf("we should only handle pre-flight or accepted transactions at this level"))
 	}
+	if !cs.active {
+		cs.Log.Debugf("snoozing transaction at height %d\n", msg.Transaction.Height)
+	}
+	cs.transactions[string(msg.TransactionID)] = msg
 	if cs.active {
-		cs.processTransaction(context, msg)
+		cs.processTransactions(context)
 	}
 }
 
-func (cs *ConflictSet) processTransaction(context actor.Context, transaction *messages.TransactionWrapper) {
+func (cs *ConflictSet) processTransactions(context actor.Context) {
 	if !cs.active {
-		panic(fmt.Errorf("error: processTransaction called on inactive ConflictSet"))
+		panic(fmt.Errorf("error: processTransactions called on inactive ConflictSet"))
 	}
-	cs.transactions[string(transaction.TransactionID)] = transaction
-	// do this as a message to make sure we're doing it after all the updates have come in
-	if !cs.didSign {
-		context.Request(cs.signatureGenerator, transaction)
-		cs.didSign = true
+
+	for _, transaction := range cs.transactions {
+		cs.Log.Debugf("processing transaction at height %d\n", transaction.Transaction.Height)
+
+		// do this as a message to make sure we're doing it after all the updates have come in
+		if !cs.didSign {
+			context.Request(cs.signatureGenerator, transaction)
+			cs.didSign = true
+		}
+		cs.updates++
+		context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 	}
-	cs.updates++
-	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {

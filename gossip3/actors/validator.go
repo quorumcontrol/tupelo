@@ -10,8 +10,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
-	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -39,7 +39,6 @@ type TransactionValidator struct {
 }
 
 type validationRequest struct {
-	preflight bool
 	key       []byte
 	value     []byte
 }
@@ -65,6 +64,10 @@ func (tv *TransactionValidator) Receive(context actor.Context) {
 	}
 }
 
+func (tv *TransactionValidator) nextHeight(objectID []byte) uint64 {
+	return nextHeight(tv.reader, objectID)
+}
+
 func (tv *TransactionValidator) handleRequest(context actor.Context, msg *validationRequest) {
 	wrapper := &messages.TransactionWrapper{
 		Key:       msg.key,
@@ -85,20 +88,31 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	wrapper.TransactionID = msg.key
 
 	var currTip []byte
-	if !msg.preflight {
-		objectIDBits, err := tv.reader.Get(t.ObjectID)
-		if err != nil {
-			panic(fmt.Errorf("error getting current state: %v", err))
-		}
+	objectIDBits, err := tv.reader.Get(t.ObjectID)
+	if err != nil {
+		panic(fmt.Errorf("error getting current state: %v", err))
+	}
 
-		if len(objectIDBits) > 0 {
-			var currentState messages.CurrentState
-			_, err := currentState.UnmarshalMsg(objectIDBits)
-			if err != nil {
-				panic(fmt.Sprintf("error unmarshaling: %v", err))
-			}
-			currTip = currentState.Signature.NewTip
+	var preFlight bool
+	if len(objectIDBits) > 0 {
+		expectedHeight := tv.nextHeight(t.ObjectID)
+		var currentState messages.CurrentState
+		_, err := currentState.UnmarshalMsg(objectIDBits)
+		if err != nil {
+			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
+		if expectedHeight == t.Height {
+			currTip = currentState.Signature.NewTip
+			preFlight = false
+		} else if expectedHeight < t.Height {
+			preFlight = true
+		} else {
+			tv.Log.Errorf("error: transaction height is lower than current state height")
+			context.Respond(wrapper)
+			return
+		}
+	} else {
+		preFlight = t.Height != 0
 	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
@@ -133,15 +147,23 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 
 	nextState, accepted, err := chainTreeStateHandler(st)
 
-	if accepted && bytes.Equal(nextState, t.NewTip) {
+	expectedNewTip := bytes.Equal(nextState, t.NewTip)
+	if accepted && expectedNewTip {
 		tv.Log.Debugw("accepted", "key", msg.key)
-		if msg.preflight {
+		if preFlight {
 			wrapper.PreFlight = true
 		} else {
 			wrapper.Accepted = true
 		}
 		context.Respond(wrapper)
 		return
+	} else {
+		if err == nil && !expectedNewTip {
+			nextStateCid, _ := cid.Cast(nextState)
+			newTipCid, _ := cid.Cast(t.NewTip)
+			err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
+		}
+		wrapper.Metadata["error"] = err
 	}
 
 	tv.Log.Debugw("rejected", "err", err)
@@ -169,7 +191,11 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
 	} else {
+		// TODO: This seems insecure.
 		currentTip = transPreviousTip
+
+		// Should it be the empty tip for this chaintree? Seems like that's what we're trusting the transPreviousTip to be.
+		// If so, how do we construct that here?
 	}
 
 	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
@@ -201,7 +227,13 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 
 	isValid, err := chainTree.ProcessBlock(stateTrans.Block)
 	if !isValid || err != nil {
-		return nil, false, fmt.Errorf("error processing: %v", err)
+		var errMsg string
+		if err == nil {
+			errMsg = "invalid transaction"
+		} else {
+			errMsg = err.Error()
+		}
+		return nil, false, fmt.Errorf("error processing: %v", errMsg)
 	}
 
 	return chainTree.Dag.Tip.Bytes(), true, nil

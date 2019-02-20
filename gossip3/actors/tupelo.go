@@ -74,6 +74,10 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		context.Forward(tn.conflictSetRouter)
 	case *messages.TipSubscription:
 		context.Forward(tn.subscriptionHandler)
+	case *messages.ValidateTransaction:
+		tn.handleNewTransaction(context)
+	case *messages.TransactionWrapper:
+		tn.handleNewTransaction(context)
 	}
 }
 
@@ -84,6 +88,8 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
+		// un-snooze waiting transactions
+		tn.conflictSetRouter.Tell(&messages.ProcessSnoozedTransactions{ObjectID: msg.CurrentState.Signature.ObjectID})
 		// cleanup the transactions
 		ids := make([][]byte, len(msg.CleanupTransactions), len(msg.CleanupTransactions))
 		for i, trans := range msg.CleanupTransactions {
@@ -105,14 +111,17 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.Store:
-		tn.Log.Debugw("new transaction", "msg", msg)
-		context.Request(tn.validatorPool, &validationRequest{
-			preflight: true,
-			key:       msg.Key,
-			value:     msg.Value,
+		// mempoolStore is notifying us that it just stored a new transaction
+		tn.validateTransaction(context, &messages.ValidateTransaction{
+			Key:   msg.Key,
+			Value: msg.Value,
 		})
+	case *messages.ValidateTransaction:
+		// snoozed transaction has been activated and needs full validation
+		tn.validateTransaction(context, msg)
 	case *messages.TransactionWrapper:
-		if msg.PreFlight {
+		// validatorPool has validated or rejected a transaction we sent it above
+		if msg.PreFlight || msg.Accepted {
 			tn.conflictSetRouter.Tell(msg)
 		} else {
 			tn.Log.Debugw("removing bad transaction", "msg", msg)
@@ -124,6 +133,14 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 			})
 		}
 	}
+}
+
+func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.ValidateTransaction) {
+	tn.Log.Debugw("validating transaction", "msg", msg)
+	context.Request(tn.validatorPool, &validationRequest{
+		key:   msg.Key,
+		value: msg.Value,
+	})
 }
 
 // this function is its own actor

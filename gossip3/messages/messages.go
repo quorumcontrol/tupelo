@@ -119,3 +119,12 @@ type Error struct {
 	Code   int
 	Memo   string
 }
+
+type ProcessSnoozedTransactions struct {
+	ObjectID []byte
+}
+
+type ValidateTransaction struct {
+	Key   []byte
+	Value []byte
+}

@@ -69,13 +69,18 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		csr.forwardOrIgnore(context, msg.Key)
 	case *commitNotification:
 		csr.forwardOrIgnore(context, msg.store.Key)
-		csr.activateSnoozingConflictSets(context, msg.objectID)
 	case *messages.CurrentStateWrapper:
 		if parent := context.Parent(); parent != nil {
-			context.Forward(context.Parent())
+			context.Forward(parent)
 		}
 		if msg.Verified {
 			csr.cleanupConflictSet(msg.Key)
+		}
+	case *messages.ProcessSnoozedTransactions:
+		csr.activateSnoozingConflictSets(context, msg.ObjectID)
+	case *messages.ValidateTransaction:
+		if parent := context.Parent(); parent != nil {
+			context.Forward(parent)
 		}
 	}
 }
