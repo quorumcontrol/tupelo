@@ -55,15 +55,20 @@ func TestClientSubscribe(t *testing.T) {
 	defer client.Stop()
 
 	newTip, _ := cid.Cast(trans.NewTip)
-	ch, err := client.Subscribe(ng.GetRandomSigner(), string(trans.ObjectID), newTip, 5*time.Second)
+	signer := ng.GetRandomSigner()
+	ch, err := client.Subscribe(signer, string(trans.ObjectID), newTip, 5*time.Second)
 	require.Nil(t, err)
 
-	err = client.SendTransaction(ng.GetRandomSigner(), &trans)
+	time.Sleep(100*time.Millisecond) // make sure the subscription completes
+
+	err = client.SendTransaction(signer, &trans)
 	require.Nil(t, err)
 
 	resp := <-ch
-	require.NotNil(t, ch)
-	assert.Equal(t, resp.Signature.NewTip, trans.NewTip)
+	require.NotNil(t, resp)
+	require.IsType(t, &messages.CurrentState{}, resp)
+	currState := resp.(*messages.CurrentState)
+	assert.Equal(t, currState.Signature.NewTip, trans.NewTip)
 }
 
 func TestPlayTransactions(t *testing.T) {

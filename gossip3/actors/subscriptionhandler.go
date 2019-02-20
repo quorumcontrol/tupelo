@@ -13,6 +13,7 @@ import (
 )
 
 type actorPIDHolder map[string]*actor.PID
+type subscriptionMap map[string]actorPIDHolder
 
 var subscriptionTimeout = 1 * time.Minute
 
@@ -40,13 +41,13 @@ func newObjectSubscriptionManagerProps() *actor.Props {
 type SubscriptionHandler struct {
 	middleware.LogAwareHolder
 
-	subscriptionManagers actorPIDHolder
+	subscriptionManagers subscriptionMap
 }
 
 func NewSubscriptionHandlerProps() *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &SubscriptionHandler{
-			subscriptionManagers: make(actorPIDHolder),
+			subscriptionManagers: make(subscriptionMap),
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -54,22 +55,36 @@ func NewSubscriptionHandlerProps() *actor.Props {
 	)
 }
 
-func tipSubscriptionKey(uncastMsg interface{}) string {
+func subscriptionKeys(objectKey string, tip []byte) []string {
+	var tipCid cid.Cid
+	var err error
+	if len(tip) > 0 {
+		tipCid, err = cid.Cast(tip)
+		if err != nil {
+			panic(fmt.Errorf("error casting new tip to CID: %v", err))
+		}
+	} else {
+		tipCid = cid.Undef
+	}
+	var tipStr string
+	if tipCid.Defined() {
+		tipStr = tipCid.String()
+	} else {
+		tipStr = ""
+	}
+	return []string{objectKey, tipStr}
+}
+
+func (sh *SubscriptionHandler) subscriptionKeys(uncastMsg interface{}) []string {
 	switch msg := uncastMsg.(type) {
 	case *messages.TipSubscription:
-		newTip, err := cid.Cast(msg.TipValue)
-		if err != nil {
-			panic(fmt.Errorf("error casting new tip to CID: %v", err))
-		}
-		return string(msg.ObjectID)+"-"+newTip.String()
+		return subscriptionKeys(string(msg.ObjectID), msg.TipValue)
 	case *messages.CurrentStateWrapper:
-		newTip, err := cid.Cast(msg.CurrentState.Signature.NewTip)
-		if err != nil {
-			panic(fmt.Errorf("error casting new tip to CID: %v", err))
-		}
-		return string(msg.CurrentState.Signature.ObjectID)+"-"+newTip.String()
+		return subscriptionKeys(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState.Signature.NewTip)
+	case *messages.Error:
+		return subscriptionKeys(msg.Source, make([]byte, 0))
 	default:
-		return "" // shouldn't get here; seems nicer than having to deal with an error
+		return nil
 	}
 }
 
@@ -82,30 +97,64 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 			delete(sh.subscriptionManagers, objectID)
 		}
 	case *messages.TipSubscription:
-		manager, ok := sh.subscriptionManagers[tipSubscriptionKey(msg)]
-		if msg.Unsubscribe && !ok {
-			return
-		}
-		if !ok {
+		subKeys := sh.subscriptionKeys(msg)
+		var manager *actor.PID
+		objManagers, ok := sh.subscriptionManagers[subKeys[0]]
+		if ok {
+			manager, ok = objManagers[subKeys[1]]
+			if !ok {
+				if msg.Unsubscribe {
+					return
+				}
+				manager = sh.newManager(context, msg)
+			}
+		} else {
+			if msg.Unsubscribe {
+				return
+			}
 			manager = sh.newManager(context, msg)
 		}
 
 		context.Forward(manager)
-	case *messages.CurrentStateWrapper:
-		manager, ok := sh.subscriptionManagers[tipSubscriptionKey(msg)]
-		if ok {
-			context.Forward(manager)
+	case *messages.CurrentStateWrapper, *messages.Error:
+		subKeys := sh.subscriptionKeys(msg)
+		var managers = make([]*actor.PID, 0)
+		if len(subKeys[1]) == 0 {
+			// send to all subscribers of this objectID
+			managersMap, ok := sh.subscriptionManagers[subKeys[0]]
+			if ok {
+				for _, m := range managersMap {
+					managers = append(managers, m)
+				}
+			}
+		} else {
+			// just send to subscribers for this tip value
+			manager, ok := sh.subscriptionManagers[subKeys[0]][subKeys[1]]
+			if ok {
+				managers = append(managers, manager)
+			}
+		}
+
+		for _, m := range managers {
+			context.Forward(m)
 		}
 	}
 }
 
 func (sh *SubscriptionHandler) newManager(context actor.Context, msg *messages.TipSubscription) *actor.PID {
-	tsk := tipSubscriptionKey(msg)
-	m, err := context.SpawnNamed(newObjectSubscriptionManagerProps(), tsk)
+	subKeys := sh.subscriptionKeys(msg)
+	actorNameKeys := subKeys
+	if len(subKeys[1]) == 0 {
+		actorNameKeys[1] = "all"
+	}
+	m, err := context.SpawnNamed(newObjectSubscriptionManagerProps(), strings.Join(actorNameKeys, "-"))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
-	sh.subscriptionManagers[tsk] = m
+	if sh.subscriptionManagers[subKeys[0]] == nil {
+		sh.subscriptionManagers[subKeys[0]] = make(actorPIDHolder)
+	}
+	sh.subscriptionManagers[subKeys[0]][subKeys[1]] = m
 	return m
 }
 
@@ -122,25 +171,40 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 		} else {
 			osm.subscribe(context, msg)
 		}
-	case *messages.CurrentStateWrapper:
+	case *messages.CurrentStateWrapper, *messages.Error:
 		context.SetReceiveTimeout(subscriptionTimeout)
 		osm.notifySubscribers(context, msg)
 	}
 }
 
+func (osm *objectSubscriptionManager) subscriptionKeys(context actor.Context, msg *messages.TipSubscription) []string {
+	return subscriptionKeys(context.Sender().String(), msg.TipValue)
+}
+
 func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *messages.TipSubscription) {
-	osm.subscriptions[context.Sender().String()+"-"+string(msg.TipValue)] = context.Sender()
+	//subKeys := osm.subscriptionKeys(context, msg)
+	//osm.subscriptions[strings.Join(subKeys, "-")] = context.Sender()
+	osm.subscriptions[context.Sender().String()] = context.Sender()
 }
 
 func (osm *objectSubscriptionManager) unsubscribe(context actor.Context, msg *messages.TipSubscription) {
-	delete(osm.subscriptions, context.Sender().String()+"-"+string(msg.TipValue))
+	//subKeys := osm.subscriptionKeys(context, msg)
+	//delete(osm.subscriptions, strings.Join(subKeys, "-"))
+	delete(osm.subscriptions, context.Sender().String())
 	if len(osm.subscriptions) == 0 {
 		context.Self().Stop()
 	}
 }
 
-func (osm *objectSubscriptionManager) notifySubscribers(context actor.Context, msg *messages.CurrentStateWrapper) {
+func (osm *objectSubscriptionManager) notifySubscribers(context actor.Context, uncastMsg interface{}) {
+	var notice interface{}
+	switch msg := uncastMsg.(type) {
+	case *messages.CurrentStateWrapper:
+		notice = msg.CurrentState
+	case *messages.Error:
+		notice = msg
+	}
 	for _, sub := range osm.subscriptions {
-		context.Request(sub, msg.CurrentState)
+		context.Request(sub, notice)
 	}
 }

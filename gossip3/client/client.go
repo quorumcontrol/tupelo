@@ -30,11 +30,11 @@ type Client struct {
 type subscriberActor struct {
 	middleware.LogAwareHolder
 
-	ch      chan *messages.CurrentState
+	ch      chan interface{}
 	timeout time.Duration
 }
 
-func newSubscriberActorProps(ch chan *messages.CurrentState, timeout time.Duration) *actor.Props {
+func newSubscriberActorProps(ch chan interface{}, timeout time.Duration) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &subscriberActor{
 			ch:      ch,
@@ -61,6 +61,9 @@ func (sa *subscriberActor) Receive(ctx actor.Context) {
 			TipValue:    msg.Signature.NewTip,
 			Unsubscribe: true,
 		})
+		ctx.Self().Poison()
+	case *messages.Error:
+		sa.ch <- msg
 		ctx.Self().Poison()
 	}
 }
@@ -91,8 +94,8 @@ func (c *Client) TipRequest(chainID string) (*messages.CurrentState, error) {
 	return res.(*messages.CurrentState), nil
 }
 
-func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip cid.Cid, timeout time.Duration) (chan *messages.CurrentState, error) {
-	ch := make(chan *messages.CurrentState, 1)
+func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip cid.Cid, timeout time.Duration) (chan interface{}, error) {
+	ch := make(chan interface{}, 1)
 	act, err := actor.SpawnPrefix(newSubscriberActorProps(ch, timeout), "sub-"+treeDid)
 	if err != nil {
 		return nil, fmt.Errorf("error spawning: %v", err)
@@ -200,10 +203,20 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 		panic(fmt.Errorf("error sending transaction %v", err))
 	}
 
-	resp := <-respChan
+	uncastResp := <-respChan
 
-	if resp == nil {
+	if uncastResp == nil {
 		return nil, fmt.Errorf("error timeout")
+	}
+
+	var resp *messages.CurrentState
+	switch respVal := uncastResp.(type) {
+	case *messages.Error:
+		return nil, fmt.Errorf("error response: %v", respVal)
+	case *messages.CurrentState:
+		resp = respVal
+	default:
+		return nil, fmt.Errorf("error unrecognized response type: %T", respVal)
 	}
 
 	if !bytes.Equal(resp.Signature.NewTip, expectedTip.Bytes()) {

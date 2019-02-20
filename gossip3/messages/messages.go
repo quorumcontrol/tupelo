@@ -113,3 +113,9 @@ type BulkRemove struct {
 }
 
 type SendingDone struct{}
+
+type Error struct {
+	Source string
+	Code   int
+	Memo   string
+}

@@ -12,6 +12,7 @@ import (
 
 const mempoolKind = "mempool"
 const committedKind = "committed"
+const ErrBadTransaction = 1
 
 // TupeloNode is the main logic of the entire system,
 // consisting of multiple gossipers
@@ -116,6 +117,11 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		} else {
 			tn.Log.Debugw("removing bad transaction", "msg", msg)
 			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
+			tn.subscriptionHandler.Tell(&messages.Error{
+				Source: string(msg.Transaction.ObjectID),
+				Code: ErrBadTransaction,
+				Memo: fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
+			})
 		}
 	}
 }

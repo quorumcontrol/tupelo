@@ -180,8 +180,10 @@ func TestLibP2PSigning(t *testing.T) {
 
 	resp := <-ch
 	require.NotNil(t, resp)
+	require.IsType(t, &messages.CurrentState{}, resp)
 	stop := time.Now()
-	assert.Equal(t, resp.Signature.NewTip, trans.NewTip)
+	sigResp := resp.(*messages.CurrentState)
+	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 60*time.Second)
