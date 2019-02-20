@@ -56,14 +56,19 @@ func complexType(obj interface{}) bool {
 
 func DecodePath(path string) ([]string, error) {
 	trimmed := strings.TrimPrefix(path, "/")
+
+	if trimmed == "" {
+		return []string{}, nil
+	}
+
 	split := strings.Split(trimmed, "/")
-	if len(split) > 1 { // []string{""} is the only valid path with an empty string
-		for _, component := range split {
-			if component == "" {
-				return nil, fmt.Errorf("malformed path string containing repeated separator: %s", path)
-			}
+
+	for _, component := range split {
+		if component == "" {
+			return nil, fmt.Errorf("malformed path string containing repeated separator: %s", path)
 		}
 	}
+
 	return split, nil
 }
 
@@ -78,6 +83,10 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 	path, err := DecodePath(payload.Path)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
+	}
+
+	if len(path) == 0 {
+		return nil, false, &ErrorCode{Code: 999, Memo: "can not replace root object"}
 	}
 
 	if path[0] == "_tupelo" {
