@@ -126,8 +126,16 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		} else {
 			tn.Log.Debugw("removing bad transaction", "msg", msg)
 			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
+			var errSource string
+			if msg.Transaction != nil && msg.Transaction.ObjectID != nil {
+				// need this to route the error back to the correct subscribers
+				errSource = string(msg.Transaction.ObjectID)
+			} else {
+				// ...but fallback on this rather than generating a nil deref error
+				errSource = string(msg.Key)
+			}
 			tn.subscriptionHandler.Tell(&messages.Error{
-				Source: string(msg.Transaction.ObjectID),
+				Source: errSource,
 				Code: ErrBadTransaction,
 				Memo: fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 			})
