@@ -1,0 +1,44 @@
+#!/bin/bash
+
+owner=`echo $GITHUB_REPOSITORY | cut -d / -f 1`
+repo=`echo $GITHUB_REPOSITORY | cut -d / -f 2`
+
+response=$(curl --silent --show-error --fail \
+  -X POST https://api.github.com/graphql \
+  -H "Authorization: token ${GITHUB_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d @- <<EOF
+{"query": "query {
+  repository(owner: \"$owner\", name: \"$repo\") {
+    releases(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
+      nodes {
+        tag {
+          name
+        }
+      }
+    }
+  }
+}"}
+EOF
+)
+
+latest=$(echo $response | jq -r ".data.repository.releases.nodes[0].tag.name")
+
+if [[ -z "$latest" ]]; then
+  echo "No releases found"
+  exit 78
+fi
+
+case "$GITHUB_REF" in
+  "")
+    echo "\$GITHUB_REF is not set"
+    exit 1
+    ;;
+  $latest)
+    echo "$GITHUB_REF is latest release"
+    exit 0
+    ;;
+  *)
+    echo "$GITHUB_REF does not match latest release of $latest"
+    exit 78
+esac
