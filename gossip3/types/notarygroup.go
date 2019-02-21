@@ -74,18 +74,6 @@ func (ng *NotaryGroup) GetRandomSigner() *Signer {
 	return ng.Signers[id]
 }
 
-func (ng *NotaryGroup) GetRandomSignerWithIndexMask(signerIndexMask []bool) *Signer {
-	validIndexes := make([]int, 1)
-	for i, valid := range signerIndexMask {
-		if valid {
-			validIndexes = append(validIndexes, i)
-		}
-	}
-	randValidIndex := randInt(len(validIndexes))
-	id := ng.sortedIds[validIndexes[randValidIndex]]
-	return ng.Signers[id]
-}
-
 func (ng *NotaryGroup) GetRandomSyncer() *actor.PID {
 	return ng.GetRandomSigner().Actor
 }

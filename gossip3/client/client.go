@@ -186,14 +186,8 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 		ObjectID:    []byte(tree.MustId()),
 		State:       nodes,
 	}
-
-	var target *types.Signer
-	previousSig, ok := tree.Signatures[c.Group.ID]
-	if ok {
-		target = c.Group.GetRandomSignerWithIndexMask(previousSig.Signers)
-	} else {
-		target = c.Group.GetRandomSigner()
-	}
+	
+	target := c.Group.GetRandomSigner()
 
 	respChan, err := c.Subscribe(target, tree.MustId(), expectedTip, 60*time.Second)
 	if err != nil {
