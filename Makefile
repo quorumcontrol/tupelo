@@ -55,6 +55,8 @@ gossip3/remote/messages_gen.go: gossip3/remote/messages.go
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
+deps: vendor
+
 ${GOPATH}/bin/xgo:
 	go get -u github.com/karalabe/xgo
 
@@ -62,4 +64,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all build test run zip release docker-image clean
+.PHONY: all deps build test run zip release docker-image clean

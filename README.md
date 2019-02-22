@@ -8,25 +8,17 @@
 
 Grab the go dependencies:
 
-```
-dep ensure
-```
-
-If you change a protobuf code:
-
-cd into the directory and
-```
-go generate
-```
+`make deps`
 
 ### Testing
 
-Integration tests are not run by default, add the "integration" tag to run
-these. Also add the path containing the libindy-crypto library as an ldflag so
-the linker can find it:
+`make test`
 
-`go test -tags=integration -ldflags="-r /path/to/libindy-crypto/release" ./...`
+### Building
 
+You'll need to install Docker to build. Once that's installed, run:
+
+`make`
 
 ## Concepts
 Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state. 
