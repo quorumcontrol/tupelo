@@ -124,6 +124,30 @@ func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *a
 func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *actor.PID {
 	csr.Log.Debugw("new conflict set", "id", id)
 	cfg := csr.cfg
+	var msgHeight uint64
+	switch msg := context.Message().(type) {
+	case *messages.TransactionWrapper:
+		msgHeight = msg.Transaction.Height
+	case *messages.SignatureWrapper:
+		msgHeight = msg.Signature.Height
+	case *messages.Signature:
+		msgHeight = msg.Height
+	case *messages.Store:
+		var currState messages.CurrentState
+		_, err := currState.UnmarshalMsg(msg.Value)
+		if err != nil {
+			panic(fmt.Errorf("error unmarshaling: %v", err))
+		}
+		msgHeight = currState.Signature.Height
+	case *commitNotification:
+		var currState messages.CurrentState
+		_, err := currState.UnmarshalMsg(msg.store.Value)
+		if err != nil {
+			panic(fmt.Errorf("error unmarshaling: %v", err))
+		}
+		msgHeight = currState.Signature.Height
+	}
+	active := msgHeight == csr.nextHeight([]byte(id))
 	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
 		ID:                 id,
 		CurrentStateStore:  cfg.CurrentStateStore,
@@ -132,6 +156,7 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 		SignatureChecker:   cfg.SignatureChecker,
 		SignatureGenerator: cfg.SignatureGenerator,
 		SignatureSender:    cfg.SignatureSender,
+		Active:             active,
 	}), id)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))

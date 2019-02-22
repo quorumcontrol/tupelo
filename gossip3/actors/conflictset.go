@@ -52,6 +52,7 @@ type ConflictSetConfig struct {
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	CurrentStateStore  storage.Reader
+	Active             bool
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
@@ -64,10 +65,10 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatureGenerator: cfg.SignatureGenerator,
 			signatureChecker:   cfg.SignatureChecker,
 			signatureSender:    cfg.SignatureSender,
+			active:             cfg.Active,
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
-			active:             false,
 		}
 	}).WithMiddleware(
 		middleware.LoggingMiddleware,
@@ -75,16 +76,9 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 	)
 }
 
-func (cs *ConflictSet) nextHeight(objectID []byte) uint64 {
-	return nextHeight(cs.currentStateStore, objectID)
-}
-
 func (cs *ConflictSet) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
-		if msg.Transaction.Height == cs.nextHeight(msg.Transaction.ObjectID) {
-			cs.active = true
-		}
 		cs.handleNewTransaction(context, msg)
 	// this will be an external signature
 	case *messages.Signature:
