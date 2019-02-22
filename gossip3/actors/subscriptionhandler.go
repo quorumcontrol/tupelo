@@ -56,23 +56,16 @@ func NewSubscriptionHandlerProps() *actor.Props {
 }
 
 func subscriptionKeys(objectKey string, tip []byte) []string {
-	var tipCid cid.Cid
-	var err error
-	if len(tip) > 0 {
-		tipCid, err = cid.Cast(tip)
-		if err != nil {
-			panic(fmt.Errorf("error casting new tip to CID: %v", err))
-		}
-	} else {
-		tipCid = cid.Undef
+	if len(tip) == 0 {
+		return []string{objectKey, ""}
 	}
-	var tipStr string
-	if tipCid.Defined() {
-		tipStr = tipCid.String()
-	} else {
-		tipStr = ""
+
+	tipCid, err := cid.Cast(tip)
+	if err != nil {
+		panic(fmt.Errorf("error casting new tip to CID: %v", err))
 	}
-	return []string{objectKey, tipStr}
+
+	return []string{objectKey, tipCid.String()}
 }
 
 func (sh *SubscriptionHandler) subscriptionKeys(uncastMsg interface{}) []string {
