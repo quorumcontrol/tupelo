@@ -15,4 +15,4 @@ phases:
       - scripts/install-dep.sh
   build:
     commands:
-      - make test
+      - make -d test
