@@ -953,8 +953,9 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "b9ad489c635e736552bed45bd6444efcb777ae31"
+  revision = "895b960f67cab2a6d9440fffb80ec937aed39fd0"
   source = "git@github.com:quorumcontrol/chaintree.git"
+  version = "v5.0.0"
 
 [[projects]]
   digest = "1:0f81944e3477cd8e974a49b8b51403c33d48b47a1ef7d69951ce01095c4a2766"
