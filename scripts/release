@@ -6,7 +6,8 @@ pushd $(dirname $0)/../
 trap popd EXIT
 
 projectdir=$(pwd)
-releasedir=$projectdir/release/
+bindir=${projectdir}/bin/
+releasedir=${projectdir}/release/
 version=$1
 
 if [ -z "$version" ]; then
@@ -18,36 +19,7 @@ linux_binary="tupelo-${version}-linux-amd64"
 macos_binary="tupelo-${version}-darwin-amd64"
 windows_binary="tupelo-${version}-windows-amd64.exe"
 
-zipdir=$projectdir/.tmp/tupelo-$version/
-rm -rf $zipdir
-mkdir -p $zipdir
-mkdir -p $releasedir
-
-generateSha256() {
-  filename=$1
-  if ! [ -x "$(command -v docker)" ]; then
-    echo "docker is not installed, can't generate sha256"
-  else
-    container_id=$(docker run -d --entrypoint=tail alpine -f /dev/null)
-    docker cp $zipdir/$filename $container_id:$filename
-    sha256=$(docker exec $container_id sha256sum $filename)
-    echo $sha256 >> $releasedir/tupelo-${version}-checksums.txt
-  fi
-}
-
-if ! [ -x "$(command -v xgo)" ]; then
-  echo "xgo is required; run 'go get -u github.com/karalabe/xgo'"
-else
-# Windows builds disabled until we can figure out badger storage bug there
-#  xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 --out tupelo-${version} ./
-  xgo --targets=darwin-10.10/amd64,linux/amd64 --out tupelo-${version} ./
-  mv tupelo-${version}-linux* ${zipdir}/${linux_binary}
-  mv tupelo-${version}-darwin* ${zipdir}/${macos_binary}
-#  mv tupelo-${version}-windows* ${zipdir}/${windows_binary}
-  generateSha256 ${linux_binary}
-  generateSha256 ${macos_binary}
-#  generateSha256 ${windows_binary}
-fi
+./build
 
 if [ -z "${LOCAL}" ]; then
   echo "Tagging ${version} and pushing to GitHub"
@@ -55,6 +27,21 @@ if [ -z "${LOCAL}" ]; then
   git push origin ${version}
 fi
 
-cd $(dirname $zipdir)
-zip $releasedir/tupelo-$version.zip -r $(basename $zipdir)
-rm -rf $zipdir
+generateSha256 ${linux_binary}
+generateSha256 ${macos_binary}
+# generateSha256 ${windows_binary}
+
+cd $(dirname $bindir)
+zip $releasedir/tupelo-$version.zip -r $(basename $bindir)
+
+generateSha256() {
+  filename=$1
+  if ! [ -x "$(command -v docker)" ]; then
+    echo "docker is not installed, can't generate sha256"
+  else
+    container_id=$(docker run -d --entrypoint=tail alpine -f /dev/null)
+    docker cp $bindir/$filename $container_id:$filename
+    sha256=$(docker exec $container_id sha256sum $filename)
+    echo $sha256 >> $releasedir/tupelo-${version}-checksums.txt
+  fi
+}

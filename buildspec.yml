@@ -12,7 +12,7 @@ phases:
       - chmod 600 ~/.ssh/id_rsa
       - eval `ssh-agent`
       - ssh-add ~/.ssh/id_rsa
-      - bin/install-dep.sh
+      - scripts/install-dep.sh
       - /go/bin/dep ensure
   build:
     commands:

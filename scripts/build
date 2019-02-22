@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+set -e
+
+pushd $(dirname $0)/../
+trap popd EXIT
+
+projectdir=$(pwd)
+bindir=${projectdir}/bin/
+version=$1
+
+if [ -z "$version" ]; then
+  echo "Specify version (v#.#.#) as first argument"
+  exit 1
+fi
+
+linux_binary="tupelo-${version}-linux-amd64"
+macos_binary="tupelo-${version}-darwin-amd64"
+windows_binary="tupelo-${version}-windows-amd64.exe"
+
+tmpdir=$projectdir/.tmp/tupelo-$version/
+rm -rf $tmpdir
+mkdir -p $tmpdir
+
+if ! [ -x "$(command -v xgo)" ]; then
+  echo "xgo is required; run 'go get -u github.com/karalabe/xgo'"
+else
+# Windows builds disabled until we can figure out badger storage bug there
+#  xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 --out tupelo-${version} ./
+  xgo -v -ldflags='-extldflags "-static"' --targets=darwin-10.10/amd64,linux/amd64 --out tupelo-${version} ./
+  mv tupelo-${version}-linux* ${tmpdir}/${linux_binary}
+  mv tupelo-${version}-darwin* ${tmpdir}/${macos_binary}
+#  mv tupelo-${version}-windows* ${tmpdir}/${windows_binary}
+fi
+
+mv ${tmpdir}/* ${bindir}/
