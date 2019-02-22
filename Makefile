@@ -1,5 +1,7 @@
 VERSION ?= snapshot
 
+FIRSTGOPATH = $(firstword $(subst :, ,$GOPATH))
+
 gosources = main.go $(wildcard bls/*.go) $(wildcard cmd/*.go) \
             $(wildcard consensus/*.go) $(wildcard gossip3/*.go) \
             $(wildcard gossip3/**/*.go) $(wildcard p2p/*.go) \
@@ -14,8 +16,8 @@ binaries = bin/tupelo-${VERSION}-linux-amd64 bin/tupelo-${VERSION}-darwin-amd64 
 
 all: test build
 
-$(binaries): vendor $(generated) ${GOPATH}/bin/xgo $(gosources)
-	${GOPATH}/bin/xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 \
+$(binaries): vendor $(generated) ${FIRSTGOPATH}/bin/xgo $(gosources)
+	${FIRSTGOPATH}/bin/xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 \
 	--out tupelo-${VERSION} ./
 	mv tupelo-${VERSION}-darwin-*-amd64 bin/tupelo-${VERSION}-darwin-amd64
 	mv tupelo-${VERSION}-linux-amd64 bin/
@@ -57,7 +59,7 @@ vendor: Gopkg.toml Gopkg.lock
 
 deps: vendor
 
-${GOPATH}/bin/xgo:
+${FIRSTGOPATH}/bin/xgo:
 	go get -u github.com/karalabe/xgo
 
 clean:
