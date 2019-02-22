@@ -15,4 +15,5 @@ phases:
       - scripts/install-dep.sh
   build:
     commands:
+      - echo $GOPATH
       - make -d test
