@@ -5,12 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/storage"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
@@ -165,10 +164,10 @@ func TestHandlesDeadlocks(t *testing.T) {
 		trans[i] = fakeValidateTransaction(t, &tr)
 		conflictSetRouter.Tell(trans[i])
 	}
-	// it's known that trans[1] is the lowest transaction,
+	// it's known that trans[0] is the lowest transaction,
 	// this is just a sanity check
 	require.True(t, string(trans[1].TransactionID) < string(trans[2].TransactionID))
-	require.True(t, string(trans[2].TransactionID) < string(trans[0].TransactionID))
+	require.True(t, string(trans[1].TransactionID) < string(trans[0].TransactionID))
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {

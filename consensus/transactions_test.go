@@ -154,11 +154,19 @@ func TestSetData(t *testing.T) {
 	err = cbornode.DecodeInto(linkedTree.RawData(), &treeCid)
 	assert.NotNil(t, err)
 
-	// assert the thing being linked to is a map
+	// assert the thing being linked to is a map with data key
 	treeMap := make(map[string]interface{})
 	err = cbornode.DecodeInto(linkedTree.RawData(), &treeMap)
 	assert.Nil(t, err)
-	_, ok := treeMap["some"]
+	dataCid, ok := treeMap["data"]
+	assert.True(t, ok)
+
+	// assert the thing being linked to is a map with actual set data
+	dataTree, err := testTree.Dag.Get(dataCid.(cid.Cid))
+	dataMap := make(map[string]interface{})
+	err = cbornode.DecodeInto(dataTree.RawData(), &dataMap)
+	assert.Nil(t, err)
+	_, ok = dataMap["some"]
 	assert.True(t, ok)
 
 	// make sure the original data is still there after setting new data
@@ -185,14 +193,14 @@ func TestSetData(t *testing.T) {
 
 	testTree.ProcessBlock(blockWithHeaders)
 
-	dp, err := DecodePath("/tree/" + path)
+	dp, err := DecodePath("/tree/data/" + path)
 	require.Nil(t, err)
 	resp, remain, err := testTree.Dag.Resolve(dp)
 	require.Nil(t, err)
 	require.Len(t, remain, 0)
 	require.Equal(t, value, resp)
 
-	dp, err = DecodePath("/tree/some/data")
+	dp, err = DecodePath("/tree/data/some/data")
 	require.Nil(t, err)
 	resp, remain, err = testTree.Dag.Resolve(dp)
 	require.Nil(t, err)
@@ -232,7 +240,7 @@ func TestSetOwnership(t *testing.T) {
 
 	testTree.ProcessBlock(blockWithHeaders)
 
-	dp, err := DecodePath("/tree/" + path)
+	dp, err := DecodePath("/tree/data/" + path)
 	require.Nil(t, err)
 	resp, remain, err := testTree.Dag.Resolve(dp)
 	require.Nil(t, err)

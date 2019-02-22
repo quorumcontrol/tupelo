@@ -263,52 +263,9 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-	val, _, err := testTree.Dag.Resolve([]string{"tree", "another", "path"})
+	val, _, err := testTree.Dag.Resolve([]string{"tree", "data", "another", "path"})
 	assert.Nil(t, err)
 	assert.Equal(t, "test", val)
-
-	transHeight++
-
-	// Should not be able to assign an authentication directly through SET_DATA
-	unsignedBlock = &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: &testTree.Dag.Tip,
-			Height:      transHeight,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]interface{}{
-						"path":  "_tupelo/authentications/publicKey",
-						"value": "test",
-					},
-				},
-			},
-		},
-	}
-
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
-	assert.Nil(t, err)
-
-	nodes = dagToByteNodes(t, testTree.Dag)
-
-	trans = &messages.Transaction{
-		State:       nodes,
-		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Height:      blockWithHeaders.Height,
-		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-	}
-
-	stateTrans7 := &stateTransaction{
-		CurrentState: testTree.Dag.Tip.Bytes(),
-		ObjectID:     []byte(treeDID),
-		Transaction:  trans,
-		Block:        blockWithHeaders,
-	}
-
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans7)
-	assert.NotNil(t, err)
-	assert.False(t, isAccepted)
-
 }
 
 func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Transaction) *stateTransaction {
