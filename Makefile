@@ -35,16 +35,16 @@ run: vendor $(generated)
 docker-image: build .dockerignore
 	docker build --build-arg VERSION=${VERSION} -t quorumcontrol/tupelo:${VERSION} .
 
-release: all release/tupelo-${VERSION}.zip docker-image
 release/tupelo-${VERSION}-checksums.txt: $(binaries)
 	docker run -ti --rm -v ${PWD}:/src:ro -w /src alpine sha256sum $^ > $@
 
 checksums: release/tupelo-${VERSION}-checksums.txt
 
+release: release/tupelo-${VERSION}.zip docker-image
 	git tag -s ${VERSION}
 	git push origin ${VERSION}
 	docker push quorumcontrol/tupelo:${VERSION}
-	# TODO: Upload zip file & checksums to GitHub release page
+	hub release create --draft --prerelease --open --attach release/tupelo-${VERSION}.zip ${VERSION}
 
 release/tupelo-${VERSION}.zip: test build checksums
 	zip release/tupelo-${VERSION}.zip -r bin/
