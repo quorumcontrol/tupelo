@@ -62,6 +62,12 @@ deps: vendor
 ${FIRSTGOPATH}/bin/xgo:
 	go get -u github.com/karalabe/xgo
 
+${FIRSTGOPATH}/bin/protoc-gen-go:
+	@rm -rf ${FIRSTGOPATH}/src/github.com/golang/protobuf
+	go get -d -u github.com/golang/protobuf/protoc-gen-go
+	git -C ${FIRSTGOPATH}/src/github.com/golang/protobuf checkout v1.2.0
+	go install github.com/golang/protobuf/protoc-gen-go
+
 clean:
 	go clean
 	rm -rf vendor
