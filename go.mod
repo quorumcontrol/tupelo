@@ -26,6 +26,7 @@ require (
 	github.com/ipfs/go-ipfs-http-client v0.0.0-20190329134716-880cd0134a92
 	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
 	github.com/ipfs/go-log v0.0.1
+	github.com/jakehl/goid v1.1.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/opentracing/opentracing-go v1.0.2
