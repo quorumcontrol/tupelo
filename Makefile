@@ -2,11 +2,7 @@ VERSION ?= snapshot
 
 FIRSTGOPATH = $(firstword $(subst :, ,${GOPATH}))
 
-gosources = main.go $(wildcard bls/*.go) $(wildcard cmd/*.go) \
-            $(wildcard consensus/*.go) $(wildcard gossip3/*.go) \
-            $(wildcard gossip3/**/*.go) $(wildcard p2p/*.go) \
-            $(wildcard testnotarygroup/*.go) $(wildcard wallet/*.go) \
-            $(wildcard wallet/**/*.go)
+gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 
 protobuf = wallet/walletrpc/service.pb.go
 msgpack = gossip3/messages/external_gen.go gossip3/remote/messages_gen.go
