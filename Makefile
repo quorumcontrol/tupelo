@@ -57,7 +57,7 @@ zip: release/tupelo-${VERSION}.zip
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
-deps: vendor
+deps: vendor ${FIRSTGOPATH}/bin/protoc-gen-go ${FIRSTGOPATH}/bin/xgo
 
 ${FIRSTGOPATH}/bin/xgo:
 	go get -u github.com/karalabe/xgo

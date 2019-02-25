@@ -10,7 +10,7 @@
 
 ## Contributing
 
-Grab the go dependencies:
+Install dependencies:
 
 `make deps`
 
