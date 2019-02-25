@@ -46,14 +46,13 @@ release/tupelo-${VERSION}.zip: all
 
 zip: release/tupelo-${VERSION}.zip
 
-wallet/walletrpc/service.pb.go: wallet/walletrpc/service.proto
-	go generate ./wallet/walletrpc
+# Generic protobuf rule
+%.pb.go: %.go %.proto ${FIRSTGOPATH}/bin/protoc-gen-go
+	go generate $<
 
-gossip3/messages/external_gen.go: gossip3/messages/external.go
-	go generate ./gossip3/messages
-
-gossip3/remote/messages_gen.go: gossip3/remote/messages.go
-	go generate ./gossip3/remote
+# Generic msgpack rule
+%_gen.go: %.go
+	go generate $<
 
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
