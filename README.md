@@ -22,6 +22,10 @@ You'll need to install Docker to build. Once that's installed, run:
 
 `make`
 
+To build a specific version, do this:
+
+`make VERSION=vM.m.p`
+
 ### Testing
 
 `make test`
