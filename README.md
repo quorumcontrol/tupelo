@@ -5,8 +5,6 @@
 * [dep](https://github.com/golang/dep) installed (go dependency tool).
 * [Protobuf](https://developers.google.com/protocol-buffers/) compiler (protoc) installed.
     * macOS with Homebrew: `brew install protobuf`
-* [Msgpack](https://msgpack.org/index.html) compiler (msgp) installed.
-    * macOS with Homebrew: `brew install msgpack`
 * [Docker](https://www.docker.com/) installed.
     * macOS: [Docker Desktop for Mac](https://hub.docker.com/editions/community/docker-ce-desktop-mac)
 
