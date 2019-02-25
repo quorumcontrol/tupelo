@@ -8,8 +8,9 @@ gosources = main.go $(wildcard bls/*.go) $(wildcard cmd/*.go) \
             $(wildcard testnotarygroup/*.go) $(wildcard wallet/*.go) \
             $(wildcard wallet/**/*.go)
 
-generated = wallet/walletrpc/service.pb.go gossip3/messages/external_gen.go \
-            gossip3/remote/messages_gen.go
+protobuf = wallet/walletrpc/service.pb.go
+msgpack = gossip3/messages/external_gen.go gossip3/remote/messages_gen.go
+generated = $(protobuf) $(msgpack)
 
 binaries = bin/tupelo-${VERSION}-linux-amd64 bin/tupelo-${VERSION}-darwin-amd64 \
            bin/tupelo-${VERSION}-windows-amd64.exe
@@ -24,6 +25,10 @@ $(binaries): vendor $(generated) ${FIRSTGOPATH}/bin/xgo $(gosources)
 	mv tupelo-${VERSION}-windows-*-amd64.exe bin/tupelo-${VERSION}-windows-amd64.exe
 
 build: $(binaries)
+
+protobuf: $(protobuf)
+
+msgpack: $(msgpack)
 
 test: vendor $(generated)
 	go test ./... -tags=integration -timeout=2m
