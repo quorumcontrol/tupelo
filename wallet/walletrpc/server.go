@@ -608,7 +608,7 @@ func ServeHttpInsecure(ctx context.Context) (*http.Server, error) {
 }
 
 func ServeHttpTLS(ctx context.Context, certFile, keyFile string) (*http.Server, error) {
-	creds, err := credentials.NewClientTLSFromFile(grpcHost(), certFile)
+	creds, err := credentials.NewClientTLSFromFile(certFile, grpcHost())
 	if err != nil {
 		return nil, fmt.Errorf("error loading TLS credentials: %v", err)
 	}

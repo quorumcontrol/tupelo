@@ -23,19 +23,26 @@ func TestServerStartup(t *testing.T) {
 
 	grpcServer, err := ServeInsecure(path, cli)
 	require.Nil(t, err)
+
 	web, err := ServeWebInsecure(grpcServer)
 	require.Nil(t, err)
+
 	http, err := ServeHttpInsecure(context.Background())
 	require.Nil(t, err)
+
+	http.Shutdown(context.Background())
 	web.Shutdown(context.Background())
 	grpcServer.Stop()
-	http.Shutdown(context.Background())
 
 	secGrpcServer, err := ServeTLS(path, cli, "testassets/cert.pem", "testassets/key.pem")
 	require.Nil(t, err)
+
 	secWeb, err := ServeWebTLS(secGrpcServer, "testassets/cert.pem", "testassets/key.pem")
 	require.Nil(t, err)
+
 	secHttp, err := ServeHttpTLS(context.Background(), "testassets/cert.pem", "testassets/key.pem")
+	require.Nil(t, err)
+
 	secHttp.Shutdown(context.Background())
 	secWeb.Shutdown(context.Background())
 	secGrpcServer.Stop()
