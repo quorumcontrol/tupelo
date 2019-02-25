@@ -11,7 +11,7 @@ generated = $(protobuf) $(msgpack)
 binaries = bin/tupelo-${VERSION}-linux-amd64 bin/tupelo-${VERSION}-darwin-amd64 \
            bin/tupelo-${VERSION}-windows-amd64.exe
 
-all: test build
+all: build
 
 $(binaries): vendor $(generated) ${FIRSTGOPATH}/bin/xgo $(gosources)
 	${FIRSTGOPATH}/bin/xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 \
