@@ -16,6 +16,7 @@ all: build
 $(binaries): vendor $(generated) ${FIRSTGOPATH}/bin/xgo $(gosources)
 	${FIRSTGOPATH}/bin/xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 \
 	--out tupelo-${VERSION} ./
+	mkdir -p bin
 	mv tupelo-${VERSION}-darwin-*-amd64 bin/tupelo-${VERSION}-darwin-amd64
 	mv tupelo-${VERSION}-linux-amd64 bin/
 	mv tupelo-${VERSION}-windows-*-amd64.exe bin/tupelo-${VERSION}-windows-amd64.exe
@@ -41,13 +42,15 @@ release/tupelo-${VERSION}-checksums.txt: $(binaries)
 checksums: release/tupelo-${VERSION}-checksums.txt
 
 release: release/tupelo-${VERSION}.zip docker-image
-	git tag -s ${VERSION}
+	git tag -s ${VERSION} -m "Release ${VERSION}"
 	git push origin ${VERSION}
 	docker push quorumcontrol/tupelo:${VERSION}
-	hub release create --draft --prerelease --open --attach release/tupelo-${VERSION}.zip ${VERSION}
+	hub release create --draft --prerelease --browse --attach release/tupelo-${VERSION}.zip \
+	  --attach release/tupelo-${VERSION}-checksums.txt ${VERSION} \
+	  --message "${VERSION}: TODO: Write me"
 
-release/tupelo-${VERSION}.zip: test build checksums
-	zip release/tupelo-${VERSION}.zip -r bin/
+release/tupelo-${VERSION}.zip: $(binaries) release/tupelo-${VERSION}-checksums.txt
+	zip --junk-paths release/tupelo-${VERSION}.zip $^
 
 zip: release/tupelo-${VERSION}.zip
 
