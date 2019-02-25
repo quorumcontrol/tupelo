@@ -10,15 +10,15 @@ Grab the go dependencies:
 
 `make deps`
 
-### Testing
-
-`make test`
-
 ### Building
 
 You'll need to install Docker to build. Once that's installed, run:
 
 `make`
+
+### Testing
+
+`make test`
 
 ## Concepts
 Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state. 
