@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
-	gossip3testhelpers "github.com/quorumcontrol/tupelo/gossip3/testhelpers"
-	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/spf13/cobra"
 )
 

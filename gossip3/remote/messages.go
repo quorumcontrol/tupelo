@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/tinylib/msgp/msgp"
 )
 
