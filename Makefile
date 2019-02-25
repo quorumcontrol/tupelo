@@ -1,6 +1,6 @@
 VERSION ?= snapshot
 
-FIRSTGOPATH = $(firstword $(subst :, ,$GOPATH))
+FIRSTGOPATH = $(firstword $(subst :, ,${GOPATH}))
 
 gosources = main.go $(wildcard bls/*.go) $(wildcard cmd/*.go) \
             $(wildcard consensus/*.go) $(wildcard gossip3/*.go) \
