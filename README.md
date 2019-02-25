@@ -3,6 +3,10 @@
 ## Dependencies
 
 * [dep](https://github.com/golang/dep) installed (go dependency tool).
+* Protobuf compiler (protoc)
+    * macOS with Homebrew: `brew install protobuf`
+* Msgpack compiler (msgp)
+    * macOS with Homebrew: `brew install msgpack`
 
 ## Contributing
 
