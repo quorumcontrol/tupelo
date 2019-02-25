@@ -59,13 +59,13 @@ zip: release/tupelo-${VERSION}.zip
 	go generate $<
 
 # Generic msgpack rule
-%_gen.go: %.go
+%_gen.go: %.go ${FIRSTGOPATH}/bin/msgp
 	go generate $<
 
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
-deps: vendor ${FIRSTGOPATH}/bin/protoc-gen-go ${FIRSTGOPATH}/bin/xgo
+deps: vendor ${FIRSTGOPATH}/bin/protoc-gen-go ${FIRSTGOPATH}/bin/xgo ${FIRSTGOPATH}/bin/msgp
 
 ${FIRSTGOPATH}/bin/xgo:
 	go get -u github.com/karalabe/xgo
@@ -75,6 +75,9 @@ ${FIRSTGOPATH}/bin/protoc-gen-go:
 	go get -d -u github.com/golang/protobuf/protoc-gen-go
 	git -C ${FIRSTGOPATH}/src/github.com/golang/protobuf checkout v1.2.0
 	go install github.com/golang/protobuf/protoc-gen-go
+
+${FIRSTGOPATH}/bin/msgp:
+	go get -u github.com/tinylib/msgp
 
 clean:
 	go clean
