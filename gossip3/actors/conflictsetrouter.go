@@ -153,7 +153,12 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 		msgHeight = currState.Signature.Height
 		objectID = currState.Signature.ObjectID
 	}
-	activeHeight := csr.nextHeight(objectID)
+	var activeHeight uint64
+	if len(objectID) > 0 {
+		activeHeight = csr.nextHeight(objectID)
+	} else {
+		activeHeight = 0
+	}
 	active := msgHeight == activeHeight
 	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
 		ID:                 id,
