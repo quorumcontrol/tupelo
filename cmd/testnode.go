@@ -31,11 +31,11 @@ import (
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
-	gossip3actors "github.com/quorumcontrol/tupelo-go-client/gossip3/actors"
 	gossip3messages "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
-	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
+	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/spf13/cobra"
 )
 
@@ -80,7 +80,11 @@ func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3
 		}
 
 		verKeyBytes := hexutil.MustDecode(keySet.BlsHexPublicKey)
-		signer := gossip3types.NewRemoteSigner(crypto.ToECDSAPub(ecdsaBytes), bls.BytesToVerKey(verKeyBytes))
+		ecdsaPub, err := crypto.UnmarshalPubkey(ecdsaBytes)
+		if err != nil {
+			panic("couldn't unmarshal ECDSA pub key")
+		}
+		signer := gossip3types.NewRemoteSigner(ecdsaPub, bls.BytesToVerKey(verKeyBytes))
 		if local != nil {
 			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
 		}

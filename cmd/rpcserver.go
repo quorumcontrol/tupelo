@@ -13,7 +13,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/actors"
+	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"google.golang.org/grpc"
 
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
@@ -24,7 +24,7 @@ import (
 
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	gossip3messages "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/spf13/cobra"
