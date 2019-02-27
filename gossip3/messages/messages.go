@@ -20,10 +20,6 @@ type SubscribeValidatorWorking struct {
 	Actor *actor.PID `msg:"-"`
 }
 
-type GetConflictSetView struct {
-	ConflictSetID string
-}
-
 type Subscribe struct {
 	Subscriber *actor.PID
 }
@@ -101,6 +97,7 @@ type TransactionWrapper struct {
 	ConflictSetID string
 	TransactionID []byte
 	Transaction   *Transaction
+	PreFlight     bool
 	Accepted      bool
 	Key           []byte
 	Value         []byte
@@ -116,3 +113,18 @@ type BulkRemove struct {
 }
 
 type SendingDone struct{}
+
+type Error struct {
+	Source string
+	Code   int
+	Memo   string
+}
+
+type ProcessSnoozedTransactions struct {
+	ObjectID []byte
+}
+
+type ValidateTransaction struct {
+	Key   []byte
+	Value []byte
+}

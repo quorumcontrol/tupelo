@@ -1,6 +1,10 @@
 package actors
 
 import (
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/consensus"
 	"testing"
 	"time"
 
@@ -18,13 +22,23 @@ func TestSubscribe(t *testing.T) {
 
 	objectID := []byte("afakeobjectidjustfortesting")
 
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+
+	tipValue := emptyTree.Tip
+
 	s.Request(&messages.TipSubscription{
 		ObjectID: objectID,
+		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
 	currentState := &messages.CurrentState{
 		Signature: &messages.Signature{
 			ObjectID: objectID,
+			NewTip: tipValue.Bytes(),
 		},
 	}
 
@@ -45,18 +59,29 @@ func TestUnsubscribe(t *testing.T) {
 
 	objectID := []byte("afakeobjectidjustfortesting")
 
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+
+	tipValue := emptyTree.Tip
+
 	s.Request(&messages.TipSubscription{
 		ObjectID: objectID,
+		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
 	s.Request(&messages.TipSubscription{
 		Unsubscribe: true,
 		ObjectID:    objectID,
+		TipValue:    tipValue.Bytes(),
 	}, fut.PID())
 
 	currentState := &messages.CurrentState{
 		Signature: &messages.Signature{
 			ObjectID: objectID,
+			NewTip: tipValue.Bytes(),
 		},
 	}
 
@@ -64,6 +89,6 @@ func TestUnsubscribe(t *testing.T) {
 		CurrentState: currentState,
 	})
 
-	_, err := fut.Result()
+	_, err = fut.Result()
 	require.NotNil(t, err)
 }

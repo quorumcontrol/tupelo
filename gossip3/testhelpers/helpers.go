@@ -34,7 +34,8 @@ func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
+			Height: 0,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -57,13 +58,14 @@ func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey
 	require.Nil(t, err)
 
 	testTree.ProcessBlock(blockWithHeaders)
-	nodes := dagToByteNodes(t, emptyTree)
+	nodes := DagToByteNodes(t, emptyTree)
 
 	bits := sw.WrapObject(blockWithHeaders).RawData()
 	require.Nil(t, sw.Err)
 
 	return messages.Transaction{
 		PreviousTip: emptyTip.Bytes(),
+		Height:      blockWithHeaders.Height,
 		NewTip:      testTree.Dag.Tip.Bytes(),
 		Payload:     bits,
 		State:       nodes,
@@ -71,7 +73,7 @@ func NewValidTransactionWithPathAndValue(t testing.TB, treeKey *ecdsa.PrivateKey
 	}
 }
 
-func dagToByteNodes(t testing.TB, dagTree *dag.Dag) [][]byte {
+func DagToByteNodes(t testing.TB, dagTree *dag.Dag) [][]byte {
 	cborNodes, err := dagTree.Nodes()
 	require.Nil(t, err)
 	nodes := make([][]byte, len(cborNodes))

@@ -81,6 +81,7 @@ type SyncerAvailable struct {
 type TipSubscription struct {
 	Unsubscribe bool
 	ObjectID    []byte
+	TipValue    []byte
 }
 
 type CurrentState struct {
@@ -115,6 +116,7 @@ type Signature struct {
 	TransactionID []byte
 	ObjectID      []byte
 	PreviousTip   []byte
+	Height        uint64
 	NewTip        []byte
 	View          uint64
 	Cycle         uint64
@@ -127,7 +129,7 @@ func (sig *Signature) GetSignable() []byte {
 }
 
 func (sig *Signature) ConflictSetID() string {
-	return ConflictSetID(sig.ObjectID, sig.PreviousTip)
+	return ConflictSetID(sig.ObjectID, sig.Height)
 }
 
 func uint64ToBytes(id uint64) []byte {
@@ -139,17 +141,18 @@ func uint64ToBytes(id uint64) []byte {
 type Transaction struct {
 	ObjectID    []byte
 	PreviousTip []byte
+	Height      uint64
 	NewTip      []byte
 	Payload     []byte
 	State       [][]byte
 }
 
 func (t *Transaction) ConflictSetID() string {
-	return ConflictSetID(t.ObjectID, t.PreviousTip)
+	return ConflictSetID(t.ObjectID, t.Height)
 }
 
-func ConflictSetID(objectID, previousTip []byte) string {
-	return string(crypto.Keccak256(append(objectID, previousTip...)))
+func ConflictSetID(objectID []byte, height uint64) string {
+	return string(crypto.Keccak256(append(objectID, uint64ToBytes(height)...)))
 }
 
 type ProvideStrata struct {
