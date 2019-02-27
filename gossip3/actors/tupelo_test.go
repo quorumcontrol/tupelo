@@ -85,28 +85,6 @@ func TestCommits(t *testing.T) {
 		s.Actor.Tell(&messages.StartGossip{})
 	}
 
-	t.Run("removes bad transactions", func(t *testing.T) {
-		trans := testhelpers.NewValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
-		require.Nil(t, err)
-		bits = append([]byte{byte(1)}, bits...) // append a bad byte
-		id := crypto.Keccak256(bits)
-		syncers[0].Actor.Tell(&messages.Store{
-			Key:   id,
-			Value: bits,
-		})
-		ret, err := syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 5*time.Second).Result()
-		require.Nil(t, err)
-		assert.Equal(t, ret, bits)
-
-		// wait for it to get removed in the sync
-		time.Sleep(100 * time.Millisecond)
-
-		ret, err = syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 5*time.Second).Result()
-		require.Nil(t, err)
-		assert.Empty(t, ret)
-	})
-
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
