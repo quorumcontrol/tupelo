@@ -2,6 +2,7 @@ package walletshell
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -299,6 +300,21 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 			}
 
 			c.Printf("data: %v\nremaining path: %v\n", data, remaining)
+		},
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "resolve-data",
+		Help: "resolve the data in a chain-tree under the user storage path (tree/data). usage: resolve-data chain-id path",
+		Func: func(c *ishell.Context) {
+			if len(c.Args) < 2 {
+				c.Println("not enough arguments passed to resolve-data")
+				return
+			}
+
+			c.Args[1] = fmt.Sprintf("tree/data/%s", strings.TrimPrefix(c.Args[1], "/"))
+
+			shell.Process(append([]string{"resolve"}, c.Args...)...)
 		},
 	})
 
