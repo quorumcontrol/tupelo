@@ -57,14 +57,19 @@ func complexType(obj interface{}) bool {
 
 func DecodePath(path string) ([]string, error) {
 	trimmed := strings.TrimPrefix(path, "/")
+
+	if trimmed == "" {
+		return []string{}, nil
+	}
+
 	split := strings.Split(trimmed, "/")
-	if len(split) > 1 { // []string{""} is the only valid path with an empty string
-		for _, component := range split {
-			if component == "" {
-				return nil, fmt.Errorf("malformed path string containing repeated separator: %s", path)
-			}
+
+	for _, component := range split {
+		if component == "" {
+			return nil, fmt.Errorf("malformed path string containing repeated separator: %s", path)
 		}
 	}
+
 	return split, nil
 }
 
