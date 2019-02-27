@@ -21,7 +21,10 @@ func TestValidator(t *testing.T) {
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
-			context.Request(validator, msg)
+			context.Request(validator, &validationRequest{
+				key:       msg.Key,
+				value:     msg.Value,
+			})
 		case *messages.TransactionWrapper:
 			fut.PID().Tell(msg)
 		}

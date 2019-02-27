@@ -3,6 +3,7 @@ package actors
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-cid"
 	"math/rand"
 	"testing"
 	"time"
@@ -99,7 +100,7 @@ func TestCommits(t *testing.T) {
 		assert.Equal(t, ret, bits)
 
 		// wait for it to get removed in the sync
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 
 		ret, err = syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 5*time.Second).Result()
 		require.Nil(t, err)
@@ -116,8 +117,10 @@ func TestCommits(t *testing.T) {
 
 		syncer := syncers[rand.Intn(len(syncers))].Actor
 
+		newTip, _ := cid.Cast(trans.NewTip)
 		syncer.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
+			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		syncer.Tell(&messages.Store{
@@ -138,8 +141,10 @@ func TestCommits(t *testing.T) {
 
 		fut := actor.NewFuture(20 * time.Second)
 
+		newTip, _ := cid.Cast(trans.NewTip)
 		syncers[1].Actor.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
+			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		start := time.Now()

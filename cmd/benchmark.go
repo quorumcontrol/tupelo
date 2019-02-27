@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/ipfs/go-cid"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"math"
 	"math/rand"
 	"sort"
@@ -39,11 +41,17 @@ var benchmarkSignersFanoutNumber int
 
 var activeCounter = 0
 
-func measureTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, did string) {
+func measureTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, trans messages.Transaction) {
 
 	startTime := time.Now()
 
-	respChan, err := client.Subscribe(group.GetRandomSigner(), did, 30*time.Second)
+	did := string(trans.ObjectID)
+	newTip, err := cid.Cast(trans.NewTip)
+	if err != nil {
+		results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
+	}
+
+	respChan, err := client.Subscribe(group.GetRandomSigner(), did, newTip, 30*time.Second)
 	if err != nil {
 		results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
 		results.Failures = results.Failures + 1
@@ -75,7 +83,7 @@ func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGro
 	used := map[string]bool{}
 
 	if shouldMeasure {
-		go measureTransaction(client, group, string(trans.ObjectID))
+		go measureTransaction(client, group, trans)
 	}
 
 	tries := 0

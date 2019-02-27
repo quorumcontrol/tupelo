@@ -351,12 +351,12 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 		return nil, err
 	}
 
-	var remoteTip string
+	var remoteTip cid.Cid
 	if !chain.IsGenesis() {
-		remoteTip = chain.Tip().String()
+		remoteTip = chain.Tip()
 	}
 
-	resp, err := rpcs.client.PlayTransactions(chain, key, remoteTip, transactions)
+	resp, err := rpcs.client.PlayTransactions(chain, key, &remoteTip, transactions)
 	if err != nil {
 		return nil, err
 	}

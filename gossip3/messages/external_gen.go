@@ -1626,6 +1626,12 @@ func (z *Signature) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "PreviousTip")
 				return
 			}
+		case "Height":
+			z.Height, err = dc.ReadUint64()
+			if err != nil {
+				err = msgp.WrapError(err, "Height")
+				return
+			}
 		case "NewTip":
 			z.NewTip, err = dc.ReadBytes(z.NewTip)
 			if err != nil {
@@ -1669,9 +1675,9 @@ func (z *Signature) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Signature) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 8
+	// map header, size 9
 	// write "TransactionID"
-	err = en.Append(0x88, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
+	err = en.Append(0x89, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
 	if err != nil {
 		return
 	}
@@ -1698,6 +1704,16 @@ func (z *Signature) EncodeMsg(en *msgp.Writer) (err error) {
 	err = en.WriteBytes(z.PreviousTip)
 	if err != nil {
 		err = msgp.WrapError(err, "PreviousTip")
+		return
+	}
+	// write "Height"
+	err = en.Append(0xa6, 0x48, 0x65, 0x69, 0x67, 0x68, 0x74)
+	if err != nil {
+		return
+	}
+	err = en.WriteUint64(z.Height)
+	if err != nil {
+		err = msgp.WrapError(err, "Height")
 		return
 	}
 	// write "NewTip"
@@ -1756,9 +1772,9 @@ func (z *Signature) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Signature) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 8
+	// map header, size 9
 	// string "TransactionID"
-	o = append(o, 0x88, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
+	o = append(o, 0x89, 0xad, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x44)
 	o = msgp.AppendBytes(o, z.TransactionID)
 	// string "ObjectID"
 	o = append(o, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
@@ -1766,6 +1782,9 @@ func (z *Signature) MarshalMsg(b []byte) (o []byte, err error) {
 	// string "PreviousTip"
 	o = append(o, 0xab, 0x50, 0x72, 0x65, 0x76, 0x69, 0x6f, 0x75, 0x73, 0x54, 0x69, 0x70)
 	o = msgp.AppendBytes(o, z.PreviousTip)
+	// string "Height"
+	o = append(o, 0xa6, 0x48, 0x65, 0x69, 0x67, 0x68, 0x74)
+	o = msgp.AppendUint64(o, z.Height)
 	// string "NewTip"
 	o = append(o, 0xa6, 0x4e, 0x65, 0x77, 0x54, 0x69, 0x70)
 	o = msgp.AppendBytes(o, z.NewTip)
@@ -1820,6 +1839,12 @@ func (z *Signature) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "PreviousTip")
 				return
 			}
+		case "Height":
+			z.Height, bts, err = msgp.ReadUint64Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Height")
+				return
+			}
 		case "NewTip":
 			z.NewTip, bts, err = msgp.ReadBytesBytes(bts, z.NewTip)
 			if err != nil {
@@ -1864,7 +1889,7 @@ func (z *Signature) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Signature) Msgsize() (s int) {
-	s = 1 + 14 + msgp.BytesPrefixSize + len(z.TransactionID) + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 12 + msgp.BytesPrefixSize + len(z.PreviousTip) + 7 + msgp.BytesPrefixSize + len(z.NewTip) + 5 + msgp.Uint64Size + 6 + msgp.Uint64Size + 8 + msgp.BytesPrefixSize + len(z.Signers) + 10 + msgp.BytesPrefixSize + len(z.Signature)
+	s = 1 + 14 + msgp.BytesPrefixSize + len(z.TransactionID) + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 12 + msgp.BytesPrefixSize + len(z.PreviousTip) + 7 + msgp.Uint64Size + 7 + msgp.BytesPrefixSize + len(z.NewTip) + 5 + msgp.Uint64Size + 6 + msgp.Uint64Size + 8 + msgp.BytesPrefixSize + len(z.Signers) + 10 + msgp.BytesPrefixSize + len(z.Signature)
 	return
 }
 
@@ -2381,6 +2406,12 @@ func (z *TipSubscription) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "ObjectID")
 				return
 			}
+		case "TipValue":
+			z.TipValue, err = dc.ReadBytes(z.TipValue)
+			if err != nil {
+				err = msgp.WrapError(err, "TipValue")
+				return
+			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -2394,9 +2425,9 @@ func (z *TipSubscription) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *TipSubscription) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
+	// map header, size 3
 	// write "Unsubscribe"
-	err = en.Append(0x82, 0xab, 0x55, 0x6e, 0x73, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65)
+	err = en.Append(0x83, 0xab, 0x55, 0x6e, 0x73, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65)
 	if err != nil {
 		return
 	}
@@ -2415,19 +2446,32 @@ func (z *TipSubscription) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "ObjectID")
 		return
 	}
+	// write "TipValue"
+	err = en.Append(0xa8, 0x54, 0x69, 0x70, 0x56, 0x61, 0x6c, 0x75, 0x65)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.TipValue)
+	if err != nil {
+		err = msgp.WrapError(err, "TipValue")
+		return
+	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
 func (z *TipSubscription) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
+	// map header, size 3
 	// string "Unsubscribe"
-	o = append(o, 0x82, 0xab, 0x55, 0x6e, 0x73, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65)
+	o = append(o, 0x83, 0xab, 0x55, 0x6e, 0x73, 0x75, 0x62, 0x73, 0x63, 0x72, 0x69, 0x62, 0x65)
 	o = msgp.AppendBool(o, z.Unsubscribe)
 	// string "ObjectID"
 	o = append(o, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
 	o = msgp.AppendBytes(o, z.ObjectID)
+	// string "TipValue"
+	o = append(o, 0xa8, 0x54, 0x69, 0x70, 0x56, 0x61, 0x6c, 0x75, 0x65)
+	o = msgp.AppendBytes(o, z.TipValue)
 	return
 }
 
@@ -2461,6 +2505,12 @@ func (z *TipSubscription) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "ObjectID")
 				return
 			}
+		case "TipValue":
+			z.TipValue, bts, err = msgp.ReadBytesBytes(bts, z.TipValue)
+			if err != nil {
+				err = msgp.WrapError(err, "TipValue")
+				return
+			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -2475,7 +2525,7 @@ func (z *TipSubscription) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *TipSubscription) Msgsize() (s int) {
-	s = 1 + 12 + msgp.BoolSize + 9 + msgp.BytesPrefixSize + len(z.ObjectID)
+	s = 1 + 12 + msgp.BoolSize + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 9 + msgp.BytesPrefixSize + len(z.TipValue)
 	return
 }
 
@@ -2507,6 +2557,12 @@ func (z *Transaction) DecodeMsg(dc *msgp.Reader) (err error) {
 			z.PreviousTip, err = dc.ReadBytes(z.PreviousTip)
 			if err != nil {
 				err = msgp.WrapError(err, "PreviousTip")
+				return
+			}
+		case "Height":
+			z.Height, err = dc.ReadUint64()
+			if err != nil {
+				err = msgp.WrapError(err, "Height")
 				return
 			}
 		case "NewTip":
@@ -2553,9 +2609,9 @@ func (z *Transaction) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z *Transaction) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 5
+	// map header, size 6
 	// write "ObjectID"
-	err = en.Append(0x85, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
+	err = en.Append(0x86, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
 	if err != nil {
 		return
 	}
@@ -2572,6 +2628,16 @@ func (z *Transaction) EncodeMsg(en *msgp.Writer) (err error) {
 	err = en.WriteBytes(z.PreviousTip)
 	if err != nil {
 		err = msgp.WrapError(err, "PreviousTip")
+		return
+	}
+	// write "Height"
+	err = en.Append(0xa6, 0x48, 0x65, 0x69, 0x67, 0x68, 0x74)
+	if err != nil {
+		return
+	}
+	err = en.WriteUint64(z.Height)
+	if err != nil {
+		err = msgp.WrapError(err, "Height")
 		return
 	}
 	// write "NewTip"
@@ -2617,13 +2683,16 @@ func (z *Transaction) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z *Transaction) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 5
+	// map header, size 6
 	// string "ObjectID"
-	o = append(o, 0x85, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
+	o = append(o, 0x86, 0xa8, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x44)
 	o = msgp.AppendBytes(o, z.ObjectID)
 	// string "PreviousTip"
 	o = append(o, 0xab, 0x50, 0x72, 0x65, 0x76, 0x69, 0x6f, 0x75, 0x73, 0x54, 0x69, 0x70)
 	o = msgp.AppendBytes(o, z.PreviousTip)
+	// string "Height"
+	o = append(o, 0xa6, 0x48, 0x65, 0x69, 0x67, 0x68, 0x74)
+	o = msgp.AppendUint64(o, z.Height)
 	// string "NewTip"
 	o = append(o, 0xa6, 0x4e, 0x65, 0x77, 0x54, 0x69, 0x70)
 	o = msgp.AppendBytes(o, z.NewTip)
@@ -2667,6 +2736,12 @@ func (z *Transaction) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			z.PreviousTip, bts, err = msgp.ReadBytesBytes(bts, z.PreviousTip)
 			if err != nil {
 				err = msgp.WrapError(err, "PreviousTip")
+				return
+			}
+		case "Height":
+			z.Height, bts, err = msgp.ReadUint64Bytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "Height")
 				return
 			}
 		case "NewTip":
@@ -2714,7 +2789,7 @@ func (z *Transaction) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Transaction) Msgsize() (s int) {
-	s = 1 + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 12 + msgp.BytesPrefixSize + len(z.PreviousTip) + 7 + msgp.BytesPrefixSize + len(z.NewTip) + 8 + msgp.BytesPrefixSize + len(z.Payload) + 6 + msgp.ArrayHeaderSize
+	s = 1 + 9 + msgp.BytesPrefixSize + len(z.ObjectID) + 12 + msgp.BytesPrefixSize + len(z.PreviousTip) + 7 + msgp.Uint64Size + 7 + msgp.BytesPrefixSize + len(z.NewTip) + 8 + msgp.BytesPrefixSize + len(z.Payload) + 6 + msgp.ArrayHeaderSize
 	for za0001 := range z.State {
 		s += msgp.BytesPrefixSize + len(z.State[za0001])
 	}
