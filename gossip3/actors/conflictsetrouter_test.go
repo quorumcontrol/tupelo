@@ -1,10 +1,11 @@
 package actors
 
 import (
-	"github.com/quorumcontrol/storage"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/quorumcontrol/storage"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -128,7 +129,6 @@ func TestHandlesDeadlocks(t *testing.T) {
 		CurrentStateStore:  storage.NewMemStorage(),
 	}
 
-	var conflictSetRouter *actor.PID
 	fut := actor.NewFuture(10 * time.Second)
 
 	isReadyFuture := actor.NewFuture(5 * time.Second)
@@ -137,27 +137,29 @@ func TestHandlesDeadlocks(t *testing.T) {
 		case *actor.Started:
 			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR")
 			require.Nil(t, err)
-			conflictSetRouter = cs
-			isReadyFuture.PID().Tell(true)
+			isReadyFuture.PID().Tell(cs)
 		case *messages.CurrentStateWrapper:
 			fut.PID().Tell(msg)
 		}
 	}
 
-	parent := actor.Spawn(actor.FromFunc(parentFunc))
+	parent, err := actor.SpawnNamed(actor.FromFunc(parentFunc), "THDParent")
+	require.Nil(t, err)
 	defer parent.Poison()
+
 	keyBytes, err := hexutil.Decode("0xf9c0b741e7c065ea4fe4fde335c4ee575141db93236e3d86bb1c9ae6ccddf6f1")
 	require.Nil(t, err)
 	treeKey, err := crypto.ToECDSA(keyBytes)
 	require.Nil(t, err)
 
-	_, err = isReadyFuture.Result()
+	csInterface, err := isReadyFuture.Result()
 	require.Nil(t, err)
+	conflictSetRouter := csInterface.(*actor.PID)
 
 	trans := make([]*messages.TransactionWrapper, len(sigGeneratorActors))
 	var conflictSetID string
 	for i := 0; i < len(trans); i++ {
-		tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey,"path/to/somewhere", strconv.Itoa(i))
+		tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "path/to/somewhere", strconv.Itoa(i))
 		require.Truef(t, conflictSetID == "" || tr.ConflictSetID() == conflictSetID, "test transactions should all be in the same conflict set")
 		conflictSetID = tr.ConflictSetID()
 		trans[i] = fakeValidateTransaction(t, &tr)
