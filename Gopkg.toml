@@ -70,3 +70,7 @@
 [[constraint]]
   name = "github.com/tinylib/msgp"
   version = "v1.1.0"
+
+[[override]]
+  name = "github.com/google/protobuf"
+  version = "v3.6.1"
