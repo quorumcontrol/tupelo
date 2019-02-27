@@ -12,6 +12,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	cid "github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
@@ -45,7 +46,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
-	currenStore, err := storage.NewBadgerStorage(currentPath)
+	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
@@ -54,7 +55,7 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 		Self:              localSigner,
 		NotaryGroup:       ng,
 		CommitStore:       commitStore,
-		CurrentStateStore: currenStore,
+		CurrentStateStore: currentStore,
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -168,7 +169,10 @@ func TestLibP2PSigning(t *testing.T) {
 	}
 	time.Sleep(200 * time.Millisecond) // give time for warmup
 
-	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), 60*time.Second)
+	newTip, err := cid.Cast(trans.NewTip)
+	require.Nil(t, err)
+
+	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 60*time.Second)
 	require.Nil(t, err)
 
 	client.SendTransaction(systems[0].GetRandomSigner(), &trans)
@@ -176,8 +180,10 @@ func TestLibP2PSigning(t *testing.T) {
 
 	resp := <-ch
 	require.NotNil(t, resp)
+	require.IsType(t, &messages.CurrentState{}, resp)
 	stop := time.Now()
-	assert.Equal(t, resp.Signature.NewTip, trans.NewTip)
+	sigResp := resp.(*messages.CurrentState)
+	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	assert.True(t, stop.Sub(start) < 60*time.Second)

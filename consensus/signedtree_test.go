@@ -22,7 +22,7 @@ func TestSignedChainTree_IsGenesis(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: TransactionTypeSetData,

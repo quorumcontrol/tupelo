@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	ipfsconfig "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config"
 	"github.com/ipsn/go-ipfs/plugin/loader"
 	"github.com/ipsn/go-ipfs/repo/fsrepo"
@@ -178,7 +177,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: consensus.TransactionTypeSetData,
@@ -223,15 +222,9 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	wrappedBlock := sw.WrapObject(blockWithHeaders)
 	require.Nil(t, sw.Err)
 
-	lastEntry := &chaintree.ChainEntry{
-		PreviousTip:       "",
-		BlocksWithHeaders: []cid.Cid{wrappedBlock.Cid()},
-	}
-	entryNode := sw.WrapObject(lastEntry)
-	chainMap["end"] = entryNode.Cid()
+	chainMap["end"] = wrappedBlock.Cid()
 	newChainNode := sw.WrapObject(chainMap)
 
-	signedTree.ChainTree.Dag.AddNodes(entryNode)
 	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
 	signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
 

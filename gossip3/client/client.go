@@ -11,6 +11,7 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo/consensus"
@@ -29,11 +30,11 @@ type Client struct {
 type subscriberActor struct {
 	middleware.LogAwareHolder
 
-	ch      chan *messages.CurrentState
+	ch      chan interface{}
 	timeout time.Duration
 }
 
-func newSubscriberActorProps(ch chan *messages.CurrentState, timeout time.Duration) *actor.Props {
+func newSubscriberActorProps(ch chan interface{}, timeout time.Duration) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &subscriberActor{
 			ch:      ch,
@@ -51,14 +52,20 @@ func (sa *subscriberActor) Receive(ctx actor.Context) {
 		ctx.SetReceiveTimeout(sa.timeout)
 	case *actor.ReceiveTimeout:
 		ctx.Self().Poison()
+		close(sa.ch)
 	case *actor.Terminated:
+		// For some reason we never seem to receive this when we timeout and self-poison
 		close(sa.ch)
 	case *messages.CurrentState:
 		sa.ch <- msg
 		ctx.Respond(&messages.TipSubscription{
 			ObjectID:    msg.Signature.ObjectID,
+			TipValue:    msg.Signature.NewTip,
 			Unsubscribe: true,
 		})
+		ctx.Self().Poison()
+	case *messages.Error:
+		sa.ch <- msg
 		ctx.Self().Poison()
 	}
 }
@@ -89,8 +96,8 @@ func (c *Client) TipRequest(chainID string) (*messages.CurrentState, error) {
 	return res.(*messages.CurrentState), nil
 }
 
-func (c *Client) Subscribe(signer *types.Signer, treeDid string, timeout time.Duration) (chan *messages.CurrentState, error) {
-	ch := make(chan *messages.CurrentState, 1)
+func (c *Client) Subscribe(signer *types.Signer, treeDid string, expectedTip cid.Cid, timeout time.Duration) (chan interface{}, error) {
+	ch := make(chan interface{}, 1)
 	act, err := actor.SpawnPrefix(newSubscriberActorProps(ch, timeout), "sub-"+treeDid)
 	if err != nil {
 		return nil, fmt.Errorf("error spawning: %v", err)
@@ -98,6 +105,7 @@ func (c *Client) Subscribe(signer *types.Signer, treeDid string, timeout time.Du
 	c.subscriberActors = append(c.subscriberActors, act)
 	signer.Actor.Request(&messages.TipSubscription{
 		ObjectID: []byte(treeDid),
+		TipValue: expectedTip.Bytes(),
 	}, act)
 	return ch, nil
 }
@@ -115,11 +123,29 @@ func (c *Client) SendTransaction(signer *types.Signer, trans *messages.Transacti
 	return nil
 }
 
-func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, remoteTip string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
+func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, remoteTip *cid.Cid, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
 	sw := safewrap.SafeWrap{}
+
+	if remoteTip != nil && cid.Undef.Equals(*remoteTip) {
+		remoteTip = nil
+	}
+
+	root, err := getRoot(tree)
+	if err != nil {
+		return nil, fmt.Errorf("error getting root: %v", err)
+	}
+
+	var height uint64
+
+	if tree.IsGenesis() {
+		height = 0
+	} else {
+		height = root.Height + 1
+	}
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
+			Height:       height,
 			PreviousTip:  remoteTip,
 			Transactions: transactions,
 		},
@@ -154,33 +180,44 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 
 	transaction := messages.Transaction{
 		PreviousTip: storedTip.Bytes(),
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		NewTip:      expectedTip.Bytes(),
 		ObjectID:    []byte(tree.MustId()),
 		State:       nodes,
 	}
-
+	
 	target := c.Group.GetRandomSigner()
 
-	respChan, err := c.Subscribe(target, tree.MustId(), 60*time.Second)
+	respChan, err := c.Subscribe(target, tree.MustId(), expectedTip, 60*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("error subscribing: %v", err)
 	}
 
 	err = c.SendTransaction(target, &transaction)
 	if err != nil {
-		panic(fmt.Errorf("Error sending transaction %v", err))
+		panic(fmt.Errorf("error sending transaction %v", err))
 	}
 
-	resp := <-respChan
+	uncastResp := <-respChan
 
-	if resp == nil {
+	if uncastResp == nil {
 		return nil, fmt.Errorf("error timeout")
+	}
+
+	var resp *messages.CurrentState
+	switch respVal := uncastResp.(type) {
+	case *messages.Error:
+		return nil, fmt.Errorf("error response: %v", respVal)
+	case *messages.CurrentState:
+		resp = respVal
+	default:
+		return nil, fmt.Errorf("error unrecognized response type: %T", respVal)
 	}
 
 	if !bytes.Equal(resp.Signature.NewTip, expectedTip.Bytes()) {
 		respCid, _ := cid.Cast(resp.Signature.NewTip)
-		return nil, fmt.Errorf("error, tree updated to different tip - expected: %v - received: %v", respCid.String(), expectedTip.String())
+		return nil, fmt.Errorf("error, tree updated to different tip - expected: %v - received: %v", expectedTip.String(), respCid.String())
 	}
 
 	success, err := tree.ChainTree.ProcessBlock(blockWithHeaders)
@@ -233,4 +270,20 @@ func toConsensusSig(sig *messages.Signature, ng *types.NotaryGroup) (*consensus.
 		Signature: sig.Signature,
 		Type:      consensus.KeyTypeBLSGroupSig,
 	}, nil
+}
+
+func getRoot(sct *consensus.SignedChainTree) (*chaintree.RootNode, error) {
+	ct := sct.ChainTree
+	unmarshaledRoot, err := ct.Dag.Get(ct.Dag.Tip)
+	if unmarshaledRoot == nil || err != nil {
+		return nil, fmt.Errorf("error,missing root: %v", err)
+	}
+
+	root := &chaintree.RootNode{}
+
+	err = cbornode.DecodeInto(unmarshaledRoot.RawData(), root)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding root: %v", err)
+	}
+	return root, nil
 }

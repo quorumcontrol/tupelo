@@ -10,8 +10,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
-	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -38,6 +38,11 @@ type TransactionValidator struct {
 	reader storage.Reader
 }
 
+type validationRequest struct {
+	key       []byte
+	value     []byte
+}
+
 const maxValidatorConcurrency = 10
 
 func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props {
@@ -53,21 +58,26 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 
 func (tv *TransactionValidator) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.Store:
-		tv.Log.Debugw("stateHandler initial", "key", msg.Key)
-		tv.handleStore(context, msg)
+	case *validationRequest:
+		tv.Log.Debugw("stateHandler initial", "key", msg.key)
+		tv.handleRequest(context, msg)
 	}
 }
 
-func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages.Store) {
+func (tv *TransactionValidator) nextHeight(objectID []byte) uint64 {
+	return nextHeight(tv.reader, objectID)
+}
+
+func (tv *TransactionValidator) handleRequest(context actor.Context, msg *validationRequest) {
 	wrapper := &messages.TransactionWrapper{
-		Key:      msg.Key,
-		Value:    msg.Value,
-		Accepted: false,
-		Metadata: messages.MetadataMap{"seen": time.Now()},
+		Key:       msg.key,
+		Value:     msg.value,
+		PreFlight: false,
+		Accepted:  false,
+		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
 	var t messages.Transaction
-	_, err := t.UnmarshalMsg(msg.Value)
+	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
 		tv.Log.Infow("error unmarshaling", "err", err)
 		context.Respond(wrapper)
@@ -75,24 +85,37 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 	}
 	wrapper.ConflictSetID = t.ConflictSetID()
 	wrapper.Transaction = &t
-	wrapper.TransactionID = msg.Key
+	wrapper.TransactionID = msg.key
 
-	bits, err := tv.reader.Get(t.ObjectID)
+	var currTip []byte
+	objectIDBits, err := tv.reader.Get(t.ObjectID)
 	if err != nil {
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 
-	var currTip []byte
-	if len(bits) > 0 {
+	var preFlight bool
+	if len(objectIDBits) > 0 {
+		expectedHeight := tv.nextHeight(t.ObjectID)
 		var currentState messages.CurrentState
-		_, err := currentState.UnmarshalMsg(bits)
+		_, err := currentState.UnmarshalMsg(objectIDBits)
 		if err != nil {
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
-		currTip = currentState.Signature.NewTip
+		if expectedHeight == t.Height {
+			currTip = currentState.Signature.NewTip
+			preFlight = false
+		} else if expectedHeight < t.Height {
+			preFlight = true
+		} else {
+			tv.Log.Errorf("error: transaction height %d is lower than current state height %d", t.Height, expectedHeight)
+			context.Respond(wrapper)
+			return
+		}
+	} else {
+		preFlight = t.Height != 0
 	}
 
-	if !bytes.Equal(crypto.Keccak256(msg.Value), msg.Key) {
+	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
 		context.Respond(wrapper)
 		return
@@ -106,23 +129,41 @@ func (tv *TransactionValidator) handleStore(context actor.Context, msg *messages
 		return
 	}
 
+	if block.Height != t.Height {
+		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Height, "transHeight", t.Height, "transaction", msg.key)
+		context.Respond(wrapper)
+		return
+	}
+
 	st := &stateTransaction{
 		ObjectID:      t.ObjectID,
 		Transaction:   &t,
-		TransactionID: msg.Key,
+		TransactionID: msg.key,
 		CurrentState:  currTip,
 		ConflictSetID: wrapper.ConflictSetID,
 		Block:         block,
-		payload:       msg.Value,
+		payload:       msg.value,
 	}
 
 	nextState, accepted, err := chainTreeStateHandler(st)
 
-	if accepted && bytes.Equal(nextState, t.NewTip) {
-		tv.Log.Debugw("accepted", "key", msg.Key)
-		wrapper.Accepted = true
+	expectedNewTip := bytes.Equal(nextState, t.NewTip)
+	if accepted && expectedNewTip {
+		tv.Log.Debugw("accepted", "key", msg.key)
+		if preFlight {
+			wrapper.PreFlight = true
+		} else {
+			wrapper.Accepted = true
+		}
 		context.Respond(wrapper)
 		return
+	} else {
+		if err == nil && !expectedNewTip {
+			nextStateCid, _ := cid.Cast(nextState)
+			newTipCid, _ := cid.Cast(t.NewTip)
+			err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
+		}
+		wrapper.Metadata["error"] = err
 	}
 
 	tv.Log.Debugw("rejected", "err", err)
@@ -150,7 +191,11 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
 	} else {
+		// TODO: This seems insecure.
 		currentTip = transPreviousTip
+
+		// Should it be the empty tip for this chaintree? Seems like that's what we're trusting the transPreviousTip to be.
+		// If so, how do we construct that here?
 	}
 
 	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
@@ -182,7 +227,13 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 
 	isValid, err := chainTree.ProcessBlock(stateTrans.Block)
 	if !isValid || err != nil {
-		return nil, false, fmt.Errorf("error processing: %v", err)
+		var errMsg string
+		if err == nil {
+			errMsg = "invalid transaction"
+		} else {
+			errMsg = err.Error()
+		}
+		return nil, false, fmt.Errorf("error processing: %v", errMsg)
 	}
 
 	return chainTree.Dag.Tip.Bytes(), true, nil

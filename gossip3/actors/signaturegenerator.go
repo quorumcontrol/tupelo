@@ -61,6 +61,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		PreviousTip:   msg.Transaction.PreviousTip,
 		NewTip:        msg.Transaction.NewTip,
 		Signers:       marshaled,
+		Height:        msg.Transaction.Height,
 	}
 
 	sg.Log.Debugw("signing", "t", msg.Key)

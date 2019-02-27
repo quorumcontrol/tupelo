@@ -15,7 +15,7 @@ func TestIsBlockSignedBy(t *testing.T) {
 
 	blockWithHeaders := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",

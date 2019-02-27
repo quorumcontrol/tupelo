@@ -23,7 +23,7 @@ func TestEstablishCoinTransactionWithMaximum(t *testing.T) {
 
 	blockWithHeaders := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "ESTABLISH_COIN",
@@ -71,7 +71,7 @@ func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
 
 	blockWithHeaders := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "ESTABLISH_COIN",
@@ -117,7 +117,7 @@ func TestSetData(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -167,7 +167,7 @@ func TestSetData(t *testing.T) {
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -212,7 +212,7 @@ func TestSetOwnership(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -241,7 +241,7 @@ func TestSetOwnership(t *testing.T) {
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_OWNERSHIP",
