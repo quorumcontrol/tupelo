@@ -13,7 +13,10 @@ tar -xzvf protobuf-all-${PROTOC_VERSION}.tar.gz
 
 cd protobuf-${PROTOC_VERSION}
 
-./configure
-make
-sudo make install
-sudo ldconfig
+echo "Configuring protoc"
+./configure > /dev/null
+echo "Building protoc"
+make > / dev/null
+echo "Installing protoc"
+sudo make install > /dev/null
+sudo ldconfig > /dev/null
