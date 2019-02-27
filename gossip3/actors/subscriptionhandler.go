@@ -175,14 +175,10 @@ func (osm *objectSubscriptionManager) subscriptionKeys(context actor.Context, ms
 }
 
 func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *messages.TipSubscription) {
-	//subKeys := osm.subscriptionKeys(context, msg)
-	//osm.subscriptions[strings.Join(subKeys, "-")] = context.Sender()
 	osm.subscriptions[context.Sender().String()] = context.Sender()
 }
 
 func (osm *objectSubscriptionManager) unsubscribe(context actor.Context, msg *messages.TipSubscription) {
-	//subKeys := osm.subscriptionKeys(context, msg)
-	//delete(osm.subscriptions, strings.Join(subKeys, "-"))
 	delete(osm.subscriptions, context.Sender().String())
 	if len(osm.subscriptions) == 0 {
 		context.Self().Stop()
