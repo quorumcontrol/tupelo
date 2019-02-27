@@ -426,8 +426,7 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 		return nil, nil, err
 	}
 
-	treePath := append([]string{"tree"}, path...)
-	return chain.ChainTree.Dag.Resolve(treePath)
+	return chain.ChainTree.Dag.Resolve(path)
 }
 
 func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {

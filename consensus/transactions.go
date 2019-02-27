@@ -15,6 +15,7 @@ const (
 	TreePathForAuthentications = "_tupelo/authentications"
 	TreePathForCoins           = "_tupelo/coins"
 	TreePathForStake           = "_tupelo/stake"
+	TreePathForData            = "data"
 )
 
 func init() {
@@ -67,7 +68,7 @@ func DecodePath(path string) ([]string, error) {
 	return split, nil
 }
 
-// SetDataTransaction just sets a path in a tree to arbitrary data. It makes sure no data is being changed in the _tupelo path.
+// SetDataTransaction just sets a path in tree/data to arbitrary data.
 func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
 	payload := &SetDataPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
@@ -80,9 +81,9 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error decoding path: %v", err)}
 	}
 
-	if path[0] == "_tupelo" {
-		return nil, false, &ErrorCode{Code: 999, Memo: "the path prefix _tupelo is reserved"}
-	}
+	// SET_DATA always sets inside tree/data
+	dataPath, _ := DecodePath(TreePathForData)
+	path = append(dataPath, path...)
 
 	if complexType(payload.Value) {
 		newTree, err = tree.SetAsLink(path, payload.Value)
