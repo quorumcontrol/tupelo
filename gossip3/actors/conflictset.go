@@ -2,8 +2,9 @@ package actors
 
 import (
 	"fmt"
-	"github.com/quorumcontrol/storage"
 	"time"
+
+	"github.com/quorumcontrol/storage"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -14,9 +15,8 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/types"
 )
 
-type signatureMap map[string]*messages.SignatureWrapper
-type signaturesByTransaction map[string]signatureMap
 type signaturesBySigner map[string]*messages.SignatureWrapper
+type signaturesByTransaction map[string]signaturesBySigner
 type transactionMap map[string]*messages.TransactionWrapper
 
 type checkStateMsg struct {
@@ -146,7 +146,7 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 		panic(fmt.Sprintf("we should only handle pre-flight or accepted transactions at this level"))
 	}
 	if !cs.active {
-		cs.Log.Debugf("snoozing transaction at height %d\n", msg.Transaction.Height)
+		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
 	if cs.active {
@@ -160,20 +160,20 @@ func (cs *ConflictSet) processTransactions(context actor.Context) {
 	}
 
 	for _, transaction := range cs.transactions {
-		cs.Log.Debugf("processing transaction at height %d\n", transaction.Transaction.Height)
+		cs.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
 
-		// do this as a message to make sure we're doing it after all the updates have come in
 		if !cs.didSign {
 			context.Request(cs.signatureGenerator, transaction)
 			cs.didSign = true
 		}
 		cs.updates++
-		context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 	}
+	// do this as a message to make sure we're doing it after all the updates have come in
+	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {
-	cs.Log.Debugw("handle new signature")
+	cs.Log.Debugw("handle new signature", "t", msg.Signature.TransactionID)
 	if msg.Internal {
 		cs.signatureSender.Tell(msg)
 	}
@@ -182,7 +182,7 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 	}
 	existingMap, ok := cs.signatures[string(msg.Signature.TransactionID)]
 	if !ok {
-		existingMap = make(signatureMap)
+		existingMap = make(signaturesBySigner)
 		for id := range msg.Signers {
 			existingMap[id] = msg
 		}
@@ -237,21 +237,24 @@ func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
 			lowestTrans = trans
 		}
 	}
-	cs.nextView()
+	cs.nextView(lowestTrans)
 
 	cs.handleNewTransaction(context, lowestTrans)
 }
 
-func (cs *ConflictSet) nextView() {
+func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
 	cs.view++
 	cs.didSign = false
-	cs.signatures = make(signaturesByTransaction)
-	cs.signerSigs = make(signaturesBySigner)
 	cs.transactions = make(transactionMap)
+
+	// only keep signatures on the winning transaction
+	transSigs := cs.signatures[string(newWinner.TransactionID)]
+	cs.signatures = signaturesByTransaction{string(newWinner.TransactionID): transSigs}
+	cs.signerSigs = transSigs
 }
 
 func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans *messages.TransactionWrapper) error {
-	cs.Log.Debugw("createCurrentStateFromTrans")
+	cs.Log.Debugw("createCurrentStateFromTrans", "t", trans.Key)
 	sigs := cs.signatures[string(trans.TransactionID)]
 	var sigBytes [][]byte
 	signersArray := bitarray.NewSparseBitArray()
@@ -362,7 +365,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 	count := cs.notaryGroup.QuorumCount()
 	for tID, sigList := range cs.signatures {
-		cs.Log.Debugw("check count", "t", tID, "len", len(sigList), "quorumAt", count)
+		cs.Log.Debugw("check count", "t", []byte(tID), "len", len(sigList), "quorumAt", count)
 		if uint64(len(sigList)) >= count {
 			return cs.transactions[tID]
 		}
