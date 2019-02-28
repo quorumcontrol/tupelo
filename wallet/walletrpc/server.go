@@ -25,9 +25,8 @@ import (
 )
 
 const (
-	defaultWebPort  = ":50050"
-	defaultRpcPort  = ":50051"
-	defaultHttpPort = ":50052"
+	defaultWebPort = ":50050"
+	defaultRpcPort = ":50051"
 )
 
 type server struct {
@@ -530,11 +529,13 @@ func ServeTLS(storagePath string, client *gossip3client.Client, certFile string,
 	return startServer(grpcServer, storagePath, client)
 }
 
-func ServeWebInsecure(grpcServer *grpc.Server) (*http.Server, error) {
-	s, err := createGrpcWeb(grpcServer, defaultWebPort)
+func ServeWebInsecure(ctx context.Context, grpcServer *grpc.Server) (*http.Server, error) {
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	s, err := createGrpcWeb(ctx, grpcServer, defaultWebPort, opts)
 	if err != nil {
 		return nil, fmt.Errorf("error creating GRPC server: %v", err)
 	}
+
 	go func() {
 		fmt.Println("grpc-web listening on port", defaultWebPort)
 		err := s.ListenAndServe()
@@ -542,11 +543,19 @@ func ServeWebInsecure(grpcServer *grpc.Server) (*http.Server, error) {
 			log.Printf("error listening: %v", err)
 		}
 	}()
+
 	return s, nil
 }
 
-func ServeWebTLS(grpcServer *grpc.Server, certFile string, keyFile string) (*http.Server, error) {
-	s, err := createGrpcWeb(grpcServer, defaultWebPort)
+func ServeWebTLS(ctx context.Context, grpcServer *grpc.Server, certFile string, keyFile string) (*http.Server, error) {
+	creds, err := credentials.NewClientTLSFromFile(certFile, grpcHost())
+	if err != nil {
+		return nil, fmt.Errorf("error loading TLS credentials: %v", err)
+	}
+
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+
+	s, err := createGrpcWeb(ctx, grpcServer, defaultWebPort, opts)
 	if err != nil {
 		return nil, fmt.Errorf("error creating GRPC server: %v", err)
 	}
@@ -560,26 +569,33 @@ func ServeWebTLS(grpcServer *grpc.Server, certFile string, keyFile string) (*htt
 	return s, nil
 }
 
-func createGrpcWeb(grpcServer *grpc.Server, port string) (*http.Server, error) {
-	wrappedGrpc := grpcweb.WrapServer(grpcServer)
-	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if wrappedGrpc.IsGrpcWebRequest(req) {
-			wrappedGrpc.ServeHTTP(resp, req)
-			return
-		}
+func createGrpcWeb(ctx context.Context, grpcServer *grpc.Server, port string, opts []grpc.DialOption) (*http.Server, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-		if req.Method == "OPTIONS" {
+	httpHandler, err := httpProxyHandler(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	webWrappedGrpc := grpcweb.WrapServer(grpcServer)
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if webWrappedGrpc.IsGrpcWebRequest(req) {
+			webWrappedGrpc.ServeHTTP(resp, req)
+			return
+		} else if req.Method == "OPTIONS" {
 			headers := resp.Header()
 			headers.Add("Access-Control-Allow-Origin", "*")
 			headers.Add("Access-Control-Allow-Headers", "*")
-			headers.Add("Access-Control-Allow-Methods", "GET, POST,OPTIONS")
+			headers.Add("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
 			resp.WriteHeader(http.StatusOK)
 		} else {
-			//TODO: this is a good place to stick in the UI
-			log.Printf("unkown route: %v", req)
+			httpHandler.ServeHTTP(resp, req)
+			return
 		}
-
 	})
+
 	s := &http.Server{
 		Addr:    port,
 		Handler: handler,
@@ -587,69 +603,16 @@ func createGrpcWeb(grpcServer *grpc.Server, port string) (*http.Server, error) {
 	return s, nil
 }
 
-func ServeHttpInsecure(ctx context.Context) (*http.Server, error) {
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-
-	srv, err := createHTTP(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error creating http server: %v", err)
-	}
-
-	go func() {
-		log.Printf("Starting Tupelo HTTP server, listening on port %v\n", defaultHttpPort)
-
-		err = srv.ListenAndServe()
-		if err != nil {
-			log.Printf("error listening for HTTP: %v", err)
-		}
-	}()
-
-	return srv, err
-}
-
-func ServeHttpTLS(ctx context.Context, certFile, keyFile string) (*http.Server, error) {
-	creds, err := credentials.NewClientTLSFromFile(certFile, grpcHost())
-	if err != nil {
-		return nil, fmt.Errorf("error loading TLS credentials: %v", err)
-	}
-
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
-
-	srv, err := createHTTP(ctx, opts)
-	if err != nil {
-		return nil, fmt.Errorf("error creating http server: %v", err)
-	}
-
-	go func() {
-		log.Printf("Starting Tupelo HTTP server, listening on port %v\n", defaultHttpPort)
-
-		err = srv.ListenAndServeTLS(certFile, keyFile)
-		if err != nil {
-			log.Printf("error listening for HTTP: %v", err)
-		}
-	}()
-
-	return srv, err
-}
-
-func createHTTP(ctx context.Context, opts []grpc.DialOption) (*http.Server, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func httpProxyHandler(ctx context.Context, opts []grpc.DialOption) (*runtime.ServeMux, error) {
+	rpcHost := grpcHost()
 
 	mux := runtime.NewServeMux()
-	rpc := grpcHost()
-
-	err := RegisterWalletRPCServiceHandlerFromEndpoint(ctx, mux, rpc, opts)
+	err := RegisterWalletRPCServiceHandlerFromEndpoint(ctx, mux, rpcHost, opts)
 	if err != nil {
-		return nil, fmt.Errorf("error starting HTTP server: %v", err)
+		return nil, fmt.Errorf("error starting HTTP proxy server: %v", err)
 	}
 
-	srv := &http.Server{
-		Addr:    defaultHttpPort,
-		Handler: mux,
-	}
-
-	return srv, err
+	return mux, nil
 }
 
 func grpcHost() string {

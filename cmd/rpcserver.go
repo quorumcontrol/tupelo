@@ -270,26 +270,12 @@ var rpcServerCmd = &cobra.Command{
 
 		if rpcServeWebGrpc {
 			if tls {
-				_, err := walletrpc.ServeWebTLS(grpcServer, certFile, keyFile)
+				_, err := walletrpc.ServeWebTLS(ctx, grpcServer, certFile, keyFile)
 				if err != nil {
 					panic(err)
 				}
 			} else {
-				_, err := walletrpc.ServeWebInsecure(grpcServer)
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-
-		if rpcServeHttp {
-			if tls {
-				_, err := walletrpc.ServeHttpTLS(ctx, certFile, keyFile)
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				_, err := walletrpc.ServeHttpInsecure(ctx)
+				_, err := walletrpc.ServeWebInsecure(ctx, grpcServer)
 				if err != nil {
 					panic(err)
 				}
@@ -313,7 +299,6 @@ var (
 func init() {
 	rootCmd.AddCommand(rpcServerCmd)
 	rpcServerCmd.Flags().BoolVar(&rpcServeWebGrpc, "web", false, "Open up a grpc-web interface as well")
-	rpcServerCmd.Flags().BoolVarP(&rpcServeHttp, "http", "H", false, "Listen for HTTP requests")
 	rpcServerCmd.Flags().BoolVarP(&tls, "tls", "t", false, "Encrypt connections with TLS/SSL")
 	rpcServerCmd.Flags().StringVarP(&certFile, "tls-cert", "C", "", "TLS certificate file")
 	rpcServerCmd.Flags().StringVarP(&keyFile, "tls-key", "K", "", "TLS private key file")
