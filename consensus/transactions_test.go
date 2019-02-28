@@ -294,11 +294,11 @@ func TestDecodePath(t *testing.T) {
 
 	dp6, err := DecodePath("")
 	assert.Nil(t, err)
-	assert.Equal(t, []string{""}, dp6)
+	assert.Equal(t, []string{}, dp6)
 
 	dp7, err := DecodePath("/")
 	assert.Nil(t, err)
-	assert.Equal(t, []string{""}, dp7)
+	assert.Equal(t, []string{}, dp7)
 
 	dp8, err := DecodePath("/_tupelo")
 	assert.Nil(t, err)
