@@ -56,7 +56,7 @@ func TestIpldWallet(t *testing.T) {
 	plugins, err := loader.NewPluginLoader("")
 	require.Nil(t, err)
 	plugins.Initialize()
-	plugins.Run()
+	plugins.Inject()
 
 	conf, err := ipfsconfig.Init(os.Stdout, 2048)
 	require.Nil(t, err, "error initializing IPFS")

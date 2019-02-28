@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ipsn/go-ipfs/core"
+	"github.com/ipsn/go-ipfs/core/coreapi"
 	"github.com/ipsn/go-ipfs/plugin/loader"
 	"github.com/ipsn/go-ipfs/repo/fsrepo"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -42,7 +43,7 @@ func NewIpldStorage(config map[string]interface{}) (*IpldStorageAdapter, error) 
 		return nil, fmt.Errorf("Could not initialize ipfs plugin loader")
 	}
 	plugins.Initialize()
-	plugins.Run()
+	plugins.Inject()
 
 	repo, err := fsrepo.Open(repoRoot)
 	if err != nil {
@@ -61,8 +62,13 @@ func NewIpldStorage(config map[string]interface{}) (*IpldStorageAdapter, error) 
 		return nil, fmt.Errorf("Error creating IPFS node: %v", err)
 	}
 
+	api, err := coreapi.NewCoreAPI(node)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating IPFS api: %v", err)
+	}
+
 	return &IpldStorageAdapter{
-		store: nodestore.NewIpldStore(node),
+		store: nodestore.NewIpldStore(api),
 		node:  node,
 	}, nil
 }

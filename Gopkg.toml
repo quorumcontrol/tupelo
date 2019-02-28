@@ -39,7 +39,7 @@
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
   source = "git@github.com:quorumcontrol/chaintree.git"  
-  version = "v5.0.1"
+  revision = "0898018cb498c70db7ed6bddf6042cb22cf994ba"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
@@ -56,7 +56,7 @@
 
 [[constraint]]
   name = "github.com/ipsn/go-ipfs"
-  revision = "4b3ab38e3ef37ded722bab7ee9f3c4cf69fbaeff"
+  revision = "30b2b298240fb29ae96ebc1dce5c7ce6f541bf78"
 
 [[constraint]]
   name = "github.com/gorilla/mux"

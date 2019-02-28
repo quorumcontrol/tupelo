@@ -479,18 +479,12 @@
   revision = "b2d848bada9dbd11ec27b9a38e8726555e249fd4"
 
 [[projects]]
-  digest = "1:1050363c4b47225bfe67b9ded07ee361b1362214048bb6fc80567d0009dd73d2"
+  digest = "1:2fd100f5fb92233a22041ee701c2e15c16dc8f1b0c96d5944991ca25262bf13c"
   name = "github.com/ipsn/go-ipfs"
   packages = [
     ".",
-    "blocks/blockstoreutil",
     "core",
-    "core/coreapi",
-    "core/coreapi/interface",
-    "core/coreapi/interface/options",
     "core/coredag",
-    "core/corerepo",
-    "core/coreunix",
     "dagutils",
     "exchange/reprovide",
     "filestore",
@@ -498,8 +492,6 @@
     "fuse/mount",
     "gxlibs/github.com/Kubuxu/go-os-helper",
     "gxlibs/github.com/Stebalien/go-bitfield",
-    "gxlibs/github.com/gxed/GoEndian",
-    "gxlibs/github.com/gxed/eventfd",
     "gxlibs/github.com/gxed/pubsub",
     "gxlibs/github.com/ipfs/bbloom",
     "gxlibs/github.com/ipfs/go-bitswap",
@@ -511,6 +503,7 @@
     "gxlibs/github.com/ipfs/go-bitswap/network",
     "gxlibs/github.com/ipfs/go-bitswap/notifications",
     "gxlibs/github.com/ipfs/go-bitswap/peermanager",
+    "gxlibs/github.com/ipfs/go-bitswap/providerquerymanager",
     "gxlibs/github.com/ipfs/go-bitswap/session",
     "gxlibs/github.com/ipfs/go-bitswap/sessionmanager",
     "gxlibs/github.com/ipfs/go-bitswap/sessionpeermanager",
@@ -565,7 +558,6 @@
     "gxlibs/github.com/ipfs/go-log/writer",
     "gxlibs/github.com/ipfs/go-merkledag",
     "gxlibs/github.com/ipfs/go-merkledag/pb",
-    "gxlibs/github.com/ipfs/go-merkledag/test",
     "gxlibs/github.com/ipfs/go-metrics-interface",
     "gxlibs/github.com/ipfs/go-mfs",
     "gxlibs/github.com/ipfs/go-path",
@@ -573,13 +565,15 @@
     "gxlibs/github.com/ipfs/go-todocounter",
     "gxlibs/github.com/ipfs/go-unixfs",
     "gxlibs/github.com/ipfs/go-unixfs/hamt",
-    "gxlibs/github.com/ipfs/go-unixfs/importer/balanced",
     "gxlibs/github.com/ipfs/go-unixfs/importer/helpers",
     "gxlibs/github.com/ipfs/go-unixfs/importer/trickle",
     "gxlibs/github.com/ipfs/go-unixfs/io",
     "gxlibs/github.com/ipfs/go-unixfs/mod",
     "gxlibs/github.com/ipfs/go-unixfs/pb",
     "gxlibs/github.com/ipfs/go-verifcid",
+    "gxlibs/github.com/ipfs/interface-go-ipfs-core",
+    "gxlibs/github.com/ipfs/interface-go-ipfs-core/options",
+    "gxlibs/github.com/ipfs/interface-go-ipfs-core/options/namesys",
     "gxlibs/github.com/jbenet/goprocess",
     "gxlibs/github.com/jbenet/goprocess/context",
     "gxlibs/github.com/jbenet/goprocess/periodic",
@@ -651,9 +645,6 @@
     "gxlibs/github.com/libp2p/go-msgio",
     "gxlibs/github.com/libp2p/go-reuseport",
     "gxlibs/github.com/libp2p/go-reuseport-transport",
-    "gxlibs/github.com/libp2p/go-reuseport/poll",
-    "gxlibs/github.com/libp2p/go-reuseport/singlepoll",
-    "gxlibs/github.com/libp2p/go-sockaddr/net",
     "gxlibs/github.com/libp2p/go-stream-muxer",
     "gxlibs/github.com/libp2p/go-tcp-transport",
     "gxlibs/github.com/libp2p/go-testutil",
@@ -707,11 +698,9 @@
     "gxlibs/github.com/whyrusleeping/yamux",
     "keystore",
     "namesys",
-    "namesys/opts",
     "namesys/republisher",
     "p2p",
     "pin",
-    "pin/gc",
     "pin/internal/pb",
     "plugin",
     "plugin/loader",
@@ -729,7 +718,7 @@
     "thirdparty/verifbs",
   ]
   pruneopts = ""
-  revision = "4b3ab38e3ef37ded722bab7ee9f3c4cf69fbaeff"
+  revision = "30b2b298240fb29ae96ebc1dce5c7ce6f541bf78"
 
 [[projects]]
   digest = "1:2eb43d5a0801b4754a6954244d6b92e74308cd1358d7e24b2c65226065cdca8d"
@@ -943,7 +932,7 @@
   revision = "8b1e46de349b0c099d425ed8fddee3ff6eff3eef"
 
 [[projects]]
-  digest = "1:cae15017b89f3c5eb4711621012bdfe63b6a67eabffa319329eda772725b200e"
+  digest = "1:e5b23f3e48a70602173dedc833d4a06288d20ef1bb603d15540c74916062b3b0"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -953,9 +942,8 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "f4580f8bb2692f23ab25cef3ed9522d67a485d95"
+  revision = "0898018cb498c70db7ed6bddf6042cb22cf994ba"
   source = "git@github.com:quorumcontrol/chaintree.git"
-  version = "v5.0.1"
 
 [[projects]]
   digest = "1:0f81944e3477cd8e974a49b8b51403c33d48b47a1ef7d69951ce01095c4a2766"
