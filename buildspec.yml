@@ -1,6 +1,9 @@
 version: 0.2
 
 phases:
+  install:
+    commands:
+      - scripts/install-dep.sh
   build:
     commands:
       - make docker-image
