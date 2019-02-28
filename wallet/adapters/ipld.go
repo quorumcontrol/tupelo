@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	ipfsHttpClient "github.com/ipfs/go-ipfs-http-client"
 	"github.com/ipsn/go-ipfs/core"
 	"github.com/ipsn/go-ipfs/core/coreapi"
+	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
 	"github.com/ipsn/go-ipfs/plugin/loader"
 	"github.com/ipsn/go-ipfs/repo/fsrepo"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -19,10 +21,45 @@ type IpldStorageAdapter struct {
 }
 
 func NewIpldStorage(config map[string]interface{}) (*IpldStorageAdapter, error) {
-	repoRoot, ok := config["path"].(string)
+	path, _ := config["path"].(string)
+	if len(path) > 0 {
+		return NewIpldNodeStorage(config)
+	}
 
-	if !ok {
-		return nil, fmt.Errorf("IPLD requires path in StorageConfig")
+	address, _ := config["address"].(string)
+	if len(address) > 0 {
+		return NewIpldHttpStorage(config)
+	}
+
+	return nil, fmt.Errorf("IPLD requires path or address in StorageConfig")
+}
+
+func NewIpldHttpStorage(config map[string]interface{}) (*IpldStorageAdapter, error) {
+	apiAddr, _ := config["address"].(string)
+	if len(apiAddr) == 0 {
+		return nil, fmt.Errorf("IPLD http client requires address in StorageConfig")
+	}
+
+	apiMaddr, err := ma.NewMultiaddr(apiAddr)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing address: %v", err)
+	}
+
+	api, err := ipfsHttpClient.NewApi(apiMaddr)
+
+	if err != nil {
+		return nil, fmt.Errorf("Error starting ipfs http api client")
+	}
+
+	return &IpldStorageAdapter{
+		store: nodestore.NewIpldStore(api),
+	}, nil
+}
+
+func NewIpldNodeStorage(config map[string]interface{}) (*IpldStorageAdapter, error) {
+	repoRoot, _ := config["path"].(string)
+	if len(repoRoot) == 0 {
+		return nil, fmt.Errorf("IPLD node requires path in StorageConfig")
 	}
 
 	if !fsrepo.IsInitialized(repoRoot) {
@@ -78,5 +115,8 @@ func (a *IpldStorageAdapter) Store() nodestore.NodeStore {
 }
 
 func (a *IpldStorageAdapter) Close() error {
-	return a.node.Close()
+	if a.node != nil {
+		return a.node.Close()
+	}
+	return nil
 }

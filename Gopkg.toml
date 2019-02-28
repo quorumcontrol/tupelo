@@ -39,7 +39,7 @@
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
   source = "git@github.com:quorumcontrol/chaintree.git"  
-  revision = "0898018cb498c70db7ed6bddf6042cb22cf994ba"
+  version = "v5.1.0"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
@@ -74,3 +74,12 @@
 [[constraint]]
   name = "github.com/golang/protobuf"
   version = "v1.2.0"
+
+[[override]]
+  name = "github.com/ipfs/go-ipfs-http-client"
+  source = "github.com/quorumcontrol/ipsn-go-ipfs-http-client"
+  revision = "984004a746c6b66a07839f2925ed79345dd8e67f"
+
+[[override]]
+  name = "github.com/cheggaaa/pb"
+  version = "v1.0.27"
