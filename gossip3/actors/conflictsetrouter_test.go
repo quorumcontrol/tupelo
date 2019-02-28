@@ -12,7 +12,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/-go-clientgossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
