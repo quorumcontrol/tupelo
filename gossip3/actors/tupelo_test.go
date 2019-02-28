@@ -3,6 +3,7 @@ package actors
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-cid"
 	"math/rand"
 	"testing"
 	"time"
@@ -84,28 +85,6 @@ func TestCommits(t *testing.T) {
 		s.Actor.Tell(&messages.StartGossip{})
 	}
 
-	t.Run("removes bad transactions", func(t *testing.T) {
-		trans := testhelpers.NewValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
-		require.Nil(t, err)
-		bits = append([]byte{byte(1)}, bits...) // append a bad byte
-		id := crypto.Keccak256(bits)
-		syncers[0].Actor.Tell(&messages.Store{
-			Key:   id,
-			Value: bits,
-		})
-		ret, err := syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 5*time.Second).Result()
-		require.Nil(t, err)
-		assert.Equal(t, ret, bits)
-
-		// wait for it to get removed in the sync
-		time.Sleep(300 * time.Millisecond)
-
-		ret, err = syncers[0].Actor.RequestFuture(&messages.Get{Key: id}, 5*time.Second).Result()
-		require.Nil(t, err)
-		assert.Empty(t, ret)
-	})
-
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
@@ -116,8 +95,10 @@ func TestCommits(t *testing.T) {
 
 		syncer := syncers[rand.Intn(len(syncers))].Actor
 
+		newTip, _ := cid.Cast(trans.NewTip)
 		syncer.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
+			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		syncer.Tell(&messages.Store{
@@ -138,8 +119,10 @@ func TestCommits(t *testing.T) {
 
 		fut := actor.NewFuture(20 * time.Second)
 
+		newTip, _ := cid.Cast(trans.NewTip)
 		syncers[1].Actor.Request(&messages.TipSubscription{
 			ObjectID: trans.ObjectID,
+			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		start := time.Now()

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/quorumcontrol/storage"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/Workiva/go-datastructures/bitarray"
@@ -13,9 +15,8 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 )
 
-type signatureMap map[string]*messages.SignatureWrapper
-type signaturesByTransaction map[string]signatureMap
 type signaturesBySigner map[string]*messages.SignatureWrapper
+type signaturesByTransaction map[string]signaturesBySigner
 type transactionMap map[string]*messages.TransactionWrapper
 
 type checkStateMsg struct {
@@ -26,6 +27,7 @@ type ConflictSet struct {
 	middleware.LogAwareHolder
 
 	ID                 string
+	currentStateStore  storage.Reader
 	notaryGroup        *types.NotaryGroup
 	signatureGenerator *actor.PID
 	signatureChecker   *actor.PID
@@ -39,6 +41,7 @@ type ConflictSet struct {
 	transactions transactionMap
 	view         uint64
 	updates      uint64
+	active       bool
 }
 
 type ConflictSetConfig struct {
@@ -48,17 +51,21 @@ type ConflictSetConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
+	CurrentStateStore  storage.Reader
+	Active             bool
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 	return actor.FromProducer(func() actor.Actor {
 		return &ConflictSet{
 			ID:                 cfg.ID,
+			currentStateStore:  cfg.CurrentStateStore,
 			notaryGroup:        cfg.NotaryGroup,
 			signer:             cfg.Signer,
 			signatureGenerator: cfg.SignatureGenerator,
 			signatureChecker:   cfg.SignatureChecker,
 			signatureSender:    cfg.SignatureSender,
+			active:             cfg.Active,
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
@@ -88,10 +95,26 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleCurrentStateWrapper(context, msg)
 	case *messages.Store:
 		cs.handleStore(context, msg)
+	case *commitNotification:
+		if cs.active {
+			cs.handleStore(context, msg.store)
+		} else {
+			snoozedTransactions := len(cs.transactions)
+			if snoozedTransactions > 0 {
+				panic(fmt.Errorf("received commit notification with %d snoozed transactions; this should not happen", snoozedTransactions))
+			}
+		}
 	case *checkStateMsg:
 		cs.checkState(context, msg)
-	case *messages.GetConflictSetView:
-		context.Respond(cs.view)
+	case *messages.ProcessSnoozedTransactions:
+		if parent := context.Parent(); parent != nil {
+			for _, transaction := range cs.transactions {
+				context.Request(parent, &messages.ValidateTransaction{
+					Key:   transaction.Key,
+					Value: transaction.Value,
+				})
+			}
+		}
 	}
 }
 
@@ -119,21 +142,38 @@ func (cs *ConflictSet) DoneReceive(context actor.Context) {
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
-	if !msg.Accepted {
-		panic(fmt.Sprintf("we should only handle accepted transactions at this level"))
+	if !msg.PreFlight && !msg.Accepted {
+		panic(fmt.Sprintf("we should only handle pre-flight or accepted transactions at this level"))
+	}
+	if !cs.active {
+		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
-	// do this as a message to make sure we're doing it after all the updates have come in
-	if !cs.didSign {
-		context.Request(cs.signatureGenerator, msg)
-		cs.didSign = true
+	if cs.active {
+		cs.processTransactions(context)
 	}
-	cs.updates++
+}
+
+func (cs *ConflictSet) processTransactions(context actor.Context) {
+	if !cs.active {
+		panic(fmt.Errorf("error: processTransactions called on inactive ConflictSet"))
+	}
+
+	for _, transaction := range cs.transactions {
+		cs.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
+
+		if !cs.didSign {
+			context.Request(cs.signatureGenerator, transaction)
+			cs.didSign = true
+		}
+		cs.updates++
+	}
+	// do this as a message to make sure we're doing it after all the updates have come in
 	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {
-	cs.Log.Debugw("handle new signature")
+	cs.Log.Debugw("handle new signature", "t", msg.Signature.TransactionID)
 	if msg.Internal {
 		cs.signatureSender.Tell(msg)
 	}
@@ -142,7 +182,7 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 	}
 	existingMap, ok := cs.signatures[string(msg.Signature.TransactionID)]
 	if !ok {
-		existingMap = make(signatureMap)
+		existingMap = make(signaturesBySigner)
 		for id := range msg.Signers {
 			existingMap[id] = msg
 		}
@@ -197,21 +237,24 @@ func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
 			lowestTrans = trans
 		}
 	}
-	cs.nextView()
+	cs.nextView(lowestTrans)
 
 	cs.handleNewTransaction(context, lowestTrans)
 }
 
-func (cs *ConflictSet) nextView() {
+func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
 	cs.view++
 	cs.didSign = false
-	cs.signatures = make(signaturesByTransaction)
-	cs.signerSigs = make(signaturesBySigner)
 	cs.transactions = make(transactionMap)
+
+	// only keep signatures on the winning transaction
+	transSigs := cs.signatures[string(newWinner.TransactionID)]
+	cs.signatures = signaturesByTransaction{string(newWinner.TransactionID): transSigs}
+	cs.signerSigs = transSigs
 }
 
 func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans *messages.TransactionWrapper) error {
-	cs.Log.Debugw("createCurrentStateFromTrans")
+	cs.Log.Debugw("createCurrentStateFromTrans", "t", trans.Key)
 	sigs := cs.signatures[string(trans.TransactionID)]
 	var sigBytes [][]byte
 	signersArray := bitarray.NewSparseBitArray()
@@ -239,6 +282,7 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 			TransactionID: trans.TransactionID,
 			ObjectID:      trans.Transaction.ObjectID,
 			PreviousTip:   trans.Transaction.PreviousTip,
+			Height:        trans.Transaction.Height,
 			NewTip:        trans.Transaction.NewTip,
 			Signers:       marshaled,
 			Signature:     summed,
@@ -317,11 +361,11 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	return nil
 }
 
-// returns true if one of the transactions has enough signatures
+// returns a transaction with enough signatures or nil if none yet exist
 func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 	count := cs.notaryGroup.QuorumCount()
 	for tID, sigList := range cs.signatures {
-		cs.Log.Debugw("check count", "t", tID, "len", len(sigList), "quorumAt", count)
+		cs.Log.Debugw("check count", "t", []byte(tID), "len", len(sigList), "quorumAt", count)
 		if uint64(len(sigList)) >= count {
 			return cs.transactions[tID]
 		}
@@ -361,7 +405,7 @@ func sigToWrapper(sig *messages.Signature, ng *types.NotaryGroup, self *types.Si
 		}
 	}
 
-	conflictSetID := messages.ConflictSetID(sig.ObjectID, sig.PreviousTip)
+	conflictSetID := messages.ConflictSetID(sig.ObjectID, sig.Height)
 
 	committee, err := ng.RewardsCommittee([]byte(sig.NewTip), self)
 	if err != nil {

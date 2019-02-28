@@ -943,7 +943,7 @@
   revision = "8b1e46de349b0c099d425ed8fddee3ff6eff3eef"
 
 [[projects]]
-  digest = "1:6916bf1bdb22af12f722d3faa643b06500f3388eb83b71829e696135d02aa3ac"
+  digest = "1:cae15017b89f3c5eb4711621012bdfe63b6a67eabffa319329eda772725b200e"
   name = "github.com/quorumcontrol/chaintree"
   packages = [
     "chaintree",
@@ -953,9 +953,9 @@
     "typecaster",
   ]
   pruneopts = ""
-  revision = "055fd461c134faba77c596d0010c29b72bca9c2e"
+  revision = "f4580f8bb2692f23ab25cef3ed9522d67a485d95"
   source = "git@github.com:quorumcontrol/chaintree.git"
-  version = "v4.0.1"
+  version = "v5.0.1"
 
 [[projects]]
   digest = "1:0f81944e3477cd8e974a49b8b51403c33d48b47a1ef7d69951ce01095c4a2766"
@@ -986,8 +986,8 @@
   version = "v1.1.1"
 
 [[projects]]
-  branch = "arve/dep"
-  digest = "1:6ebc18b9c93cdd719b45b4364a6ab61c17ca53d4e60d74f3571a48d69a7a08ad"
+  branch = "master"
+  digest = "1:e09d46230b66d39dc6dfea2f1ffca60005f4cacfece03d59ff24b02d1e913085"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1001,7 +1001,7 @@
     "p2p",
   ]
   pruneopts = ""
-  revision = "54afb5ec748763dc551cca63072096394e080a03"
+  revision = "08e1120f61d6cf1d45713bf2f0619c72d4e219d6"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"

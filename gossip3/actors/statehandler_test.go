@@ -37,7 +37,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -58,9 +58,12 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
+	transHeight := uint64(0)
+
 	trans := &messages.Transaction{
 		State:       nodes,
 		PreviousTip: emptyTree.Tip.Bytes(),
+		Height:      transHeight,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -91,10 +94,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	newState, isAccepted, err = chainTreeStateHandler(stateTrans2)
 	assert.NotNil(t, err)
 
+	transHeight++
+
 	// playing a new transaction should work when there are no auths
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -115,6 +121,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -139,9 +146,12 @@ func TestChainTreeStateHandler(t *testing.T) {
 	newOwner := consensus.EcdsaToPublicKey(&newOwnerKey.PublicKey)
 	newOwnerAddr := consensus.PublicKeyToAddr(&newOwner)
 
+	transHeight++
+
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_OWNERSHIP",
@@ -162,6 +172,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -182,11 +193,14 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
+	transHeight++
+
 	// now that the owners are changed, we shouldn't be able to sign with the TreeKey
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
+			Height:      transHeight,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -207,6 +221,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -227,6 +242,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	trans = &messages.Transaction{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Height:      blockWithHeaders.Height,
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
@@ -247,48 +263,9 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-	val, _, err := testTree.Dag.Resolve([]string{"tree", "another", "path"})
+	val, _, err := testTree.Dag.Resolve([]string{"tree", "data", "another", "path"})
 	assert.Nil(t, err)
 	assert.Equal(t, "test", val)
-
-	// Should not be able to assign an authentication directly through SET_DATA
-	unsignedBlock = &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]interface{}{
-						"path":  "_tupelo/authentications/publicKey",
-						"value": "test",
-					},
-				},
-			},
-		},
-	}
-
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
-	assert.Nil(t, err)
-
-	nodes = dagToByteNodes(t, testTree.Dag)
-
-	trans = &messages.Transaction{
-		State:       nodes,
-		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-	}
-
-	stateTrans7 := &stateTransaction{
-		CurrentState: testTree.Dag.Tip.Bytes(),
-		ObjectID:     []byte(treeDID),
-		Transaction:  trans,
-		Block:        blockWithHeaders,
-	}
-
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans7)
-	assert.NotNil(t, err)
-	assert.False(t, isAccepted)
-
 }
 
 func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Transaction) *stateTransaction {
@@ -313,7 +290,8 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
+			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "ESTABLISH_COIN",
@@ -339,6 +317,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	sw := &safewrap.SafeWrap{}
 	trans := &messages.Transaction{
 		State:       nodes,
+		Height:      0,
 		PreviousTip: emptyTree.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
@@ -363,7 +342,8 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
-				PreviousTip: testTree.Dag.Tip.String(),
+				PreviousTip: &testTree.Dag.Tip,
+				Height:      uint64(testIndex) + 1,
 				Transactions: []*chaintree.Transaction{
 					{
 						Type: "MINT_COIN",
@@ -384,6 +364,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		trans = &messages.Transaction{
 			State:       nodes,
 			PreviousTip: testTree.Dag.Tip.Bytes(),
+			Height:      1,
 			Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		}
 
@@ -403,7 +384,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	// Can't mint more than the monetary policy maximum
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "MINT_COIN",
@@ -434,7 +415,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	// Can't mint a negative amount
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: testTree.Dag.Tip.String(),
+			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "MINT_COIN",
@@ -475,7 +456,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -497,6 +478,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	trans := &messages.Transaction{
 		State:       nodes1,
+		Height:      0,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
@@ -511,7 +493,8 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	tip, _ := cid.Cast(newState)
 	unsignedBlock2 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: tip.String(),
+			PreviousTip: &tip,
+			Height:      1,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -531,6 +514,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	trans2 := &messages.Transaction{
 		State:       nodes2,
+		Height:      1,
 		PreviousTip: tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders2).RawData(),
 	}
@@ -547,7 +531,8 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	unsignedBlock3 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: "",
+			PreviousTip: nil,
+			Height:      3,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -567,6 +552,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	trans3 := &messages.Transaction{
 		State:       nodesCombined,
+		Height:      3,
 		PreviousTip: savedcid.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders3).RawData(),
 	}

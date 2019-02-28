@@ -47,4 +47,4 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/tupelo-go-client"
-  branch = "arve/dep"
+  branch = "master"

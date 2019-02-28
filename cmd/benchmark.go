@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ipfs/go-cid"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"math"
 	"math/rand"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/ipfs/go-cid"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
