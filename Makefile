@@ -11,9 +11,8 @@ gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -pr
 
 all: build
 
-vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
-	go mod vendor
-	modvendor -copy="**/*.c **/*.h"
+vendor: Gopkg.toml Gopkg.lock
+	dep ensure
 
 build: vendor $(gosources)
 	go build ./...
