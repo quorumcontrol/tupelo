@@ -3,5 +3,5 @@ version: 0.2
 phases:
   build:
     commands:
-      - docker build -t quorumcontrol/tupelo .
+      - make docker-image
       - docker run --rm -ti --entrypoint=make quorumcontrol/tupelo test
