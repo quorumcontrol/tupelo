@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	defaultWebPort = ":50050"
-	defaultRpcPort = ":50051"
+	defaultWebPort    = ":50050"
+	defaultRpcPort    = ":50051"
+	walletMetaKey     = "wallet"
+	passphraseMetaKey = "passphrase"
 )
 
 type server struct {
@@ -45,12 +47,12 @@ func getWalletCredentials(ctx context.Context) (*walletCredentials, error) {
 		return nil, fmt.Errorf("error getting wallet credentials")
 	}
 
-	w, ok := meta["wallet"]
+	w, ok := meta[walletMetaKey]
 	if !ok {
 		return nil, fmt.Errorf("no wallet name in credentials")
 	}
 
-	p, ok := meta["passphrase"]
+	p, ok := meta[passphraseMetaKey]
 	if !ok {
 		return nil, fmt.Errorf("no passphrase in credentials")
 	}
@@ -606,7 +608,12 @@ func createGrpcWeb(ctx context.Context, grpcServer *grpc.Server, port string, op
 func httpProxyHandler(ctx context.Context, opts []grpc.DialOption) (*runtime.ServeMux, error) {
 	rpcHost := grpcHost()
 
-	mux := runtime.NewServeMux()
+	credMetadata := runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
+		wallet, passphrase, _ := req.BasicAuth()
+		return metadata.Pairs(walletMetaKey, wallet, passphraseMetaKey, passphrase)
+	})
+	mux := runtime.NewServeMux(credMetadata)
+
 	err := RegisterWalletRPCServiceHandlerFromEndpoint(ctx, mux, rpcHost, opts)
 	if err != nil {
 		return nil, fmt.Errorf("error starting HTTP proxy server: %v", err)
