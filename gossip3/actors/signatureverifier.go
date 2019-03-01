@@ -7,8 +7,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 type SignatureVerifier struct {

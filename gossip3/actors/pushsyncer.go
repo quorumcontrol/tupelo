@@ -8,8 +8,9 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/differencedigest/ibf"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 // PushSyncer is the main remote-facing actor that handles
@@ -108,7 +109,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 		syncer.Log.Debugw("remote busy")
 		context.Self().Poison()
 	case *messages.SyncerAvailable:
-		destination := messages.FromActorPid(remoteSyncer.Destination)
+		destination := extmsgs.FromActorPid(remoteSyncer.Destination)
 		syncer.Log.Debugw("requesting strata")
 		strata, err := syncer.storageActor.RequestFuture(&messages.GetStrata{}, 2*time.Second).Result()
 		if err != nil {
@@ -117,7 +118,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 		syncer.Log.Debugw("providing strata", "remote", destination)
 		destination.Request(&messages.ProvideStrata{
 			Strata:            strata.(*ibf.DifferenceStrata),
-			DestinationHolder: messages.DestinationHolder{messages.ToActorPid(syncer.storageActor)},
+			DestinationHolder: messages.DestinationHolder{extmsgs.ToActorPid(syncer.storageActor)},
 		}, context.Self())
 	default:
 		panic("unknown type")
@@ -160,7 +161,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 
 			context.Request(context.Sender(), &messages.ProvideBloomFilter{
 				Filter:            localIBF,
-				DestinationHolder: messages.DestinationHolder{messages.ToActorPid(syncer.storageActor)},
+				DestinationHolder: messages.DestinationHolder{extmsgs.ToActorPid(syncer.storageActor)},
 			})
 		} else {
 			syncer.Log.Debugw("synced", "remote", context.Sender())
@@ -172,7 +173,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 			syncer.syncDone(context)
 		} else {
 			syncer.Log.Debugw("strata", "count", count, "resultL", len(result.LeftSet), "resultR", len(result.RightSet))
-			syncer.handleDiff(context, *result, messages.FromActorPid(msg.Destination))
+			syncer.handleDiff(context, *result, extmsgs.FromActorPid(msg.Destination))
 		}
 
 	}
@@ -201,7 +202,7 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 
 	context.Sender().Request(&messages.ProvideBloomFilter{
 		Filter:            localIBF,
-		DestinationHolder: messages.DestinationHolder{messages.ToActorPid(syncer.storageActor)},
+		DestinationHolder: messages.DestinationHolder{extmsgs.ToActorPid(syncer.storageActor)},
 	}, context.Self())
 }
 
@@ -217,7 +218,7 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 		syncer.syncDone(context)
 		return
 	}
-	syncer.handleDiff(context, diff, messages.FromActorPid(msg.Destination))
+	syncer.handleDiff(context, diff, extmsgs.FromActorPid(msg.Destination))
 }
 
 func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages.RequestKeys) {

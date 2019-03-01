@@ -7,8 +7,9 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,10 +21,10 @@ func TestValidator(t *testing.T) {
 	fut := actor.NewFuture(1 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *messages.Store:
+		case *extmsgs.Store:
 			context.Request(validator, &validationRequest{
-				key:       msg.Key,
-				value:     msg.Value,
+				key:   msg.Key,
+				value: msg.Value,
 			})
 		case *messages.TransactionWrapper:
 			fut.PID().Tell(msg)
@@ -38,7 +39,7 @@ func TestValidator(t *testing.T) {
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)
 
-	sender.Tell(&messages.Store{
+	sender.Tell(&extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})
@@ -61,7 +62,7 @@ func BenchmarkValidator(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f := validator.RequestFuture(&messages.Store{
+		f := validator.RequestFuture(&extmsgs.Store{
 			Key:   key,
 			Value: value,
 		}, 5*time.Second)

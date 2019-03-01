@@ -31,11 +31,11 @@ import (
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
-	gossip3messages "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -57,7 +57,7 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
-		signer.Actor.Tell(&gossip3messages.StartGossip{})
+		signer.Actor.Tell(&messages.StartGossip{})
 		stopOnSignal(signer)
 	},
 }

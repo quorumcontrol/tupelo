@@ -8,9 +8,10 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/Workiva/go-datastructures/bitarray"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 type SignatureGenerator struct {
@@ -55,7 +56,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		panic(fmt.Sprintf("error getting committee: %v", err))
 	}
 
-	signature := &messages.Signature{
+	signature := &extmsgs.Signature{
 		TransactionID: msg.TransactionID,
 		ObjectID:      msg.Transaction.ObjectID,
 		PreviousTip:   msg.Transaction.PreviousTip,

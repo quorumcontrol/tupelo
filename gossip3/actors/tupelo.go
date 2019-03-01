@@ -2,12 +2,14 @@ package actors
 
 import (
 	"fmt"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 const mempoolKind = "mempool"
@@ -60,7 +62,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleStarted(context)
 	case *messages.Get:
 		context.Forward(tn.mempoolStore)
-	case *messages.GetTip:
+	case *extmsgs.GetTip:
 		tn.handleGetTip(context, msg)
 	case *messages.GetSyncer:
 		tn.handleGetSyncer(context, msg)
@@ -68,11 +70,11 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleStartGossip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentState(context, msg)
-	case *messages.Store:
+	case *extmsgs.Store:
 		context.Forward(tn.mempoolStore)
-	case *messages.Signature:
+	case *extmsgs.Signature:
 		context.Forward(tn.conflictSetRouter)
-	case *messages.TipSubscription:
+	case *extmsgs.TipSubscription:
 		context.Forward(tn.subscriptionHandler)
 	case *messages.ValidateTransaction:
 		tn.handleNewTransaction(context)
@@ -83,7 +85,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 
 func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
-		tn.committedStore.Tell(&messages.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
+		tn.committedStore.Tell(&extmsgs.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
 		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.Value)
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
@@ -110,7 +112,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 // this function is its own actor
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.Store:
+	case *extmsgs.Store:
 		// mempoolStore is notifying us that it just stored a new transaction
 		tn.validateTransaction(context, &messages.ValidateTransaction{
 			Key:   msg.Key,
@@ -136,8 +138,8 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 			}
 			tn.subscriptionHandler.Tell(&messages.Error{
 				Source: errSource,
-				Code: ErrBadTransaction,
-				Memo: fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
+				Code:   ErrBadTransaction,
+				Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 			})
 		}
 	}
@@ -154,9 +156,9 @@ func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.V
 // this function is its own actor
 func (tn *TupeloNode) handleNewCommit(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.Store:
+	case *extmsgs.Store:
 		tn.Log.Debugw("new commit")
-		var currState messages.CurrentState
+		var currState extmsgs.CurrentState
 		_, err := currState.UnmarshalMsg(msg.Value)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling: %v", err))
@@ -176,7 +178,7 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 	tn.committedGossiper.Tell(newMsg)
 }
 
-func (tn *TupeloNode) handleGetTip(context actor.Context, msg *messages.GetTip) {
+func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 	tip, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
 	if err != nil {
 		panic(fmt.Errorf("error getting tip: %v", err))

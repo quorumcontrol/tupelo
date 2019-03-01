@@ -10,9 +10,10 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 type signaturesBySigner map[string]*messages.SignatureWrapper
@@ -81,7 +82,7 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	case *messages.TransactionWrapper:
 		cs.handleNewTransaction(context, msg)
 	// this will be an external signature
-	case *messages.Signature:
+	case *extmsgs.Signature:
 		wrapper, err := sigToWrapper(msg, cs.notaryGroup, cs.signer, false)
 		if err != nil {
 			panic(fmt.Sprintf("error wrapping sig: %v", err))
@@ -89,11 +90,11 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleNewSignature(context, wrapper)
 	case *messages.SignatureWrapper:
 		cs.handleNewSignature(context, msg)
-	case *messages.CurrentState:
+	case *extmsgs.CurrentState:
 		cs.Log.Errorw("something called this")
 	case *messages.CurrentStateWrapper:
 		cs.handleCurrentStateWrapper(context, msg)
-	case *messages.Store:
+	case *extmsgs.Store:
 		cs.handleStore(context, msg)
 	case *commitNotification:
 		if cs.active {
@@ -118,9 +119,9 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	}
 }
 
-func (cs *ConflictSet) handleStore(context actor.Context, msg *messages.Store) {
+func (cs *ConflictSet) handleStore(context actor.Context, msg *extmsgs.Store) {
 	cs.Log.Debugw("handleStore")
-	var currState messages.CurrentState
+	var currState extmsgs.CurrentState
 	_, err := currState.UnmarshalMsg(msg.Value)
 	if err != nil {
 		panic(fmt.Errorf("error unmarshaling: %v", err))
@@ -277,8 +278,8 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 		return fmt.Errorf("error marshaling bitarray: %v", err)
 	}
 
-	currState := &messages.CurrentState{
-		Signature: &messages.Signature{
+	currState := &extmsgs.CurrentState{
+		Signature: &extmsgs.Signature{
 			TransactionID: trans.TransactionID,
 			ObjectID:      trans.Transaction.ObjectID,
 			PreviousTip:   trans.Transaction.PreviousTip,
@@ -388,7 +389,7 @@ func (cs *ConflictSet) deadlocked() bool {
 	return true
 }
 
-func sigToWrapper(sig *messages.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
+func sigToWrapper(sig *extmsgs.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
 	signerMap := make(messages.SignerMap)
 	signerBitMap, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
@@ -405,7 +406,7 @@ func sigToWrapper(sig *messages.Signature, ng *types.NotaryGroup, self *types.Si
 		}
 	}
 
-	conflictSetID := messages.ConflictSetID(sig.ObjectID, sig.Height)
+	conflictSetID := extmsgs.ConflictSetID(sig.ObjectID, sig.Height)
 
 	committee, err := ng.RewardsCommittee([]byte(sig.NewTip), self)
 	if err != nil {

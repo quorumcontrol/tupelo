@@ -11,7 +11,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -19,13 +19,14 @@ import (
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 type stateTransaction struct {
 	ObjectID      []byte
-	Transaction   *messages.Transaction
+	Transaction   *extmsgs.Transaction
 	CurrentState  []byte
 	TransactionID []byte
 	ConflictSetID string
@@ -39,8 +40,8 @@ type TransactionValidator struct {
 }
 
 type validationRequest struct {
-	key       []byte
-	value     []byte
+	key   []byte
+	value []byte
 }
 
 const maxValidatorConcurrency = 10
@@ -76,7 +77,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		Accepted:  false,
 		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
-	var t messages.Transaction
+	var t extmsgs.Transaction
 	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
 		tv.Log.Infow("error unmarshaling", "err", err)
@@ -96,7 +97,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	var preFlight bool
 	if len(objectIDBits) > 0 {
 		expectedHeight := tv.nextHeight(t.ObjectID)
-		var currentState messages.CurrentState
+		var currentState extmsgs.CurrentState
 		_, err := currentState.UnmarshalMsg(objectIDBits)
 		if err != nil {
 			panic(fmt.Sprintf("error unmarshaling: %v", err))

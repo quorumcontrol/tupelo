@@ -7,14 +7,18 @@ endif
 
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 
+generated = gossip3/messages/internal_gen.go gossip3/messages/internal_gen_test.go
 gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 
 all: build
 
+$(generated): gossip3/messages/internal.go
+	cd gossip3/messages && go generate
+
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
-build: vendor $(gosources)
+build: vendor $(generated) $(gosources)
 	go build ./...
 
 test: $(gosources)
