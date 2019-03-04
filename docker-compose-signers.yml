@@ -1,3 +1,4 @@
+# Cluster of 3 signers, no RPC server
 version: "3"
 services:
   bootstrap:
