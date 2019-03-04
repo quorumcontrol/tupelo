@@ -56,6 +56,8 @@ func TestImportExport(t *testing.T) {
 	err = sessNew.Start("test-new")
 	require.Nil(t, err)
 
+	defer sessNew.Stop()
+
 	importedNew, err := sessNew.ImportChain(export, &adapters.Config{Adapter: "mock"})
 	require.Nil(t, err)
 
