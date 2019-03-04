@@ -36,7 +36,7 @@ func SendMessage(gateway, pid *actor.PID, header actor.ReadonlyMessageHeader, me
 
 	_, ok := rd.message.(msgp.Marshaler)
 	if !ok {
-		log.Printf("cannot send: %s", reflect.TypeOf(rd.message))
+		log.Printf("error sending message, cannot marshal type %s\n", reflect.TypeOf(rd.message))
 		return
 	}
 	wd := ToWireDelivery(rd)
@@ -74,7 +74,7 @@ func (ref *process) Stop(pid *actor.PID) {
 func (ref *process) remoteDeliver(rd *remoteDeliver) {
 	_, ok := rd.message.(msgp.Marshaler)
 	if !ok {
-		log.Printf("cannot send: %v", rd.message)
+		log.Printf("error delivering message, cannot marshal type %s\n", reflect.TypeOf(rd.message))
 		return
 	}
 	wd := ToWireDelivery(rd)
