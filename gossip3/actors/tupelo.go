@@ -136,7 +136,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 				// ...but fallback on this rather than generating a nil deref error
 				errSource = string(msg.Key)
 			}
-			tn.subscriptionHandler.Tell(&messages.Error{
+			tn.subscriptionHandler.Tell(&extmsgs.Error{
 				Source: errSource,
 				Code:   ErrBadTransaction,
 				Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),

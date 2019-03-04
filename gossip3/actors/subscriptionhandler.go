@@ -76,7 +76,7 @@ func (sh *SubscriptionHandler) subscriptionKeys(uncastMsg interface{}) []string 
 		return subscriptionKeys(string(msg.ObjectID), msg.TipValue)
 	case *messages.CurrentStateWrapper:
 		return subscriptionKeys(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState.Signature.NewTip)
-	case *messages.Error:
+	case *extmsgs.Error:
 		return subscriptionKeys(msg.Source, make([]byte, 0))
 	default:
 		return nil
@@ -111,7 +111,7 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 		}
 
 		context.Forward(manager)
-	case *messages.CurrentStateWrapper, *messages.Error:
+	case *messages.CurrentStateWrapper, *extmsgs.Error:
 		subKeys := sh.subscriptionKeys(msg)
 		var managers = make([]*actor.PID, 0)
 		if len(subKeys[1]) == 0 {
@@ -166,7 +166,7 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 		} else {
 			osm.subscribe(context, msg)
 		}
-	case *messages.CurrentStateWrapper, *messages.Error:
+	case *messages.CurrentStateWrapper, *extmsgs.Error:
 		context.SetReceiveTimeout(subscriptionTimeout)
 		osm.notifySubscribers(context, msg)
 	}
@@ -192,7 +192,7 @@ func (osm *objectSubscriptionManager) notifySubscribers(context actor.Context, u
 	switch msg := uncastMsg.(type) {
 	case *messages.CurrentStateWrapper:
 		notice = msg.CurrentState
-	case *messages.Error:
+	case *extmsgs.Error:
 		notice = msg
 	}
 	for _, sub := range osm.subscriptions {
