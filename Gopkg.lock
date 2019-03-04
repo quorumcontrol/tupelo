@@ -986,8 +986,8 @@
   version = "v1.1.1"
 
 [[projects]]
-  branch = "arve/move-internal-messages"
-  digest = "1:408054ec6f66051ef4677a76fc16724bd34eeef3bede87d1dbd47a2cdde76528"
+  branch = "master"
+  digest = "1:921808e564c9004b308a408be73433675ef736647c122c6369191c9861e391b7"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1002,7 +1002,7 @@
     "p2p",
   ]
   pruneopts = ""
-  revision = "3c314222e5ade6d9a830ac1186489a276b69a432"
+  revision = "5631e6ec123d999fd0669efd86e2fe0009780dc8"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"
