@@ -986,7 +986,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:1df77f28a1ab519a22669763dfcd1139147ee089b7c9189fdecd71785de9078f"
+  digest = "1:36aa8b7f95d935b5f673f07326b8ea58ea16e69ee0da19d7a36b3105593247fe"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1001,7 +1001,7 @@
     "p2p",
   ]
   pruneopts = ""
-  revision = "8101c6abbaf1e860370b00528511f0f25b02f241"
+  revision = "f1e3a8276a67d4653ef5da4fe13e998b3f78dbb8"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"
