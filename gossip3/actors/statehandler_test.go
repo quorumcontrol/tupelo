@@ -284,7 +284,7 @@ func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Tr
 	}
 }
 
-func TestSigner_CoinTransactions(t *testing.T) {
+func TestSigner_TokenTransactions(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -296,9 +296,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "ESTABLISH_COIN",
+					Type: "ESTABLISH_TOKEN",
 					Payload: map[string]interface{}{
-						"name": "testcoin",
+						"name": "testtoken",
 						"monetaryPolicy": map[string]interface{}{
 							"maximum": 8675309,
 						},
@@ -341,7 +341,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
-	// Can mint from established coin
+	// Can mint from established token
 	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
@@ -349,9 +349,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 				Height:      uint64(testIndex) + 1,
 				Transactions: []*chaintree.Transaction{
 					{
-						Type: "MINT_COIN",
+						Type: "MINT_TOKEN",
 						Payload: map[string]interface{}{
-							"name":   "testcoin",
+							"name":   "testtoken",
 							"amount": testAmount,
 						},
 					},
@@ -380,7 +380,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 
 		assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "mints", fmt.Sprint(testIndex), "amount"})
+		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "mints", fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
 		assert.Equal(t, mintAmount, testAmount)
 	}
@@ -391,9 +391,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "MINT_COIN",
+					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
-						"name":   "testcoin",
+						"name":   "testtoken",
 						"amount": 675309,
 					},
 				},
@@ -422,9 +422,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "MINT_COIN",
+					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
-						"name":   "testcoin",
+						"name":   "testtoken",
 						"amount": -42,
 					},
 				},
