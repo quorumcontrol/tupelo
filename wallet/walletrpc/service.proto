@@ -144,27 +144,27 @@ message ResolveResponse {
   bytes data = 2;
 }
 
-message EstablishCoinRequest {
+message EstablishTokenRequest {
   Credentials creds = 1;
   string chain_id = 2;
   string key_addr = 3;
-  string coin_name = 4;
+  string token_name = 4;
   uint64 maximum = 5;
 }
 
-message EstablishCoinResponse {
+message EstablishTokenResponse {
   string tip = 1;
 }
 
-message MintCoinRequest {
+message MintTokenRequest {
   Credentials creds = 1;
   string chain_id = 2;
   string key_addr = 3;
-  string coin_name = 4;
+  string token_name = 4;
   uint64 amount = 5;
 }
 
-message MintCoinResponse {
+message MintTokenResponse {
   string tip = 1;
 }
 
@@ -180,6 +180,6 @@ service WalletRPCService {
   rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
   rpc SetData (SetDataRequest) returns (SetDataResponse);
   rpc Resolve (ResolveRequest) returns (ResolveResponse);
-  rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse);
-  rpc MintCoin (MintCoinRequest) returns (MintCoinResponse);
+  rpc EstablishToken (EstablishTokenRequest) returns (EstablishTokenResponse);
+  rpc MintToken (MintTokenRequest) returns (MintTokenResponse);
 }

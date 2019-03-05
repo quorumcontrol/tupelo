@@ -12,19 +12,19 @@ import (
 )
 
 const (
-	TransactionTypeEstablishCoin = "ESTABLISH_COIN"
-	TransactionTypeMintCoin      = "MINT_COIN"
-	TransactionTypeSetData       = "SET_DATA"
-	TransactionTypeSetOwnership  = "SET_OWNERSHIP"
-	TransactionTypeStake         = "STAKE"
+	TransactionTypeEstablishToken = "ESTABLISH_TOKEN"
+	TransactionTypeMintToken      = "MINT_TOKEN"
+	TransactionTypeSetData        = "SET_DATA"
+	TransactionTypeSetOwnership   = "SET_OWNERSHIP"
+	TransactionTypeStake          = "STAKE"
 )
 
 var DefaultTransactors = map[string]chaintree.TransactorFunc{
-	TransactionTypeEstablishCoin: EstablishCoinTransaction,
-	TransactionTypeMintCoin:      MintCoinTransaction,
-	TransactionTypeSetData:       SetDataTransaction,
-	TransactionTypeSetOwnership:  SetOwnershipTransaction,
-	TransactionTypeStake:         StakeTransaction,
+	TransactionTypeEstablishToken: EstablishTokenTransaction,
+	TransactionTypeMintToken:      MintTokenTransaction,
+	TransactionTypeSetData:        SetDataTransaction,
+	TransactionTypeSetOwnership:   SetOwnershipTransaction,
+	TransactionTypeStake:          StakeTransaction,
 }
 
 type SignedChainTree struct {

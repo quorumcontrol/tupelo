@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEstablishCoinTransactionWithMaximum(t *testing.T) {
+func TestEstablishTokenTransactionWithMaximum(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -26,9 +26,9 @@ func TestEstablishCoinTransactionWithMaximum(t *testing.T) {
 			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "ESTABLISH_COIN",
+					Type: "ESTABLISH_TOKEN",
 					Payload: map[string]interface{}{
-						"name": "testcoin",
+						"name": "testtoken",
 						"monetaryPolicy": map[string]interface{}{
 							"maximum": 42,
 						},
@@ -44,24 +44,24 @@ func TestEstablishCoinTransactionWithMaximum(t *testing.T) {
 	_, err = testTree.ProcessBlock(blockWithHeaders)
 	assert.Nil(t, err)
 
-	maximum, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "monetaryPolicy", "maximum"})
+	maximum, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "monetaryPolicy", "maximum"})
 	assert.Nil(t, err)
 	assert.Equal(t, maximum, uint64(42))
 
-	mints, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "mints"})
+	mints, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "mints"})
 	assert.Nil(t, err)
 	assert.Nil(t, mints)
 
-	sends, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "sends"})
+	sends, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "sends"})
 	assert.Nil(t, err)
 	assert.Nil(t, sends)
 
-	receives, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "receives"})
+	receives, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "receives"})
 	assert.Nil(t, err)
 	assert.Nil(t, receives)
 }
 
-func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
+func TestEstablishTokenTransactionWithoutMonetaryPolicy(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -74,9 +74,9 @@ func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
 			PreviousTip: nil,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "ESTABLISH_COIN",
+					Type: "ESTABLISH_TOKEN",
 					Payload: map[string]interface{}{
-						"name": "testcoin",
+						"name": "testtoken",
 					},
 				},
 			},
@@ -89,19 +89,19 @@ func TestEstablishCoinTransactionWithoutMonetaryPolicy(t *testing.T) {
 	_, err = testTree.ProcessBlock(blockWithHeaders)
 	assert.Nil(t, err)
 
-	maximum, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "monetaryPolicy", "maximum"})
+	maximum, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "monetaryPolicy", "maximum"})
 	assert.Nil(t, err)
 	assert.Empty(t, maximum)
 
-	mints, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "mints"})
+	mints, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "mints"})
 	assert.Nil(t, err)
 	assert.Nil(t, mints)
 
-	sends, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "sends"})
+	sends, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "sends"})
 	assert.Nil(t, err)
 	assert.Nil(t, sends)
 
-	receives, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "receives"})
+	receives, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "receives"})
 	assert.Nil(t, err)
 	assert.Nil(t, receives)
 }

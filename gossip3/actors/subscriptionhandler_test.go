@@ -38,7 +38,7 @@ func TestSubscribe(t *testing.T) {
 	currentState := &messages.CurrentState{
 		Signature: &messages.Signature{
 			ObjectID: objectID,
-			NewTip: tipValue.Bytes(),
+			NewTip:   tipValue.Bytes(),
 		},
 	}
 
@@ -81,7 +81,7 @@ func TestUnsubscribe(t *testing.T) {
 	currentState := &messages.CurrentState{
 		Signature: &messages.Signature{
 			ObjectID: objectID,
-			NewTip: tipValue.Bytes(),
+			NewTip:   tipValue.Bytes(),
 		},
 	}
 

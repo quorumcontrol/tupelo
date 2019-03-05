@@ -39,8 +39,8 @@ type TransactionValidator struct {
 }
 
 type validationRequest struct {
-	key       []byte
-	value     []byte
+	key   []byte
+	value []byte
 }
 
 const maxValidatorConcurrency = 10

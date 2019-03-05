@@ -186,7 +186,7 @@ func (c *Client) PlayTransactions(tree *consensus.SignedChainTree, treeKey *ecds
 		ObjectID:    []byte(tree.MustId()),
 		State:       nodes,
 	}
-	
+
 	target := c.Group.GetRandomSigner()
 
 	respChan, err := c.Subscribe(target, tree.MustId(), expectedTip, 60*time.Second)

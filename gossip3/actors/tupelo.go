@@ -136,8 +136,8 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 			}
 			tn.subscriptionHandler.Tell(&messages.Error{
 				Source: errSource,
-				Code: ErrBadTransaction,
-				Memo: fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
+				Code:   ErrBadTransaction,
+				Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 			})
 		}
 	}

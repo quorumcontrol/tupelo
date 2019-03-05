@@ -61,7 +61,7 @@ func TestClientSubscribe(t *testing.T) {
 	ch, err := client.Subscribe(signer, string(trans.ObjectID), newTip, 5*time.Second)
 	require.Nil(t, err)
 
-	time.Sleep(100*time.Millisecond) // make sure the subscription completes
+	time.Sleep(100 * time.Millisecond) // make sure the subscription completes
 
 	err = client.SendTransaction(signer, &trans)
 	require.Nil(t, err)
@@ -227,7 +227,7 @@ func TestNonNilPreviousTipOnFirstTransaction(t *testing.T) {
 	err = client.SendTransaction(signer, transactionMsg)
 	require.Nil(t, err)
 
-	resp := <- respChan
+	resp := <-respChan
 
 	require.IsType(t, &messages.Error{}, resp)
 }
@@ -242,7 +242,7 @@ func transactLocal(t testing.TB, tree *consensus.SignedChainTree, treeKey *ecdsa
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: pt,
-			Height: height,
+			Height:      height,
 			Transactions: []*chaintree.Transaction{
 				{
 					Type: "SET_DATA",
@@ -265,22 +265,22 @@ func transactLocal(t testing.TB, tree *consensus.SignedChainTree, treeKey *ecdsa
 }
 
 func transactRemote(t testing.TB, client *Client, signer *types.Signer, treeID string, blockWithHeaders *chaintree.BlockWithHeaders, newTip cid.Cid, stateNodes [][]byte, emptyTip cid.Cid) chan interface{} {
-    sw := safewrap.SafeWrap{}
+	sw := safewrap.SafeWrap{}
 
-    var previousTipBytes []byte
-    if blockWithHeaders.PreviousTip == nil {
-    	previousTipBytes = emptyTip.Bytes()
+	var previousTipBytes []byte
+	if blockWithHeaders.PreviousTip == nil {
+		previousTipBytes = emptyTip.Bytes()
 	} else {
 		previousTipBytes = blockWithHeaders.PreviousTip.Bytes()
 	}
 
-    transMsg := &messages.Transaction{
-    	PreviousTip: previousTipBytes,
-    	Height:      blockWithHeaders.Height,
-    	NewTip:      newTip.Bytes(),
-    	Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-    	State:       stateNodes,
-    	ObjectID:    []byte(treeID),
+	transMsg := &messages.Transaction{
+		PreviousTip: previousTipBytes,
+		Height:      blockWithHeaders.Height,
+		NewTip:      newTip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
+		State:       stateNodes,
+		ObjectID:    []byte(treeID),
 	}
 
 	respChan, err := client.Subscribe(signer, treeID, newTip, 30*time.Second)
@@ -319,38 +319,38 @@ func TestInvalidPreviousTipOnSnoozedTransaction(t *testing.T) {
 	transactLocal(t, testTreeA, treeKey, 0, "down/in/the/treeA", "atestvalue")
 	basisNodesA1 := testhelpers.DagToByteNodes(t, testTreeA.ChainTree.Dag)
 
-    testTreeB, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStoreB)
-    require.Nil(t, err)
-    emptyTip := testTreeB.Tip()
+	testTreeB, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStoreB)
+	require.Nil(t, err)
+	emptyTip := testTreeB.Tip()
 
-    basisNodesB0 := testhelpers.DagToByteNodes(t, testTreeB.ChainTree.Dag)
-    blockWithHeadersB0 := transactLocal(t, testTreeB, treeKey, 0, "down/in/the/treeB", "btestvalue")
-    tipB0 := testTreeB.Tip()
+	basisNodesB0 := testhelpers.DagToByteNodes(t, testTreeB.ChainTree.Dag)
+	blockWithHeadersB0 := transactLocal(t, testTreeB, treeKey, 0, "down/in/the/treeB", "btestvalue")
+	tipB0 := testTreeB.Tip()
 
-    // run a second transaction on the first local chaintree
-    blockWithHeadersA1 := transactLocal(t, testTreeA, treeKey, 1, "other/thing", "sometestvalue")
+	// run a second transaction on the first local chaintree
+	blockWithHeadersA1 := transactLocal(t, testTreeA, treeKey, 1, "other/thing", "sometestvalue")
 	tipA1 := testTreeA.Tip()
 
-    /* Now send tx 1 from chaintree A to a signer for chaintree B followed by
-       tx 0 from chaintree B to the same signer.
-       tx1 should be a byzantine transaction because its previous tip value
-       from chaintree A won't line up with tx 0's from chaintree B.
-       This can't be checked until after tx 0 is committed and this test is for
-       verifying that that happens and results in an error response.
-    */
-    signer := ng.GetRandomSigner()
-    sub1 := transactRemote(t, client, signer, testTreeB.MustId(), blockWithHeadersA1, tipA1, basisNodesA1, emptyTip)
+	/* Now send tx 1 from chaintree A to a signer for chaintree B followed by
+	   tx 0 from chaintree B to the same signer.
+	   tx1 should be a byzantine transaction because its previous tip value
+	   from chaintree A won't line up with tx 0's from chaintree B.
+	   This can't be checked until after tx 0 is committed and this test is for
+	   verifying that that happens and results in an error response.
+	*/
+	signer := ng.GetRandomSigner()
+	sub1 := transactRemote(t, client, signer, testTreeB.MustId(), blockWithHeadersA1, tipA1, basisNodesA1, emptyTip)
 
-    time.Sleep(1*time.Second)
+	time.Sleep(1 * time.Second)
 
-    sub0 := transactRemote(t, client, signer, testTreeB.MustId(), blockWithHeadersB0, tipB0, basisNodesB0, emptyTip)
+	sub0 := transactRemote(t, client, signer, testTreeB.MustId(), blockWithHeadersB0, tipB0, basisNodesB0, emptyTip)
 
-    resp0 := <- sub0
-    require.IsType(t, &messages.CurrentState{}, resp0)
+	resp0 := <-sub0
+	require.IsType(t, &messages.CurrentState{}, resp0)
 
-    resp1 := <- sub1
-    require.IsType(t, &messages.Error{}, resp1)
-    require.Equal(t, consensus.ErrInvalidTip, resp1.(*messages.Error).Code)
+	resp1 := <-sub1
+	require.IsType(t, &messages.Error{}, resp1)
+	require.Equal(t, consensus.ErrInvalidTip, resp1.(*messages.Error).Code)
 }
 
 func TestNonOwnerTransactions(t *testing.T) {

@@ -429,17 +429,17 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 	return chain.ChainTree.Dag.Resolve(path)
 }
 
-func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) EstablishToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeEstablishCoin,
-			Payload: consensus.EstablishCoinPayload{
-				Name:           coinName,
-				MonetaryPolicy: consensus.CoinMonetaryPolicy{Maximum: amount},
+			Type: consensus.TransactionTypeEstablishToken,
+			Payload: consensus.EstablishTokenPayload{
+				Name:           tokenName,
+				MonetaryPolicy: consensus.TokenMonetaryPolicy{Maximum: amount},
 			},
 		},
 	})
@@ -450,16 +450,16 @@ func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName s
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) MintCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeMintCoin,
-			Payload: consensus.MintCoinPayload{
-				Name:   coinName,
+			Type: consensus.TransactionTypeMintToken,
+			Payload: consensus.MintTokenPayload{
+				Name:   tokenName,
 				Amount: amount,
 			},
 		},
