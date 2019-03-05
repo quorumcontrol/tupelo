@@ -986,7 +986,6 @@
   version = "v1.1.1"
 
 [[projects]]
-  branch = "master"
   digest = "1:1df77f28a1ab519a22669763dfcd1139147ee089b7c9189fdecd71785de9078f"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
