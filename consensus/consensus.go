@@ -28,8 +28,8 @@ func init() {
 
 type SignatureMap map[string]Signature
 
-// Merge returns a new SignatatureMap composed of the original with the other merged in
-// other wins when both SignatureMaps have signatures
+// Merge returns a new SignatureMap composed of the original with the other
+// merged in other wins when both SignatureMaps have signatures
 func (sm SignatureMap) Merge(other SignatureMap) SignatureMap {
 	newSm := make(SignatureMap)
 	for k, v := range sm {

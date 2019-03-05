@@ -394,18 +394,12 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 		return nil, StoppedError
 	}
 
-	var decodedVal interface{}
-	err := cbornode.DecodeInto(value, &decodedVal)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding value: %v", err)
-	}
-
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetData,
 			Payload: consensus.SetDataPayload{
 				Path:  path,
-				Value: decodedVal,
+				Value: value,
 			},
 		},
 	})
@@ -439,7 +433,7 @@ func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName s
 			Type: consensus.TransactionTypeEstablishCoin,
 			Payload: consensus.EstablishCoinPayload{
 				Name:           coinName,
-				MonetaryPolicy: consensus.CoinMonetaryPolicy{Maximum: amount},
+				MonetaryPolicy: &consensus.CoinMonetaryPolicy{Maximum: amount},
 			},
 		},
 	})

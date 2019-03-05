@@ -19,29 +19,13 @@ const (
 )
 
 func init() {
-	typecaster.AddType(SetDataPayload{})
-	typecaster.AddType(SetOwnershipPayload{})
-	typecaster.AddType(EstablishCoinPayload{})
-	typecaster.AddType(MintCoinPayload{})
 	typecaster.AddType(Coin{})
-	typecaster.AddType(CoinMonetaryPolicy{})
 	typecaster.AddType(CoinMint{})
 	typecaster.AddType(StakePayload{})
-	cbornode.RegisterCborType(SetDataPayload{})
-	cbornode.RegisterCborType(SetOwnershipPayload{})
-	cbornode.RegisterCborType(EstablishCoinPayload{})
-	cbornode.RegisterCborType(MintCoinPayload{})
+
 	cbornode.RegisterCborType(Coin{})
-	cbornode.RegisterCborType(CoinMonetaryPolicy{})
 	cbornode.RegisterCborType(CoinMint{})
 	cbornode.RegisterCborType(StakePayload{})
-}
-
-// SetDataPayload is the payload for a SetDataTransaction
-// Path / Value
-type SetDataPayload struct {
-	Path  string
-	Value interface{}
 }
 
 func complexType(obj interface{}) bool {
@@ -75,7 +59,7 @@ func DecodePath(path string) ([]string, error) {
 
 // SetDataTransaction just sets a path in tree/data to arbitrary data.
 func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
-	payload := &SetDataPayload{}
+	payload := &chaintree.SetDataPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
@@ -102,13 +86,9 @@ func SetDataTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newT
 	return newTree, true, nil
 }
 
-type SetOwnershipPayload struct {
-	Authentication []string
-}
-
 // SetOwnershipTransaction changes the ownership of a tree by adding a public key array to /_tupelo/authentications
 func SetOwnershipTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
-	payload := &SetOwnershipPayload{}
+	payload := &chaintree.SetOwnershipPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 	if err != nil {
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error casting payload: %v", err)}
@@ -134,17 +114,8 @@ type Coin struct {
 	Receives       *cid.Cid
 }
 
-type CoinMonetaryPolicy struct {
-	Maximum uint64
-}
-
-type EstablishCoinPayload struct {
-	Name           string
-	MonetaryPolicy CoinMonetaryPolicy
-}
-
 func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
-	payload := &EstablishCoinPayload{}
+	payload := &chaintree.EstablishCoinPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 
 	if err != nil {
@@ -178,17 +149,12 @@ func EstablishCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction)
 	return newTree, true, nil
 }
 
-type MintCoinPayload struct {
-	Name   string
-	Amount uint64
-}
-
 type CoinMint struct {
 	Amount uint64
 }
 
 func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (newTree *dag.Dag, valid bool, codedErr chaintree.CodedError) {
-	payload := &MintCoinPayload{}
+	payload := &chaintree.MintCoinPayload{}
 	err := typecaster.ToType(transaction.Payload, payload)
 
 	if err != nil {
@@ -214,7 +180,7 @@ func MintCoinTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (new
 		return nil, false, &ErrorCode{Code: ErrUnknown, Memo: fmt.Sprintf("error, coin at path %v does not exist, must MINT_COIN first", coinPath)}
 	}
 
-	monetaryPolicy := &CoinMonetaryPolicy{}
+	monetaryPolicy := &chaintree.CoinMonetaryPolicy{}
 	err = typecaster.ToType(uncastMonetaryPolicy, monetaryPolicy)
 
 	if err != nil {
