@@ -27,9 +27,6 @@ test: vendor $(generated) $(gosources)
 docker-image: vendor Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
-$(FIRSTGOPATH)/bin/modvendor:
-	go get -u github.com/goware/modvendor
-
 install: $(gosources)
 	go install -a -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH
 
