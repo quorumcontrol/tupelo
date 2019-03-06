@@ -127,42 +127,6 @@ func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *a
 func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *actor.PID {
 	csr.Log.Debugw("new conflict set", "id", id)
 	cfg := csr.cfg
-	var msgHeight uint64
-	var objectID []byte
-	switch msg := context.Message().(type) {
-	case *messages.TransactionWrapper:
-		msgHeight = msg.Transaction.Height
-		objectID = msg.Transaction.ObjectID
-	case *messages.SignatureWrapper:
-		msgHeight = msg.Signature.Height
-		objectID = msg.Signature.ObjectID
-	case *messages.Signature:
-		msgHeight = msg.Height
-		objectID = msg.ObjectID
-	case *messages.Store:
-		var currState messages.CurrentState
-		_, err := currState.UnmarshalMsg(msg.Value)
-		if err != nil {
-			panic(fmt.Errorf("error unmarshaling: %v", err))
-		}
-		msgHeight = currState.Signature.Height
-		objectID = currState.Signature.ObjectID
-	case *commitNotification:
-		var currState messages.CurrentState
-		_, err := currState.UnmarshalMsg(msg.store.Value)
-		if err != nil {
-			panic(fmt.Errorf("error unmarshaling: %v", err))
-		}
-		msgHeight = currState.Signature.Height
-		objectID = currState.Signature.ObjectID
-	}
-	var activeHeight uint64
-	if len(objectID) > 0 {
-		activeHeight = csr.nextHeight(objectID)
-	} else {
-		activeHeight = 0
-	}
-	active := msgHeight == activeHeight
 	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
 		ID:                 id,
 		CurrentStateStore:  cfg.CurrentStateStore,
@@ -171,7 +135,6 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 		SignatureChecker:   cfg.SignatureChecker,
 		SignatureGenerator: cfg.SignatureGenerator,
 		SignatureSender:    cfg.SignatureSender,
-		Active:             active,
 	}), id)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
