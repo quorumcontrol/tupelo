@@ -986,7 +986,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:36aa8b7f95d935b5f673f07326b8ea58ea16e69ee0da19d7a36b3105593247fe"
+  digest = "1:b73ef572893e54268ac46b79092f5366c0ca3e80b2c08f435ea7dec3321f312e"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -995,13 +995,12 @@
     "gossip3/messages",
     "gossip3/middleware",
     "gossip3/remote",
-    "gossip3/serializer",
     "gossip3/testhelpers",
     "gossip3/types",
     "p2p",
   ]
   pruneopts = ""
-  revision = "f1e3a8276a67d4653ef5da4fe13e998b3f78dbb8"
+  revision = "df12b4828d2cd5c55c6ca7b75582b62e95175ea6"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"
@@ -1374,7 +1373,6 @@
     "github.com/quorumcontrol/tupelo-go-client/gossip3/messages",
     "github.com/quorumcontrol/tupelo-go-client/gossip3/middleware",
     "github.com/quorumcontrol/tupelo-go-client/gossip3/remote",
-    "github.com/quorumcontrol/tupelo-go-client/gossip3/serializer",
     "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers",
     "github.com/quorumcontrol/tupelo-go-client/gossip3/types",
     "github.com/quorumcontrol/tupelo-go-client/p2p",
