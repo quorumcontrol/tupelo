@@ -107,8 +107,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		} else if expectedHeight < t.Height {
 			preFlight = true
 		} else {
-			tv.Log.Errorf("error: transaction height %d is lower than current state height %d", t.Height, expectedHeight)
-			context.Respond(wrapper)
+			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
 			return
 		}
 	} else {
