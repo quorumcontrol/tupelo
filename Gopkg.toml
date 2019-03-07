@@ -61,3 +61,7 @@
 [[constraint]]
   name = "github.com/quorumcontrol/tupelo-go-client"
   revision = "b614a709649cd8c459f63c2aa20e95ca00a6405d"
+
+[[constraint]]
+  name = "github.com/gobuffalo/packr"
+  version = "2.0.3"
