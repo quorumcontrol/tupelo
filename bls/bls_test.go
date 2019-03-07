@@ -1,6 +1,7 @@
 package bls
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -76,6 +77,18 @@ func TestSumSignatures(t *testing.T) {
 	assert.Len(t, multiSig, 64)
 }
 
+func TestSumPublics(t *testing.T) {
+	key1, err := NewSignKey()
+	assert.Nil(t, err)
+
+	key2, err := NewSignKey()
+	assert.Nil(t, err)
+
+	aggregate, err := SumPublics([][]byte{key1.MustVerKey().Bytes(), key2.MustVerKey().Bytes()})
+	require.Nil(t, err)
+	assert.IsType(t, &VerKey{}, aggregate)
+}
+
 func TestVerifyMultiSig(t *testing.T) {
 	msg := []byte("hi")
 
@@ -140,6 +153,78 @@ func TestVerifyMultiSig(t *testing.T) {
 	isValid, err = VerifyMultiSig(multiSig, msg, verKeys)
 	assert.Nil(t, err)
 	assert.True(t, isValid)
+}
+
+func TestBatchVerify(t *testing.T) {
+	sigCount := 5
+	msgs := make([][]byte, sigCount)
+	sigs := make([][]byte, sigCount)
+	verKeys := make([]*VerKey, sigCount)
+	for i := 0; i < sigCount; i++ {
+		msgs[i] = []byte("hi" + strconv.Itoa(i))
+		key, err := NewSignKey()
+		assert.Nil(t, err)
+		verKeys[i] = key.MustVerKey()
+		sig, err := key.Sign(msgs[i])
+		require.Nil(t, err)
+		sigs[i] = sig
+	}
+	// in the valid case
+	valid, err := BatchVerify(msgs, verKeys, sigs)
+	require.Nil(t, err)
+	assert.True(t, valid)
+
+	// with one bad sig
+	msgs[0][0] ^= 0x01
+	valid, err = BatchVerify(msgs, verKeys, sigs)
+	require.Nil(t, err)
+	assert.False(t, valid)
+}
+
+func BenchmarkBatchVerify(b *testing.B) {
+	sigCount := 100
+	msgs := make([][]byte, sigCount)
+	sigs := make([][]byte, sigCount)
+	verKeys := make([]*VerKey, sigCount)
+	for i := 0; i < sigCount; i++ {
+		msgs[i] = []byte("hi" + strconv.Itoa(i))
+		key, err := NewSignKey()
+		assert.Nil(b, err)
+		verKeys[i] = key.MustVerKey()
+		sig, err := key.Sign(msgs[i])
+		require.Nil(b, err)
+		sigs[i] = sig
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		isValid, _ := BatchVerify(msgs, verKeys, sigs)
+		assert.True(b, isValid)
+	}
+}
+
+func BenchmarkVerifyMultiSig(b *testing.B) {
+	sigCount := 100
+	sigs := make([][]byte, sigCount)
+	verKeys := make([][]byte, sigCount)
+	msg := []byte("hi")
+
+	for i := 0; i < sigCount; i++ {
+		key, err := NewSignKey()
+		assert.Nil(b, err)
+		verKeys[i] = key.MustVerKey().Bytes()
+		sig, err := key.Sign(msg)
+		require.Nil(b, err)
+		sigs[i] = sig
+	}
+	summed, err := SumSignatures(sigs)
+	require.Nil(b, err)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		isValid, _ := VerifyMultiSig(summed, msg, verKeys)
+		assert.True(b, isValid)
+	}
 }
 
 func BenchmarkVerKey_Verify(b *testing.B) {
