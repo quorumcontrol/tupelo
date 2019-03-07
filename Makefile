@@ -27,7 +27,7 @@ test: vendor $(generated) $(gosources)
 docker-image: vendor Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
-install: $(gosources)
+install: vendor $(generated) $(gosources)
 	go install -a -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH
 
 clean:
