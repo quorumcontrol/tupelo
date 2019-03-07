@@ -22,8 +22,8 @@ func TestValidator(t *testing.T) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
 			context.Request(validator, &validationRequest{
-				key:       msg.Key,
-				value:     msg.Value,
+				key:   msg.Key,
+				value: msg.Value,
 			})
 		case *messages.TransactionWrapper:
 			fut.PID().Tell(msg)
@@ -61,9 +61,9 @@ func BenchmarkValidator(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f := validator.RequestFuture(&messages.Store{
-			Key:   key,
-			Value: value,
+		f := validator.RequestFuture(&validationRequest{
+			key:   key,
+			value: value,
 		}, 5*time.Second)
 		futures[i] = f
 	}
