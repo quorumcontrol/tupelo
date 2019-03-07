@@ -256,7 +256,7 @@ func MintTokenTransaction(tree *dag.Dag, transaction *chaintree.Transaction) (ne
 			currentMintedTotal = currentMintedTotal + amount.(uint64)
 		}
 
-		if (currentMintedTotal + payload.Amount) >= monetaryPolicy.Maximum {
+		if (currentMintedTotal + payload.Amount) > monetaryPolicy.Maximum {
 			return nil, false, &ErrorCode{Code: 999, Memo: fmt.Sprintf("new mint would violate monetaryPolicy of maximum: %v", monetaryPolicy.Maximum)}
 		}
 	}

@@ -298,7 +298,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 					Payload: map[string]interface{}{
 						"name": "testtoken",
 						"monetaryPolicy": map[string]interface{}{
-							"maximum": 8675309,
+							"maximum": 8000000,
 						},
 					},
 				},
@@ -339,7 +339,8 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	assert.False(t, isAccepted)
 
 	// Can mint from established token
-	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
+	// mint all but 1
+	for testIndex, testAmount := range []uint64{1, 30, (8000000 - 32)} {
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
 				PreviousTip: &testTree.Dag.Tip,
@@ -390,7 +391,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
 						"name":   "testtoken",
-						"amount": 675309,
+						"amount": 2,
 					},
 				},
 			},
@@ -411,6 +412,41 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
+
+	// Mint up to maximum
+	unsignedBlock = &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: &testTree.Dag.Tip,
+			Height:      4,
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "MINT_TOKEN",
+					Payload: map[string]interface{}{
+						"name":   "testtoken",
+						"amount": 1,
+					},
+				},
+			},
+		},
+	}
+
+	nodes = dagToByteNodes(t, testTree.Dag)
+
+	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	assert.Nil(t, err)
+
+	trans = &messages.Transaction{
+		State:       nodes,
+		PreviousTip: testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
+	}
+
+	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	assert.Nil(t, err)
+	assert.True(t, isAccepted)
+
+	testTree.ProcessBlock(blockWithHeaders)
+	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
 	// Can't mint a negative amount
 	unsignedBlock = &chaintree.BlockWithHeaders{
