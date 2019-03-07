@@ -87,8 +87,13 @@ func NewIpldNodeStorage(config map[string]interface{}) (*IpldStorageAdapter, err
 		return nil, fmt.Errorf("Could not open IPFS repo %s: %v", repoRoot, err)
 	}
 
+	online := false
+	if onlineVal, ok := config["online"]; ok {
+		online = onlineVal.(bool)
+	}
+
 	nodeConfig := &core.BuildCfg{
-		Online:    false,
+		Online:    online,
 		Permanent: true,
 		Routing:   core.DHTOption,
 		Repo:      repo,
