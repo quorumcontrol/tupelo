@@ -49,7 +49,7 @@ var (
 	enableElasticTracing bool
 )
 
-// testnodeCmd represents the testnode command
+// testnodeCmd represents the test-node command
 var testnodeCmd = &cobra.Command{
 	Use:   "test-node [index of key]",
 	Short: "Run a testnet node with hardcoded (insecure) keys",
@@ -114,7 +114,7 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
-		panic("error fetching ecdsa key - set env variable TUPELO_NODE_ECDSA_KEY_HEX")
+		panic("error decoding ECDSA key (from $TUPELO_NODE_ECDSA_KEY_HEX)")
 	}
 
 	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))

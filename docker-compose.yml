@@ -20,8 +20,8 @@ services:
       - ./cmd/testnode-local-keys:/bootstrap-keys
     command: ["test-node", "-k", "/bootstrap-keys"]
     environment:
-      TUPELO_NODE_BLS_KEY_HEX: "0x74602d5c6265e53c643319309b94ee31294c63696a498735fb7d0d4d04ed862a"
-      TUPELO_NODE_ECDSA_KEY_HEX: "0x44265d8560374e7febc3ab15919f3576a7edf7010728254093b7db08b7269b34"
+      TUPELO_NODE_BLS_KEY_HEX: "0x4344e3372f1b790016ed86400611fab64d0bba91136518685a7ce34106f1c759"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0xc09363e85290020c132053f029f23988d4e35c521b0698312e0071f3e5d0e023"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   node1:
     build: .
@@ -30,8 +30,8 @@ services:
       - ./cmd/testnode-local-keys:/bootstrap-keys
     command: ["test-node", "-k", "/bootstrap-keys"]
     environment:
-      TUPELO_NODE_BLS_KEY_HEX: "0x21b41a603769a2bfe73b0c98a95ef336b749d8afd882a641a234fd193465b5dc"
-      TUPELO_NODE_ECDSA_KEY_HEX: "0xbe65d548d1c6697ab7a43f9c1e4611bfbc835b5ba49b74e1b3f5745601521a8a"
+      TUPELO_NODE_BLS_KEY_HEX: "0x39a9b8ab3266811852b8b18d1fd0562ffc907f3ecba297c9b2a89f742d349dc9"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0xa1b8b9936d8072b1a16311aee414289a5f8070acff847588386738d6d686fc9b"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   node2:
     build: .
@@ -40,8 +40,8 @@ services:
       - ./cmd/testnode-local-keys:/bootstrap-keys
     command: ["test-node", "-k", "/bootstrap-keys"]
     environment:
-      TUPELO_NODE_BLS_KEY_HEX: "0x2359ac18000fabc4eb17f94995a6507ee10f2845d6f2399679c66a1a4d0ae98e"
-      TUPELO_NODE_ECDSA_KEY_HEX: "0x584e484ec64007e30e55aeaf61d627a98af094608a43006a7d98bfd019df5995"
+      TUPELO_NODE_BLS_KEY_HEX: "0x558a546adacea3d761741bf4a6415ef2eeb85bfa457036b59564fa88ee276cf5"
+      TUPELO_NODE_ECDSA_KEY_HEX: "0x251b3227fc393f810846f170c1534c2787721a4385d4711d93321302bf023bab"
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
   rpc-server:
     build: .
