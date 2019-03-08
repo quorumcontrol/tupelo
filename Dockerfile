@@ -1,4 +1,4 @@
-FROM golang:1.12.0 AS build
+FROM golang:1.11.5 AS build
 
 WORKDIR /go/src/github.com/quorumcontrol/tupelo
 
