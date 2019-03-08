@@ -109,6 +109,8 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 			preFlight = true
 		} else {
 			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
+			wrapper.Metadata["stale"] = true
+			context.Respond(wrapper)
 			return
 		}
 	} else {

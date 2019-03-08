@@ -126,21 +126,28 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		if msg.PreFlight || msg.Accepted {
 			tn.conflictSetRouter.Tell(msg)
 		} else {
-			tn.Log.Debugw("removing bad transaction", "msg", msg)
-			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
-			var errSource string
-			if msg.Transaction != nil && msg.Transaction.ObjectID != nil {
-				// need this to route the error back to the correct subscribers
-				errSource = string(msg.Transaction.ObjectID)
-			} else {
-				// ...but fallback on this rather than generating a nil deref error
-				errSource = string(msg.Key)
+			switch stale := msg.Metadata["stale"].(type) {
+			case bool:
+				if stale {
+					tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
+				}
+			default:
+				tn.Log.Debugw("removing bad transaction", "msg", msg)
+				var errSource string
+				if msg.Transaction != nil && msg.Transaction.ObjectID != nil {
+					// need this to route the error back to the correct subscribers
+					errSource = string(msg.Transaction.ObjectID)
+				} else {
+					// ...but fallback on this rather than generating a nil deref error
+					errSource = string(msg.Key)
+				}
+				tn.subscriptionHandler.Tell(&extmsgs.Error{
+					Source: errSource,
+					Code:   ErrBadTransaction,
+					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
+				})
 			}
-			tn.subscriptionHandler.Tell(&extmsgs.Error{
-				Source: errSource,
-				Code:   ErrBadTransaction,
-				Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
-			})
+			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
 		}
 	}
 }
