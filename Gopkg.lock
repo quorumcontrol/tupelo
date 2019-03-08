@@ -1422,7 +1422,10 @@
   branch = "master"
   digest = "1:2255fee1df9431ec9c0a373a4e112a60b28ae435d7af57d69f4f2e2e86800cad"
   name = "google.golang.org/genproto"
-  packages = ["googleapis/rpc/status"]
+  packages = [
+    "googleapis/api/annotations",
+    "googleapis/rpc/status",
+  ]
   pruneopts = ""
   revision = "8819c946db4494a2259bf100a377f51aa585d893"
 
@@ -1535,6 +1538,7 @@
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
     "golang.org/x/net/context",
+    "google.golang.org/genproto/googleapis/api/annotations",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
     "google.golang.org/grpc/credentials",
