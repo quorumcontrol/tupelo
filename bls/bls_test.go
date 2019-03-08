@@ -31,7 +31,7 @@ func TestSignKey_VerKey(t *testing.T) {
 	verKey, err := key.VerKey()
 	assert.Nil(t, err)
 
-	assert.Len(t, verKey.Bytes(), 128)
+	assert.Len(t, verKey.Bytes(), 129)
 }
 
 func TestVerKey_Verify(t *testing.T) {
