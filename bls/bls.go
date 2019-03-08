@@ -123,14 +123,14 @@ func SumPublics(verKeys [][]byte) (*VerKey, error) {
 		p := suite.G2().Point()
 		err := p.UnmarshalBinary(verKeyBytes)
 		if err != nil {
-			return nil, fmt.Errorf("error unmarshaling: %v", err)
+			return nil, fmt.Errorf("error unmarshaling verkey for SumPublics: %v", err)
 		}
 		points[i] = p
 	}
 	aggregatedPublic := dedisbls.AggregatePublicKeys(suite, points...)
 	pubBytes, err := aggregatedPublic.MarshalBinary()
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling: %v", err)
+		return nil, fmt.Errorf("error marshaling aggregaterd public key: %v", err)
 	}
 	return &VerKey{
 		public: aggregatedPublic,
@@ -151,6 +151,9 @@ func BatchVerify(msgs [][]byte, verKeys []*VerKey, sigs [][]byte) (bool, error) 
 
 	err = dedisbls.BatchVerify(suite, publics, msgs, sig)
 	if err != nil {
+		if err.Error() == "bls: error, messages must be distinct" {
+			return false, fmt.Errorf("error, messages must be distinct")
+		}
 		return false, nil
 	}
 	return true, nil
