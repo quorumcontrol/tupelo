@@ -75,6 +75,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		Value:     msg.value,
 		PreFlight: false,
 		Accepted:  false,
+		Stale:     false,
 		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
 	var t extmsgs.Transaction
@@ -109,7 +110,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 			preFlight = true
 		} else {
 			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
-			wrapper.Metadata["stale"] = true
+			wrapper.Stale = true
 			context.Respond(wrapper)
 			return
 		}

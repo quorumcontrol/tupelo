@@ -126,12 +126,9 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		if msg.PreFlight || msg.Accepted {
 			tn.conflictSetRouter.Tell(msg)
 		} else {
-			switch stale := msg.Metadata["stale"].(type) {
-			case bool:
-				if stale {
-					tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
-				}
-			default:
+			if msg.Stale {
+				tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
+			} else {
 				tn.Log.Debugw("removing bad transaction", "msg", msg)
 				var errSource string
 				if msg.Transaction != nil && msg.Transaction.ObjectID != nil {

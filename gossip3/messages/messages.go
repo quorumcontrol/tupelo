@@ -100,6 +100,7 @@ type TransactionWrapper struct {
 	Transaction   *extmsgs.Transaction
 	PreFlight     bool
 	Accepted      bool
+	Stale         bool
 	Key           []byte
 	Value         []byte
 	Metadata      MetadataMap
