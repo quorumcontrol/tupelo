@@ -119,8 +119,9 @@ func (s *server) parseStorageAdapter(c *StorageAdapterConfig) (*adapters.Config,
 		return &adapters.Config{
 			Adapter: adapters.IpldStorageAdapterName,
 			Arguments: map[string]interface{}{
-				"path":   config.Ipld.Path,
-				"online": !config.Ipld.Offline,
+				"path":    config.Ipld.Path,
+				"address": config.Ipld.Address,
+				"online":  !config.Ipld.Offline,
 			},
 		}, nil
 	default:
