@@ -62,9 +62,9 @@ func BenchmarkValidator(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f := validator.RequestFuture(&extmsgs.Store{
-			Key:   key,
-			Value: value,
+		f := validator.RequestFuture(&validationRequest{
+			key:   key,
+			value: value,
 		}, 5*time.Second)
 		futures[i] = f
 	}

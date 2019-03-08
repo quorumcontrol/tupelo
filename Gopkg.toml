@@ -18,7 +18,7 @@
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
   source = "git@github.com:quorumcontrol/chaintree.git"  
-  version = "v5.0.1"
+  version = "v5.1.0"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
@@ -35,7 +35,7 @@
 
 [[constraint]]
   name = "github.com/ipsn/go-ipfs"
-  revision = "4b3ab38e3ef37ded722bab7ee9f3c4cf69fbaeff"
+  revision = "30b2b298240fb29ae96ebc1dce5c7ce6f541bf78"
 
 [[constraint]]
   name = "github.com/gorilla/mux"
@@ -45,6 +45,15 @@
   name = "github.com/golang/protobuf"
   version = "v1.2.0"
 
+[[override]]
+  name = "github.com/ipfs/go-ipfs-http-client"
+  source = "github.com/quorumcontrol/ipsn-go-ipfs-http-client"
+  revision = "984004a746c6b66a07839f2925ed79345dd8e67f"
+
+[[override]]
+  name = "github.com/cheggaaa/pb"
+  version = "v1.0.27"
+
 [[constraint]]
   name = "github.com/quorumcontrol/tupelo-go-client"
-  revision = "df12b4828d2cd5c55c6ca7b75582b62e95175ea6"
+  revision = "a721aad2568d89312b62f9d1f6caa9bd90e03e6d"

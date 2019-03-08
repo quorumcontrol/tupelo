@@ -85,9 +85,9 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
-	transWrapper, err := validator.RequestFuture(&extmsgs.Store{
-		Key:   key,
-		Value: value,
+	transWrapper, err := validator.RequestFuture(&validationRequest{
+		key:   key,
+		value: value,
 	}, 1*time.Second).Result()
 	require.Nil(b, err)
 
