@@ -24,6 +24,9 @@ build: vendor $(generated) $(gosources)
 test: vendor $(generated) $(gosources)
 	go test ./...
 
+integration-test: vendor $(generated) $(gosources)
+	go test ./... -tags=integration
+
 docker-image: vendor Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
