@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo/bls"
-	"github.com/quorumcontrol/tupelo/consensus"
-	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/quorumcontrol/tupelo-go-client/bls"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/stretchr/testify/require"
 )
 

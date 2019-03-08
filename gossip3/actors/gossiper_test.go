@@ -10,8 +10,9 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -106,7 +107,7 @@ func TestFastGossip(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		value := []byte(strconv.Itoa(i))
 		key := crypto.Keccak256(value)
-		stores[rand.Intn(len(stores))].Tell(&messages.Store{
+		stores[rand.Intn(len(stores))].Tell(&extmsgs.Store{
 			Key:   key,
 			Value: value,
 		})
@@ -123,7 +124,7 @@ func TestFastGossip(t *testing.T) {
 		fut := actor.NewFuture(1 * time.Second)
 		subActor := func(context actor.Context) {
 			switch msg := context.Message().(type) {
-			case *messages.Store:
+			case *extmsgs.Store:
 				if bytes.Equal(msg.Key, key) {
 					fut.PID().Tell(msg)
 				}
@@ -146,7 +147,7 @@ func TestFastGossip(t *testing.T) {
 		}
 	}()
 
-	stores[0].Tell(&messages.Store{
+	stores[0].Tell(&extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})
@@ -154,6 +155,6 @@ func TestFastGossip(t *testing.T) {
 	for _, future := range futures {
 		res, err := future.Result()
 		require.Nil(t, err)
-		assert.Equal(t, key, res.(*messages.Store).Key)
+		assert.Equal(t, key, res.(*extmsgs.Store).Key)
 	}
 }

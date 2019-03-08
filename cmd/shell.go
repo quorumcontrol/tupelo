@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
-	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
-	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/spf13/cobra"
 )

@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestSendSigs(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	subscriberFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *messages.Signature:
+		case *extmsgs.Signature:
 			fut.PID().Tell(msg)
 		}
 	}
@@ -32,11 +33,11 @@ func TestSendSigs(t *testing.T) {
 	signer.Actor = subscriber
 
 	ss.Tell(&messages.SignatureWrapper{
-		Signature:        &messages.Signature{TransactionID: []byte("testonly")},
+		Signature:        &extmsgs.Signature{TransactionID: []byte("testonly")},
 		RewardsCommittee: []*types.Signer{signer},
 	})
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
-	assert.Equal(t, []byte("testonly"), msg.(*messages.Signature).TransactionID)
+	assert.Equal(t, []byte("testonly"), msg.(*extmsgs.Signature).TransactionID)
 }

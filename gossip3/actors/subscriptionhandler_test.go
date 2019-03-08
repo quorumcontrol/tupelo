@@ -1,14 +1,16 @@
 package actors
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/consensus"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,15 +32,15 @@ func TestSubscribe(t *testing.T) {
 
 	tipValue := emptyTree.Tip
 
-	s.Request(&messages.TipSubscription{
+	s.Request(&extmsgs.TipSubscription{
 		ObjectID: objectID,
 		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
-	currentState := &messages.CurrentState{
-		Signature: &messages.Signature{
+	currentState := &extmsgs.CurrentState{
+		Signature: &extmsgs.Signature{
 			ObjectID: objectID,
-			NewTip: tipValue.Bytes(),
+			NewTip:   tipValue.Bytes(),
 		},
 	}
 
@@ -67,21 +69,21 @@ func TestUnsubscribe(t *testing.T) {
 
 	tipValue := emptyTree.Tip
 
-	s.Request(&messages.TipSubscription{
+	s.Request(&extmsgs.TipSubscription{
 		ObjectID: objectID,
 		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
-	s.Request(&messages.TipSubscription{
+	s.Request(&extmsgs.TipSubscription{
 		Unsubscribe: true,
 		ObjectID:    objectID,
 		TipValue:    tipValue.Bytes(),
 	}, fut.PID())
 
-	currentState := &messages.CurrentState{
-		Signature: &messages.Signature{
+	currentState := &extmsgs.CurrentState{
+		Signature: &extmsgs.Signature{
 			ObjectID: objectID,
-			NewTip: tipValue.Bytes(),
+			NewTip:   tipValue.Bytes(),
 		},
 	}
 

@@ -2,14 +2,16 @@ package actors
 
 import (
 	"fmt"
-	"github.com/ipfs/go-cid"
 	"strings"
 	"time"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
 
 type actorPIDHolder map[string]*actor.PID
@@ -70,11 +72,11 @@ func subscriptionKeys(objectKey string, tip []byte) []string {
 
 func (sh *SubscriptionHandler) subscriptionKeys(uncastMsg interface{}) []string {
 	switch msg := uncastMsg.(type) {
-	case *messages.TipSubscription:
+	case *extmsgs.TipSubscription:
 		return subscriptionKeys(string(msg.ObjectID), msg.TipValue)
 	case *messages.CurrentStateWrapper:
 		return subscriptionKeys(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState.Signature.NewTip)
-	case *messages.Error:
+	case *extmsgs.Error:
 		return subscriptionKeys(msg.Source, make([]byte, 0))
 	default:
 		return nil
@@ -89,7 +91,7 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 		if _, ok := sh.subscriptionManagers[objectID]; ok {
 			delete(sh.subscriptionManagers, objectID)
 		}
-	case *messages.TipSubscription:
+	case *extmsgs.TipSubscription:
 		subKeys := sh.subscriptionKeys(msg)
 		var manager *actor.PID
 		objManagers, ok := sh.subscriptionManagers[subKeys[0]]
@@ -109,7 +111,7 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 		}
 
 		context.Forward(manager)
-	case *messages.CurrentStateWrapper, *messages.Error:
+	case *messages.CurrentStateWrapper, *extmsgs.Error:
 		subKeys := sh.subscriptionKeys(msg)
 		var managers = make([]*actor.PID, 0)
 		if len(subKeys[1]) == 0 {
@@ -134,7 +136,7 @@ func (sh *SubscriptionHandler) Receive(context actor.Context) {
 	}
 }
 
-func (sh *SubscriptionHandler) newManager(context actor.Context, msg *messages.TipSubscription) *actor.PID {
+func (sh *SubscriptionHandler) newManager(context actor.Context, msg *extmsgs.TipSubscription) *actor.PID {
 	subKeys := sh.subscriptionKeys(msg)
 	actorNameKeys := subKeys
 	if len(subKeys[1]) == 0 {
@@ -157,28 +159,28 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 		context.SetReceiveTimeout(0)
 		osm.Log.Debugw("killing unused subscription")
 		context.Self().Stop()
-	case *messages.TipSubscription:
+	case *extmsgs.TipSubscription:
 		context.SetReceiveTimeout(subscriptionTimeout)
 		if msg.Unsubscribe {
 			osm.unsubscribe(context, msg)
 		} else {
 			osm.subscribe(context, msg)
 		}
-	case *messages.CurrentStateWrapper, *messages.Error:
+	case *messages.CurrentStateWrapper, *extmsgs.Error:
 		context.SetReceiveTimeout(subscriptionTimeout)
 		osm.notifySubscribers(context, msg)
 	}
 }
 
-func (osm *objectSubscriptionManager) subscriptionKeys(context actor.Context, msg *messages.TipSubscription) []string {
+func (osm *objectSubscriptionManager) subscriptionKeys(context actor.Context, msg *extmsgs.TipSubscription) []string {
 	return subscriptionKeys(context.Sender().String(), msg.TipValue)
 }
 
-func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *messages.TipSubscription) {
+func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *extmsgs.TipSubscription) {
 	osm.subscriptions[context.Sender().String()] = context.Sender()
 }
 
-func (osm *objectSubscriptionManager) unsubscribe(context actor.Context, msg *messages.TipSubscription) {
+func (osm *objectSubscriptionManager) unsubscribe(context actor.Context, msg *extmsgs.TipSubscription) {
 	delete(osm.subscriptions, context.Sender().String())
 	if len(osm.subscriptions) == 0 {
 		context.Self().Stop()
@@ -190,7 +192,7 @@ func (osm *objectSubscriptionManager) notifySubscribers(context actor.Context, u
 	switch msg := uncastMsg.(type) {
 	case *messages.CurrentStateWrapper:
 		notice = msg.CurrentState
-	case *messages.Error:
+	case *extmsgs.Error:
 		notice = msg
 	}
 	for _, sub := range osm.subscriptions {

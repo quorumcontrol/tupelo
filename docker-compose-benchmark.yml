@@ -6,6 +6,4 @@ services:
       - ./cmd/testnode-local-keys:/bootstrap-keys
     command: ["benchmark", "-k", "/bootstrap-keys", "-c", "2", "-i", "60", "-s", "tps", "-t", "65"]
     environment:
-      TUPELO_NODE_BLS_KEY_HEX: "0x2359ac18000fabc4eb17f94995a6507ee10f2845d6f2399679c66a1a4d0ae98e"
-      TUPELO_NODE_ECDSA_KEY_HEX: "0x584e484ec64007e30e55aeaf61d627a98af094608a43006a7d98bfd019df5995"
-      TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/QmW2hgZqe6UcQ6kTaF8kS6CA3RDo7wbCvnGctCetbSt85n"
+      TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"

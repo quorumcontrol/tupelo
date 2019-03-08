@@ -7,8 +7,9 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
 
 type system interface {
@@ -115,7 +116,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 			context.Watch(receiveSyncer)
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
-			available.SetDestination(messages.ToActorPid(receiveSyncer))
+			available.SetDestination(extmsgs.ToActorPid(receiveSyncer))
 			context.Respond(available)
 		} else {
 			context.Respond(&messages.NoSyncersAvailable{})

@@ -12,7 +12,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/bls"
+	"github.com/quorumcontrol/tupelo-go-client/bls"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"google.golang.org/grpc"
 
@@ -22,11 +22,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
-	gossip3messages "github.com/quorumcontrol/tupelo/gossip3/messages"
-	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
-	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/p2p"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -175,7 +175,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 	}
 
 	for _, signer := range group.AllSigners() {
-		signer.Actor.Tell(&gossip3messages.StartGossip{})
+		signer.Actor.Tell(&messages.StartGossip{})
 	}
 
 	return group

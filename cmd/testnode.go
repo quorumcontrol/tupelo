@@ -30,12 +30,12 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/bls"
+	"github.com/quorumcontrol/tupelo-go-client/bls"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
-	gossip3messages "github.com/quorumcontrol/tupelo/gossip3/messages"
-	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
-	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/p2p"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -57,7 +57,7 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
-		signer.Actor.Tell(&gossip3messages.StartGossip{})
+		signer.Actor.Tell(&messages.StartGossip{})
 		stopOnSignal(signer)
 	},
 }
@@ -80,7 +80,11 @@ func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3
 		}
 
 		verKeyBytes := hexutil.MustDecode(keySet.BlsHexPublicKey)
-		signer := gossip3types.NewRemoteSigner(crypto.ToECDSAPub(ecdsaBytes), bls.BytesToVerKey(verKeyBytes))
+		ecdsaPub, err := crypto.UnmarshalPubkey(ecdsaBytes)
+		if err != nil {
+			panic("couldn't unmarshal ECDSA pub key")
+		}
+		signer := gossip3types.NewRemoteSigner(ecdsaPub, bls.BytesToVerKey(verKeyBytes))
 		if local != nil {
 			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
 		}
