@@ -147,6 +147,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 				})
 			}
+			tn.conflictSetRouter.Tell(&messages.Cleanup{Key: msg.Key})
 			tn.mempoolStore.Tell(&messages.Remove{Key: msg.Key})
 		}
 	}

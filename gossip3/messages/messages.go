@@ -123,3 +123,7 @@ type ValidateTransaction struct {
 	Key   []byte
 	Value []byte
 }
+
+type Cleanup struct {
+	Key []byte
+}

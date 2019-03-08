@@ -84,6 +84,8 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		if parent := context.Parent(); parent != nil {
 			context.Forward(parent)
 		}
+	case *messages.Cleanup:
+		csr.cleanupConflictSet(msg.Key)
 	}
 }
 
