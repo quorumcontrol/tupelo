@@ -33,8 +33,8 @@ func TestSignatureGenerator(t *testing.T) {
 		switch msg := context.Message().(type) {
 		case *messages.Store:
 			context.Request(validator, &validationRequest{
-				key:       msg.Key,
-				value:     msg.Value,
+				key:   msg.Key,
+				value: msg.Value,
 			})
 		case *messages.SignatureWrapper:
 			fut.PID().Tell(msg)
@@ -84,9 +84,9 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
-	transWrapper, err := validator.RequestFuture(&messages.Store{
-		Key:   key,
-		Value: value,
+	transWrapper, err := validator.RequestFuture(&validationRequest{
+		key:   key,
+		value: value,
 	}, 1*time.Second).Result()
 	require.Nil(b, err)
 

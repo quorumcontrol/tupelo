@@ -52,7 +52,6 @@ type ConflictSetConfig struct {
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	CurrentStateStore  storage.Reader
-	Active             bool
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
@@ -65,7 +64,6 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatureGenerator: cfg.SignatureGenerator,
 			signatureChecker:   cfg.SignatureChecker,
 			signatureSender:    cfg.SignatureSender,
-			active:             cfg.Active,
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
@@ -145,6 +143,11 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 	if !msg.PreFlight && !msg.Accepted {
 		panic(fmt.Sprintf("we should only handle pre-flight or accepted transactions at this level"))
 	}
+
+	if msg.Accepted {
+		cs.active = true
+	}
+
 	if !cs.active {
 		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
