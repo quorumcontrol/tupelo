@@ -155,8 +155,13 @@ func TestVerifyMultiSig(t *testing.T) {
 	assert.True(t, isValid)
 }
 
-func TestBatchVerify(t *testing.T) {
-	sigCount := 5
+type batchVerifySet struct {
+	msgs    [][]byte
+	sigs    [][]byte
+	verKeys []*VerKey
+}
+
+func generateSigs(t testing.TB, sigCount int) *batchVerifySet {
 	msgs := make([][]byte, sigCount)
 	sigs := make([][]byte, sigCount)
 	verKeys := make([]*VerKey, sigCount)
@@ -169,36 +174,34 @@ func TestBatchVerify(t *testing.T) {
 		require.Nil(t, err)
 		sigs[i] = sig
 	}
+	return &batchVerifySet{
+		msgs:    msgs,
+		sigs:    sigs,
+		verKeys: verKeys,
+	}
+}
+
+func TestBatchVerify(t *testing.T) {
+	batch := generateSigs(t, 5)
+
 	// in the valid case
-	valid, err := BatchVerify(msgs, verKeys, sigs)
+	valid, err := BatchVerify(batch.msgs, batch.verKeys, batch.sigs)
 	require.Nil(t, err)
 	assert.True(t, valid)
 
 	// with one bad sig
-	msgs[0][0] ^= 0x01
-	valid, err = BatchVerify(msgs, verKeys, sigs)
+	batch.msgs[0][0] ^= 0x01
+	valid, err = BatchVerify(batch.msgs, batch.verKeys, batch.sigs)
 	require.Nil(t, err)
 	assert.False(t, valid)
 }
 
 func BenchmarkBatchVerify(b *testing.B) {
-	sigCount := 100
-	msgs := make([][]byte, sigCount)
-	sigs := make([][]byte, sigCount)
-	verKeys := make([]*VerKey, sigCount)
-	for i := 0; i < sigCount; i++ {
-		msgs[i] = []byte("hi" + strconv.Itoa(i))
-		key, err := NewSignKey()
-		assert.Nil(b, err)
-		verKeys[i] = key.MustVerKey()
-		sig, err := key.Sign(msgs[i])
-		require.Nil(b, err)
-		sigs[i] = sig
-	}
+	batch := generateSigs(b, 100)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		isValid, _ := BatchVerify(msgs, verKeys, sigs)
+		isValid, _ := BatchVerify(batch.msgs, batch.verKeys, batch.sigs)
 		assert.True(b, isValid)
 	}
 }
