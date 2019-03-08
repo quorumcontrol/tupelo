@@ -2,7 +2,8 @@ package messages
 
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 )
 
 type MetadataMap map[string]interface{}
@@ -62,7 +63,7 @@ type RoundTransition struct {
 type GetThreadsafeReader struct{}
 
 type NewValidCurrentState struct {
-	CurrentState *CurrentState
+	CurrentState *extmsgs.CurrentState
 	Key          []byte
 	Value        []byte
 }
@@ -72,7 +73,7 @@ type SignatureWrapper struct {
 	ConflictSetID    string
 	RewardsCommittee []*types.Signer
 	Signers          SignerMap
-	Signature        *Signature
+	Signature        *extmsgs.Signature
 	Metadata         MetadataMap
 }
 
@@ -86,7 +87,7 @@ type SignatureVerification struct {
 type CurrentStateWrapper struct {
 	Internal            bool
 	Verified            bool
-	CurrentState        *CurrentState
+	CurrentState        *extmsgs.CurrentState
 	Metadata            MetadataMap
 	Key                 []byte
 	Value               []byte
@@ -96,7 +97,7 @@ type CurrentStateWrapper struct {
 type TransactionWrapper struct {
 	ConflictSetID string
 	TransactionID []byte
-	Transaction   *Transaction
+	Transaction   *extmsgs.Transaction
 	PreFlight     bool
 	Accepted      bool
 	Key           []byte
@@ -113,12 +114,6 @@ type BulkRemove struct {
 }
 
 type SendingDone struct{}
-
-type Error struct {
-	Source string
-	Code   int
-	Memo   string
-}
 
 type ProcessSnoozedTransactions struct {
 	ObjectID []byte

@@ -8,9 +8,10 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestSignatureGenerator(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *messages.Store:
+		case *extmsgs.Store:
 			context.Request(validator, &validationRequest{
 				key:   msg.Key,
 				value: msg.Value,
@@ -51,7 +52,7 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)
 
-	sender.Tell(&messages.Store{
+	sender.Tell(&extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})

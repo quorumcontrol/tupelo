@@ -3,18 +3,20 @@ package actors
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/go-cid"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/ipfs/go-cid"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,15 +66,15 @@ func TestCommits(t *testing.T) {
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&messages.Store{
+		syncers[rand.Intn(len(syncers))].Actor.Tell(&extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
@@ -96,19 +98,19 @@ func TestCommits(t *testing.T) {
 		syncer := syncers[rand.Intn(len(syncers))].Actor
 
 		newTip, _ := cid.Cast(trans.NewTip)
-		syncer.Request(&messages.TipSubscription{
+		syncer.Request(&extmsgs.TipSubscription{
 			ObjectID: trans.ObjectID,
 			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
-		syncer.Tell(&messages.Store{
+		syncer.Tell(&extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
 
 		resp, err := fut.Result()
 		require.Nil(t, err)
-		assert.Equal(t, resp.(*messages.CurrentState).Signature.NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
 	})
 
 	t.Run("reaches another node", func(t *testing.T) {
@@ -120,20 +122,20 @@ func TestCommits(t *testing.T) {
 		fut := actor.NewFuture(20 * time.Second)
 
 		newTip, _ := cid.Cast(trans.NewTip)
-		syncers[1].Actor.Request(&messages.TipSubscription{
+		syncers[1].Actor.Request(&extmsgs.TipSubscription{
 			ObjectID: trans.ObjectID,
 			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		start := time.Now()
-		syncers[0].Actor.Tell(&messages.Store{
+		syncers[0].Actor.Tell(&extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
 
 		resp, err := fut.Result()
 		require.Nil(t, err)
-		assert.Equal(t, resp.(*messages.CurrentState).Signature.NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
 
 		stop := time.Now()
 		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
@@ -164,7 +166,7 @@ func TestTupeloMemStorage(t *testing.T) {
 	key := id
 	value := bits
 
-	syncer.Tell(&messages.Store{
+	syncer.Tell(&extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})

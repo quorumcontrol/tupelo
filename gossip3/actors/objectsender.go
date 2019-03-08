@@ -7,8 +7,9 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
 
 // Sender sends objects off to somewhere else
@@ -47,7 +48,7 @@ func (o *ObjectSender) Receive(context actor.Context) {
 			panic("error getting prefix")
 		}
 		for _, pair := range keys {
-			context.Request(msg.Destination, &messages.Store{
+			context.Request(msg.Destination, &extmsgs.Store{
 				Key:   pair.Key,
 				Value: pair.Value,
 			})

@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/quorumcontrol/tupelo/gossip3/client"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/stretchr/testify/require"
 )
 

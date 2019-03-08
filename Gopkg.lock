@@ -236,7 +236,7 @@
   version = "v1.12.0"
 
 [[projects]]
-  digest = "1:3481e0f34cb5e05dcc76215fb6f47146793d3582c26b490631b6edee83b584eb"
+  digest = "1:49b5451a4ce27b50393cc0d4c6fdd9cf7fa148ee4c0dd9c1d6c515b232427022"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     "common",
@@ -244,12 +244,12 @@
     "common/math",
     "crypto",
     "crypto/secp256k1",
-    "crypto/sha3",
     "log",
     "rlp",
   ]
   pruneopts = ""
-  revision = "1e67410e88d2685bc54611a7c9f75c327b553ccc"
+  revision = "c942700427557e3ff6de3aaf6b916e2f056c1ec2"
+  version = "v1.8.23"
 
 [[projects]]
   branch = "master"
@@ -1054,7 +1054,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:77fcea0d2af2dc0020fe673c4f83cd78765b97cd04bc001dcd8193f58eaf367c"
+  digest = "1:a29813277de981ce33148b3f1906bba492af2ce97237c050f62a6b48cfdae721"
   name = "github.com/prometheus/procfs"
   packages = [
     ".",
@@ -1064,7 +1064,7 @@
     "xfs",
   ]
   pruneopts = ""
-  revision = "bbced9601137e764853b2fad7ec3e2dc4c504e02"
+  revision = "d0f344d83b0c80a1bc03b547a2374a9ec6711144"
 
 [[projects]]
   digest = "1:e5b23f3e48a70602173dedc833d4a06288d20ef1bb603d15540c74916062b3b0"
@@ -1108,6 +1108,23 @@
   revision = "c5e9df97b7f4aa63a9de7f3c30405f5acac9b4d9"
   source = "git@github.com:quorumcontrol/storage.git"
   version = "v1.1.1"
+
+[[projects]]
+  digest = "1:41b17dced9e9bc47ccfe70d73a1b2b8771785ceb2cb1727957fd2786eb42d150"
+  name = "github.com/quorumcontrol/tupelo-go-client"
+  packages = [
+    "bls",
+    "client",
+    "consensus",
+    "gossip3/messages",
+    "gossip3/middleware",
+    "gossip3/remote",
+    "gossip3/testhelpers",
+    "gossip3/types",
+    "p2p",
+  ]
+  pruneopts = ""
+  revision = "8cc72153f3c2260ee2e47a8d21712f115727414d"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"
@@ -1449,10 +1466,6 @@
     "github.com/AsynkronIT/protoactor-go/router",
     "github.com/Workiva/go-datastructures/bitarray",
     "github.com/abiosoft/ishell",
-    "github.com/dedis/kyber",
-    "github.com/dedis/kyber/pairing/bn256",
-    "github.com/dedis/kyber/sign/bls",
-    "github.com/dedis/kyber/util/random",
     "github.com/ethereum/go-ethereum/common",
     "github.com/ethereum/go-ethereum/common/hexutil",
     "github.com/ethereum/go-ethereum/crypto",
@@ -1471,32 +1484,12 @@
     "github.com/ipsn/go-ipfs/core/coreapi",
     "github.com/ipsn/go-ipfs/core/corehttp",
     "github.com/ipsn/go-ipfs/core/mock",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-datastore/sync",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/jbenet/goprocess",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/jbenet/goprocess/context",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/jbenet/goprocess/periodic",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-circuit",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-crypto",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-host",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-kad-dht",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-loggables",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-metrics",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-net",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peer",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-peerstore",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-protocol",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p-swarm",
-    "github.com/ipsn/go-ipfs/gxlibs/github.com/libp2p/go-libp2p/p2p/host/routed",
     "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr",
     "github.com/ipsn/go-ipfs/plugin/loader",
     "github.com/ipsn/go-ipfs/repo/fsrepo",
-    "github.com/ipsn/go-ipfs/thirdparty/math2",
     "github.com/mitchellh/go-homedir",
-    "github.com/opentracing/opentracing-go",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
     "github.com/quorumcontrol/chaintree/nodestore",
@@ -1504,14 +1497,21 @@
     "github.com/quorumcontrol/chaintree/typecaster",
     "github.com/quorumcontrol/differencedigest/ibf",
     "github.com/quorumcontrol/storage",
+    "github.com/quorumcontrol/tupelo-go-client/bls",
+    "github.com/quorumcontrol/tupelo-go-client/client",
+    "github.com/quorumcontrol/tupelo-go-client/consensus",
+    "github.com/quorumcontrol/tupelo-go-client/gossip3/messages",
+    "github.com/quorumcontrol/tupelo-go-client/gossip3/middleware",
+    "github.com/quorumcontrol/tupelo-go-client/gossip3/remote",
+    "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers",
+    "github.com/quorumcontrol/tupelo-go-client/gossip3/types",
+    "github.com/quorumcontrol/tupelo-go-client/p2p",
     "github.com/shibukawa/configdir",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
-    "go.uber.org/zap",
-    "go.uber.org/zap/zapcore",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
