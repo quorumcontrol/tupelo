@@ -166,7 +166,7 @@
   version = "v1.0.2"
 
 [[projects]]
-  digest = "1:dad8e1350d130968ee2369622ce9d2d9914f72443149e9001817fcd05e8fc7c9"
+  digest = "1:0fb880a9bf3959a41f0d9e66c87699b7bb1eb08aca29326d2acd85c702bdf6e7"
   name = "github.com/dedis/kyber"
   packages = [
     ".",
@@ -179,7 +179,8 @@
     "xof/blake2xb",
   ]
   pruneopts = ""
-  revision = "5cc64601919b0945d10aba014129cdfef5fdda46"
+  revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
+  source = "https://github.com/quorumcontrol/kyber.git"
 
 [[projects]]
   digest = "1:d53187f2546fa50fd6dc8a13c32a70de0233ce2a2f6ef189e87c8dd8dad0882c"
