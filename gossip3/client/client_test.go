@@ -292,6 +292,54 @@ func transactRemote(t testing.TB, client *Client, signer *types.Signer, treeID s
 	return respChan
 }
 
+func TestSnoozedTransaction(t *testing.T) {
+	ts := testnotarygroup.NewTestSet(t, 3)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ng, err := newTupeloSystem(ctx, ts)
+	require.Nil(t, err)
+
+	for _, s := range ng.AllSigners() {
+		s.Actor.Tell(&messages.StartGossip{})
+	}
+
+	client := New(ng)
+	defer client.Stop()
+
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+
+	testTree, err := consensus.NewSignedChainTree(treeKey.PublicKey, nodeStore)
+	require.Nil(t, err)
+
+	emptyTip := testTree.Tip()
+
+	basisNodes0 := testhelpers.DagToByteNodes(t, testTree.ChainTree.Dag)
+
+	blockWithHeaders0 := transactLocal(t, testTree, treeKey, 0, "down/in/the/tree", "atestvalue")
+	tip0 := testTree.Tip()
+
+	basisNodes1 := testhelpers.DagToByteNodes(t, testTree.ChainTree.Dag)
+
+	blockWithHeaders1 := transactLocal(t, testTree, treeKey, 1, "other/thing", "sometestvalue")
+	tip1 := testTree.Tip()
+
+	signer := ng.GetRandomSigner()
+	sub1 := transactRemote(t, client, signer, testTree.MustId(), blockWithHeaders1, tip1, basisNodes1, emptyTip)
+
+	time.Sleep(1*time.Second)
+
+	sub0 := transactRemote(t, client, signer, testTree.MustId(), blockWithHeaders0, tip0, basisNodes0, emptyTip)
+
+	resp0 := <- sub0
+	require.IsType(t, &messages.CurrentState{}, resp0)
+
+	resp1 := <- sub1
+	require.IsType(t, &messages.CurrentState{}, resp1)
+}
+
 func TestInvalidPreviousTipOnSnoozedTransaction(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 3)
 	ctx, cancel := context.WithCancel(context.Background())
