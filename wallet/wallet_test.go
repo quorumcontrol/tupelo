@@ -1,21 +1,29 @@
 package wallet
 
 import (
+	"fmt"
+	"net"
 	"os"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	ipfsconfig "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config"
-	"github.com/ipsn/go-ipfs/plugin/loader"
-	"github.com/ipsn/go-ipfs/repo/fsrepo"
+	ipfsCmds "github.com/ipsn/go-ipfs/commands"
+	ipfsCore "github.com/ipsn/go-ipfs/core"
+	ipfsCoreHttp "github.com/ipsn/go-ipfs/core/corehttp"
+	ipfsMock "github.com/ipsn/go-ipfs/core/mock"
+	ipfsConfig "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config"
+	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
+	ipfsPluginLoader "github.com/ipsn/go-ipfs/plugin/loader"
+	ipfsFsRepo "github.com/ipsn/go-ipfs/repo/fsrepo"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,6 +49,49 @@ func TestBadgerWallet(t *testing.T) {
 	SubtestAll(t, storageConfig)
 }
 
+func TestIpldHttpWallet(t *testing.T) {
+	node, err := ipfsMock.NewMockNode()
+	require.Nil(t, err)
+	defer node.Close()
+
+	freePort, err := getFreePort()
+	require.Nil(t, err)
+
+	apiMaddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", freePort))
+	require.Nil(t, err)
+
+	cfg, err := node.Repo.Config()
+	require.Nil(t, err)
+
+	cfg.Addresses.API = []string{apiMaddr.String()}
+
+	cmdContext := ipfsCmds.Context{
+		Online:     true,
+		ConfigRoot: "/tmp/.mockipfsconfig",
+		ReqLog:     &ipfsCmds.ReqLog{},
+		LoadConfig: func(path string) (*ipfsConfig.Config, error) {
+			return cfg, nil
+		},
+		ConstructNode: func() (*ipfsCore.IpfsNode, error) {
+			return node, nil
+		},
+	}
+
+	go func() {
+		err := ipfsCoreHttp.ListenAndServe(node, apiMaddr.String(), []ipfsCoreHttp.ServeOption{ipfsCoreHttp.CommandsOption(cmdContext)}...)
+		require.Nil(t, err)
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	SubtestAll(t, &adapters.Config{
+		Adapter: "ipld",
+		Arguments: map[string]interface{}{
+			"address": apiMaddr.String(),
+		},
+	})
+}
+
 func TestIpldWallet(t *testing.T) {
 	os.RemoveAll("testtmp")
 	os.MkdirAll("testtmp", 0700)
@@ -53,23 +104,23 @@ func TestIpldWallet(t *testing.T) {
 		},
 	}
 
-	plugins, err := loader.NewPluginLoader("")
+	plugins, err := ipfsPluginLoader.NewPluginLoader("")
 	require.Nil(t, err)
 	plugins.Initialize()
-	plugins.Run()
+	plugins.Inject()
 
-	conf, err := ipfsconfig.Init(os.Stdout, 2048)
+	conf, err := ipfsConfig.Init(os.Stdout, 2048)
 	require.Nil(t, err, "error initializing IPFS")
 
 	for _, profile := range []string{"server", "badgerds"} {
-		transformer, ok := ipfsconfig.Profiles[profile]
+		transformer, ok := ipfsConfig.Profiles[profile]
 		require.True(t, ok, "error fetching IPFS profile")
 
 		err := transformer.Transform(conf)
 		require.Nil(t, err, "error transforming IPFS profile")
 	}
 
-	err = fsrepo.Init("testtmp/ipld", conf)
+	err = ipfsFsRepo.Init("testtmp/ipld", conf)
 	require.Nil(t, err, "error initializing IPFS repo")
 
 	SubtestAll(t, storageConfig)
@@ -293,4 +344,18 @@ func SubtestWallet_ChainExists(t *testing.T, storageConfig *adapters.Config) {
 
 	assert.True(t, w.ChainExistsForKey(keyAddr))
 	assert.True(t, w.ChainExists(signedTree.MustId()))
+}
+
+func getFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
 }

@@ -10,10 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -190,7 +191,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 
-func fakeValidateTransaction(t testing.TB, trans *messages.Transaction) *messages.TransactionWrapper {
+func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages.TransactionWrapper {
 	bits, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
 	key := crypto.Keccak256(bits)

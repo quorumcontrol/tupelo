@@ -4,20 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ipfs/go-cid"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"math"
 	"math/rand"
 	"sort"
 	"testing"
 	"time"
 
+	"github.com/ipfs/go-cid"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+
 	"github.com/ethereum/go-ethereum/crypto"
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
-	gossip3remote "github.com/quorumcontrol/tupelo/gossip3/remote"
-	gossip3testhelpers "github.com/quorumcontrol/tupelo/gossip3/testhelpers"
-	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/p2p"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/spf13/cobra"
 )
 

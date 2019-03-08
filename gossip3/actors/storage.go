@@ -8,11 +8,12 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
 )
 
 func init() {
@@ -73,7 +74,7 @@ func (s *Storage) Receive(context actor.Context) {
 		s.loadIBFAtStart()
 	case *messages.Debug:
 		s.Log.Debugw("message: %v", msg.Message)
-	case *messages.Store:
+	case *extmsgs.Store:
 		s.Log.Debugw("adding", "key", msg.Key, "value", msg.Value)
 		didSet, err := s.Add(msg.Key, msg.Value)
 		if err != nil {

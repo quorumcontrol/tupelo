@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo/consensus"
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -119,8 +119,9 @@ func (s *server) parseStorageAdapter(c *StorageAdapterConfig) (*adapters.Config,
 		return &adapters.Config{
 			Adapter: adapters.IpldStorageAdapterName,
 			Arguments: map[string]interface{}{
-				"path":   config.Ipld.Path,
-				"online": !config.Ipld.Offline,
+				"path":    config.Ipld.Path,
+				"address": config.Ipld.Address,
+				"online":  !config.Ipld.Offline,
 			},
 		}, nil
 	default:

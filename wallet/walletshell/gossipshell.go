@@ -9,8 +9,8 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo/consensus"
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 

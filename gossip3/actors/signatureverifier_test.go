@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -29,4 +30,44 @@ func TestVerification(t *testing.T) {
 
 	require.Nil(t, err)
 	assert.True(t, resp.(*messages.SignatureVerification).Verified)
+}
+
+type benchTestSigHolder struct {
+	msg []byte
+	sig []byte
+}
+
+func BenchmarkVerification(b *testing.B) {
+	ts := testnotarygroup.NewTestSet(b, 1)
+	ss := actor.Spawn(NewSignatureVerifier())
+	defer ss.Stop()
+
+	futures := make([]*actor.Future, b.N)
+
+	sigs := make([]*benchTestSigHolder, b.N)
+	for i := 0; i < b.N; i++ {
+		msg := crypto.Keccak256([]byte("hi" + strconv.Itoa(i)))
+		sig, err := ts.SignKeys[0].Sign(msg)
+		require.Nil(b, err)
+		sigs[i] = &benchTestSigHolder{
+			msg: msg,
+			sig: sig,
+		}
+	}
+	b.ResetTimer()
+
+	for i, sigHolder := range sigs {
+		f := ss.RequestFuture(&messages.SignatureVerification{
+			Message:   sigHolder.msg,
+			Signature: sigHolder.sig,
+			VerKeys:   [][]byte{ts.VerKeys[0].Bytes()},
+		}, 5*time.Second)
+		futures[i] = f
+	}
+
+	for _, f := range futures {
+		resp, err := f.Result()
+		require.Nil(b, err)
+		assert.True(b, resp.(*messages.SignatureVerification).Verified)
+	}
 }

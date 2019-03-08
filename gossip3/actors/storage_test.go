@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	"github.com/quorumcontrol/storage"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestImmutableIBF(t *testing.T) {
 	value := []byte("hi")
 	key := crypto.Keccak256(value)
 
-	s.Tell(&messages.Store{Key: key, Value: value})
+	s.Tell(&extmsgs.Store{Key: key, Value: value})
 	ibfInter, err := s.RequestFuture(&messages.GetIBF{Size: 500}, 1*time.Second).Result()
 	require.Nil(t, err)
 	ibf1 := ibfInter.(*ibf.InvertibleBloomFilter)
@@ -28,7 +29,7 @@ func TestImmutableIBF(t *testing.T) {
 	value2 := []byte("hi2")
 	key2 := crypto.Keccak256(value2)
 
-	s.Tell(&messages.Store{Key: key2, Value: value2})
+	s.Tell(&extmsgs.Store{Key: key2, Value: value2})
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -71,13 +72,13 @@ func TestSubscription(t *testing.T) {
 	value := []byte("hi")
 	key := crypto.Keccak256(value)
 
-	s.Tell(&messages.Store{Key: key, Value: value})
+	s.Tell(&extmsgs.Store{Key: key, Value: value})
 	time.Sleep(100 * time.Millisecond)
 
 	require.Len(t, msgs, 1) // only the actor started
 
 	s.Tell(&messages.Subscribe{Subscriber: sub})
-	s.Tell(&messages.Store{Key: key, Value: value})
+	s.Tell(&extmsgs.Store{Key: key, Value: value})
 	time.Sleep(100 * time.Millisecond)
 
 	require.Len(t, msgs, 1)
@@ -85,8 +86,8 @@ func TestSubscription(t *testing.T) {
 	value = []byte("hi2")
 	key = crypto.Keccak256(value)
 
-	s.Tell(&messages.Store{Key: key, Value: value})
+	s.Tell(&extmsgs.Store{Key: key, Value: value})
 	time.Sleep(100 * time.Millisecond)
 	require.Len(t, msgs, 2)
-	require.Equal(t, &messages.Store{Key: key, Value: value}, msgs[len(msgs)-1])
+	require.Equal(t, &extmsgs.Store{Key: key, Value: value}, msgs[len(msgs)-1])
 }

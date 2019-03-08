@@ -16,9 +16,9 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/consensus"
-	gossip3client "github.com/quorumcontrol/tupelo/gossip3/client"
-	gossip3types "github.com/quorumcontrol/tupelo/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo/consensus"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 

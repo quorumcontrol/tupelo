@@ -37,7 +37,8 @@ message StorageAdapterConfigForBadger {
 
 message StorageAdapterConfigForIpld {
   string path = 1;
-  bool offline = 2;
+  string address = 2;
+  bool offline = 3;
 }
 
 message StorageAdapterConfig {

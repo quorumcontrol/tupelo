@@ -15,13 +15,14 @@ import (
 	cid "github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo-go-client/client"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
-	"github.com/quorumcontrol/tupelo/gossip3/client"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo/gossip3/remote"
-	"github.com/quorumcontrol/tupelo/gossip3/types"
-	"github.com/quorumcontrol/tupelo/p2p"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -180,9 +181,9 @@ func TestLibP2PSigning(t *testing.T) {
 
 	resp := <-ch
 	require.NotNil(t, resp)
-	require.IsType(t, &messages.CurrentState{}, resp)
+	require.IsType(t, &extmsgs.CurrentState{}, resp)
 	stop := time.Now()
-	sigResp := resp.(*messages.CurrentState)
+	sigResp := resp.(*extmsgs.CurrentState)
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
 
 	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
