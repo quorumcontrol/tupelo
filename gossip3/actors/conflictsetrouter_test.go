@@ -26,7 +26,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	ng, err := newActorlessSystem(ts)
 	require.Nil(t, err)
 
-	sigGeneratorActors := make([]*actor.PID, numSigners, numSigners)
+	sigGeneratorActors := make([]*actor.PID, numSigners)
 	for i, signer := range ng.AllSigners() {
 		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
@@ -105,7 +105,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	ng, err := newActorlessSystem(ts)
 	require.Nil(t, err)
 
-	sigGeneratorActors := make([]*actor.PID, numSigners, numSigners)
+	sigGeneratorActors := make([]*actor.PID, numSigners)
 	for i, signer := range ng.AllSigners() {
 		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
@@ -236,27 +236,6 @@ func (av *AlwaysVerifier) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.SignatureVerification:
 		msg.Verified = true
-		context.Respond(msg)
-	}
-}
-
-type NeverVerifier struct {
-	middleware.LogAwareHolder
-}
-
-func NewNeverVerifierProps() *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
-		return new(NeverVerifier)
-	}).WithMiddleware(
-		middleware.LoggingMiddleware,
-		plugin.Use(&middleware.LogPlugin{}),
-	)
-}
-
-func (nv *NeverVerifier) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
-	case *messages.SignatureVerification:
-		msg.Verified = false
 		context.Respond(msg)
 	}
 }

@@ -36,7 +36,6 @@ type ibfMap map[int]*ibf.InvertibleBloomFilter
 type Storage struct {
 	middleware.LogAwareHolder
 
-	id              string
 	ibfs            ibfMap
 	storage         storage.Storage
 	strata          *ibf.DifferenceStrata
@@ -181,10 +180,12 @@ func (s *Storage) BulkRemove(objectIDs [][]byte) {
 }
 
 func (s *Storage) loadIBFAtStart() {
-	s.storage.ForEachKey([]byte{}, func(key []byte) error {
+	if err := s.storage.ForEachKey([]byte{}, func(key []byte) error {
 		s.addKeyToIBFs(key)
 		return nil
-	})
+	}); err != nil {
+		panic(err)
+	}
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {

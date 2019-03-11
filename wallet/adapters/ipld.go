@@ -79,8 +79,12 @@ func NewIpldNodeStorage(config map[string]interface{}) (*IpldStorageAdapter, err
 	if err != nil {
 		return nil, fmt.Errorf("Could not initialize ipfs plugin loader")
 	}
-	plugins.Initialize()
-	plugins.Inject()
+	if err = plugins.Initialize(); err != nil {
+		// return nil, err
+	}
+	if err = plugins.Inject(); err != nil {
+		// return nil, err
+	}
 
 	repo, err := fsrepo.Open(repoRoot)
 	if err != nil {

@@ -78,7 +78,9 @@ func getLogLevel(lvlName string) (log.Lvl, error) {
 func configDir(namespace string) string {
 	conf := configdir.New("tupelo", filepath.Join(configNamespace, namespace))
 	folders := conf.QueryFolders(configdir.Global)
-	os.MkdirAll(folders[0].Path, 0700)
+	if err := os.MkdirAll(folders[0].Path, 0700); err != nil {
+		panic(err)
+	}
 	return folders[0].Path
 }
 
@@ -182,7 +184,9 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		gossip3.SetLogLevel(zapLogLevels[logLvlName])
+		if err = gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
+			panic(err)
+		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if newKeysFile != "" {

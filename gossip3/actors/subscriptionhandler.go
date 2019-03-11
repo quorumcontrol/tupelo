@@ -172,10 +172,6 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 	}
 }
 
-func (osm *objectSubscriptionManager) subscriptionKeys(context actor.Context, msg *extmsgs.TipSubscription) []string {
-	return subscriptionKeys(context.Sender().String(), msg.TipValue)
-}
-
 func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *extmsgs.TipSubscription) {
 	osm.subscriptions[context.Sender().String()] = context.Sender()
 }

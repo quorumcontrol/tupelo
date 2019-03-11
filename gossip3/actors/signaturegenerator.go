@@ -45,7 +45,9 @@ func (sg *SignatureGenerator) Receive(context actor.Context) {
 func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	ng := sg.notaryGroup
 	signers := bitarray.NewSparseBitArray()
-	signers.SetBit(ng.IndexOfSigner(sg.signer))
+	if err := signers.SetBit(ng.IndexOfSigner(sg.signer)); err != nil {
+		panic(err)
+	}
 	marshaled, err := bitarray.Marshal(signers)
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling bitarray: %v", err))

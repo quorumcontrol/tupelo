@@ -36,11 +36,12 @@ func newSavedChain(t *testing.T, fw *FileWallet, key ecdsa.PublicKey) *consensus
 
 func TestFileWallet_Create(t *testing.T) {
 	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	fw := NewFileWallet("testtmp/filewallet")
-	err := fw.Create("password")
+	err = fw.Create("password")
 	require.Nil(t, err, "Create should succeed on the first try.")
 
 	fw2 := NewFileWallet("testtmp/filewallet")
@@ -49,12 +50,14 @@ func TestFileWallet_Create(t *testing.T) {
 }
 
 func TestFileWallet_Unlock(t *testing.T) {
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	require.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	fw := NewFileWallet("testtmp/filewallet")
-	err := fw.Unlock("password")
+	err = fw.Unlock("password")
 	require.Error(t, err, "Unlock should fail without a previous Create.")
 
 	err = fw.Create("password")
@@ -67,8 +70,10 @@ func TestFileWallet_Unlock(t *testing.T) {
 }
 
 func TestFileWallet_GetChain(t *testing.T) {
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	require.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	fw := NewFileWallet("testtmp/filewallet")
@@ -106,8 +111,10 @@ func TestFileWallet_GetChain(t *testing.T) {
 }
 
 func TestFileWallet_SaveChain(t *testing.T) {
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	require.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	fw := NewFileWallet("testtmp/filewallet")
@@ -189,8 +196,10 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	newTree.Tip = *root.Tree
 
-	newTree.Set(strings.Split("something", "/"), "hi")
-	signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
+	_, err = newTree.Set(strings.Split("something", "/"), "hi")
+	// require.Nil(t, err)
+	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
+	// require.Nil(t, err)
 
 	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
 	require.Nil(t, err)
@@ -206,8 +215,10 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	chainMap["end"] = wrappedBlock.Cid()
 	newChainNode := sw.WrapObject(chainMap)
 
-	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
-	signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
+	err = signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
+	require.Nil(t, err)
+	_, err = signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
+	// require.Nil(t, err)
 
 	t.Log(signedTree.ChainTree.Dag.Dump())
 
@@ -224,8 +235,10 @@ func TestFileWallet_SaveChain(t *testing.T) {
 }
 
 func TestFileWallet_GetChainIds(t *testing.T) {
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	require.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	fw := NewFileWallet("testtmp/filewallet")
@@ -245,8 +258,10 @@ func TestFileWallet_GetChainIds(t *testing.T) {
 
 func TestFileWallet_GetKey(t *testing.T) {
 
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	assert.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	assert.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	fw := NewFileWallet("testtmp/filewallet")
@@ -257,6 +272,7 @@ func TestFileWallet_GetKey(t *testing.T) {
 	assert.Nil(t, err)
 
 	retKey, err := fw.GetKey(crypto.PubkeyToAddress(key.PublicKey).String())
+	assert.Nil(t, err)
 
 	assert.Equal(t, retKey, key)
 }

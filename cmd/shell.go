@@ -8,8 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
-	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/spf13/cobra"
 )
@@ -38,7 +38,9 @@ var shellCmd = &cobra.Command{
 			group.SetupAllRemoteActors(&key.PublicKey)
 		}
 		walletStorage := walletPath()
-		os.MkdirAll(walletStorage, 0700)
+		if err = os.MkdirAll(walletStorage, 0700); err != nil {
+			panic(err)
+		}
 
 		client := gossip3client.New(group)
 		walletshell.RunGossip(shellName, walletStorage, client)
@@ -48,5 +50,7 @@ var shellCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(shellCmd)
 	shellCmd.Flags().StringVarP(&shellName, "wallet", "w", "", "the name of the wallet to access")
-	shellCmd.MarkFlagRequired("wallet")
+	if err := shellCmd.MarkFlagRequired("wallet"); err != nil {
+		panic(err)
+	}
 }

@@ -102,7 +102,9 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 
 	memoryStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	memoryTree := dag.NewDag(tipCid, memoryStore)
-	memoryTree.AddNodes(nodes...)
+	if err = memoryTree.AddNodes(nodes...); err != nil {
+		// return nil, err
+	}
 
 	tree, err := chaintree.NewChainTree(memoryTree, nil, consensus.DefaultTransactors)
 	if err != nil {
@@ -172,7 +174,9 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error getting nodes: %v", err)
 	}
 	for _, node := range nodes {
-		adapter.Store().StoreNode(node)
+		if err = adapter.Store().StoreNode(node); err != nil {
+			// return nil
+		}
 	}
 
 	sw := &safewrap.SafeWrap{}
@@ -181,8 +185,12 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error wrapping signatures: %v", sw.Err)
 	}
 
-	w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData())
-	w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes())
+	if err = w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData()); err != nil {
+		// return err
+	}
+	if err = w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes()); err != nil {
+		// return err
+	}
 
 	return nil
 }

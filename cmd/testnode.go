@@ -53,7 +53,9 @@ var testnodeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		logging.SetLogLevel("gossip", "ERROR")
+		if err := logging.SetLogLevel("gossip", "ERROR"); err != nil {
+			// panic(fmt.Sprintf("failed to set log level of \"gossip\": %s", err))
+		}
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
@@ -124,7 +126,9 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	if err != nil {
 		panic("error setting up p2p host")
 	}
-	p2pHost.Bootstrap(p2p.BootstrapNodes())
+	if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
+		panic(fmt.Sprintf("failed to bootstrap: %s", err))
+	}
 	err = p2pHost.WaitForBootstrap(1, 60*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("error waiting for bootstrap: %v", err))
