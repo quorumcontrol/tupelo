@@ -367,7 +367,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 		return nil, fmt.Errorf("Error saving chain: %v", err)
 	}
 
-	return resp, nil
+	return resp.Tip, nil
 }
 
 func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddrs []string) (*cid.Cid, error) {

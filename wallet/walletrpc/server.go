@@ -126,7 +126,7 @@ func (s *server) parseStorageAdapter(c *services.StorageAdapterConfig) (*adapter
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("Unsupported storage adapter sepcified")
+		return nil, fmt.Errorf("Unsupported storage adapter specified")
 	}
 }
 
@@ -389,6 +389,26 @@ func (s *server) MintCoin(ctx context.Context, req *services.MintCoinRequest) (*
 	}
 
 	return &services.MintCoinResponse{
+		Tip: tipCid.String(),
+	}, nil
+}
+
+func (s *server) PlayTransactions(ctx context.Context, req *services.PlayTransactionsRequest) (*services.PlayTransactionsResponse, error) {
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(req.Creds.PassPhrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	tipCid, err := session.PlayTransactions(req.ChainId, req.KeyAddr, req.Transactions)
+
+	return &services.PlayTransactionsResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
