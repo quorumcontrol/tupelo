@@ -193,12 +193,6 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 		if !currentTip.Equals(transPreviousTip) {
 			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
-	} else {
-		// TODO: This seems insecure.
-		currentTip = transPreviousTip
-
-		// Should it be the empty tip for this chaintree? Seems like that's what we're trusting the transPreviousTip to be.
-		// If so, how do we construct that here?
 	}
 
 	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
@@ -208,12 +202,20 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 	for i, node := range stateTrans.Transaction.State {
 		cborNodes[i] = sw.Decode(node)
 	}
-
 	if sw.Err != nil {
 		return nil, false, fmt.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
 	}
+
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-	tree := dag.NewDag(currentTip, nodeStore)
+
+	var tree *dag.Dag
+
+	if currentTip.Defined() {
+		tree = dag.NewDag(currentTip, nodeStore)
+	} else {
+		tree = consensus.NewEmptyTree(string(stateTrans.ObjectID), nodeStore)
+	}
+
 	if err = tree.AddNodes(cborNodes...); err != nil {
 		return nil, false, err
 	}
