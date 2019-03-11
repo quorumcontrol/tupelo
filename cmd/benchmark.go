@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-cid"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -63,17 +63,26 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	// Wait for response
 	resp := <-respChan
 
-	if resp == nil {
-		results.Errors = append(results.Errors, did)
+	switch msg := resp.(type) {
+	case *messages.CurrentState:
+		elapsed := time.Since(startTime)
+		duration := int(elapsed / time.Millisecond)
+		results.Durations = append(results.Durations, duration)
+		results.Successes = results.Successes + 1
+	case *messages.Error:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo))
 		results.Failures = results.Failures + 1
-		activeCounter--
-		return
+	case *actor.ReceiveTimeout:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - timeout", did))
+		results.Failures = results.Failures + 1
+	case nil:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - nil response from channel", did))
+		results.Failures = results.Failures + 1
+	default:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - unkown error: %v", did, resp))
+		results.Failures = results.Failures + 1
 	}
 
-	elapsed := time.Since(startTime)
-	duration := int(elapsed / time.Millisecond)
-	results.Durations = append(results.Durations, duration)
-	results.Successes = results.Successes + 1
 	activeCounter--
 }
 
