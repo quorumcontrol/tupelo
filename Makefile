@@ -10,7 +10,7 @@ FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 generated = gossip3/messages/internal_gen.go gossip3/messages/internal_gen_test.go
 gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 
-all: build
+all: tupelo
 
 $(generated): gossip3/messages/internal.go
 	cd gossip3/messages && go generate
@@ -18,8 +18,8 @@ $(generated): gossip3/messages/internal.go
 vendor: Gopkg.toml Gopkg.lock
 	dep ensure
 
-build: vendor $(generated) $(gosources)
-	go build ./...
+tupelo: vendor $(generated) $(gosources)
+	go build
 
 test: vendor $(generated) $(gosources)
 	go test ./...
@@ -37,4 +37,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all build test docker-image clean install
+.PHONY: all test integration-test docker-image clean install
