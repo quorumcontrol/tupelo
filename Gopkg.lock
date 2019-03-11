@@ -1094,6 +1094,17 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:e72266cb8ba90d9446a46130621c3d772f5afe2dcb34d265bccc9d65e3f024e4"
+  name = "github.com/quorumcontrol/messages"
+  packages = [
+    "services",
+    "transactions",
+  ]
+  pruneopts = ""
+  revision = "a3a969f33bfbebf84106bf9daa612228096a62bb"
+
+[[projects]]
+  branch = "master"
   digest = "1:09af781fcd348813b35d053b14c818038daa5fa392d800762ecab21a041e51a1"
   name = "github.com/quorumcontrol/namedlocker"
   packages = ["."]
@@ -1496,6 +1507,8 @@
     "github.com/quorumcontrol/chaintree/safewrap",
     "github.com/quorumcontrol/chaintree/typecaster",
     "github.com/quorumcontrol/differencedigest/ibf",
+    "github.com/quorumcontrol/messages/services",
+    "github.com/quorumcontrol/messages/transactions",
     "github.com/quorumcontrol/storage",
     "github.com/quorumcontrol/tupelo-go-client/bls",
     "github.com/quorumcontrol/tupelo-go-client/client",

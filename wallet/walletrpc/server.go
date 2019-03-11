@@ -10,8 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	"github.com/quorumcontrol/messages/services"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -32,7 +33,7 @@ type server struct {
 	storagePath string
 }
 
-func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*RegisterWalletResponse, error) {
+func (s *server) Register(ctx context.Context, req *services.RegisterWalletRequest) (*services.RegisterWalletResponse, error) {
 	walletName := req.Creds.WalletName
 	session, err := NewSession(s.storagePath, walletName, s.Client)
 	if err != nil {
@@ -49,12 +50,12 @@ func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*Reg
 		return nil, fmt.Errorf("error creating wallet: %v", err)
 	}
 
-	return &RegisterWalletResponse{
+	return &services.RegisterWalletResponse{
 		WalletName: req.Creds.WalletName,
 	}, nil
 }
 
-func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*GenerateKeyResponse, error) {
+func (s *server) GenerateKey(ctx context.Context, req *services.GenerateKeyRequest) (*services.GenerateKeyResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -73,12 +74,12 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 	}
 
 	addr := crypto.PubkeyToAddress(key.PublicKey)
-	return &GenerateKeyResponse{
+	return &services.GenerateKeyResponse{
 		KeyAddr: addr.String(),
 	}, nil
 }
 
-func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysResponse, error) {
+func (s *server) ListKeys(ctx context.Context, req *services.ListKeysRequest) (*services.ListKeysResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -96,26 +97,26 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 		return nil, err
 	}
 
-	return &ListKeysResponse{
+	return &services.ListKeysResponse{
 		KeyAddrs: keys,
 	}, nil
 }
 
-func (s *server) parseStorageAdapter(c *StorageAdapterConfig) (*adapters.Config, error) {
+func (s *server) parseStorageAdapter(c *services.StorageAdapterConfig) (*adapters.Config, error) {
 	// Default adapters.Config is set in session.go
 	if c == nil {
 		return nil, nil
 	}
 
 	switch config := c.AdapterConfig.(type) {
-	case *StorageAdapterConfig_Badger:
+	case *services.StorageAdapterConfig_Badger:
 		return &adapters.Config{
 			Adapter: adapters.BadgerStorageAdapterName,
 			Arguments: map[string]interface{}{
 				"path": config.Badger.Path,
 			},
 		}, nil
-	case *StorageAdapterConfig_Ipld:
+	case *services.StorageAdapterConfig_Ipld:
 		return &adapters.Config{
 			Adapter: adapters.IpldStorageAdapterName,
 			Arguments: map[string]interface{}{
@@ -129,7 +130,7 @@ func (s *server) parseStorageAdapter(c *StorageAdapterConfig) (*adapters.Config,
 	}
 }
 
-func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest) (*GenerateChainResponse, error) {
+func (s *server) CreateChainTree(ctx context.Context, req *services.GenerateChainRequest) (*services.GenerateChainResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -157,12 +158,12 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 		return nil, err
 	}
 
-	return &GenerateChainResponse{
+	return &services.GenerateChainResponse{
 		ChainId: id,
 	}, nil
 }
 
-func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (*ExportChainResponse, error) {
+func (s *server) ExportChainTree(ctx context.Context, req *services.ExportChainRequest) (*services.ExportChainResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -180,12 +181,12 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 		return nil, err
 	}
 
-	return &ExportChainResponse{
+	return &services.ExportChainResponse{
 		ChainTree: serializedChain,
 	}, nil
 }
 
-func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (*ImportChainResponse, error) {
+func (s *server) ImportChainTree(ctx context.Context, req *services.ImportChainRequest) (*services.ImportChainResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -214,12 +215,12 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 		return nil, err
 	}
 
-	return &ImportChainResponse{
+	return &services.ImportChainResponse{
 		ChainId: chainId,
 	}, nil
 }
 
-func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*ListChainIdsResponse, error) {
+func (s *server) ListChainIds(ctx context.Context, req *services.ListChainIdsRequest) (*services.ListChainIdsResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -237,12 +238,12 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 		return nil, err
 	}
 
-	return &ListChainIdsResponse{
+	return &services.ListChainIdsResponse{
 		ChainIds: ids,
 	}, nil
 }
 
-func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipResponse, error) {
+func (s *server) GetTip(ctx context.Context, req *services.GetTipRequest) (*services.GetTipResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -260,12 +261,12 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 		return nil, err
 	}
 
-	return &GetTipResponse{
+	return &services.GetTipResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
 
-func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
+func (s *server) SetOwner(ctx context.Context, req *services.SetOwnerRequest) (*services.SetOwnerResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -283,12 +284,12 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 		return nil, err
 	}
 
-	return &SetOwnerResponse{
+	return &services.SetOwnerResponse{
 		Tip: newTip.String(),
 	}, nil
 }
 
-func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResponse, error) {
+func (s *server) SetData(ctx context.Context, req *services.SetDataRequest) (*services.SetDataResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -306,12 +307,12 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 		return nil, err
 	}
 
-	return &SetDataResponse{
+	return &services.SetDataResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
 
-func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
+func (s *server) Resolve(ctx context.Context, req *services.ResolveRequest) (*services.ResolveResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -340,13 +341,13 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 		return nil, err
 	}
 
-	return &ResolveResponse{
+	return &services.ResolveResponse{
 		RemainingPath: remainingPath,
 		Data:          dataBytes,
 	}, nil
 }
 
-func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
+func (s *server) EstablishCoin(ctx context.Context, req *services.EstablishCoinRequest) (*services.EstablishCoinResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -364,12 +365,12 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 		return nil, err
 	}
 
-	return &EstablishCoinResponse{
+	return &services.EstablishCoinResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
 
-func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
+func (s *server) MintCoin(ctx context.Context, req *services.MintCoinRequest) (*services.MintCoinResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -387,7 +388,7 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 		return nil, err
 	}
 
-	return &MintCoinResponse{
+	return &services.MintCoinResponse{
 		Tip: tipCid.String(),
 	}, nil
 }

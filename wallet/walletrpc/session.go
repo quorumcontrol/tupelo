@@ -15,9 +15,10 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -377,7 +378,7 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddr
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetOwnership,
-			Payload: consensus.SetOwnershipPayload{
+			Payload: transactions.SetOwnershipPayload{
 				Authentication: newOwnerKeyAddrs,
 			},
 		},
@@ -397,7 +398,7 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeSetData,
-			Payload: consensus.SetDataPayload{
+			Payload: transactions.SetDataPayload{
 				Path:  path,
 				Value: value,
 			},
@@ -431,9 +432,9 @@ func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName s
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeEstablishCoin,
-			Payload: consensus.EstablishCoinPayload{
+			Payload: transactions.EstablishCoinPayload{
 				Name:           coinName,
-				MonetaryPolicy: &consensus.CoinMonetaryPolicy{Maximum: amount},
+				MonetaryPolicy: &transactions.CoinMonetaryPolicy{Maximum: amount},
 			},
 		},
 	})
@@ -452,7 +453,7 @@ func (rpcs *RPCSession) MintCoin(chainId string, keyAddr string, coinName string
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type: consensus.TransactionTypeMintCoin,
-			Payload: consensus.MintCoinPayload{
+			Payload: transactions.MintCoinPayload{
 				Name:   coinName,
 				Amount: amount,
 			},
