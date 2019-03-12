@@ -151,7 +151,7 @@ func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
 	keyAddr := crypto.PubkeyToAddress(key.PublicKey).String()
 
 	newChain, err := w.CreateChain(keyAddr, storageConfig)
-	// require.Nil(t, err)
+	require.Nil(t, err)
 
 	err = w.SaveChain(newChain)
 	require.Nil(t, err)
@@ -268,7 +268,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	_, err = newTree.Set(strings.Split("something", "/"), "hi")
 	require.Nil(t, err)
 	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
-	// require.Nil(t, err)
+	require.Nil(t, err)
 
 	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
 	require.Nil(t, err)
@@ -287,7 +287,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	err = signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
 	require.Nil(t, err)
 	_, err = signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
-	// require.Nil(t, err)
+	require.Nil(t, err)
 
 	t.Log(signedTree.ChainTree.Dag.Dump())
 
