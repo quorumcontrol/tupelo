@@ -51,7 +51,7 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 		return &TransactionValidator{
 			reader: currentStateStore,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

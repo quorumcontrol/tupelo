@@ -54,6 +54,7 @@
   name = "github.com/cheggaaa/pb"
   version = "v1.0.27"
 
+
 [[constraint]]
   name = "github.com/quorumcontrol/tupelo-go-client"
-  revision = "8cc72153f3c2260ee2e47a8d21712f115727414d"
+  revision = "eb0f36163bd86671f933608ab831f6bb7d211fb0"

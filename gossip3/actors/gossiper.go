@@ -39,7 +39,7 @@ type Gossiper struct {
 const maxSyncers = 3
 
 func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProps *actor.Props) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &Gossiper{
 			kind:             kind,
 			pids:             make(map[string]*actor.PID),
@@ -48,7 +48,7 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 			system:           system,
 			pusherProps:      pusherProps,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

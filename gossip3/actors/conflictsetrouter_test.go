@@ -38,7 +38,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(testhelpers.NewNullActorProps())
+	sender := actor.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -117,7 +117,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(testhelpers.NewNullActorProps())
+	sender := actor.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -334,9 +334,9 @@ type AlwaysVerifier struct {
 }
 
 func NewAlwaysVerifierProps() *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return new(AlwaysVerifier)
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
@@ -348,4 +348,31 @@ func (av *AlwaysVerifier) Receive(context actor.Context) {
 		msg.Verified = true
 		context.Respond(msg)
 	}
+}
+
+type NeverVerifier struct {
+	middleware.LogAwareHolder
+}
+
+func NewNeverVerifierProps() *actor.Props {
+	return actor.PropsFromProducer(func() actor.Actor {
+		return new(NeverVerifier)
+	}).WithReceiverMiddleware(
+		middleware.LoggingMiddleware,
+		plugin.Use(&middleware.LogPlugin{}),
+	)
+}
+
+func (nv *NeverVerifier) Receive(context actor.Context) {
+	switch msg := context.Message().(type) {
+	case *messages.SignatureVerification:
+		msg.Verified = false
+		context.Respond(msg)
+	}
+}
+
+var nullActorFunc = func(_ actor.Context) {}
+
+func NewNullActorProps() *actor.Props {
+	return actor.PropsFromFunc(nullActorFunc)
 }

@@ -29,7 +29,7 @@ func NewSignatureGeneratorProps(self *types.Signer, ng *types.NotaryGroup) *acto
 			signer:      self,
 			notaryGroup: ng,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

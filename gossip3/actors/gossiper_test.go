@@ -83,8 +83,7 @@ func TestFastGossip(t *testing.T) {
 		stores[i] = storage
 		defer storage.Poison()
 		pusherProps := NewPushSyncerProps("test", storage)
-		gossiper, err := actor.SpawnPrefix(NewGossiperProps("test", storage, system, pusherProps), "g")
-		require.Nil(t, err)
+		gossiper := actor.SpawnPrefix(NewGossiperProps("test", storage, system, pusherProps), "g")
 		defer gossiper.Poison()
 		nodes[i] = gossiper
 	}

@@ -17,7 +17,7 @@ const senderConcurrency = 100
 func NewSignatureSenderProps() *actor.Props {
 	return router.NewRoundRobinPool(senderConcurrency).WithProducer(func() actor.Actor {
 		return new(SignatureSender)
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
