@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -397,7 +397,7 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 
 	listener, err := net.Listen("tcp", defaultPort)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open listener on %s: %s", defaultPort, err)
 	}
 
 	s := &server{
@@ -426,10 +426,12 @@ func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Serv
 	return grpcServer, nil
 }
 
+// Start gRPC server secured with TLS.
 func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create server TLS credentials from cert %s and key %s: %s",
+			certFile, keyFile, err)
 	}
 
 	credsOption := grpc.Creds(creds)
