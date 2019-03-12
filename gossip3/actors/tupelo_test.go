@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-cid"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
@@ -136,6 +135,13 @@ func TestCommits(t *testing.T) {
 		resp, err := fut.Result()
 		require.Nil(t, err)
 		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
+
+		tipFut := actor.NewFuture(5 * time.Second)
+		syncers[1].Actor.Request(&extmsgs.GetTip{
+			ObjectID: []byte(trans.ObjectID),
+		}, tipFut.PID())
+		tipResp, err := tipFut.Result()
+		assert.Equal(t, tipResp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
 
 		stop := time.Now()
 		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
