@@ -40,6 +40,7 @@ type ConflictSet struct {
 	signerSigs   signaturesBySigner
 	didSign      bool
 	transactions transactionMap
+	commits      []*commitNotification
 	view         uint64
 	updates      uint64
 	active       bool
@@ -92,46 +93,68 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.Log.Errorw("something called this")
 	case *messages.CurrentStateWrapper:
 		cs.handleCurrentStateWrapper(context, msg)
-	case *extmsgs.Store:
-		cs.handleStore(context, msg)
 	case *commitNotification:
-		if cs.active {
-			cs.handleStore(context, msg.store)
-		} else {
-			snoozedTransactions := len(cs.transactions)
-			if snoozedTransactions > 0 {
-				panic(fmt.Errorf("received commit notification with %d snoozed transactions; this should not happen", snoozedTransactions))
-			}
-		}
+		cs.handleCommit(context, msg)
 	case *checkStateMsg:
 		cs.checkState(context, msg)
-	case *messages.ProcessSnoozedTransactions:
-		if parent := context.Parent(); parent != nil {
-			for _, transaction := range cs.transactions {
-				context.Request(parent, &messages.ValidateTransaction{
-					Key:   transaction.Key,
-					Value: transaction.Value,
-				})
-			}
+	case *messages.ActivateSnoozingConflictSets:
+		cs.activate(context, msg)
+	}
+}
+
+func (cs *ConflictSet) activate(context actor.Context, msg *messages.ActivateSnoozingConflictSets) {
+	cs.active = true
+
+	var err error
+	for _, commit := range cs.commits {
+		err = cs.handleCommit(context, commit)
+	}
+	if err != nil {
+		panic(fmt.Errorf("error processing snoozed commit: %v", err))
+	}
+
+	if cs.done {
+		// We had a valid commit already, so we're done
+		return
+	}
+
+	// no (valid) commit, so let's start validating any snoozed transactions
+	if parent := context.Parent(); parent != nil {
+		for _, transaction := range cs.transactions {
+			context.Request(parent, &messages.ValidateTransaction{
+				Key:   transaction.Key,
+				Value: transaction.Value,
+			})
 		}
 	}
 }
 
-func (cs *ConflictSet) handleStore(context actor.Context, msg *extmsgs.Store) {
-	cs.Log.Debugw("handleStore")
+func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotification) error {
+	cs.Log.Debug("handleCommit")
+
+	if !cs.active {
+		if msg.current {
+			cs.active = true
+		} else {
+			cs.Log.Debug("snoozing commit for later")
+			cs.commits = append(cs.commits, msg)
+			return nil
+		}
+	}
 	var currState extmsgs.CurrentState
-	_, err := currState.UnmarshalMsg(msg.Value)
+	_, err := currState.UnmarshalMsg(msg.store.Value)
 	if err != nil {
 		panic(fmt.Errorf("error unmarshaling: %v", err))
 	}
 	wrapper := &messages.CurrentStateWrapper{
 		CurrentState: &currState,
 		Internal:     false,
-		Key:          msg.Key,
-		Value:        msg.Value,
+		Key:          msg.store.Key,
+		Value:        msg.store.Value,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
-	cs.handleCurrentStateWrapper(context, wrapper)
+
+	return cs.handleCurrentStateWrapper(context, wrapper)
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {

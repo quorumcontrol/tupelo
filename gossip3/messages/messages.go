@@ -116,7 +116,7 @@ type BulkRemove struct {
 
 type SendingDone struct{}
 
-type ProcessSnoozedTransactions struct {
+type ActivateSnoozingConflictSets struct {
 	ObjectID []byte
 }
 
