@@ -39,6 +39,7 @@ var benchmarkIterations int
 var benchmarkTimeout int
 var benchmarkStrategy string
 var benchmarkSignersFanoutNumber int
+var benchmarkStartDelay int
 
 var activeCounter = 0
 
@@ -185,6 +186,12 @@ var benchmark = &cobra.Command{
 		doneCh := make(chan bool, 1)
 		defer close(doneCh)
 
+		if benchmarkStartDelay > 0 {
+			fmt.Printf("Delaying benchmark kickoff for %d seconds...\n", benchmarkStartDelay)
+			time.Sleep(time.Duration(benchmarkStartDelay) * time.Second)
+			fmt.Println("Running benchmark")
+		}
+
 		switch benchmarkStrategy {
 		case "tps":
 			go performTpsBenchmark(client, group)
@@ -245,6 +252,7 @@ func init() {
 	benchmark.Flags().IntVarP(&benchmarkIterations, "iterations", "i", 10, "how many transactions to execute total")
 	benchmark.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 0, "seconds to wait before timing out")
 	benchmark.Flags().IntVarP(&benchmarkSignersFanoutNumber, "fanout", "f", 1, "how many signers to fanout to on sending a transaction")
+	benchmark.Flags().IntVarP(&benchmarkStartDelay, "start-delay", "d", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stablize first")
 	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
 }
 
