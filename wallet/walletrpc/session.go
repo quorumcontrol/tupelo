@@ -337,7 +337,7 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 	return &tip, nil
 }
 
-func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
+func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*transactions.Transaction) (*consensus.AddBlockResponse, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
