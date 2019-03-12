@@ -5,7 +5,9 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -396,7 +398,11 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	fmt.Println("Starting Tupelo RPC server")
 
 	listener, err := net.Listen("tcp", defaultPort)
-	if err != nil {
+	if err, ok := err.(*net.OpError); ok {
+		if err, ok := err.Err.(*os.SyscallError); ok && err.Err == syscall.EADDRINUSE {
+			return nil, fmt.Errorf("failed to open listener on %s: port already in use", defaultPort)
+		}
+
 		return nil, fmt.Errorf("failed to open listener on %s: %s", defaultPort, err)
 	}
 
