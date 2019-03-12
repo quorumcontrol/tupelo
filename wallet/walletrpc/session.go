@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
 	"path/filepath"
 
 	"github.com/jakehl/goid"
@@ -313,17 +312,12 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, shouldValidate bool,
 	}
 
 	if err = rpcs.wallet.ConfigureChainStorage(signedChainTree.MustId(), storageAdapterConfig); err != nil {
-		log.Printf("failed to configure chain storage (chain ID: %s): %s",
+		return nil, fmt.Errorf("failed to configure chain storage (chain ID: %s): %s",
 			signedChainTree.MustId(), err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to configure chain storage (chain ID: %s): %s",
-		//	signedChainTree.MustId(), err)
 	}
 	if err = rpcs.wallet.SaveChain(signedChainTree); err != nil {
-		log.Printf("failed to save chain tree with ID %s: %s", signedChainTree.MustId(), err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to save chain tree with ID %s: %s",
-		// signedChainTree.MustId(), err)
+		return nil, fmt.Errorf("failed to save chain tree with ID %s: %s",
+			signedChainTree.MustId(), err)
 	}
 
 	return signedChainTree, nil

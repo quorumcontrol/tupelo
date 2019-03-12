@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -161,15 +160,11 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 
 	nodes, err := signedChain.ChainTree.Dag.Nodes()
 	if err != nil {
-		log.Printf("error getting nodes: %s", err)
-		// TODO: Enable
-		// return fmt.Errorf("error getting nodes: %s", err)
+		return fmt.Errorf("error getting nodes: %v", err)
 	}
 	for _, node := range nodes {
 		if err = adapter.Store().StoreNode(node); err != nil {
-			log.Printf("failed to store cbor node: %s", err)
-			// TODO: Enable
-			// return fmt.Errorf("failed to store cbor node: %s", err)
+			return fmt.Errorf("failed to store cbor node: %s", err)
 		}
 	}
 
@@ -189,14 +184,10 @@ func (w *Wallet) SaveChainMetadata(signedChain *consensus.SignedChainTree) error
 	}
 
 	if err = w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData()); err != nil {
-		log.Printf("failed to store node data")
-		// TODO: Enable
-		// return fmt.Errorf("failed to store node data: %s", err)
+		return err
 	}
 	if err = w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes()); err != nil {
-		log.Printf("failed to store chain tree tip")
-		// TODO: Enable
-		// return fmt.Errorf("failed to store chain tree tip: %s", err)
+		return err
 	}
 
 	return nil

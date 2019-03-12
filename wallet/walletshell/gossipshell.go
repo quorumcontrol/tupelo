@@ -3,7 +3,6 @@ package walletshell
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -62,9 +61,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				return
 			} else {
 				if err = session.CreateWallet(passphrase); err != nil {
-					log.Printf("failed to create wallet: %s", err)
-					// TODO: Enable
-					// panic(fmt.Sprintf("failed to create wallet: %s", err))
+					panic(fmt.Sprintf("failed to create wallet: %s", err))
 				}
 			}
 		},
@@ -339,9 +336,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 
 			shellArgs := append([]string{"resolve"}, c.Args...)
 			if err = shell.Process(shellArgs...); err != nil {
-				log.Printf("failed to run shell args %+v: %s", shellArgs, err)
-				// TODO: Enable
-				// panic(fmt.Errorf("failed to run shell args %+v: %s", shellArgs, err))
+				panic(fmt.Errorf("failed to run shell args %+v: %s", shellArgs, err))
 			}
 		},
 	})
