@@ -46,7 +46,9 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 	ng := sg.notaryGroup
 	signers := bitarray.NewSparseBitArray()
 	if err := signers.SetBit(ng.IndexOfSigner(sg.signer)); err != nil {
-		panic(err)
+		sg.Log.Errorf("failed to set bit of signer: %s", err)
+		// TODO: Enable
+		// panic(fmt.Sprintf("failed to set bit of signer: %s", err))
 	}
 	marshaled, err := bitarray.Marshal(signers)
 	if err != nil {

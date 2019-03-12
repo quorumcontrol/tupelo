@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	fmt "fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -290,10 +291,17 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 	}
 
 	if err = rpcs.wallet.ConfigureChainStorage(signedChainTree.MustId(), storageAdapterConfig); err != nil {
-		// return nil, err
+		log.Printf("failed to configure chain storage (chain ID: %s): %s",
+			signedChainTree.MustId(), err)
+		// TODO: Enable
+		// return nil, fmt.Errorf("failed to configure chain storage (chain ID: %s): %s",
+		// 	signedChainTree.MustId(), err)
 	}
 	if err = rpcs.wallet.SaveChain(signedChainTree); err != nil {
-		// return nil, err
+		log.Printf("failed to save chain tree with ID %s: %s", signedChainTree.MustId(), err)
+		// TODO: Enable
+		// return nil, fmt.Errorf("failed to save chain tree with ID %s: %s",
+		// signedChainTree.MustId(), err)
 	}
 
 	return signedChainTree, nil

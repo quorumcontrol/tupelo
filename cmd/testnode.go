@@ -54,6 +54,8 @@ var testnodeCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		if err := logging.SetLogLevel("gossip", "ERROR"); err != nil {
+			log.Error("failed to set log level of \"gossip\": %s", err)
+			// TODO: Enable
 			// panic(fmt.Sprintf("failed to set log level of \"gossip\": %s", err))
 		}
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")

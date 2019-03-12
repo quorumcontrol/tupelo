@@ -4,11 +4,12 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -103,7 +104,9 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 	memoryStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	memoryTree := dag.NewDag(tipCid, memoryStore)
 	if err = memoryTree.AddNodes(nodes...); err != nil {
-		// return nil, err
+		log.Printf("failed to add IPLD nodes to DAG: %s", err)
+		// TODO: Enable
+		// return nil, fmt.Errorf("failed to add IPLD nodes to DAG: %s", err)
 	}
 
 	tree, err := chaintree.NewChainTree(memoryTree, nil, consensus.DefaultTransactors)
@@ -171,11 +174,15 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 
 	nodes, err := signedChain.ChainTree.Dag.Nodes()
 	if err != nil {
-		return fmt.Errorf("error getting nodes: %v", err)
+		log.Printf("error getting nodes: %s", err)
+		// TODO: Enable
+		// return fmt.Errorf("error getting nodes: %s", err)
 	}
 	for _, node := range nodes {
 		if err = adapter.Store().StoreNode(node); err != nil {
-			// return nil
+			log.Printf("failed to store cbor node: %s", err)
+			// TODO: Enable
+			// return fmt.Errorf("failed to store cbor node: %s", err)
 		}
 	}
 
@@ -186,10 +193,14 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 	}
 
 	if err = w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData()); err != nil {
-		// return err
+		log.Printf("failed to store node data")
+		// TODO: Enable
+		// return fmt.Errorf("failed to store node data: %s", err)
 	}
 	if err = w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes()); err != nil {
-		// return err
+		log.Printf("failed to store chain tree tip")
+		// TODO: Enable
+		// return fmt.Errorf("failed to store chain tree tip: %s", err)
 	}
 
 	return nil
