@@ -40,7 +40,7 @@ type ConflictSet struct {
 	signerSigs   signaturesBySigner
 	didSign      bool
 	transactions transactionMap
-	commits      []*commitNotification
+	commits      []*messages.CurrentStateWrapper
 	view         uint64
 	updates      uint64
 	active       bool
@@ -91,8 +91,6 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleNewSignature(context, msg)
 	case *extmsgs.CurrentState:
 		cs.Log.Errorw("something called this")
-	case *messages.CurrentStateWrapper:
-		cs.handleCurrentStateWrapper(context, msg)
 	case *commitNotification:
 		cs.handleCommit(context, msg)
 	case *checkStateMsg:
@@ -103,11 +101,13 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 }
 
 func (cs *ConflictSet) activate(context actor.Context, msg *messages.ActivateSnoozingConflictSets) {
+	cs.Log.Debug("activate")
+
 	cs.active = true
 
 	var err error
 	for _, commit := range cs.commits {
-		err = cs.handleCommit(context, commit)
+		err = cs.handleCurrentStateWrapper(context, commit)
 	}
 	if err != nil {
 		panic(fmt.Errorf("error processing snoozed commit: %v", err))
@@ -132,15 +132,6 @@ func (cs *ConflictSet) activate(context actor.Context, msg *messages.ActivateSno
 func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotification) error {
 	cs.Log.Debug("handleCommit")
 
-	if !cs.active {
-		if msg.current {
-			cs.active = true
-		} else {
-			cs.Log.Debug("snoozing commit for later")
-			cs.commits = append(cs.commits, msg)
-			return nil
-		}
-	}
 	var currState extmsgs.CurrentState
 	_, err := currState.UnmarshalMsg(msg.store.Value)
 	if err != nil {
@@ -153,8 +144,28 @@ func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotificati
 		Value:        msg.store.Value,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
+	
+	if cs.active {
+		return cs.handleCurrentStateWrapper(context, wrapper)
+	} else {
+		verified, err := cs.validSignature(context, wrapper)
+		if err != nil {
+			panic(fmt.Errorf("error verifying signature: %v", err))
+		}
+		if verified {
+			wrapper.Verified = true
+			wrapper.Metadata["verifiedAt"] = time.Now()
+			if msg.height == msg.nextHeight {
+				cs.active = true
+				return cs.handleCurrentStateWrapper(context, wrapper)
+			}
 
-	return cs.handleCurrentStateWrapper(context, wrapper)
+			cs.Log.Debug("snoozing commit for later")
+			cs.commits = append(cs.commits, wrapper)
+			return nil
+		}
+		return fmt.Errorf("signature not verified")
+	}
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {
@@ -333,13 +344,11 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 	return cs.handleCurrentStateWrapper(context, currStateWrapper)
 }
 
-func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-	cs.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
-
+func (cs *ConflictSet) validSignature(context actor.Context, currWrapper *messages.CurrentStateWrapper) (bool, error) {
 	sig := currWrapper.CurrentState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling: %v", err)
+		return false, fmt.Errorf("error unmarshaling: %v", err)
 	}
 	var verKeys [][]byte
 
@@ -347,7 +356,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	for i, signer := range signers {
 		isSet, err := signerArray.GetBit(uint64(i))
 		if err != nil {
-			return fmt.Errorf("error getting bit: %v", err)
+			return false, fmt.Errorf("error getting bit: %v", err)
 		}
 		if isSet {
 			verKeys = append(verKeys, signer.VerKey.Bytes())
@@ -362,12 +371,27 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	}, 10*time.Second).Result()
 
 	if err != nil {
-		return fmt.Errorf("error waiting for signature validation: %v", err)
+		return false, fmt.Errorf("error waiting for signature validation: %v", err)
 	}
 
-	if resp.(*messages.SignatureVerification).Verified {
-		currWrapper.Metadata["verifiedAt"] = time.Now()
-		currWrapper.Verified = true
+	return resp.(*messages.SignatureVerification).Verified, nil
+}
+
+func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	cs.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
+
+	if !currWrapper.Verified {
+		verified, err := cs.validSignature(context, currWrapper)
+		if err != nil {
+			panic(fmt.Errorf("error verifying signature: %v", err))
+		}
+		if verified {
+			currWrapper.Verified = true
+			currWrapper.Metadata["verifiedAt"] = time.Now()
+		}
+	}
+
+	if currWrapper.Verified {
 		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions), len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {

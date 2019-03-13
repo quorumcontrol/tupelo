@@ -34,10 +34,10 @@ type ConflictSetRouterConfig struct {
 }
 
 type commitNotification struct {
-	store    *extmsgs.Store
-	objectID []byte
-	height   uint64
-	current  bool
+	store      *extmsgs.Store
+	objectID   []byte
+	height     uint64
+	nextHeight uint64
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -72,9 +72,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *extmsgs.Store:
 		csr.forwardOrIgnore(context, msg.Key)
 	case *commitNotification:
-		if msg.height == csr.nextHeight(msg.objectID) {
-			msg.current = true
-		}
+		msg.nextHeight = csr.nextHeight(msg.objectID)
 		csr.forwardOrIgnore(context, msg.store.Key)
 	case *messages.CurrentStateWrapper:
 		if parent := context.Parent(); parent != nil {
