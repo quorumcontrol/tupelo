@@ -23,7 +23,7 @@ func TestServerStartup(t *testing.T) {
 	ng := types.NewNotaryGroup("ohhijusttesting")
 	cli := client.New(ng)
 
-	grpcServer, err := ServeInsecure(path, cli)
+	grpcServer, err := ServeInsecure(path, cli, 0)
 	require.Nil(t, err)
 	web, err := ServeWebInsecure(grpcServer)
 	require.Nil(t, err)
@@ -31,7 +31,7 @@ func TestServerStartup(t *testing.T) {
 	require.Nil(t, err)
 	grpcServer.Stop()
 
-	secGrpcServer, err := ServeTLS(path, cli, "testassets/cert.pem", "testassets/key.pem")
+	secGrpcServer, err := ServeTLS(path, cli, "testassets/cert.pem", "testassets/key.pem", 0)
 	require.Nil(t, err)
 	secWeb, err := ServeWebTLS(secGrpcServer, "testassets/cert.pem", "testassets/key.pem")
 	require.Nil(t, err)

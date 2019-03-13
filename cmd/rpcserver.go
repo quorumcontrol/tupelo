@@ -30,6 +30,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultPort = 50051
+
 func unmarshalKeys(keySet interface{}, bytes []byte) error {
 	if bytes != nil {
 		err := json.Unmarshal(bytes, keySet)
@@ -256,13 +258,13 @@ var rpcServerCmd = &cobra.Command{
 
 		if tls {
 			panicWithoutTLSOpts()
-			server, err := walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
+			server, err := walletrpc.ServeTLS(walletStorage, client, certFile, keyFile, defaultPort)
 			if err != nil {
 				panic(err)
 			}
 			grpcServer = server
 		} else {
-			server, err := walletrpc.ServeInsecure(walletStorage, client)
+			server, err := walletrpc.ServeInsecure(walletStorage, client, defaultPort)
 			if err != nil {
 				panic(err)
 			}
