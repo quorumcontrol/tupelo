@@ -183,11 +183,21 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 }
 
 func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
-	tip, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
+	currStateBits, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
 	if err != nil {
 		panic(fmt.Errorf("error getting tip: %v", err))
 	}
-	context.Respond(tip)
+
+	var currState extmsgs.CurrentState
+
+	if len(currStateBits) > 0 {
+		_, err = currState.UnmarshalMsg(currStateBits)
+		if err != nil {
+			panic(fmt.Errorf("error unmarshaling CurrentState: %v", err))
+		}
+	}
+
+	context.Respond(&currState)
 }
 
 func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSyncer) {
