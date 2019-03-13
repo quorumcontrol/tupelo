@@ -31,7 +31,7 @@ func stopDecider(reason interface{}) actor.Directive {
 }
 
 func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
-	supervisor := actor.NewOneForOneStrategy(1, 10, stopDecider)
+	supervisor := actor.NewOneForOneStrategy(0, 10, stopDecider)
 
 	return actor.PropsFromProducer(func() actor.Actor {
 		return &PushSyncer{
