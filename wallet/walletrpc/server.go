@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
@@ -402,17 +403,33 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	if port <= 0 {
 		port = 0
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err, ok := err.(*net.OpError); ok {
-		if err, ok := err.Err.(*os.SyscallError); ok && err.Err == syscall.EADDRINUSE {
-			return nil, fmt.Errorf("failed to open listener as port is already taken")
-		}
+	var listener net.Listener
+	for i := 0; i < 10 && listener == nil; i++ {
+		var err error
+		listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err, ok := err.(*net.OpError); ok {
+			if err, ok := err.Err.(*os.SyscallError); ok && err.Err == syscall.EADDRINUSE {
+				if port > 0 {
+					// Don't try again since we're not randomizing the port
+					return nil, fmt.Errorf("port %d is unavailable", port)
+				}
 
-		return nil, fmt.Errorf("failed to open listener: %s", err)
+				log.Printf(
+					"Failed to open listener with unspecified port due to EADDRINUSE, retrying after sleep")
+				time.Sleep(1 * time.Second)
+				continue
+			}
+
+			log.Printf("Unexpected failure to open listener: %s", err)
+			return nil, fmt.Errorf("failed to open listener: %s", err)
+		}
+	}
+	if listener == nil {
+		return nil, fmt.Errorf("failed to find an available port to open listener")
 	}
 
 	comps := strings.Split(listener.Addr().String(), ":")
-	port, err = strconv.Atoi(comps[len(comps)-1])
+	port, err := strconv.Atoi(comps[len(comps)-1])
 	if err != nil {
 		return nil, err
 	}
