@@ -92,7 +92,10 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	case *extmsgs.CurrentState:
 		cs.Log.Errorw("something called this")
 	case *commitNotification:
-		cs.handleCommit(context, msg)
+		err := cs.handleCommit(context, msg)
+		if err != nil {
+			panic(err)
+		}
 	case *checkStateMsg:
 		cs.checkState(context, msg)
 	case *messages.ActivateSnoozingConflictSets:
@@ -257,7 +260,9 @@ func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
 	}
 	if trans := cs.possiblyDone(); trans != nil {
 		// we have a possibly done transaction, lets make a current state
-		cs.createCurrentStateFromTrans(context, trans)
+		if err := cs.createCurrentStateFromTrans(context, trans); err != nil {
+			panic(err)
+		}
 		return
 	}
 
@@ -396,7 +401,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	}
 
 	if currWrapper.Verified {
-		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions), len(cs.transactions))
+		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
 			currWrapper.CleanupTransactions[i] = t

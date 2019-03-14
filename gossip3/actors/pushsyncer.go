@@ -21,7 +21,6 @@ type PushSyncer struct {
 	start          time.Time
 	kind           string
 	storageActor   *actor.PID
-	gossiper       *actor.PID
 	remote         *actor.PID
 	sendingObjects bool
 }
@@ -117,8 +116,10 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 		}
 		syncer.Log.Debugw("providing strata", "remote", destination)
 		destination.Request(&messages.ProvideStrata{
-			Strata:            strata.(*ibf.DifferenceStrata),
-			DestinationHolder: messages.DestinationHolder{extmsgs.ToActorPid(syncer.storageActor)},
+			Strata: strata.(*ibf.DifferenceStrata),
+			DestinationHolder: messages.DestinationHolder{
+				Destination: extmsgs.ToActorPid(syncer.storageActor),
+			},
 		}, context.Self())
 	default:
 		panic("unknown type")
@@ -160,8 +161,10 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 			}
 
 			context.Request(context.Sender(), &messages.ProvideBloomFilter{
-				Filter:            localIBF,
-				DestinationHolder: messages.DestinationHolder{extmsgs.ToActorPid(syncer.storageActor)},
+				Filter: localIBF,
+				DestinationHolder: messages.DestinationHolder{
+					Destination: extmsgs.ToActorPid(syncer.storageActor),
+				},
 			})
 		} else {
 			syncer.Log.Debugw("synced", "remote", context.Sender())
@@ -201,8 +204,10 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 	}
 
 	context.Sender().Request(&messages.ProvideBloomFilter{
-		Filter:            localIBF,
-		DestinationHolder: messages.DestinationHolder{extmsgs.ToActorPid(syncer.storageActor)},
+		Filter: localIBF,
+		DestinationHolder: messages.DestinationHolder{
+			Destination: extmsgs.ToActorPid(syncer.storageActor),
+		},
 	}, context.Self())
 }
 
@@ -240,7 +245,7 @@ func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResul
 	syncer.Log.Debugw("handleDiff")
 	syncer.sendingObjects = true
 	context.Sender().Request(requestKeysFromDiff(diff.RightSet), syncer.storageActor)
-	prefixes := make([]uint64, len(diff.LeftSet), len(diff.LeftSet))
+	prefixes := make([]uint64, len(diff.LeftSet))
 	for i, pref := range diff.LeftSet {
 		prefixes[i] = uint64(pref)
 	}

@@ -58,7 +58,7 @@ func BenchmarkValidator(b *testing.B) {
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
-	futures := make([]*actor.Future, b.N, b.N)
+	futures := make([]*actor.Future, b.N)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -17,8 +17,8 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  source = "git@github.com:quorumcontrol/chaintree.git"  
-  version = "v5.1.0"
+  source = "git@github.com:quorumcontrol/chaintree.git"
+  version = "v5.1.1"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
