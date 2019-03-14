@@ -35,15 +35,15 @@ type ConflictSet struct {
 	signatureSender    *actor.PID
 	signer             *types.Signer
 
-	done         bool
-	signatures   signaturesByTransaction
-	signerSigs   signaturesBySigner
-	didSign      bool
-	transactions transactionMap
-	commits      []*messages.CurrentStateWrapper
-	view         uint64
-	updates      uint64
-	active       bool
+	done          bool
+	signatures    signaturesByTransaction
+	signerSigs    signaturesBySigner
+	didSign       bool
+	transactions  transactionMap
+	snoozedCommit *messages.CurrentStateWrapper
+	view          uint64
+	updates       uint64
+	active        bool
 }
 
 type ConflictSetConfig struct {
@@ -106,8 +106,8 @@ func (cs *ConflictSet) activate(context actor.Context, msg *messages.ActivateSno
 	cs.active = true
 
 	var err error
-	for _, commit := range cs.commits {
-		err = cs.handleCurrentStateWrapper(context, commit)
+	if cs.snoozedCommit != nil {
+		err = cs.handleCurrentStateWrapper(context, cs.snoozedCommit)
 	}
 	if err != nil {
 		panic(fmt.Errorf("error processing snoozed commit: %v", err))
@@ -161,7 +161,11 @@ func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotificati
 			}
 
 			cs.Log.Debug("snoozing commit for later")
-			cs.commits = append(cs.commits, wrapper)
+			if cs.snoozedCommit == nil {
+				cs.snoozedCommit = wrapper
+			} else {
+				panic(fmt.Errorf("received new commit with one already snoozed"))
+			}
 			return nil
 		}
 		return fmt.Errorf("signature not verified")
