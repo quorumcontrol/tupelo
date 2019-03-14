@@ -28,7 +28,6 @@ type Gossiper struct {
 	system           system
 	syncersAvailable int64
 	validatorClear   bool
-	round            uint64
 	pusherProps      *actor.Props
 
 	// it is expected the storageActor is actually
@@ -54,8 +53,6 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
-
-type internalPusherDone struct{}
 
 func (g *Gossiper) Receive(context actor.Context) {
 	// defer func() {

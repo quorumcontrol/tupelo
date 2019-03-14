@@ -40,18 +40,6 @@ func (fv *fakeValidator) Receive(context actor.Context) {
 	}
 }
 
-func (fv *fakeValidator) notifyWorking() {
-	for _, act := range fv.subscriptions {
-		act.Tell(&messages.ValidatorWorking{})
-	}
-}
-
-func (fv *fakeValidator) notifyClear() {
-	for _, act := range fv.subscriptions {
-		act.Tell(&messages.ValidatorClear{})
-	}
-}
-
 func TestGossiper(t *testing.T) {
 	var pusherMsgs []interface{}
 	// var currentPusher *actor.PID
@@ -88,8 +76,8 @@ func TestFastGossip(t *testing.T) {
 	system := new(fakeSystem)
 
 	numNodes := 5
-	nodes := make([]*actor.PID, numNodes, numNodes)
-	stores := make([]*actor.PID, numNodes, numNodes)
+	nodes := make([]*actor.PID, numNodes)
+	stores := make([]*actor.PID, numNodes)
 	for i := 0; i < numNodes; i++ {
 		storage := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
 		stores[i] = storage
@@ -137,7 +125,7 @@ func TestFastGossip(t *testing.T) {
 		return fut
 	}
 
-	futures := make([]*actor.Future, len(stores)-1, len(stores)-1)
+	futures := make([]*actor.Future, len(stores)-1)
 	for i := 1; i < len(stores); i++ {
 		futures[i-1] = subscribe(key, stores[i])
 	}

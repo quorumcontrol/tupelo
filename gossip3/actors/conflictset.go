@@ -91,7 +91,9 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 	case *extmsgs.CurrentState:
 		cs.Log.Errorw("something called this")
 	case *messages.CurrentStateWrapper:
-		cs.handleCurrentStateWrapper(context, msg)
+		if err := cs.handleCurrentStateWrapper(context, msg); err != nil {
+			panic(err)
+		}
 	case *extmsgs.Store:
 		cs.handleStore(context, msg)
 	case *commitNotification:
@@ -131,7 +133,9 @@ func (cs *ConflictSet) handleStore(context actor.Context, msg *extmsgs.Store) {
 		Value:        msg.Value,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
-	cs.handleCurrentStateWrapper(context, wrapper)
+	if err := cs.handleCurrentStateWrapper(context, wrapper); err != nil {
+		panic(err)
+	}
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {
@@ -219,7 +223,9 @@ func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
 	}
 	if trans := cs.possiblyDone(); trans != nil {
 		// we have a possibly done transaction, lets make a current state
-		cs.createCurrentStateFromTrans(context, trans)
+		if err := cs.createCurrentStateFromTrans(context, trans); err != nil {
+			panic(err)
+		}
 		return
 	}
 
@@ -345,7 +351,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	if resp.(*messages.SignatureVerification).Verified {
 		currWrapper.Metadata["verifiedAt"] = time.Now()
 		currWrapper.Verified = true
-		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions), len(cs.transactions))
+		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
 			currWrapper.CleanupTransactions[i] = t

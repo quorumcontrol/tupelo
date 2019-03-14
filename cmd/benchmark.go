@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -171,8 +170,12 @@ var benchmark = &cobra.Command{
 			panic(fmt.Sprintf("error setting up p2p host: %v", err))
 		}
 
-		p2pHost.Bootstrap(p2p.BootstrapNodes())
-		p2pHost.WaitForBootstrap(1, 15*time.Second)
+		if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
+			panic(err)
+		}
+		if err = p2pHost.WaitForBootstrap(1, 15*time.Second); err != nil {
+			panic(err)
+		}
 
 		gossip3remote.NewRouter(p2pHost)
 
@@ -254,12 +257,4 @@ func init() {
 	benchmark.Flags().IntVarP(&benchmarkSignersFanoutNumber, "fanout", "f", 1, "how many signers to fanout to on sending a transaction")
 	benchmark.Flags().IntVarP(&benchmarkStartDelay, "start-delay", "d", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stablize first")
 	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
-}
-
-func randBytes(length int) []byte {
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		panic("couldn't generate random bytes")
-	}
-	return b
 }

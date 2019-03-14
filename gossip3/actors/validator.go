@@ -214,7 +214,9 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 	}
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	tree := dag.NewDag(currentTip, nodeStore)
-	tree.AddNodes(cborNodes...)
+	if err = tree.AddNodes(cborNodes...); err != nil {
+		return nil, false, err
+	}
 
 	chainTree, err := chaintree.NewChainTree(
 		tree,

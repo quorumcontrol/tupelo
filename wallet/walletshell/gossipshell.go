@@ -3,14 +3,15 @@ package walletshell
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 
@@ -58,7 +59,11 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				c.Printf("Error creating wallet: %v\n", err)
 				return
 			} else {
-				session.CreateWallet(passphrase)
+				if err = session.CreateWallet(passphrase); err != nil {
+					log.Printf("failed to create wallet: %s", err)
+					// TODO: Enable
+					// panic(fmt.Sprintf("failed to create wallet: %s", err))
+				}
 			}
 		},
 	})
@@ -314,7 +319,12 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 
 			c.Args[1] = fmt.Sprintf("tree/data/%s", strings.TrimPrefix(c.Args[1], "/"))
 
-			shell.Process(append([]string{"resolve"}, c.Args...)...)
+			shellArgs := append([]string{"resolve"}, c.Args...)
+			if err = shell.Process(shellArgs...); err != nil {
+				log.Printf("failed to run shell args %+v: %s", shellArgs, err)
+				// TODO: Enable
+				// panic(fmt.Errorf("failed to run shell args %+v: %s", shellArgs, err))
+			}
 		},
 	})
 

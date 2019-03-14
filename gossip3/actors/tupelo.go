@@ -93,7 +93,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		// un-snooze waiting transactions
 		tn.conflictSetRouter.Tell(&messages.ProcessSnoozedTransactions{ObjectID: msg.CurrentState.Signature.ObjectID})
 		// cleanup the transactions
-		ids := make([][]byte, len(msg.CleanupTransactions), len(msg.CleanupTransactions))
+		ids := make([][]byte, len(msg.CleanupTransactions))
 		for i, trans := range msg.CleanupTransactions {
 			ids[i] = trans.TransactionID
 		}

@@ -14,8 +14,10 @@ import (
 
 func TestImportExport(t *testing.T) {
 	path := ".tmp/test"
-	os.RemoveAll(path)
-	os.MkdirAll(path, 0755)
+	err := os.RemoveAll(path)
+	require.Nil(t, err)
+	err = os.MkdirAll(path, 0755)
+	require.Nil(t, err)
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
 	client := client.New(ng)

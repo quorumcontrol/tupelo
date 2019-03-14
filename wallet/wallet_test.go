@@ -35,8 +35,10 @@ func TestMockAdapterWallet(t *testing.T) {
 }
 
 func TestBadgerWallet(t *testing.T) {
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	require.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	storageConfig := &adapters.Config{
@@ -93,8 +95,10 @@ func TestIpldHttpWallet(t *testing.T) {
 }
 
 func TestIpldWallet(t *testing.T) {
-	os.RemoveAll("testtmp")
-	os.MkdirAll("testtmp", 0700)
+	err := os.RemoveAll("testtmp")
+	require.Nil(t, err)
+	err = os.MkdirAll("testtmp", 0700)
+	require.Nil(t, err)
 	defer os.RemoveAll("testtmp")
 
 	storageConfig := &adapters.Config{
@@ -106,8 +110,10 @@ func TestIpldWallet(t *testing.T) {
 
 	plugins, err := ipfsPluginLoader.NewPluginLoader("")
 	require.Nil(t, err)
-	plugins.Initialize()
-	plugins.Inject()
+	err = plugins.Initialize()
+	require.Nil(t, err)
+	err = plugins.Inject()
+	require.Nil(t, err)
 
 	conf, err := ipfsConfig.Init(os.Stdout, 2048)
 	require.Nil(t, err, "error initializing IPFS")
@@ -259,8 +265,10 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	newTree.Tip = *root.Tree
 
-	newTree.Set(strings.Split("something", "/"), "hi")
-	signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
+	_, err = newTree.Set(strings.Split("something", "/"), "hi")
+	require.Nil(t, err)
+	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree.Tip)
+	require.Nil(t, err)
 
 	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
 	require.Nil(t, err)
@@ -276,8 +284,10 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	chainMap["end"] = wrappedBlock.Cid()
 	newChainNode := sw.WrapObject(chainMap)
 
-	signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
-	signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
+	err = signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
+	require.Nil(t, err)
+	_, err = signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
+	require.Nil(t, err)
 
 	t.Log(signedTree.ChainTree.Dag.Dump())
 
@@ -297,7 +307,7 @@ func SubtestWallet_GetChainIds(t *testing.T, storageConfig *adapters.Config) {
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
 
-	createdChains := make([]string, 3, 3)
+	createdChains := make([]string, 3)
 
 	for i := 0; i < 3; i++ {
 		key, err := w.GenerateKey()
@@ -323,6 +333,7 @@ func SubtestWallet_GetKey(t *testing.T, storageConfig *adapters.Config) {
 	assert.Nil(t, err)
 
 	retKey, err := w.GetKey(crypto.PubkeyToAddress(key.PublicKey).String())
+	assert.Nil(t, err)
 	assert.Equal(t, retKey, key)
 }
 
