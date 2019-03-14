@@ -19,10 +19,6 @@ ADD entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 
-ENV DEPPROJECTROOT=/github/workspace
-
-WORKDIR /github/workspace
-
 ENTRYPOINT ["/entrypoint.sh"]
 
 CMD ["ensure"]

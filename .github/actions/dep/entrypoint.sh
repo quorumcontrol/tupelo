@@ -8,4 +8,12 @@ if [[ ! -z "$SSH_PRIVATE_KEY" ]]; then
   ssh-add /ssh/id_rsa > /dev/null 2>&1
 fi
 
+build_dir=$GOPATH/src/github.com/$GITHUB_REPOSITORY
+
+mkdir -p $(dirname $build_dir)
+
+ln -s $GITHUB_WORKSPACE $build_dir
+
+cd $build_dir
+
 exec /go/bin/dep "$@"
