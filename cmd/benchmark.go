@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -41,7 +40,6 @@ var benchmarkTimeout int
 var benchmarkStrategy string
 var benchmarkSignersFanoutNumber int
 var benchmarkStartDelay int
-var keys []*ecdsa.PrivateKey
 
 var activeCounter = 0
 
@@ -91,10 +89,6 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 
 func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, shouldMeasure bool) {
 	fakeT := &testing.T{}
-
-	// TODO: Figure out how to have fewer chaintrees so we can see some heights accumulate
-	//key := keys[rand.Intn(len(keys))]
-	//trans := gossip3testhelpers.NewValidTransactionWithKey(fakeT, key)
 	trans := gossip3testhelpers.NewValidTransaction(fakeT)
 
 	used := map[string]bool{}
@@ -163,16 +157,6 @@ var benchmark = &cobra.Command{
 	Short:  "runs a set of operations against a network at specified concurrency",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		keys = make([]*ecdsa.PrivateKey, 4)
-
-		for i := range keys {
-			key, err := crypto.GenerateKey()
-			if err != nil {
-				panic(fmt.Errorf("error generating key: %v", err))
-			}
-			keys[i] = key
-		}
-
 		gossip3remote.Start()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
