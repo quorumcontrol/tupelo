@@ -198,7 +198,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	_, err = newTree.Set(strings.Split("something", "/"), "hi")
 	require.Nil(t, err)
-	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree)
+	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree.Tip)
 	require.Nil(t, err)
 
 	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
