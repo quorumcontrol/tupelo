@@ -36,6 +36,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/gossip3/tracing"
 	"github.com/spf13/cobra"
 )
 
@@ -60,6 +61,7 @@ var testnodeCmd = &cobra.Command{
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
 		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
+		tracing.StartJaeger()
 		stopOnSignal(signer)
 	},
 }
