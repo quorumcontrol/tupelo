@@ -20,11 +20,11 @@ type ObjectSender struct {
 }
 
 func NewObjectSenderProps(store *actor.PID) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &ObjectSender{
 			store: store,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

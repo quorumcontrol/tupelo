@@ -44,13 +44,13 @@ type TupeloConfig struct {
 }
 
 func NewTupeloNodeProps(cfg *TupeloConfig) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &TupeloNode{
 			self:        cfg.Self,
 			notaryGroup: cfg.NotaryGroup,
 			cfg:         cfg,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

@@ -45,13 +45,13 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 	if err != nil {
 		panic(fmt.Sprintf("error creating LRU cache: %v", err))
 	}
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &ConflictSetRouter{
 			conflictSets: iradix.New(),
 			cfg:          cfg,
 			recentlyDone: cache,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

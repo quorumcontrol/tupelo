@@ -48,7 +48,7 @@ func NewStorageProps(store storage.Storage) *actor.Props {
 	if err != nil {
 		panic(fmt.Errorf("error generating lru: %v", err))
 	}
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		s := &Storage{
 			ibfs:            make(ibfMap),
 			storage:         store,
@@ -59,7 +59,7 @@ func NewStorageProps(store storage.Storage) *actor.Props {
 			s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
 		}
 		return s
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

@@ -33,12 +33,12 @@ func stopDecider(reason interface{}) actor.Directive {
 func NewPushSyncerProps(kind string, storageActor *actor.PID) *actor.Props {
 	supervisor := actor.NewOneForOneStrategy(1, 10, stopDecider)
 
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &PushSyncer{
 			storageActor: storageActor,
 			kind:         kind,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	).WithSupervisor(supervisor)
@@ -78,7 +78,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
 		syncer.Log.Debugw("sync complete", "remote", syncer.remote, "length", time.Now().Sub(syncer.start))
-		context.SetReceiveTimeout(0)
+		context.CancelReceiveTimeout()
 		if !syncer.sendingObjects {
 			context.Self().Poison()
 		}

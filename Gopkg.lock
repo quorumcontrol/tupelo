@@ -22,8 +22,7 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
-  branch = "dev"
-  digest = "1:40abf821bcb27fdd4f151093ab3cb1f09605eb3954bde8a8aabaa978d5f9c256"
+  digest = "1:b92849112c705835e62c7bde40280fc07526bfee3681c8a5554dcc73e1c6c8e8"
   name = "github.com/AsynkronIT/protoactor-go"
   packages = [
     "actor",
@@ -36,7 +35,7 @@
     "router",
   ]
   pruneopts = ""
-  revision = "46ce3cc7fd18ffbf137a56c6e2d7e1e9bd328f39"
+  revision = "0d2db0f2915c63ee18832b7ed7216d80b1019bc9"
 
 [[projects]]
   digest = "1:631c9e9dc0894d1b7ba7d9f2a0120f60cc8478a1769b23b8a04a16b824c7322d"
@@ -1110,7 +1109,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:41b17dced9e9bc47ccfe70d73a1b2b8771785ceb2cb1727957fd2786eb42d150"
+  digest = "1:3a4d96f40527446c2a781f836e5afe86292b2f27dc68ffa4bdc2aab129f4b45b"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1124,7 +1123,7 @@
     "p2p",
   ]
   pruneopts = ""
-  revision = "8cc72153f3c2260ee2e47a8d21712f115727414d"
+  revision = "b614a709649cd8c459f63c2aa20e95ca00a6405d"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"

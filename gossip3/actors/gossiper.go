@@ -39,7 +39,7 @@ type Gossiper struct {
 const maxSyncers = 3
 
 func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProps *actor.Props) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &Gossiper{
 			kind:             kind,
 			pids:             make(map[string]*actor.PID),
@@ -48,7 +48,7 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 			system:           system,
 			pusherProps:      pusherProps,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
@@ -64,7 +64,6 @@ func (g *Gossiper) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
-	case *actor.Started:
 	case *actor.Terminated:
 		// this is for when the pushers stop, we can queue up another push
 		if _, ok := g.pids[currentPusherKey]; ok && msg.Who.Equal(g.pids[currentPusherKey]) {
@@ -83,17 +82,19 @@ func (g *Gossiper) Receive(context actor.Context) {
 			g.syncersAvailable++
 			return
 		}
+		g.Log.Errorw("unknown actor terminated", "who", msg.Who.GetId(), "pids", g.pids)
+
 		panic(fmt.Sprintf("unknown actor terminated: %s", msg.Who.GetId()))
 
 	case *messages.StartGossip:
-		g.Log.Infow("start gossip")
+		g.Log.Debugw("start gossip")
 		g.validatorClear = true
 		context.Self().Tell(&messages.DoOneGossip{
 			Why: "startGosip",
 		})
 	case *messages.DoOneGossip:
 		if _, ok := g.pids[currentPusherKey]; ok {
-			g.Log.Infow("ignoring because in progress")
+			g.Log.Debugw("ignoring because in progress")
 			return
 		}
 		g.Log.Debugw("gossiping again")

@@ -44,6 +44,8 @@ type ConflictSet struct {
 	view          uint64
 	updates       uint64
 	active        bool
+
+	behavior actor.Behavior
 }
 
 type ConflictSetConfig struct {
@@ -57,8 +59,8 @@ type ConflictSetConfig struct {
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
-		return &ConflictSet{
+	return actor.PropsFromProducer(func() actor.Actor {
+		c := &ConflictSet{
 			ID:                 cfg.ID,
 			currentStateStore:  cfg.CurrentStateStore,
 			notaryGroup:        cfg.NotaryGroup,
@@ -69,14 +71,23 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
+			behavior:           actor.NewBehavior(),
 		}
-	}).WithMiddleware(
+
+		c.behavior.Become(c.NormalState)
+
+		return c
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
 
-func (cs *ConflictSet) Receive(context actor.Context) {
+func (cs *ConflictSet) Receive(ctx actor.Context) {
+	cs.behavior.Receive(ctx)
+}
+
+func (cs *ConflictSet) NormalState(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
 		cs.handleNewTransaction(context, msg)
@@ -147,7 +158,7 @@ func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotificati
 		Value:        msg.store.Value,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
-	
+
 	if cs.active {
 		return cs.handleCurrentStateWrapper(context, wrapper)
 	} else {
@@ -410,7 +421,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 
 		cs.done = true
 		cs.Log.Debugw("done")
-		context.SetBehavior(cs.DoneReceive)
+		cs.behavior.Become(cs.DoneReceive)
 
 		if parent := context.Parent(); parent != nil {
 			parent.Tell(currWrapper)
