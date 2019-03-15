@@ -22,7 +22,6 @@
   revision = "343706a395b76e5ca5c7dca46a5d937b48febc74"
 
 [[projects]]
-  branch = "dev"
   digest = "1:b92849112c705835e62c7bde40280fc07526bfee3681c8a5554dcc73e1c6c8e8"
   name = "github.com/AsynkronIT/protoactor-go"
   packages = [
@@ -1124,7 +1123,7 @@
     "p2p",
   ]
   pruneopts = ""
-  revision = "7d0a402c767e15d5c97b9cfd3ec70c4e7b9db669"
+  revision = "b614a709649cd8c459f63c2aa20e95ca00a6405d"
 
 [[projects]]
   digest = "1:5f47c69f85311c4dc292be6cc995a0a3fe8337a6ce38ef4f71e5b7efd5ad42e0"
