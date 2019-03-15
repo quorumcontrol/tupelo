@@ -76,6 +76,14 @@
   revision = "8b13a72661dae6e9e5dea04f344f0dc95ea29547"
 
 [[projects]]
+  digest = "1:5680f8c40e48f07cb77aece3165a866aaf8276305258b3b70db8ec7ad6ddb78d"
+  name = "github.com/armon/go-radix"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1a2de0c21c94309923825da3df33a4381872c795"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:c0bec5f9b98d0bc872ff5e834fac186b807b656683bd29cb82fb207a1513fabb"
   name = "github.com/beorn7/perks"
@@ -219,6 +227,30 @@
   pruneopts = ""
   revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:10808a231991506e33d92579224ad81e649bc0b2874d99e0c8be8e234a52c3ab"
+  name = "github.com/elastic/go-sysinfo"
+  packages = [
+    ".",
+    "internal/registry",
+    "providers/darwin",
+    "providers/linux",
+    "providers/shared",
+    "providers/windows",
+    "types",
+  ]
+  pruneopts = ""
+  revision = "59ef8c0eae46c0929e3b219ac86368d4b5934f91"
+
+[[projects]]
+  branch = "master"
+  digest = "1:63509fc7f9aac866d56904b62131b2d1e71291d36513e072c560c3deaad704a0"
+  name = "github.com/elastic/go-windows"
+  packages = ["."]
+  pruneopts = ""
+  revision = "bb1581babc04d5cb29a2bfa7a9ac6781c730c8dd"
 
 [[projects]]
   branch = "master"
@@ -973,6 +1005,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:521a4970efd87aee222f294b7f0c281266fd4325a3e5c31bda725dff082d120a"
+  name = "github.com/joeshaw/multierror"
+  packages = ["."]
+  pruneopts = ""
+  revision = "69b34d4ec901851247ae7e77d33909caf9df99ed"
+
+[[projects]]
+  branch = "master"
   digest = "1:560e150c2fcf04a92c22029205edb57cd0282a545dd949165dae5cd65bce1204"
   name = "github.com/lucas-clemente/aes12"
   packages = ["."]
@@ -1309,6 +1349,20 @@
   version = "v1.6.0"
 
 [[projects]]
+  digest = "1:4b73a0659a08dd32fb042bfee9e62f4481bddf18cfc4dbff7dc68084e6ea4460"
+  name = "github.com/santhosh-tekuri/jsonschema"
+  packages = [
+    ".",
+    "decoders",
+    "formats",
+    "loader",
+    "mediatypes",
+  ]
+  pruneopts = ""
+  revision = "534765aa6277d702a0aaf99c986492dda697d48f"
+  version = "v1.2.4"
+
+[[projects]]
   branch = "master"
   digest = "1:4176436b905cb4846fc4664cd673d7f941b9aca1ba7d407ce70fe2838695b338"
   name = "github.com/serialx/hashring"
@@ -1448,6 +1502,39 @@
   revision = "0457bb6b88fc1973573aaf6b5145d8d3ae972390"
 
 [[projects]]
+  digest = "1:a98315339728e075197d04be6a57a46b141aa382db3728392f0771e9a54cf77b"
+  name = "go.elastic.co/apm"
+  packages = [
+    ".",
+    "internal/apmconfig",
+    "internal/apmcontext",
+    "internal/apmhostutil",
+    "internal/apmhttputil",
+    "internal/apmlog",
+    "internal/apmschema",
+    "internal/apmstrings",
+    "internal/iochan",
+    "internal/ringbuffer",
+    "internal/wildcard",
+    "model",
+    "module/apmhttp",
+    "module/apmot",
+    "stacktrace",
+    "transport",
+  ]
+  pruneopts = ""
+  revision = "cc1e77d6cd8552403fc3f91464308b1d3ceebab4"
+  version = "v1.2.0"
+
+[[projects]]
+  digest = "1:e05c654acb77a3d7c00aecaf64fdb66310f5f063f896a0d749be8a8d1fb168df"
+  name = "go.elastic.co/fastjson"
+  packages = ["."]
+  pruneopts = ""
+  revision = "676cec79bd027a8a4618de0991f27cfe632978f1"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
   name = "go.uber.org/atomic"
   packages = ["."]
@@ -1543,6 +1630,7 @@
     "cpu",
     "unix",
     "windows",
+    "windows/registry",
   ]
   pruneopts = ""
   revision = "b90733256f2e882e81d52f9126de08df5615afd9"
@@ -1661,6 +1749,14 @@
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
 
+[[projects]]
+  branch = "master"
+  digest = "1:e43acd1190dde7223727f1f8aeac537156d33bf87776d5637e672e1c6b354be4"
+  name = "howett.net/plist"
+  packages = ["."]
+  pruneopts = ""
+  revision = "591f970eefbbeb04d7b37f334a0c4c3256e32876"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -1696,6 +1792,7 @@
     "github.com/ipsn/go-ipfs/plugin/loader",
     "github.com/ipsn/go-ipfs/repo/fsrepo",
     "github.com/mitchellh/go-homedir",
+    "github.com/opentracing/opentracing-go",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
     "github.com/quorumcontrol/chaintree/nodestore",
@@ -1718,6 +1815,7 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
+    "go.elastic.co/apm/module/apmot",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
