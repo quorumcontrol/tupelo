@@ -122,7 +122,7 @@ func (tw *TransactionWrapper) StartTrace() opentracing.Span {
 	return parent
 }
 
-// StartTrace starts the parent trace of a transactionwrapper
+// StopTrace stops the parent trace of a transactionwrapper
 func (tw *TransactionWrapper) StopTrace() {
 	val := tw.Context.Value(parentSpanKey)
 	val.(opentracing.Span).Finish()
