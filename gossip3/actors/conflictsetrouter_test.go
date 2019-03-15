@@ -209,7 +209,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(testhelpers.NewNullActorProps())
+	sender := actor.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -284,8 +284,8 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	conflictSetRouter1 := csInterface1.(*actor.PID)
 
 	conflictSetRouter1.Tell(&commitNotification{
-		objectID:   trans.ObjectID,
-		store:      &extmsgs.Store{
+		objectID: trans.ObjectID,
+		store: &extmsgs.Store{
 			Key:        currentStateWrapper.CurrentState.CommittedKey(),
 			Value:      currentStateWrapper.Value,
 			SkipNotify: currentStateWrapper.Internal,
