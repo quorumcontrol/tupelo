@@ -78,6 +78,11 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 		Stale:     false,
 		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
+	parentSpan := wrapper.StartTrace()
+
+	sp := wrapper.NewSpan("validator")
+	defer sp.Finish()
+
 	var t extmsgs.Transaction
 	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
@@ -88,6 +93,8 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 	wrapper.ConflictSetID = t.ConflictSetID()
 	wrapper.Transaction = &t
 	wrapper.TransactionID = msg.key
+	parentSpan.SetTag("conflictSetID", string(wrapper.ConflictSetID))
+	parentSpan.SetTag("transactionID", string(wrapper.TransactionID))
 
 	var currTip []byte
 	objectIDBits, err := tv.reader.Get(t.ObjectID)
@@ -160,14 +167,16 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 		wrapper.Accepted = true
 		actorCtx.Respond(wrapper)
 		return
-	} else {
-		if err == nil && !expectedNewTip {
-			nextStateCid, _ := cid.Cast(nextState)
-			newTipCid, _ := cid.Cast(t.NewTip)
-			err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
-		}
-		wrapper.Metadata["error"] = err
 	}
+	sp.LogKV("accepted", false)
+
+	if err == nil && !expectedNewTip {
+		nextStateCid, _ := cid.Cast(nextState)
+		newTipCid, _ := cid.Cast(t.NewTip)
+		err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
+	}
+	sp.LogKV("error", err)
+	wrapper.Metadata["error"] = err
 
 	tv.Log.Debugw("rejected", "err", err)
 

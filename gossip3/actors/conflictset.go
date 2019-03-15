@@ -192,16 +192,21 @@ func (cs *ConflictSet) DoneReceive(context actor.Context) {
 }
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
+	sp := msg.NewSpan("conflictset-handlenewtransaction")
+	defer sp.Finish()
+
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
 	if !msg.PreFlight && !msg.Accepted {
 		panic(fmt.Sprintf("we should only handle pre-flight or accepted transactions at this level"))
 	}
 
 	if msg.Accepted {
+		sp.LogKV("accepted", msg.Accepted)
 		cs.active = true
 	}
 
 	if !cs.active {
+		sp.LogKV("snoozing", true)
 		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
@@ -216,13 +221,16 @@ func (cs *ConflictSet) processTransactions(context actor.Context) {
 	}
 
 	for _, transaction := range cs.transactions {
+		sp := transaction.NewSpan("conflictset-processing")
 		cs.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
 
 		if !cs.didSign {
 			context.Request(cs.signatureGenerator, transaction)
+			sp.LogKV("didSign", true)
 			cs.didSign = true
 		}
 		cs.updates++
+		sp.Finish()
 	}
 	// do this as a message to make sure we're doing it after all the updates have come in
 	context.Send(context.Self(), &checkStateMsg{atUpdate: cs.updates})
@@ -270,6 +278,8 @@ func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
 		return
 	}
 	if trans := cs.possiblyDone(); trans != nil {
+		sp := trans.NewSpan("checkState")
+		defer sp.Finish()
 		// we have a possibly done transaction, lets make a current state
 		if err := cs.createCurrentStateFromTrans(context, trans); err != nil {
 			panic(err)
@@ -287,6 +297,7 @@ func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
 
 	var lowestTrans *messages.TransactionWrapper
 	for transID, trans := range cs.transactions {
+		trans.LogKV("deadlocked", true)
 		if lowestTrans == nil {
 			lowestTrans = trans
 			continue
@@ -312,6 +323,9 @@ func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
 }
 
 func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans *messages.TransactionWrapper) error {
+	sp := trans.NewSpan("createCurrentState")
+	defer sp.Finish()
+
 	cs.Log.Debugw("createCurrentStateFromTrans", "t", trans.Key)
 	sigs := cs.signatures[string(trans.TransactionID)]
 	var sigBytes [][]byte
@@ -415,6 +429,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
+			t.LogKV("done", true)
 			currWrapper.CleanupTransactions[i] = t
 			i++
 		}

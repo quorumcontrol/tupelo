@@ -64,7 +64,9 @@ func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
+		sp := msg.NewSpan("conflictset-router")
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
+		sp.Finish()
 	case *messages.SignatureWrapper:
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
 	case *extmsgs.Signature:

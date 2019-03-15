@@ -95,6 +95,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		// cleanup the transactions
 		ids := make([][]byte, len(msg.CleanupTransactions))
 		for i, trans := range msg.CleanupTransactions {
+			trans.StopTrace()
 			ids[i] = trans.TransactionID
 		}
 		context.Send(tn.mempoolStore, &messages.BulkRemove{ObjectIDs: ids})
@@ -144,6 +145,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 				})
 			}
+			msg.StopTrace()
 			context.Send(tn.mempoolStore, &messages.Remove{Key: msg.Key})
 		}
 	}

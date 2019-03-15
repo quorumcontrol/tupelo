@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/opentracing/opentracing-go"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 )
@@ -107,6 +108,35 @@ type TransactionWrapper struct {
 	Value         []byte
 	Metadata      MetadataMap
 	Context       context.Context
+}
+
+type contextSpanKey struct{}
+
+var parentSpanKey = contextSpanKey{}
+
+// StartTrace starts the parent trace of a transactionwrapper
+func (tw *TransactionWrapper) StartTrace() opentracing.Span {
+	parent, ctx := opentracing.StartSpanFromContext(context.Background(), "transaction")
+	ctx = context.WithValue(ctx, parentSpanKey, parent)
+	tw.Context = ctx
+	return parent
+}
+
+// StartTrace starts the parent trace of a transactionwrapper
+func (tw *TransactionWrapper) StopTrace() {
+	val := tw.Context.Value(parentSpanKey)
+	val.(opentracing.Span).Finish()
+}
+
+func (tw *TransactionWrapper) NewSpan(name string) opentracing.Span {
+	sp, ctx := opentracing.StartSpanFromContext(tw.Context, name)
+	tw.Context = ctx
+	return sp
+}
+
+func (tw *TransactionWrapper) LogKV(key string, value interface{}) {
+	sp := opentracing.SpanFromContext(tw.Context)
+	sp.LogKV(key, value)
 }
 
 type MemPoolCleanup struct {

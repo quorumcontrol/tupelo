@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
@@ -311,7 +313,7 @@ func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages
 	bits, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
 	key := crypto.Keccak256(bits)
-
+	_, ctx := opentracing.StartSpanFromContext(context.Background(), "transaction")
 	wrapper := &messages.TransactionWrapper{
 		TransactionID: key,
 		Transaction:   trans,
@@ -321,6 +323,7 @@ func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages
 		PreFlight:     true,
 		Accepted:      true,
 		Metadata:      messages.MetadataMap{"seen": time.Now()},
+		Context:       ctx,
 	}
 	return wrapper
 }
