@@ -1,6 +1,8 @@
 package messages
 
 import (
+	"context"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -104,6 +106,7 @@ type TransactionWrapper struct {
 	Key           []byte
 	Value         []byte
 	Metadata      MetadataMap
+	Context       context.Context
 }
 
 type MemPoolCleanup struct {
