@@ -90,8 +90,8 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
-		// un-snooze waiting transactions
-		tn.conflictSetRouter.Tell(&messages.ProcessSnoozedTransactions{ObjectID: msg.CurrentState.Signature.ObjectID})
+		// un-snooze waiting conflict sets
+		tn.conflictSetRouter.Tell(&messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
 		// cleanup the transactions
 		ids := make([][]byte, len(msg.CleanupTransactions))
 		for i, trans := range msg.CleanupTransactions {
@@ -170,6 +170,7 @@ func (tn *TupeloNode) handleNewCommit(context actor.Context) {
 		tn.conflictSetRouter.Tell(&commitNotification{
 			store:    msg,
 			objectID: currState.Signature.ObjectID,
+			height:   currState.Signature.Height,
 		})
 	}
 }

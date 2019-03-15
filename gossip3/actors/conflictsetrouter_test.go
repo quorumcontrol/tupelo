@@ -191,6 +191,116 @@ func TestHandlesDeadlocks(t *testing.T) {
 	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 
+func TestHandlesCommitsBeforeTransactions(t *testing.T) {
+	numSigners := 3
+	ts := testnotarygroup.NewTestSet(t, numSigners)
+	ng, err := newActorlessSystem(ts)
+	require.Nil(t, err)
+
+	sigGeneratorActors := make([]*actor.PID, numSigners, numSigners)
+	for i, signer := range ng.AllSigners() {
+		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
+		require.Nil(t, err)
+		sigGeneratorActors[i] = sg
+		defer sg.Poison()
+	}
+	signer := ng.AllSigners()[0]
+
+	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
+	defer alwaysChecker.Poison()
+
+	sender := actor.Spawn(testhelpers.NewNullActorProps())
+	defer sender.Poison()
+
+	cfg := &ConflictSetRouterConfig{
+		NotaryGroup:        ng,
+		Signer:             signer,
+		SignatureChecker:   alwaysChecker,
+		SignatureSender:    sender,
+		SignatureGenerator: sigGeneratorActors[0],
+		CurrentStateStore:  storage.NewMemStorage(),
+	}
+
+	fut0 := actor.NewFuture(10 * time.Second)
+
+	isReadyFuture0 := actor.NewFuture(5 * time.Second)
+	parentFunc0 := func(context actor.Context) {
+		switch msg := context.Message().(type) {
+		case *actor.Started:
+			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR0")
+			require.Nil(t, err)
+			isReadyFuture0.PID().Tell(cs)
+		case *messages.CurrentStateWrapper:
+			fut0.PID().Tell(msg)
+		}
+	}
+
+	parent0, err := actor.SpawnNamed(actor.FromFunc(parentFunc0), "THCBTParent0")
+	require.Nil(t, err)
+	defer parent0.Poison()
+
+	csInterface0, err := isReadyFuture0.Result()
+	require.Nil(t, err)
+	conflictSetRouter0 := csInterface0.(*actor.PID)
+
+	trans := testhelpers.NewValidTransaction(t)
+	transWrapper := fakeValidateTransaction(t, &trans)
+
+	conflictSetRouter0.Tell(transWrapper)
+
+	// note skipping first signer here
+	for i := 1; i < len(sigGeneratorActors); i++ {
+		sig, err := sigGeneratorActors[i].RequestFuture(transWrapper, 1*time.Second).Result()
+		require.Nil(t, err)
+		conflictSetRouter0.Tell(sig)
+	}
+
+	msg, err := fut0.Result()
+	require.Nil(t, err)
+
+	currentStateWrapper := msg.(*messages.CurrentStateWrapper)
+
+	// setup another CSR to send the commit to first
+	fut1 := actor.NewFuture(10 * time.Second)
+
+	isReadyFuture1 := actor.NewFuture(5 * time.Second)
+	parentFunc1 := func(context actor.Context) {
+		switch msg := context.Message().(type) {
+		case *actor.Started:
+			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR1")
+			require.Nil(t, err)
+			isReadyFuture1.PID().Tell(cs)
+		case *messages.CurrentStateWrapper:
+			fut1.PID().Tell(msg)
+		}
+	}
+
+	parent1, err := actor.SpawnNamed(actor.FromFunc(parentFunc1), "THCBTParent1")
+	require.Nil(t, err)
+	defer parent1.Poison()
+
+	csInterface1, err := isReadyFuture1.Result()
+	require.Nil(t, err)
+	conflictSetRouter1 := csInterface1.(*actor.PID)
+
+	conflictSetRouter1.Tell(&commitNotification{
+		objectID:   trans.ObjectID,
+		store:      &extmsgs.Store{
+			Key:        currentStateWrapper.CurrentState.CommittedKey(),
+			Value:      currentStateWrapper.Value,
+			SkipNotify: currentStateWrapper.Internal,
+		},
+		height:     currentStateWrapper.CurrentState.Signature.Height,
+		nextHeight: 0,
+	})
+
+	msg, err = fut1.Result()
+	require.Nil(t, err)
+	wrap := msg.(*messages.CurrentStateWrapper)
+	assert.True(t, wrap.Verified)
+	assert.Equal(t, trans.NewTip, wrap.CurrentState.Signature.NewTip)
+}
+
 func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages.TransactionWrapper {
 	bits, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
