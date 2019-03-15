@@ -121,7 +121,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 			},
 		}, context.Self())
 	default:
-		panic("unknown type")
+		syncer.Log.Errorw("unknown response type", "remoteSyncer", remoteSyncer)
 	}
 }
 
