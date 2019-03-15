@@ -57,11 +57,11 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 	)
 }
 
-func (tv *TransactionValidator) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
+func (tv *TransactionValidator) Receive(actorCtx actor.Context) {
+	switch msg := actorCtx.Message().(type) {
 	case *validationRequest:
 		tv.Log.Debugw("stateHandler initial", "key", msg.key)
-		tv.handleRequest(context, msg)
+		tv.handleRequest(actorCtx, msg)
 	}
 }
 
@@ -69,7 +69,7 @@ func (tv *TransactionValidator) nextHeight(objectID []byte) uint64 {
 	return nextHeight(tv.reader, objectID)
 }
 
-func (tv *TransactionValidator) handleRequest(context actor.Context, msg *validationRequest) {
+func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *validationRequest) {
 	wrapper := &messages.TransactionWrapper{
 		Key:       msg.key,
 		Value:     msg.value,
@@ -82,7 +82,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
 		tv.Log.Infow("error unmarshaling", "err", err)
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 	wrapper.ConflictSetID = t.ConflictSetID()
@@ -106,25 +106,25 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 			currTip = currentState.Signature.NewTip
 		} else if expectedHeight < t.Height {
 			wrapper.PreFlight = true
-			context.Respond(wrapper)
+			actorCtx.Respond(wrapper)
 			return
 		} else {
 			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
 			wrapper.Stale = true
-			context.Respond(wrapper)
+			actorCtx.Respond(wrapper)
 			return
 		}
 	} else {
 		if t.Height != 0 {
 			wrapper.PreFlight = true
-			context.Respond(wrapper)
+			actorCtx.Respond(wrapper)
 			return
 		}
 	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 
@@ -132,13 +132,13 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	err = cbornode.DecodeInto(t.Payload, block)
 	if err != nil {
 		tv.Log.Errorw("invalid transaction: payload is not a block")
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 
 	if block.Height != t.Height {
 		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Height, "transHeight", t.Height, "transaction", msg.key)
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 
@@ -158,7 +158,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	if accepted && expectedNewTip {
 		tv.Log.Debugw("accepted", "key", msg.key)
 		wrapper.Accepted = true
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	} else {
 		if err == nil && !expectedNewTip {
@@ -171,7 +171,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 
 	tv.Log.Debugw("rejected", "err", err)
 
-	context.Respond(wrapper)
+	actorCtx.Respond(wrapper)
 }
 
 func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {
