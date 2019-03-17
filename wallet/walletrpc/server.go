@@ -5,13 +5,14 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -23,7 +24,6 @@ import (
 )
 
 const (
-	defaultPort    = ":50051"
 	defaultWebPort = ":50050"
 )
 
@@ -392,12 +392,26 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 	}, nil
 }
 
-func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
+func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client,
+	port int) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
-	listener, err := net.Listen("tcp", defaultPort)
+	// By providing port 0 to net.Listen, we get a randomized one
+	if port <= 0 {
+		port = 0
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, err
+		log.Printf("Failed to open listener: %s", err)
+		return nil, fmt.Errorf("failed to open listener: %s", err)
+	}
+
+	if port == 0 {
+		comps := strings.Split(listener.Addr().String(), ":")
+		port, err = strconv.Atoi(comps[len(comps)-1])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	s := &server{
@@ -409,7 +423,7 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	reflection.Register(grpcServer)
 
 	go func() {
-		fmt.Println("Listening on port", defaultPort)
+		fmt.Println("Listening on port", port)
 		err := grpcServer.Serve(listener)
 		if err != nil {
 			log.Printf("error serving: %v", err)
@@ -418,24 +432,31 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	return grpcServer, nil
 }
 
-func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
-	grpcServer, err := startServer(grpc.NewServer(), storagePath, client)
+// Start gRPC unsecured server.
+// Passing 0 for port means to pick any available port.
+func ServeInsecure(storagePath string, client *gossip3client.Client, port int) (
+	*grpc.Server, error) {
+	grpcServer, err := startServer(grpc.NewServer(), storagePath, client, port)
 	if err != nil {
 		return nil, fmt.Errorf("error starting: %v", err)
 	}
 	return grpcServer, nil
 }
 
-func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
+// Start gRPC server secured with TLS.
+// Passing 0 for port means to pick any available port.
+func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string,
+	port int) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create server TLS credentials from cert %s and key %s: %s",
+			certFile, keyFile, err)
 	}
 
 	credsOption := grpc.Creds(creds)
 	grpcServer := grpc.NewServer(credsOption)
 
-	return startServer(grpcServer, storagePath, client)
+	return startServer(grpcServer, storagePath, client, port)
 }
 
 func ServeWebInsecure(grpcServer *grpc.Server) (*http.Server, error) {
