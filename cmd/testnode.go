@@ -61,7 +61,7 @@ var testnodeCmd = &cobra.Command{
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
 		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
-		tracing.StartJaeger()
+		tracing.StartJaeger("signer-" + signer.ID)
 		stopOnSignal(signer)
 	},
 }
@@ -76,7 +76,7 @@ func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3
 	if local != nil {
 		group.AddSigner(local)
 	}
-w
+	w
 	for _, keySet := range keys {
 		ecdsaBytes := hexutil.MustDecode(keySet.EcdsaHexPublicKey)
 		if local != nil && bytes.Equal(crypto.FromECDSAPub(local.DstKey), ecdsaBytes) {
@@ -164,6 +164,7 @@ func stopOnSignal(signers ...*gossip3types.Signer) {
 		for _, signer := range signers {
 			log.Info("gracefully stopping signer")
 			signer.Actor.GracefulStop()
+			tracing.StopJaeger()
 		}
 		done <- true
 	}()
