@@ -113,7 +113,9 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 		syncer.Log.Debugw("requesting strata")
 		strata, err := context.RequestFuture(syncer.storageActor, &messages.GetStrata{}, 2*time.Second).Result()
 		if err != nil {
-			panic("timeout")
+			syncer.Log.Errorw("timeout waiting for strata", "err", err)
+			syncer.syncDone(context)
+			return
 		}
 		syncer.Log.Debugw("providing strata", "remote", destination)
 		context.RequestWithCustomSender(destination, &messages.ProvideStrata{
@@ -134,7 +136,9 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 
 	localStrataInt, err := context.RequestFuture(syncer.storageActor, &messages.GetStrata{}, 2*time.Second).Result()
 	if err != nil {
-		panic("timeout")
+		syncer.Log.Errorw("timeout waiting for strata", "err", err)
+		syncer.syncDone(context)
+		return
 	}
 	syncer.Log.Debugw("estimating strata")
 	localStrata := localStrataInt.(*ibf.DifferenceStrata)
@@ -158,7 +162,9 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 			}
 			localIBF, err := syncer.getLocalIBF(context, sizeToSend)
 			if err != nil {
-				panic("timeout")
+				syncer.Log.Errorw("error getting local IBF", "err", err)
+				syncer.syncDone(context)
+				return
 			}
 
 			context.Request(context.Sender(), &messages.ProvideBloomFilter{
@@ -201,7 +207,9 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 	}
 	localIBF, err := syncer.getLocalIBF(context, sizeToSend)
 	if err != nil {
-		panic("timeout")
+		syncer.Log.Errorw("error getting local IBF", "err", err)
+		syncer.syncDone(context)
+		return
 	}
 
 	context.RequestWithCustomSender(context.Sender(), &messages.ProvideBloomFilter{
@@ -215,7 +223,9 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *messages.ProvideBloomFilter) {
 	localIBF, err := syncer.getLocalIBF(context, len(msg.Filter.Cells))
 	if err != nil {
-		panic(fmt.Sprintf("error getting local IBF: %v", err))
+		syncer.Log.Errorw("error getting local IBF", "err", err)
+		syncer.syncDone(context)
+		return
 	}
 	subtracted := localIBF.Subtract(msg.Filter)
 	diff, err := subtracted.Decode()
