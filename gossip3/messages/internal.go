@@ -31,7 +31,8 @@ func (dh *DestinationHolder) GetDestination() *extmsgs.ActorPID {
 }
 
 type GetSyncer struct {
-	Kind string
+	Kind    string
+	Context map[string]string
 }
 
 func (GetSyncer) TypeCode() int8 {

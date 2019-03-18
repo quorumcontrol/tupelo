@@ -1,12 +1,14 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/opentracing/opentracing-go"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -54,14 +56,14 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 	)
 }
 
-func (g *Gossiper) Receive(context actor.Context) {
+func (g *Gossiper) Receive(actorContext actor.Context) {
 	// defer func() {
 	// 	if r := recover(); r != nil {
 	// 		g.Log.Errorw("recover", "r", r)
 	// 		panic(r)
 	// 	}
 	// }()
-	switch msg := context.Message().(type) {
+	switch msg := actorContext.Message().(type) {
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
 	case *actor.Terminated:
@@ -73,12 +75,12 @@ func (g *Gossiper) Receive(context actor.Context) {
 			go func(pid *actor.PID) {
 				<-timer
 				//fmt.Printf("%s Sending DoOneGossip\n", pid.String())
-				context.Send(pid, &messages.DoOneGossip{})
-			}(context.Self())
+				actorContext.Send(pid, &messages.DoOneGossip{})
+			}(actorContext.Self())
 
 			return
 		}
-		if strings.HasPrefix(msg.Who.GetId(), context.Self().GetId()+"/"+remoteSyncerPrefix) {
+		if strings.HasPrefix(msg.Who.GetId(), actorContext.Self().GetId()+"/"+remoteSyncerPrefix) {
 			g.Log.Debugw("releasing a new remote syncer")
 			g.syncersAvailable++
 			return
@@ -90,7 +92,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *messages.StartGossip:
 		g.Log.Debugw("start gossip")
 		g.validatorClear = true
-		context.Send(context.Self(), &messages.DoOneGossip{
+		actorContext.Send(actorContext.Self(), &messages.DoOneGossip{
 			Why: "startGosip",
 		})
 	case *messages.DoOneGossip:
@@ -100,27 +102,40 @@ func (g *Gossiper) Receive(context actor.Context) {
 			return
 		}
 		g.Log.Debugw("gossiping again")
-		localsyncer, err := context.SpawnNamed(g.pusherProps, "pushSyncer")
+		localsyncer, err := actorContext.SpawnNamed(g.pusherProps, "pushSyncer")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning: %v", err))
 		}
 		g.pids[currentPusherKey] = localsyncer
 
-		context.Send(localsyncer, &messages.DoPush{
+		actorContext.Send(localsyncer, &messages.DoPush{
 			System: g.system,
 		})
 	case *messages.GetSyncer:
-		g.Log.Debugw("GetSyncer", "remote", context.Sender().GetId())
+		g.Log.Debugw("GetSyncer", "remote", actorContext.Sender().GetId())
+		ctx := context.Background()
+		spanContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, opentracing.TextMapCarrier(msg.Context))
+		var sp opentracing.Span
+		if err == nil {
+			sp = opentracing.StartSpan("pushSyncer-receiver", opentracing.ChildOf(spanContext))
+		} else {
+			g.Log.Warnw("error decoding remote context", "err", err, "msg", msg, "from", actorContext.Sender().String())
+			sp = opentracing.StartSpan("pushSyncer-receiver-no-parent")
+		}
+		sp.SetTag("actor", actorContext.Self().String())
+		ctx = opentracing.ContextWithSpan(ctx, sp)
+
 		if g.syncersAvailable > 0 {
-			receiveSyncer := context.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
+			receiveSyncer := actorContext.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
 			available.SetDestination(extmsgs.ToActorPid(receiveSyncer))
-			context.Respond(available)
+			actorContext.Send(receiveSyncer, &setContext{context: ctx})
+			actorContext.Respond(available)
 		} else {
-			context.Respond(&messages.NoSyncersAvailable{})
+			actorContext.Respond(&messages.NoSyncersAvailable{})
 		}
 	case *messages.Subscribe:
-		context.Forward(g.storageActor)
+		actorContext.Forward(g.storageActor)
 	}
 }

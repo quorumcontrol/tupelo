@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	"io"
 	"log"
 
 	"github.com/opentracing/opentracing-go"
@@ -11,11 +12,17 @@ import (
 	"go.elastic.co/apm/module/apmot"
 )
 
+var jaegerCloser io.Closer
+
 func StartElastic() {
 	opentracing.SetGlobalTracer(apmot.New())
 }
 
-func StartJaeger() {
+func StopJaeger() {
+	jaegerCloser.Close()
+}
+
+func StartJaeger(serviceName string) {
 	// Sample configuration for testing. Use constant sampling to sample every trace
 	// and enable LogSpan to log every span via configured Logger.
 	cfg := jaegercfg.Configuration{
@@ -24,7 +31,7 @@ func StartJaeger() {
 			Param: 1,
 		},
 		Reporter: &jaegercfg.ReporterConfig{
-			LogSpans: true,
+			LogSpans: false,
 		},
 	}
 
@@ -35,8 +42,8 @@ func StartJaeger() {
 	jMetricsFactory := metrics.NullFactory
 
 	// Initialize tracer with a logger and a metrics factory
-	_, err := cfg.InitGlobalTracer(
-		"testNode",
+	closer, err := cfg.InitGlobalTracer(
+		serviceName,
 		jaegercfg.Logger(jLogger),
 		jaegercfg.Metrics(jMetricsFactory),
 	)
@@ -44,7 +51,7 @@ func StartJaeger() {
 		log.Printf("Could not initialize jaeger tracer: %s", err.Error())
 		return
 	}
-	// defer closer.Close()
+	jaegerCloser = closer
 
 	// continue main()
 }

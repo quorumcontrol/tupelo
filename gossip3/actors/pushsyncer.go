@@ -1,17 +1,23 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/differencedigest/ibf"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
+
+type setContext struct {
+	context context.Context
+}
 
 // PushSyncer is the main remote-facing actor that handles
 // Sending out syncs
@@ -23,6 +29,51 @@ type PushSyncer struct {
 	storageActor   *actor.PID
 	remote         *actor.PID
 	sendingObjects bool
+	context        context.Context
+}
+
+type contextPushSyncerKey struct{}
+
+var parentPushSyncerKey = contextPushSyncerKey{}
+
+func (ps *PushSyncer) startInitiatorTrace() opentracing.Span {
+	parent, ctx := opentracing.StartSpanFromContext(context.Background(), "push-syncer")
+	ctx = context.WithValue(ctx, parentPushSyncerKey, parent)
+	ps.context = ctx
+	return parent
+}
+
+func (ps *PushSyncer) stopTrace() {
+	val := ps.context.Value(parentPushSyncerKey)
+	val.(opentracing.Span).Finish()
+}
+
+func (ps *PushSyncer) newSpan(name string) opentracing.Span {
+	sp, ctx := opentracing.StartSpanFromContext(ps.context, name)
+	ps.context = ctx
+	return sp
+}
+
+func (ps *PushSyncer) serializedContext() (map[string]string, error) {
+	serializedContext := make(map[string]string)
+	sp := opentracing.SpanFromContext(ps.context)
+	err := opentracing.GlobalTracer().Inject(sp.Context(), opentracing.TextMap, opentracing.TextMapCarrier(serializedContext))
+	if err != nil {
+		return nil, fmt.Errorf("error injecting: %v", err)
+	}
+	ps.Log.Debugw("serialized", "obj", serializedContext)
+	return serializedContext, nil
+}
+
+func (ps *PushSyncer) setContext(ctx context.Context) {
+	parent := opentracing.SpanFromContext(ctx)
+	ctx = context.WithValue(ctx, parentPushSyncerKey, parent)
+	ps.context = ctx
+}
+
+func (ps *PushSyncer) LogKV(key string, value interface{}) {
+	sp := opentracing.SpanFromContext(ps.context)
+	sp.LogKV(key, value)
 }
 
 func stopDecider(reason interface{}) actor.Directive {
@@ -55,7 +106,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		context.SetReceiveTimeout(syncerReceiveTimeout)
 	case *actor.ReceiveTimeout:
 		syncer.Log.Infow("timeout")
-		context.Self().Poison()
+		syncer.poison(context)
 	case *messages.DoPush:
 		context.SetReceiveTimeout(syncerReceiveTimeout)
 		syncer.handleDoPush(context, msg)
@@ -80,12 +131,25 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.Log.Debugw("sync complete", "remote", syncer.remote, "length", time.Since(syncer.start))
 		context.CancelReceiveTimeout()
 		if !syncer.sendingObjects {
-			context.Self().Poison()
+			syncer.poison(context)
 		}
+	case *setContext:
+		syncer.setContext(msg.context)
 	}
 }
 
+func (syncer *PushSyncer) poison(context actor.Context) {
+	syncer.stopTrace()
+	context.Self().Poison()
+}
+
+func (syncer *PushSyncer) stop(context actor.Context) {
+	syncer.stopTrace()
+	context.Self().Stop()
+}
+
 func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPush) {
+	sp := syncer.startInitiatorTrace()
 	syncer.start = time.Now()
 	syncer.Log.Debugw("sync start", "now", syncer.start)
 	var remoteGossiper *actor.PID
@@ -94,20 +158,30 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 	}
 	syncer.remote = remoteGossiper
 	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.Id)
+	sp.SetTag("remote", remoteGossiper.String())
+
+	serialized, err := syncer.serializedContext()
+	if err != nil {
+		syncer.Log.Errorw("error serializing context", "err", err)
+	}
 
 	resp, err := context.RequestFuture(remoteGossiper, &messages.GetSyncer{
-		Kind: syncer.kind,
+		Kind:    syncer.kind,
+		Context: serialized,
 	}, 10*time.Second).Result()
 	if err != nil {
 		syncer.Log.Errorw("timeout waiting for remote syncer", "err", err, "remote", remoteGossiper.String())
-		context.Self().Stop()
+		sp.SetTag("error", true)
+		sp.SetTag("timeout", true)
+		syncer.stop(context)
 		return
 	}
 
 	switch remoteSyncer := resp.(type) {
 	case *messages.NoSyncersAvailable:
 		syncer.Log.Debugw("remote busy")
-		context.Self().Poison()
+		sp.SetTag("unavailable", true)
+		syncer.poison(context)
 	case *messages.SyncerAvailable:
 		destination := extmsgs.FromActorPid(remoteSyncer.Destination)
 		syncer.Log.Debugw("requesting strata")
@@ -130,6 +204,9 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 }
 
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
+	sp := syncer.newSpan("handleProvideStrata")
+	defer sp.Finish()
+
 	syncer.Log.Debugw("handleProvideStrata")
 	syncer.start = time.Now()
 	syncer.remote = context.Sender()
@@ -146,6 +223,7 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 	if result == nil {
 		syncer.Log.Debugw("nil result")
 		if count > 0 {
+			sp.SetTag("hasKeys", true)
 			wantsToSend := count * 2
 			var sizeToSend int
 
@@ -190,6 +268,8 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 }
 
 func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.RequestIBF) {
+	sp := syncer.newSpan("handleRequestIBF")
+	defer sp.Finish()
 	syncer.Log.Debugw("handleRequestIBF")
 	wantsToSend := msg.Count * 2
 	var sizeToSend int
@@ -221,6 +301,9 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 }
 
 func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *messages.ProvideBloomFilter) {
+	sp := syncer.newSpan("handleProvideBloomFilter")
+	defer sp.Finish()
+
 	localIBF, err := syncer.getLocalIBF(context, len(msg.Filter.Cells))
 	if err != nil {
 		syncer.Log.Errorw("error getting local IBF", "err", err)
@@ -238,10 +321,14 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 }
 
 func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages.RequestKeys) {
+	sp := syncer.newSpan("handleRequestKeys")
+	defer sp.Finish()
 	syncer.sendPrefixes(context, msg.Keys, context.Sender())
 }
 
 func (syncer *PushSyncer) getLocalIBF(context actor.Context, size int) (*ibf.InvertibleBloomFilter, error) {
+	sp := syncer.newSpan("getLocalIBF")
+	defer sp.Finish()
 	localIBF, err := context.RequestFuture(syncer.storageActor, &messages.GetIBF{
 		Size: size,
 	}, 30*time.Second).Result()
@@ -253,6 +340,8 @@ func (syncer *PushSyncer) getLocalIBF(context actor.Context, size int) (*ibf.Inv
 }
 
 func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResults, destination *actor.PID) {
+	sp := syncer.newSpan("handleDiff")
+	defer sp.Finish()
 	syncer.Log.Debugw("handleDiff")
 	syncer.sendingObjects = true
 	context.RequestWithCustomSender(context.Sender(), requestKeysFromDiff(diff.RightSet), syncer.storageActor)
@@ -264,6 +353,8 @@ func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResul
 }
 
 func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) {
+	sp := syncer.newSpan("sendPrefixes")
+	defer sp.Finish()
 	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storageActor), "objectSender")
 	for _, pref := range prefixes {
 		context.Send(sender, &messages.SendPrefix{
@@ -280,7 +371,7 @@ func (syncer *PushSyncer) syncDone(context actor.Context) {
 	if sender != nil {
 		context.Request(context.Sender(), &messages.SyncDone{})
 	}
-	context.Self().Poison()
+	syncer.poison(context)
 }
 
 func requestKeysFromDiff(objs []ibf.ObjectId) *messages.RequestKeys {

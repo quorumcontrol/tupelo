@@ -76,7 +76,7 @@ func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3
 	if local != nil {
 		group.AddSigner(local)
 	}
-
+w
 	for _, keySet := range keys {
 		ecdsaBytes := hexutil.MustDecode(keySet.EcdsaHexPublicKey)
 		if local != nil && bytes.Equal(crypto.FromECDSAPub(local.DstKey), ecdsaBytes) {
