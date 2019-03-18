@@ -220,10 +220,10 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 	syncer.Log.Debugw("estimating strata")
 	localStrata := localStrataInt.(*ibf.DifferenceStrata)
 	count, result := localStrata.Estimate(msg.Strata)
+	sp.SetTag("count", count)
 	if result == nil {
 		syncer.Log.Debugw("nil result")
 		if count > 0 {
-			sp.SetTag("hasKeys", true)
 			wantsToSend := count * 2
 			var sizeToSend int
 
@@ -238,6 +238,8 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 				syncer.syncDone(context)
 				return
 			}
+			sp.SetTag("IBFSize", sizeToSend)
+
 			localIBF, err := syncer.getLocalIBF(context, sizeToSend)
 			if err != nil {
 				syncer.Log.Errorw("error getting local IBF", "err", err)
@@ -252,18 +254,19 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 				},
 			})
 		} else {
+			sp.SetTag("synced", true)
 			syncer.Log.Debugw("synced", "remote", context.Sender())
 			syncer.syncDone(context)
 		}
 	} else {
 		if len(result.LeftSet) == 0 && len(result.RightSet) == 0 {
+			sp.SetTag("synced", true)
 			syncer.Log.Debugw("synced", "remote", context.Sender())
 			syncer.syncDone(context)
 		} else {
 			syncer.Log.Debugw("strata", "count", count, "resultL", len(result.LeftSet), "resultR", len(result.RightSet))
 			syncer.handleDiff(context, *result, extmsgs.FromActorPid(msg.Destination))
 		}
-
 	}
 }
 

@@ -67,6 +67,7 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
 	case *actor.Terminated:
+
 		// this is for when the pushers stop, we can queue up another push
 		if _, ok := g.pids[currentPusherKey]; ok && msg.Who.Equal(g.pids[currentPusherKey]) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
@@ -123,14 +124,15 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 			sp = opentracing.StartSpan("pushSyncer-receiver-no-parent")
 		}
 		sp.SetTag("actor", actorContext.Self().String())
+		sp.SetTag("syncersAvailable", g.syncersAvailable)
 		ctx = opentracing.ContextWithSpan(ctx, sp)
 
 		if g.syncersAvailable > 0 {
 			receiveSyncer := actorContext.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
+			actorContext.Send(receiveSyncer, &setContext{context: ctx})
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
 			available.SetDestination(extmsgs.ToActorPid(receiveSyncer))
-			actorContext.Send(receiveSyncer, &setContext{context: ctx})
 			actorContext.Respond(available)
 		} else {
 			actorContext.Respond(&messages.NoSyncersAvailable{})
