@@ -41,6 +41,12 @@ vendor: Gopkg.toml Gopkg.lock
 tupelo: vendor $(packr) $(generated) $(gosources)
 	go build
 
+lint: $(FIRSTGOPATH)/bin/golangci-lint
+	$(FIRSTGOPATH)/bin/golangci-lint run
+
+$(FIRSTGOPATH)/bin/golangci-lint:
+	./scripts/download-golangci-lint.sh
+
 test: vendor $(packr) $(generated) $(gosources)
 	go test ./...
 
