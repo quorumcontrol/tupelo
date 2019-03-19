@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	iradix "github.com/hashicorp/go-immutable-radix"
@@ -54,7 +55,7 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
-	)
+	).WithDispatcher(mailbox.NewSynchronizedDispatcher(300))
 }
 
 func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {

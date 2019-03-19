@@ -11,8 +11,8 @@ import (
 	"github.com/quorumcontrol/differencedigest/ibf"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/tracing"
 )
 
 type setContext struct {
@@ -33,7 +33,7 @@ type PushSyncer struct {
 }
 
 func stopDecider(reason interface{}) actor.Directive {
-	middleware.Log.Infow("actor died", "reason", reason)
+	middleware.Log.Warnw("actor died", "reason", reason)
 	return actor.StopDirective
 }
 
@@ -115,16 +115,11 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 	syncer.remote = remoteGossiper
 	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.Id)
 	sp.SetTag("remote", remoteGossiper.String())
-
-	serialized, err := syncer.SerializedContext()
-	if err != nil {
-		syncer.Log.Errorw("error serializing context", "err", err)
+	getSyncerMsg := &messages.GetSyncer{
+		Kind: syncer.kind,
 	}
-
-	resp, err := context.RequestFuture(remoteGossiper, &messages.GetSyncer{
-		Kind:    syncer.kind,
-		Context: serialized,
-	}, 10*time.Second).Result()
+	getSyncerMsg.SetContext(syncer.GetContext())
+	resp, err := context.RequestFuture(remoteGossiper, getSyncerMsg, 10*time.Second).Result()
 	if err != nil {
 		syncer.Log.Errorw("timeout waiting for remote syncer", "err", err, "remote", remoteGossiper.String())
 		sp.SetTag("error", true)

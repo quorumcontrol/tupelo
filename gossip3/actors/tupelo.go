@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
@@ -53,7 +54,7 @@ func NewTupeloNodeProps(cfg *TupeloConfig) *actor.Props {
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
-	)
+	).WithDispatcher(mailbox.NewSynchronizedDispatcher(300))
 }
 
 func (tn *TupeloNode) Receive(context actor.Context) {

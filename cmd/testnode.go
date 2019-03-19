@@ -34,9 +34,9 @@ import (
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/tracing"
 	"github.com/spf13/cobra"
 )
 
@@ -163,13 +163,13 @@ func stopOnSignal(signers ...*gossip3types.Signer) {
 		fmt.Println(sig)
 		for _, signer := range signers {
 			log.Info("gracefully stopping signer")
-			signer.Actor.GracefulStop()
-			tracing.StopJaeger()
+			signer.Actor.GracefulPoison()
 		}
 		done <- true
 	}()
 	fmt.Println("awaiting signal")
 	<-done
+	tracing.StopJaeger()
 	fmt.Println("exiting")
 }
 

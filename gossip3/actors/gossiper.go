@@ -1,18 +1,17 @@
 package actors
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/opentracing/opentracing-go"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/quorumcontrol/tupelo/gossip3/tracing"
 )
 
 type system interface {
@@ -25,6 +24,7 @@ const currentPusherKey = "currentPusher"
 // Gossiper is the root gossiper
 type Gossiper struct {
 	middleware.LogAwareHolder
+	tracing.ContextHolder
 
 	kind             string
 	pids             map[string]*actor.PID
@@ -42,6 +42,8 @@ type Gossiper struct {
 const maxSyncers = 3
 
 func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProps *actor.Props) *actor.Props {
+	supervisor := actor.NewOneForOneStrategy(1, 10, stopDecider)
+
 	return actor.PropsFromProducer(func() actor.Actor {
 		return &Gossiper{
 			kind:             kind,
@@ -54,7 +56,9 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
-	)
+	).WithSupervisor(
+		supervisor,
+	).WithDispatcher(mailbox.NewSynchronizedDispatcher(300))
 }
 
 func (g *Gossiper) Receive(actorContext actor.Context) {
@@ -65,10 +69,17 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 	// 	}
 	// }()
 	switch msg := actorContext.Message().(type) {
+	case *actor.Started:
+		g.StartTrace("gossiper")
+	case *actor.Stopping:
+		g.Log.Warnw("stopping")
+		g.StopTrace()
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
 	case *actor.Terminated:
-
+		sp := g.NewSpan("terminated")
+		defer sp.Finish()
+		sp.SetTag("who", msg.Who.Id)
 		// this is for when the pushers stop, we can queue up another push
 		if _, ok := g.pids[currentPusherKey]; ok && msg.Who.Equal(g.pids[currentPusherKey]) {
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
@@ -92,6 +103,8 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 		panic(fmt.Sprintf("unknown actor terminated: %s", msg.Who.GetId()))
 
 	case *messages.StartGossip:
+		sp := g.NewSpan("start-gossip")
+		defer sp.Finish()
 		g.Log.Debugw("start gossip")
 		g.validatorClear = true
 		actorContext.Send(actorContext.Self(), &messages.DoOneGossip{
@@ -99,7 +112,11 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 		})
 	case *messages.DoOneGossip:
 		//fmt.Printf("%s Received DoOneGossip\n", context.Self().String())
+		sp := g.NewSpan("doOneGossip")
+		defer sp.Finish()
+
 		if _, ok := g.pids[currentPusherKey]; ok {
+			sp.SetTag("ignoring", true)
 			g.Log.Debugw("ignoring because in progress")
 			return
 		}
@@ -114,31 +131,39 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 			System: g.system,
 		})
 	case *messages.GetSyncer:
+		sp := g.NewSpan("getSyncer")
+		defer sp.Finish()
 		g.Log.Debugw("GetSyncer", "remote", actorContext.Sender().GetId())
 
-		ctx := context.Background()
-		sp, err := tracing.SpanContextFromSerialized(msg.Context, "pushSyncer-receiver")
+		// syncerCtx := context.Background()
+		// remoteSpan, err := tracing.SpanContextFromSerialized(msg.Context, "pushSyncer-receiver")
 
-		if err != nil {
-			// g.Log.Warnw("error decoding remote context", "err", err, "msg", msg, "from", actorContext.Sender().String())
-			sp = opentracing.StartSpan("pushSyncer-receiver-no-parent")
-		}
+		// if err != nil {
+		// 	g.Log.Warnw("error decoding remote context", "err", err, "msg", msg, "from", actorContext.Sender().String())
+		// 	remoteSpan = opentracing.StartSpan("pushSyncer-receiver-no-parent")
+		// }
 
-		sp.SetTag("actor", actorContext.Self().String())
-		sp.SetTag("syncersAvailable", g.syncersAvailable)
-		ctx = opentracing.ContextWithSpan(ctx, sp)
+		// remoteSpan.SetTag("actor", actorContext.Self().String())
+		// sp.SetTag("actor", actorContext.Self().String())
+		// remoteSpan.SetTag("syncersAvailable", g.syncersAvailable)
+		// sp.SetTag("syncersAvailable", g.syncersAvailable)
+		// syncerCtx = opentracing.ContextWithSpan(syncerCtx, remoteSpan)
 
 		if g.syncersAvailable > 0 {
+			sp.SetTag("available", true)
 			receiveSyncer := actorContext.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
-			actorContext.Send(receiveSyncer, &setContext{context: ctx})
+			actorContext.Send(receiveSyncer, &setContext{context: msg.GetContext()})
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
 			available.SetDestination(extmsgs.ToActorPid(receiveSyncer))
 			actorContext.Respond(available)
 		} else {
+			sp.SetTag("unavailable", true)
 			actorContext.Respond(&messages.NoSyncersAvailable{})
 		}
 	case *messages.Subscribe:
+		sp := g.NewSpan("subscribe")
+		defer sp.Finish()
 		actorContext.Forward(g.storageActor)
 	}
 }

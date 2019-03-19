@@ -5,6 +5,7 @@ package messages
 import (
 	"github.com/quorumcontrol/differencedigest/ibf"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 )
 
 func init() {
@@ -30,9 +31,12 @@ func (dh *DestinationHolder) GetDestination() *extmsgs.ActorPID {
 	return dh.Destination
 }
 
+var _ tracing.Traceable = (*GetSyncer)(nil)
+
 type GetSyncer struct {
-	Kind    string
-	Context map[string]string
+	tracing.ContextHolder `msg:"-"`
+
+	Kind string
 }
 
 func (GetSyncer) TypeCode() int8 {

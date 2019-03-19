@@ -4,7 +4,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
-	"github.com/quorumcontrol/tupelo/gossip3/tracing"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 )
 
 type MetadataMap map[string]interface{}

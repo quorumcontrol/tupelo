@@ -178,36 +178,6 @@ func (z *GetSyncer) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Kind")
 				return
 			}
-		case "Context":
-			var zb0002 uint32
-			zb0002, err = dc.ReadMapHeader()
-			if err != nil {
-				err = msgp.WrapError(err, "Context")
-				return
-			}
-			if z.Context == nil {
-				z.Context = make(map[string]string, zb0002)
-			} else if len(z.Context) > 0 {
-				for key := range z.Context {
-					delete(z.Context, key)
-				}
-			}
-			for zb0002 > 0 {
-				zb0002--
-				var za0001 string
-				var za0002 string
-				za0001, err = dc.ReadString()
-				if err != nil {
-					err = msgp.WrapError(err, "Context")
-					return
-				}
-				za0002, err = dc.ReadString()
-				if err != nil {
-					err = msgp.WrapError(err, "Context", za0001)
-					return
-				}
-				z.Context[za0001] = za0002
-			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -220,10 +190,10 @@ func (z *GetSyncer) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *GetSyncer) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
+func (z GetSyncer) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 1
 	// write "Kind"
-	err = en.Append(0x82, 0xa4, 0x4b, 0x69, 0x6e, 0x64)
+	err = en.Append(0x81, 0xa4, 0x4b, 0x69, 0x6e, 0x64)
 	if err != nil {
 		return
 	}
@@ -232,45 +202,16 @@ func (z *GetSyncer) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "Kind")
 		return
 	}
-	// write "Context"
-	err = en.Append(0xa7, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74)
-	if err != nil {
-		return
-	}
-	err = en.WriteMapHeader(uint32(len(z.Context)))
-	if err != nil {
-		err = msgp.WrapError(err, "Context")
-		return
-	}
-	for za0001, za0002 := range z.Context {
-		err = en.WriteString(za0001)
-		if err != nil {
-			err = msgp.WrapError(err, "Context")
-			return
-		}
-		err = en.WriteString(za0002)
-		if err != nil {
-			err = msgp.WrapError(err, "Context", za0001)
-			return
-		}
-	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z *GetSyncer) MarshalMsg(b []byte) (o []byte, err error) {
+func (z GetSyncer) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
+	// map header, size 1
 	// string "Kind"
-	o = append(o, 0x82, 0xa4, 0x4b, 0x69, 0x6e, 0x64)
+	o = append(o, 0x81, 0xa4, 0x4b, 0x69, 0x6e, 0x64)
 	o = msgp.AppendString(o, z.Kind)
-	// string "Context"
-	o = append(o, 0xa7, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74)
-	o = msgp.AppendMapHeader(o, uint32(len(z.Context)))
-	for za0001, za0002 := range z.Context {
-		o = msgp.AppendString(o, za0001)
-		o = msgp.AppendString(o, za0002)
-	}
 	return
 }
 
@@ -298,36 +239,6 @@ func (z *GetSyncer) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Kind")
 				return
 			}
-		case "Context":
-			var zb0002 uint32
-			zb0002, bts, err = msgp.ReadMapHeaderBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "Context")
-				return
-			}
-			if z.Context == nil {
-				z.Context = make(map[string]string, zb0002)
-			} else if len(z.Context) > 0 {
-				for key := range z.Context {
-					delete(z.Context, key)
-				}
-			}
-			for zb0002 > 0 {
-				var za0001 string
-				var za0002 string
-				zb0002--
-				za0001, bts, err = msgp.ReadStringBytes(bts)
-				if err != nil {
-					err = msgp.WrapError(err, "Context")
-					return
-				}
-				za0002, bts, err = msgp.ReadStringBytes(bts)
-				if err != nil {
-					err = msgp.WrapError(err, "Context", za0001)
-					return
-				}
-				z.Context[za0001] = za0002
-			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -341,14 +252,8 @@ func (z *GetSyncer) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *GetSyncer) Msgsize() (s int) {
-	s = 1 + 5 + msgp.StringPrefixSize + len(z.Kind) + 8 + msgp.MapHeaderSize
-	if z.Context != nil {
-		for za0001, za0002 := range z.Context {
-			_ = za0002
-			s += msgp.StringPrefixSize + len(za0001) + msgp.StringPrefixSize + len(za0002)
-		}
-	}
+func (z GetSyncer) Msgsize() (s int) {
+	s = 1 + 5 + msgp.StringPrefixSize + len(z.Kind)
 	return
 }
 
