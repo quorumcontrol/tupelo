@@ -78,7 +78,7 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 		Stale:     false,
 		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
-	parentSpan := wrapper.StartTrace()
+	parentSpan := wrapper.StartTrace("transaction")
 
 	sp := wrapper.NewSpan("validator")
 	defer sp.Finish()

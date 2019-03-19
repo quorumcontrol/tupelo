@@ -12,6 +12,7 @@ import (
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/gossip3/tracing"
 )
 
 type system interface {
@@ -114,15 +115,15 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 		})
 	case *messages.GetSyncer:
 		g.Log.Debugw("GetSyncer", "remote", actorContext.Sender().GetId())
+
 		ctx := context.Background()
-		spanContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, opentracing.TextMapCarrier(msg.Context))
-		var sp opentracing.Span
-		if err == nil {
-			sp = opentracing.StartSpan("pushSyncer-receiver", opentracing.ChildOf(spanContext))
-		} else {
-			g.Log.Warnw("error decoding remote context", "err", err, "msg", msg, "from", actorContext.Sender().String())
+		sp, err := tracing.SpanContextFromSerialized(msg.Context, "pushSyncer-receiver")
+
+		if err != nil {
+			// g.Log.Warnw("error decoding remote context", "err", err, "msg", msg, "from", actorContext.Sender().String())
 			sp = opentracing.StartSpan("pushSyncer-receiver-no-parent")
 		}
+
 		sp.SetTag("actor", actorContext.Self().String())
 		sp.SetTag("syncersAvailable", g.syncersAvailable)
 		ctx = opentracing.ContextWithSpan(ctx, sp)
