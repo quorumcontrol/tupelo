@@ -15,24 +15,25 @@ import (
 
 func TestSendSigs(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
-	ss := actor.Spawn(NewSignatureSenderProps())
+	rootContext := actor.EmptyRootContext
+	ss := rootContext.Spawn(NewSignatureSenderProps())
 	defer ss.Poison()
 
 	fut := actor.NewFuture(5 * time.Second)
 	subscriberFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *extmsgs.Signature:
-			fut.PID().Tell(msg)
+			context.Send(fut.PID(), msg)
 		}
 	}
 
-	subscriber := actor.Spawn(actor.FromFunc(subscriberFunc))
+	subscriber := rootContext.Spawn(actor.PropsFromFunc(subscriberFunc))
 	defer subscriber.Poison()
 
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	signer.Actor = subscriber
 
-	ss.Tell(&messages.SignatureWrapper{
+	rootContext.Send(ss, &messages.SignatureWrapper{
 		Signature:        &extmsgs.Signature{TransactionID: []byte("testonly")},
 		RewardsCommittee: []*types.Signer{signer},
 	})

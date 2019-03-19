@@ -26,19 +26,21 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	ng, err := newActorlessSystem(ts)
 	require.Nil(t, err)
 
+	rootContext := actor.EmptyRootContext
+
 	sigGeneratorActors := make([]*actor.PID, numSigners)
 	for i, signer := range ng.AllSigners() {
-		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
+		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
 		defer sg.Poison()
 	}
 	signer := ng.AllSigners()[0]
 
-	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
+	alwaysChecker := rootContext.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(NewNullActorProps())
+	sender := rootContext.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -60,13 +62,13 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR")
 			require.Nil(t, err)
 			conflictSetRouter = cs
-			isReadyFuture.PID().Tell(true)
+			context.Send(isReadyFuture.PID(), true)
 		case *messages.CurrentStateWrapper:
-			fut.PID().Tell(msg)
+			context.Send(fut.PID(), msg)
 		}
 	}
 
-	parent := actor.Spawn(actor.FromFunc(parentFunc))
+	parent := rootContext.Spawn(actor.PropsFromFunc(parentFunc))
 	defer parent.Poison()
 
 	trans := testhelpers.NewValidTransaction(t)
@@ -74,13 +76,13 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 
 	_, err = isReadyFuture.Result()
 	require.Nil(t, err)
-	conflictSetRouter.Tell(transWrapper)
+	rootContext.Send(conflictSetRouter, transWrapper)
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
-		sig, err := sigGeneratorActors[i].RequestFuture(transWrapper, 1*time.Second).Result()
+		sig, err := rootContext.RequestFuture(sigGeneratorActors[i], transWrapper, 1*time.Second).Result()
 		require.Nil(t, err)
-		conflictSetRouter.Tell(sig)
+		rootContext.Send(conflictSetRouter, sig)
 	}
 
 	msg, err := fut.Result()
@@ -92,7 +94,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	assert.False(t, ok)
 
 	// test that after done it won't create a new actor
-	conflictSetRouter.Tell(transWrapper)
+	rootContext.Send(conflictSetRouter, transWrapper)
 	time.Sleep(50 * time.Millisecond)
 
 	_, ok = actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
@@ -105,19 +107,21 @@ func TestHandlesDeadlocks(t *testing.T) {
 	ng, err := newActorlessSystem(ts)
 	require.Nil(t, err)
 
+	rootContext := actor.EmptyRootContext
+
 	sigGeneratorActors := make([]*actor.PID, numSigners)
 	for i, signer := range ng.AllSigners() {
-		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
+		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
 		defer sg.Poison()
 	}
 	signer := ng.AllSigners()[0]
 
-	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
+	alwaysChecker := rootContext.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(NewNullActorProps())
+	sender := rootContext.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -137,13 +141,13 @@ func TestHandlesDeadlocks(t *testing.T) {
 		case *actor.Started:
 			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR")
 			require.Nil(t, err)
-			isReadyFuture.PID().Tell(cs)
+			context.Send(isReadyFuture.PID(), cs)
 		case *messages.CurrentStateWrapper:
-			fut.PID().Tell(msg)
+			context.Send(fut.PID(), msg)
 		}
 	}
 
-	parent, err := actor.SpawnNamed(actor.FromFunc(parentFunc), "THDParent")
+	parent, err := rootContext.SpawnNamed(actor.PropsFromFunc(parentFunc), "THDParent")
 	require.Nil(t, err)
 	defer parent.Poison()
 
@@ -163,7 +167,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 		require.Truef(t, conflictSetID == "" || tr.ConflictSetID() == conflictSetID, "test transactions should all be in the same conflict set")
 		conflictSetID = tr.ConflictSetID()
 		trans[i] = fakeValidateTransaction(t, &tr)
-		conflictSetRouter.Tell(trans[i])
+		rootContext.Send(conflictSetRouter, trans[i])
 	}
 	// it's known that trans[0] is the lowest transaction,
 	// this is just a sanity check
@@ -172,17 +176,17 @@ func TestHandlesDeadlocks(t *testing.T) {
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
-		sig, err := sigGeneratorActors[i].RequestFuture(trans[i], 1*time.Second).Result()
+		sig, err := rootContext.RequestFuture(sigGeneratorActors[i], trans[i], 1*time.Second).Result()
 		require.Nil(t, err)
-		conflictSetRouter.Tell(sig)
+		rootContext.Send(conflictSetRouter, sig)
 	}
 
 	// at this point the first signer should have 3 transactions with 1 signature each and be in a deadlocked state
 	// which means it should sign the lowest transaction (a different one than it did before)
 	// one more signature on that same transaction should get it to quorum in the new view
-	sig, err := sigGeneratorActors[1].RequestFuture(trans[1], 1*time.Second).Result()
+	sig, err := rootContext.RequestFuture(sigGeneratorActors[1], trans[1], 1*time.Second).Result()
 	require.Nil(t, err)
-	conflictSetRouter.Tell(sig)
+	rootContext.Send(conflictSetRouter, sig)
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
@@ -197,19 +201,21 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	ng, err := newActorlessSystem(ts)
 	require.Nil(t, err)
 
+	rootContext := actor.EmptyRootContext
+
 	sigGeneratorActors := make([]*actor.PID, numSigners, numSigners)
 	for i, signer := range ng.AllSigners() {
-		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
+		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
 		defer sg.Poison()
 	}
 	signer := ng.AllSigners()[0]
 
-	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
+	alwaysChecker := rootContext.Spawn(NewAlwaysVerifierProps())
 	defer alwaysChecker.Poison()
 
-	sender := actor.Spawn(NewNullActorProps())
+	sender := rootContext.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	cfg := &ConflictSetRouterConfig{
@@ -229,13 +235,13 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		case *actor.Started:
 			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR0")
 			require.Nil(t, err)
-			isReadyFuture0.PID().Tell(cs)
+			context.Send(isReadyFuture0.PID(), cs)
 		case *messages.CurrentStateWrapper:
-			fut0.PID().Tell(msg)
+			context.Send(fut0.PID(), msg)
 		}
 	}
 
-	parent0, err := actor.SpawnNamed(actor.FromFunc(parentFunc0), "THCBTParent0")
+	parent0, err := rootContext.SpawnNamed(actor.PropsFromFunc(parentFunc0), "THCBTParent0")
 	require.Nil(t, err)
 	defer parent0.Poison()
 
@@ -246,13 +252,13 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	trans := testhelpers.NewValidTransaction(t)
 	transWrapper := fakeValidateTransaction(t, &trans)
 
-	conflictSetRouter0.Tell(transWrapper)
+	rootContext.Send(conflictSetRouter0, transWrapper)
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
-		sig, err := sigGeneratorActors[i].RequestFuture(transWrapper, 1*time.Second).Result()
+		sig, err := rootContext.RequestFuture(sigGeneratorActors[i], transWrapper, 1*time.Second).Result()
 		require.Nil(t, err)
-		conflictSetRouter0.Tell(sig)
+		rootContext.Send(conflictSetRouter0, sig)
 	}
 
 	msg, err := fut0.Result()
@@ -269,13 +275,13 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		case *actor.Started:
 			cs, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "testCSR1")
 			require.Nil(t, err)
-			isReadyFuture1.PID().Tell(cs)
+			context.Send(isReadyFuture1.PID(), cs)
 		case *messages.CurrentStateWrapper:
-			fut1.PID().Tell(msg)
+			context.Send(fut1.PID(), msg)
 		}
 	}
 
-	parent1, err := actor.SpawnNamed(actor.FromFunc(parentFunc1), "THCBTParent1")
+	parent1, err := rootContext.SpawnNamed(actor.PropsFromFunc(parentFunc1), "THCBTParent1")
 	require.Nil(t, err)
 	defer parent1.Poison()
 
@@ -283,7 +289,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	require.Nil(t, err)
 	conflictSetRouter1 := csInterface1.(*actor.PID)
 
-	conflictSetRouter1.Tell(&commitNotification{
+	rootContext.Send(conflictSetRouter1, &commitNotification{
 		objectID: trans.ObjectID,
 		store: &extmsgs.Store{
 			Key:        currentStateWrapper.CurrentState.CommittedKey(),

@@ -15,7 +15,8 @@ import (
 
 func TestValidator(t *testing.T) {
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	rootContext := actor.EmptyRootContext
+	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
 	fut := actor.NewFuture(1 * time.Second)
@@ -27,11 +28,11 @@ func TestValidator(t *testing.T) {
 				value: msg.Value,
 			})
 		case *messages.TransactionWrapper:
-			fut.PID().Tell(msg)
+			context.Send(fut.PID(), msg)
 		}
 	}
 
-	sender := actor.Spawn(actor.FromFunc(validatorSenderFunc))
+	sender := rootContext.Spawn(actor.PropsFromFunc(validatorSenderFunc))
 	defer sender.Poison()
 
 	trans := testhelpers.NewValidTransaction(t)
@@ -39,7 +40,7 @@ func TestValidator(t *testing.T) {
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)
 
-	sender.Tell(&extmsgs.Store{
+	rootContext.Send(sender, &extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})
@@ -50,7 +51,8 @@ func TestValidator(t *testing.T) {
 
 func BenchmarkValidator(b *testing.B) {
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	rootContext := actor.EmptyRootContext
+	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)
@@ -62,7 +64,7 @@ func BenchmarkValidator(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f := validator.RequestFuture(&validationRequest{
+		f := rootContext.RequestFuture(validator, &validationRequest{
 			key:   key,
 			value: value,
 		}, 5*time.Second)

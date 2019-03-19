@@ -17,7 +17,8 @@ import (
 )
 
 func TestSubscribe(t *testing.T) {
-	s := actor.Spawn(NewSubscriptionHandlerProps())
+	rootContext := actor.EmptyRootContext
+	s := rootContext.Spawn(NewSubscriptionHandlerProps())
 	defer s.GracefulStop()
 
 	fut := actor.NewFuture(100 * time.Millisecond)
@@ -32,7 +33,7 @@ func TestSubscribe(t *testing.T) {
 
 	tipValue := emptyTree.Tip
 
-	s.Request(&extmsgs.TipSubscription{
+	rootContext.RequestWithCustomSender(s, &extmsgs.TipSubscription{
 		ObjectID: objectID,
 		TipValue: tipValue.Bytes(),
 	}, fut.PID())
@@ -44,7 +45,7 @@ func TestSubscribe(t *testing.T) {
 		},
 	}
 
-	s.Tell(&messages.CurrentStateWrapper{
+	rootContext.Send(s, &messages.CurrentStateWrapper{
 		CurrentState: currentState,
 	})
 
@@ -54,7 +55,8 @@ func TestSubscribe(t *testing.T) {
 }
 
 func TestUnsubscribe(t *testing.T) {
-	s := actor.Spawn(NewSubscriptionHandlerProps())
+	rootContext := actor.EmptyRootContext
+	s := rootContext.Spawn(NewSubscriptionHandlerProps())
 	defer s.GracefulStop()
 
 	fut := actor.NewFuture(100 * time.Millisecond)
@@ -69,12 +71,12 @@ func TestUnsubscribe(t *testing.T) {
 
 	tipValue := emptyTree.Tip
 
-	s.Request(&extmsgs.TipSubscription{
+	rootContext.RequestWithCustomSender(s, &extmsgs.TipSubscription{
 		ObjectID: objectID,
 		TipValue: tipValue.Bytes(),
 	}, fut.PID())
 
-	s.Request(&extmsgs.TipSubscription{
+	rootContext.RequestWithCustomSender(s, &extmsgs.TipSubscription{
 		Unsubscribe: true,
 		ObjectID:    objectID,
 		TipValue:    tipValue.Bytes(),
@@ -87,7 +89,7 @@ func TestUnsubscribe(t *testing.T) {
 		},
 	}
 
-	s.Tell(&messages.CurrentStateWrapper{
+	rootContext.Send(s, &messages.CurrentStateWrapper{
 		CurrentState: currentState,
 	})
 

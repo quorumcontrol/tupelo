@@ -72,7 +72,8 @@ func (g *Gossiper) Receive(context actor.Context) {
 			timer := time.After(100 * time.Millisecond)
 			go func(pid *actor.PID) {
 				<-timer
-				pid.Tell(&messages.DoOneGossip{})
+				//fmt.Printf("%s Sending DoOneGossip\n", pid.String())
+				context.Send(pid, &messages.DoOneGossip{})
 			}(context.Self())
 
 			return
@@ -89,10 +90,11 @@ func (g *Gossiper) Receive(context actor.Context) {
 	case *messages.StartGossip:
 		g.Log.Debugw("start gossip")
 		g.validatorClear = true
-		context.Self().Tell(&messages.DoOneGossip{
+		context.Send(context.Self(), &messages.DoOneGossip{
 			Why: "startGosip",
 		})
 	case *messages.DoOneGossip:
+		//fmt.Printf("%s Received DoOneGossip\n", context.Self().String())
 		if _, ok := g.pids[currentPusherKey]; ok {
 			g.Log.Debugw("ignoring because in progress")
 			return
@@ -104,7 +106,7 @@ func (g *Gossiper) Receive(context actor.Context) {
 		}
 		g.pids[currentPusherKey] = localsyncer
 
-		localsyncer.Tell(&messages.DoPush{
+		context.Send(localsyncer, &messages.DoPush{
 			System: g.system,
 		})
 	case *messages.GetSyncer:

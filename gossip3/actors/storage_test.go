@@ -15,25 +15,26 @@ import (
 )
 
 func TestImmutableIBF(t *testing.T) {
-	s := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
+	rootContext := actor.EmptyRootContext
+	s := rootContext.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer s.Poison()
 
 	value := []byte("hi")
 	key := crypto.Keccak256(value)
 
-	s.Tell(&extmsgs.Store{Key: key, Value: value})
-	ibfInter, err := s.RequestFuture(&messages.GetIBF{Size: 500}, 1*time.Second).Result()
+	rootContext.Send(s, &extmsgs.Store{Key: key, Value: value})
+	ibfInter, err := rootContext.RequestFuture(s, &messages.GetIBF{Size: 500}, 1*time.Second).Result()
 	require.Nil(t, err)
 	ibf1 := ibfInter.(*ibf.InvertibleBloomFilter)
 
 	value2 := []byte("hi2")
 	key2 := crypto.Keccak256(value2)
 
-	s.Tell(&extmsgs.Store{Key: key2, Value: value2})
+	rootContext.Send(s, &extmsgs.Store{Key: key2, Value: value2})
 
 	time.Sleep(100 * time.Millisecond)
 
-	ibfInter, err = s.RequestFuture(&messages.GetIBF{Size: 500}, 1*time.Second).Result()
+	ibfInter, err = rootContext.RequestFuture(s, &messages.GetIBF{Size: 500}, 1*time.Second).Result()
 	require.Nil(t, err)
 	ibf2 := ibfInter.(*ibf.InvertibleBloomFilter)
 
@@ -48,17 +49,19 @@ func TestSetupIBFAtStart(t *testing.T) {
 	testIBF := ibf.NewInvertibleBloomFilter(500, 4)
 	testIBF.Add(byteToIBFsObjectId(key[0:8]))
 
-	s := actor.Spawn(NewStorageProps(store))
+	rootContext := actor.EmptyRootContext
+	s := rootContext.Spawn(NewStorageProps(store))
 	defer s.Poison()
 
-	ibfInter, err := s.RequestFuture(&messages.GetIBF{Size: 500}, 1*time.Second).Result()
+	ibfInter, err := rootContext.RequestFuture(s, &messages.GetIBF{Size: 500}, 1*time.Second).Result()
 	require.Nil(t, err)
 	actorIBF := ibfInter.(*ibf.InvertibleBloomFilter)
 	assert.Equal(t, testIBF, actorIBF)
 }
 
 func TestSubscription(t *testing.T) {
-	s := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
+	rootContext := actor.EmptyRootContext
+	s := rootContext.Spawn(NewStorageProps(storage.NewMemStorage()))
 	defer s.Poison()
 
 	var msgs []interface{}
@@ -66,19 +69,19 @@ func TestSubscription(t *testing.T) {
 		msgs = append(msgs, context.Message())
 	}
 
-	sub := actor.Spawn(actor.FromFunc(subscriber))
+	sub := rootContext.Spawn(actor.PropsFromFunc(subscriber))
 	defer sub.Poison()
 
 	value := []byte("hi")
 	key := crypto.Keccak256(value)
 
-	s.Tell(&extmsgs.Store{Key: key, Value: value})
+	rootContext.Send(s, &extmsgs.Store{Key: key, Value: value})
 	time.Sleep(100 * time.Millisecond)
 
 	require.Len(t, msgs, 1) // only the actor started
 
-	s.Tell(&messages.Subscribe{Subscriber: sub})
-	s.Tell(&extmsgs.Store{Key: key, Value: value})
+	rootContext.Send(s, &messages.Subscribe{Subscriber: sub})
+	rootContext.Send(s, &extmsgs.Store{Key: key, Value: value})
 	time.Sleep(100 * time.Millisecond)
 
 	require.Len(t, msgs, 1)
@@ -86,7 +89,7 @@ func TestSubscription(t *testing.T) {
 	value = []byte("hi2")
 	key = crypto.Keccak256(value)
 
-	s.Tell(&extmsgs.Store{Key: key, Value: value})
+	rootContext.Send(s, &extmsgs.Store{Key: key, Value: value})
 	time.Sleep(100 * time.Millisecond)
 	require.Len(t, msgs, 2)
 	require.Equal(t, &extmsgs.Store{Key: key, Value: value}, msgs[len(msgs)-1])

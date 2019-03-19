@@ -15,14 +15,15 @@ import (
 
 func TestVerification(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
-	ss := actor.Spawn(NewSignatureVerifier())
+	rootContext := actor.EmptyRootContext
+	ss := rootContext.Spawn(NewSignatureVerifier())
 	defer ss.Poison()
 
 	msg := crypto.Keccak256([]byte("hi"))
 	sig, err := ts.SignKeys[0].Sign(msg)
 	require.Nil(t, err)
 
-	resp, err := ss.RequestFuture(&messages.SignatureVerification{
+	resp, err := rootContext.RequestFuture(ss, &messages.SignatureVerification{
 		Message:   msg,
 		Signature: sig,
 		VerKeys:   [][]byte{ts.VerKeys[0].Bytes()},
@@ -39,7 +40,8 @@ type benchTestSigHolder struct {
 
 func BenchmarkVerification(b *testing.B) {
 	ts := testnotarygroup.NewTestSet(b, 1)
-	ss := actor.Spawn(NewSignatureVerifier())
+	rootContext := actor.EmptyRootContext
+	ss := rootContext.Spawn(NewSignatureVerifier())
 	defer ss.Stop()
 
 	futures := make([]*actor.Future, b.N)
@@ -57,7 +59,7 @@ func BenchmarkVerification(b *testing.B) {
 	b.ResetTimer()
 
 	for i, sigHolder := range sigs {
-		f := ss.RequestFuture(&messages.SignatureVerification{
+		f := rootContext.RequestFuture(ss, &messages.SignatureVerification{
 			Message:   sigHolder.msg,
 			Signature: sigHolder.sig,
 			VerKeys:   [][]byte{ts.VerKeys[0].Bytes()},

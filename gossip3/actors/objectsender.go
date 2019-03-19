@@ -33,7 +33,7 @@ func NewObjectSenderProps(store *actor.PID) *actor.Props {
 func (o *ObjectSender) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
-		reader, err := o.store.RequestFuture(&messages.GetThreadsafeReader{}, 5*time.Second).Result()
+		reader, err := context.RequestFuture(o.store, &messages.GetThreadsafeReader{}, 5*time.Second).Result()
 		if err != nil {
 			panic(fmt.Sprintf("timeout waiting: %v", err))
 		}
