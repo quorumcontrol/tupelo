@@ -77,7 +77,7 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		syncer.sendingObjects = false
 		context.Request(context.Self(), &messages.SyncDone{})
 	case *messages.SyncDone:
-		syncer.Log.Debugw("sync complete", "remote", syncer.remote, "length", time.Now().Sub(syncer.start))
+		syncer.Log.Debugw("sync complete", "remote", syncer.remote, "length", time.Since(syncer.start))
 		context.CancelReceiveTimeout()
 		if !syncer.sendingObjects {
 			context.Self().Poison()

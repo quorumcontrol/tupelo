@@ -217,7 +217,7 @@ func (w *Wallet) ChainExistsForKey(keyAddr string) bool {
 
 func (w *Wallet) ChainExists(chainId string) bool {
 	tip, _ := w.GetTip(chainId)
-	return tip != nil && len(tip) > 0
+	return len(tip) > 0
 }
 
 func (w *Wallet) GetChainIds() ([]string, error) {
