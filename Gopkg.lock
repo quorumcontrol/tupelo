@@ -988,6 +988,14 @@
   revision = "aac704a3f4f27190b4ccc05f303a4931fd1241ff"
 
 [[projects]]
+  branch = "master"
+  digest = "1:521a4970efd87aee222f294b7f0c281266fd4325a3e5c31bda725dff082d120a"
+  name = "github.com/joeshaw/multierror"
+  packages = ["."]
+  pruneopts = ""
+  revision = "69b34d4ec901851247ae7e77d33909caf9df99ed"
+
+[[projects]]
   digest = "1:7df5a9695a743c3e1626b28bb8741602c8c15527e1efaeaec48ab2ff9a23f74c"
   name = "github.com/joho/godotenv"
   packages = ["."]
@@ -1010,14 +1018,6 @@
   pruneopts = ""
   revision = "f55edac94c9bbba5d6182a4be46d86a2c9b5b50e"
   version = "v1.0.2"
-
-[[projects]]
-  branch = "master"
-  digest = "1:521a4970efd87aee222f294b7f0c281266fd4325a3e5c31bda725dff082d120a"
-  name = "github.com/joeshaw/multierror"
-  packages = ["."]
-  pruneopts = ""
-  revision = "69b34d4ec901851247ae7e77d33909caf9df99ed"
 
 [[projects]]
   branch = "master"
@@ -1319,7 +1319,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:56769dee14e4fb99c8c3c65e066613c2e6e8b22ae6ac7552c4b8ddd1379b9eb0"
+  digest = "1:b20ff72e5522808d8073e2cc8c06457fe3ea213393753297f262de220425ca05"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1331,10 +1331,10 @@
     "gossip3/testhelpers",
     "gossip3/types",
     "p2p",
+    "tracing",
   ]
   pruneopts = ""
-  revision = "d9679dfa00fd2c7c33e6f406e56530dc56729250"
-  version = "v0.1.0"
+  revision = "31c342087121ebf47d1f6ba07e2e575764be7fd9"
 
 [[projects]]
   digest = "1:d367886e3a8134415fad58fb2ac44e2f38aa88068adca7a02d59a555f87085c0"
@@ -1804,6 +1804,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/AsynkronIT/protoactor-go/actor",
+    "github.com/AsynkronIT/protoactor-go/mailbox",
     "github.com/AsynkronIT/protoactor-go/plugin",
     "github.com/AsynkronIT/protoactor-go/router",
     "github.com/Workiva/go-datastructures/bitarray",
@@ -1834,7 +1835,6 @@
     "github.com/ipsn/go-ipfs/plugin/loader",
     "github.com/ipsn/go-ipfs/repo/fsrepo",
     "github.com/mitchellh/go-homedir",
-    "github.com/opentracing/opentracing-go",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
     "github.com/quorumcontrol/chaintree/nodestore",
@@ -1851,17 +1851,13 @@
     "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers",
     "github.com/quorumcontrol/tupelo-go-client/gossip3/types",
     "github.com/quorumcontrol/tupelo-go-client/p2p",
+    "github.com/quorumcontrol/tupelo-go-client/tracing",
     "github.com/shibukawa/configdir",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tinylib/msgp/msgp",
-    "github.com/uber/jaeger-client-go",
-    "github.com/uber/jaeger-client-go/config",
-    "github.com/uber/jaeger-client-go/log",
-    "github.com/uber/jaeger-lib/metrics",
-    "go.elastic.co/apm/module/apmot",
     "golang.org/x/net/context",
     "google.golang.org/grpc",
     "google.golang.org/grpc/codes",
