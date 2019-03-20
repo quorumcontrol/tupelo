@@ -97,7 +97,7 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 
 	resp, err := context.RequestFuture(remoteGossiper, &messages.GetSyncer{
 		Kind: syncer.kind,
-	}, 120*time.Second).Result()
+	}, 10*time.Second).Result()
 	if err != nil {
 		syncer.Log.Errorw("timeout waiting for remote syncer", "err", err, "remote", remoteGossiper.String())
 		context.Self().Stop()
