@@ -54,7 +54,9 @@ func NewTupeloNodeProps(cfg *TupeloConfig) *actor.Props {
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
-	).WithDispatcher(mailbox.NewSynchronizedDispatcher(300))
+	).WithDispatcher(
+		mailbox.NewSynchronizedDispatcher(300),
+	)
 }
 
 func (tn *TupeloNode) Receive(context actor.Context) {

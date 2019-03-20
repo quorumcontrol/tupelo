@@ -58,7 +58,9 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 		plugin.Use(&middleware.LogPlugin{}),
 	).WithSupervisor(
 		supervisor,
-	).WithDispatcher(mailbox.NewSynchronizedDispatcher(300))
+	).WithDispatcher(
+		mailbox.NewSynchronizedDispatcher(300),
+	)
 }
 
 func (g *Gossiper) Receive(actorContext actor.Context) {
@@ -72,7 +74,7 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 	case *actor.Started:
 		g.StartTrace("gossiper")
 	case *actor.Stopping:
-		g.Log.Warnw("stopping")
+		g.Log.Debugw("stopping")
 		g.StopTrace()
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
