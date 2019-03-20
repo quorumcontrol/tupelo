@@ -111,7 +111,6 @@ func (g *Gossiper) Receive(context actor.Context) {
 		g.Log.Debugw("GetSyncer", "remote", context.Sender().GetId())
 		if g.syncersAvailable > 0 {
 			receiveSyncer := context.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
-			context.Watch(receiveSyncer)
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
 			available.SetDestination(extmsgs.ToActorPid(receiveSyncer))
