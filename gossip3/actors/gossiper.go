@@ -71,19 +71,17 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 	// 	}
 	// }()
 	switch msg := actorContext.Message().(type) {
-	case *actor.Started:
-		g.StartTrace("gossiper")
-	case *actor.Stopping:
-		g.Log.Debugw("stopping")
-		g.StopTrace()
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
 	case *actor.Terminated:
-		sp := g.NewSpan("terminated")
-		defer sp.Finish()
-		sp.SetTag("who", msg.Who.Id)
+		sp := g.StartTrace("pushSyncerTerminated")
+		defer g.StopTrace()
+		sp.SetTag("who", msg.Who.String())
+		sp.SetTag("syncersAvailable", g.syncersAvailable)
+
 		// this is for when the pushers stop, we can queue up another push
 		if _, ok := g.pids[currentPusherKey]; ok && msg.Who.Equal(g.pids[currentPusherKey]) {
+			sp.SetTag("initiator", true)
 			g.Log.Debugw("terminate", "doGossip", g.validatorClear)
 			delete(g.pids, currentPusherKey)
 			timer := time.After(100 * time.Millisecond)
@@ -96,17 +94,17 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 			return
 		}
 		if strings.HasPrefix(msg.Who.GetId(), actorContext.Self().GetId()+"/"+remoteSyncerPrefix) {
+			sp.SetTag("remoteSyncer", true)
 			g.Log.Debugw("releasing a new remote syncer")
 			g.syncersAvailable++
 			return
 		}
+		sp.SetTag("error", true)
 		g.Log.Errorw("unknown actor terminated", "who", msg.Who.GetId(), "pids", g.pids)
 
 		panic(fmt.Sprintf("unknown actor terminated: %s", msg.Who.GetId()))
 
 	case *messages.StartGossip:
-		sp := g.NewSpan("start-gossip")
-		defer sp.Finish()
 		g.Log.Debugw("start gossip")
 		g.validatorClear = true
 		actorContext.Send(actorContext.Self(), &messages.DoOneGossip{
@@ -125,6 +123,7 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 		g.Log.Debugw("gossiping again")
 		localsyncer, err := actorContext.SpawnNamed(g.pusherProps, "pushSyncer")
 		if err != nil {
+			sp.SetTag("error", true)
 			panic(fmt.Sprintf("error spawning: %v", err))
 		}
 		g.pids[currentPusherKey] = localsyncer
@@ -133,26 +132,13 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 			System: g.system,
 		})
 	case *messages.GetSyncer:
-		sp := g.NewSpan("getSyncer")
-		defer sp.Finish()
+		sp := g.StartTrace("getSyncer")
+		defer g.StopTrace()
 		g.Log.Debugw("GetSyncer", "remote", actorContext.Sender().GetId())
-
-		// syncerCtx := context.Background()
-		// remoteSpan, err := tracing.SpanContextFromSerialized(msg.Context, "pushSyncer-receiver")
-
-		// if err != nil {
-		// 	g.Log.Warnw("error decoding remote context", "err", err, "msg", msg, "from", actorContext.Sender().String())
-		// 	remoteSpan = opentracing.StartSpan("pushSyncer-receiver-no-parent")
-		// }
-
-		// remoteSpan.SetTag("actor", actorContext.Self().String())
-		// sp.SetTag("actor", actorContext.Self().String())
-		// remoteSpan.SetTag("syncersAvailable", g.syncersAvailable)
-		// sp.SetTag("syncersAvailable", g.syncersAvailable)
-		// syncerCtx = opentracing.ContextWithSpan(syncerCtx, remoteSpan)
+		sp.SetTag("remote", actorContext.Sender().String())
+		sp.SetTag("syncersAvailable", g.syncersAvailable)
 
 		if g.syncersAvailable > 0 {
-			sp.SetTag("available", true)
 			receiveSyncer := actorContext.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
 			actorContext.Send(receiveSyncer, &setContext{context: msg.GetContext()})
 			g.syncersAvailable--
@@ -164,8 +150,6 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 			actorContext.Respond(&messages.NoSyncersAvailable{})
 		}
 	case *messages.Subscribe:
-		sp := g.NewSpan("subscribe")
-		defer sp.Finish()
 		actorContext.Forward(g.storageActor)
 	}
 }
