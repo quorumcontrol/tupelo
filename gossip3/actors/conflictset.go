@@ -6,13 +6,11 @@ import (
 	"reflect"
 	"time"
 
-	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/quorumcontrol/storage"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/Workiva/go-datastructures/bitarray"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
@@ -62,7 +60,6 @@ type ConflictSetConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
-	CurrentStateStore  storage.Reader
 	ConflictSetRouter  *actor.PID
 }
 
@@ -84,7 +81,6 @@ func NewConflictSetWorkerPool(cfg *ConflictSetConfig) *actor.Props {
 	return router.NewConsistentHashPool(conflictSetConcurrency).WithProducer(func() actor.Actor {
 		return &ConflictSetWorker{
 			router:             cfg.ConflictSetRouter,
-			currentStateStore:  cfg.CurrentStateStore,
 			notaryGroup:        cfg.NotaryGroup,
 			signer:             cfg.Signer,
 			signatureGenerator: cfg.SignatureGenerator,
@@ -102,7 +98,6 @@ type ConflictSetWorker struct {
 	tracing.ContextHolder
 
 	router             *actor.PID
-	currentStateStore  storage.Reader
 	notaryGroup        *types.NotaryGroup
 	signatureGenerator *actor.PID
 	signatureChecker   *actor.PID
@@ -154,8 +149,7 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 	case *extmsgs.CurrentState:
 		csw.Log.Errorw("something called this")
 	case *commitNotification:
-		err := csw.handleCommit(cs, context, msg)
-		if err != nil {
+		if err := csw.handleCommit(cs, context, msg); err != nil {
 			panic(err)
 		}
 	case *checkStateMsg:
@@ -197,12 +191,17 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 	sp := cs.NewSpan("handleCommit")
 	defer sp.Finish()
 
-	csw.Log.Debug("handleCommit")
+	csw.Log.Debugw("handling commit", "height", msg.height, "nextHeight", msg.nextHeight,
+		"objectID", msg.objectID, "cs.active", cs.active)
 
 	var currState extmsgs.CurrentState
-	_, err := currState.UnmarshalMsg(msg.store.Value)
-	if err != nil {
-		panic(fmt.Errorf("error unmarshaling: %v", err))
+	if _, err := currState.UnmarshalMsg(msg.store.Value); err != nil {
+		return fmt.Errorf("error unmarshaling: %v", err)
+	}
+	csw.Log.Debugw("unmarshaled current state from commit notification successfully", "height",
+		currState.Signature.Height)
+	if currState.Signature.Height != msg.height {
+		return fmt.Errorf("current state height != commit height")
 	}
 	wrapper := &messages.CurrentStateWrapper{
 		CurrentState: &currState,
@@ -215,6 +214,7 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 	setupCurrStateCtx(wrapper, cs)
 
 	if msg.height == msg.nextHeight {
+		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
 		sp.SetTag("activating", true)
 		cs.active = true
 	}
@@ -226,6 +226,8 @@ func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context acto
 	sp := cs.NewSpan("handleNewTransaction")
 	defer sp.Finish()
 	sp.SetTag("transaction", msg.TransactionID)
+	sp.SetTag("height", msg.Transaction.Height)
+	sp.SetTag("numPrevTransactions", len(cs.transactions))
 
 	transSpan := msg.NewSpan("conflictset-handlenewtransaction")
 	defer transSpan.Finish()
@@ -242,14 +244,13 @@ func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context acto
 		cs.active = true
 	}
 
-	if !cs.active {
-		sp.SetTag("snoozing", true)
-		transSpan.SetTag("snoozing", true)
-		csw.Log.Debugw("snoozing transaction", "t", msg.TransactionID, "height", msg.Transaction.Height)
-	}
 	cs.transactions[string(msg.TransactionID)] = msg
 	if cs.active {
 		csw.processTransactions(cs, context)
+	} else {
+		sp.SetTag("snoozing", true)
+		transSpan.SetTag("snoozing", true)
+		csw.Log.Debugw("snoozing transaction", "t", msg.TransactionID, "height", msg.Transaction.Height)
 	}
 }
 
@@ -261,17 +262,17 @@ func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor
 		panic(fmt.Errorf("error: processTransactions called on inactive ConflictSet"))
 	}
 
-	for _, transaction := range cs.transactions {
-		transSpan := transaction.NewSpan("conflictset-processing")
-		csw.Log.Debugw("processing transaction", "t", transaction.TransactionID, "height", transaction.Transaction.Height)
+	for _, tw := range cs.transactions {
+		transSpan := tw.NewSpan("conflictset-processing")
+		defer transSpan.Finish()
+		csw.Log.Debugw("processing transaction", "t", tw.TransactionID, "height", tw.Transaction.Height)
 
 		if !cs.didSign {
-			context.RequestWithCustomSender(csw.signatureGenerator, transaction, csw.router)
+			context.RequestWithCustomSender(csw.signatureGenerator, tw, csw.router)
 			transSpan.SetTag("didSign", true)
 			cs.didSign = true
 		}
 		cs.updates++
-		transSpan.Finish()
 	}
 	// do this as a message to make sure we're doing it after all the updates have come in
 	context.Send(context.Self(), &csWorkerRequest{cs: cs, msg: &checkStateMsg{atUpdate: cs.updates}})
@@ -461,7 +462,7 @@ func (csw *ConflictSetWorker) requestSignatureValidation(cs *ConflictSet, contex
 		}
 	}
 
-	csw.Log.Debugw("checking signature", "len", len(verKeys))
+	csw.Log.Debugw("checking signature", "numVerKeys", len(verKeys))
 	context.RequestWithCustomSender(csw.signatureChecker, &messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,
@@ -479,7 +480,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 	sp := cs.NewSpan("handleCurrentStateWrapper")
 	defer sp.Finish()
 
-	csw.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
+	csw.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal, "verified", currWrapper.Verified)
 
 	if currWrapper.Verified {
 		if !cs.active {
@@ -495,10 +496,12 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 			transSpan.SetTag("done", true)
 			transSpan.Finish()
 		}
+		csw.Log.Debugw("set CleanUpTransactions on the CurrentStateWrapper", "numTransactions",
+			len(currWrapper.CleanupTransactions))
 
 		cs.done = true
 		sp.SetTag("done", true)
-		csw.Log.Debugw("done")
+		csw.Log.Debugw("conflict set is done")
 
 		context.Send(csw.router, currWrapper)
 		return nil
@@ -516,11 +519,14 @@ func (csw *ConflictSetWorker) possiblyDone(cs *ConflictSet) *messages.Transactio
 	defer sp.Finish()
 
 	count := csw.notaryGroup.QuorumCount()
+	csw.Log.Debugw("looking for a transaction with enough signatures", "quorum count", count)
 	for tID, sigList := range cs.signatures {
 		if uint64(len(sigList)) >= count {
+			csw.Log.Debugw("found transaction with enough signatures", "id", tID)
 			return cs.transactions[tID]
 		}
 	}
+	csw.Log.Debugw("couldn't find any transaction with enough signatures")
 	return nil
 }
 

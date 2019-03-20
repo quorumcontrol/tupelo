@@ -15,6 +15,7 @@ require (
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.0
 	github.com/gorilla/mux v1.7.0
+	github.com/goware/modvendor v0.0.0-20180827175348-07a105bce74a // indirect
 	github.com/hashicorp/go-immutable-radix v1.0.0
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/improbable-eng/grpc-web v0.9.0
@@ -38,6 +39,7 @@ require (
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0
+	go.uber.org/zap v1.9.1
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19 // indirect
 	google.golang.org/grpc v1.19.0
