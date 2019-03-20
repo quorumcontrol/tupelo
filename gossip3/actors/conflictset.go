@@ -201,12 +201,12 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 	}
 
 	if msg.Accepted {
-		sp.LogKV("accepted", msg.Accepted)
+		sp.SetTag("accepted", msg.Accepted)
 		cs.active = true
 	}
 
 	if !cs.active {
-		sp.LogKV("snoozing", true)
+		sp.SetTag("snoozing", true)
 		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
@@ -226,7 +226,7 @@ func (cs *ConflictSet) processTransactions(context actor.Context) {
 
 		if !cs.didSign {
 			context.Request(cs.signatureGenerator, transaction)
-			sp.LogKV("didSign", true)
+			sp.SetTag("didSign", true)
 			cs.didSign = true
 		}
 		cs.updates++
@@ -297,7 +297,8 @@ func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
 
 	var lowestTrans *messages.TransactionWrapper
 	for transID, trans := range cs.transactions {
-		trans.LogKV("deadlocked", true)
+		sp := trans.NewSpan("handleDeadlockedState")
+		defer sp.Finish()
 		if lowestTrans == nil {
 			lowestTrans = trans
 			continue
@@ -429,7 +430,9 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
-			t.LogKV("done", true)
+			sp := t.NewSpan("handleCurrentStateWrapper")
+			defer sp.Finish()
+			sp.SetTag("done", true)
 			currWrapper.CleanupTransactions[i] = t
 			i++
 		}

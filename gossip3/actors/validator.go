@@ -165,17 +165,18 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 	if accepted && expectedNewTip {
 		tv.Log.Debugw("accepted", "key", msg.key)
 		wrapper.Accepted = true
+		sp.SetTag("accepted", true)
 		actorCtx.Respond(wrapper)
 		return
 	}
-	sp.LogKV("accepted", false)
+	sp.SetTag("accepted", false)
 
 	if err == nil && !expectedNewTip {
 		nextStateCid, _ := cid.Cast(nextState)
 		newTipCid, _ := cid.Cast(t.NewTip)
 		err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
 	}
-	sp.LogKV("error", err)
+	sp.SetTag("error", err)
 	wrapper.Metadata["error"] = err
 
 	tv.Log.Debugw("rejected", "err", err)
