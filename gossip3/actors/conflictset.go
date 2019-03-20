@@ -13,6 +13,7 @@ import (
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
@@ -26,6 +27,7 @@ type checkStateMsg struct {
 
 type ConflictSet struct {
 	middleware.LogAwareHolder
+	tracing.ContextHolder
 
 	ID                 string
 	currentStateStore  storage.Reader
@@ -89,6 +91,12 @@ func (cs *ConflictSet) Receive(ctx actor.Context) {
 
 func (cs *ConflictSet) NormalState(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		sp := cs.StartTrace("conflictSet")
+		sp.SetTag("self", context.Self().String())
+		sp.SetTag("active", cs.active)
+	case *actor.Stopped:
+		cs.StopTrace()
 	case *messages.TransactionWrapper:
 		cs.handleNewTransaction(context, msg)
 	// this will be an external signature
@@ -187,13 +195,21 @@ func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotificati
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {
-	cs.Log.Debugw("done cs received message")
 	// do nothing when in the done state
+	cs.Log.Debugw("done cs received message")
+	switch context.Message().(type) {
+	case *actor.Stopped:
+		cs.StopTrace()
+	}
 }
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
-	sp := msg.NewSpan("conflictset-handlenewtransaction")
+	sp := cs.NewSpan("handleNewTransaction")
 	defer sp.Finish()
+	sp.SetTag("transaction", msg.TransactionID)
+
+	transSpan := msg.NewSpan("conflictset-handlenewtransaction")
+	defer transSpan.Finish()
 
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
 	if !msg.PreFlight && !msg.Accepted {
@@ -201,12 +217,15 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 	}
 
 	if msg.Accepted {
-		sp.SetTag("accepted", msg.Accepted)
+		sp.SetTag("accepted", true)
+		sp.SetTag("active", true)
+		transSpan.SetTag("accepted", true)
 		cs.active = true
 	}
 
 	if !cs.active {
 		sp.SetTag("snoozing", true)
+		transSpan.SetTag("snoozing", true)
 		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
@@ -216,27 +235,33 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 }
 
 func (cs *ConflictSet) processTransactions(context actor.Context) {
+	sp := cs.NewSpan("processTransactions")
+	defer sp.Finish()
+
 	if !cs.active {
 		panic(fmt.Errorf("error: processTransactions called on inactive ConflictSet"))
 	}
 
 	for _, transaction := range cs.transactions {
-		sp := transaction.NewSpan("conflictset-processing")
+		transSpan := transaction.NewSpan("conflictset-processing")
 		cs.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
 
 		if !cs.didSign {
 			context.Request(cs.signatureGenerator, transaction)
-			sp.SetTag("didSign", true)
+			transSpan.SetTag("didSign", true)
 			cs.didSign = true
 		}
 		cs.updates++
-		sp.Finish()
+		transSpan.Finish()
 	}
 	// do this as a message to make sure we're doing it after all the updates have come in
 	context.Send(context.Self(), &checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {
+	sp := cs.NewSpan("handleNewSignature")
+	defer sp.Finish()
+
 	cs.Log.Debugw("handle new signature", "t", msg.Signature.TransactionID)
 	if msg.Internal {
 		context.Send(cs.signatureSender, msg)
@@ -271,15 +296,19 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 }
 
 func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
+	sp := cs.NewSpan("checkState")
+	defer sp.Finish()
+
 	cs.Log.Debugw("check state")
 	if cs.updates < msg.atUpdate {
 		cs.Log.Debugw("old update")
+		sp.SetTag("oldUpdate", true)
 		// we know there will be another check state message with a higher update
 		return
 	}
 	if trans := cs.possiblyDone(); trans != nil {
-		sp := trans.NewSpan("checkState")
-		defer sp.Finish()
+		transSpan := trans.NewSpan("checkState")
+		defer transSpan.Finish()
 		// we have a possibly done transaction, lets make a current state
 		if err := cs.createCurrentStateFromTrans(context, trans); err != nil {
 			panic(err)
@@ -293,12 +322,14 @@ func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
 }
 
 func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
+	sp := cs.NewSpan("handleDeadlockedState")
+	defer sp.Finish()
 	cs.Log.Debugw("handle deadlocked state")
 
 	var lowestTrans *messages.TransactionWrapper
 	for transID, trans := range cs.transactions {
-		sp := trans.NewSpan("handleDeadlockedState")
-		defer sp.Finish()
+		transSpan := trans.NewSpan("handleDeadlockedState")
+		defer transSpan.Finish()
 		if lowestTrans == nil {
 			lowestTrans = trans
 			continue
@@ -313,6 +344,9 @@ func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
 }
 
 func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
+	sp := cs.NewSpan("nextView")
+	defer sp.Finish()
+
 	cs.view++
 	cs.didSign = false
 	cs.transactions = make(transactionMap)
@@ -324,8 +358,12 @@ func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
 }
 
 func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans *messages.TransactionWrapper) error {
-	sp := trans.NewSpan("createCurrentState")
+	sp := cs.NewSpan("createCurrentStateFromTrans")
 	defer sp.Finish()
+	transSpan := trans.NewSpan("createCurrentState")
+	defer transSpan.Finish()
+
+	sp.SetTag("winner", trans.TransactionID)
 
 	cs.Log.Debugw("createCurrentStateFromTrans", "t", trans.Key)
 	sigs := cs.signatures[string(trans.TransactionID)]
@@ -380,6 +418,9 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 }
 
 func (cs *ConflictSet) validSignature(context actor.Context, currWrapper *messages.CurrentStateWrapper) (bool, error) {
+	sp := cs.NewSpan("validSignature")
+	defer sp.Finish()
+
 	sig := currWrapper.CurrentState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
@@ -413,6 +454,9 @@ func (cs *ConflictSet) validSignature(context actor.Context, currWrapper *messag
 }
 
 func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	sp := cs.NewSpan("handleCurrentStateWrapper")
+	defer sp.Finish()
+
 	cs.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
 
 	if !currWrapper.Verified {
@@ -430,14 +474,15 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
-			sp := t.NewSpan("handleCurrentStateWrapper")
-			defer sp.Finish()
-			sp.SetTag("done", true)
+			transSpan := t.NewSpan("handleCurrentStateWrapper")
+			defer transSpan.Finish()
+			transSpan.SetTag("done", true)
 			currWrapper.CleanupTransactions[i] = t
 			i++
 		}
 
 		cs.done = true
+		sp.SetTag("done", true)
 		cs.Log.Debugw("done")
 		cs.behavior.Become(cs.DoneReceive)
 
@@ -445,6 +490,8 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 			context.Send(parent, currWrapper)
 		}
 	} else {
+		sp.SetTag("badSignature", true)
+		sp.SetTag("error", true)
 		cs.Log.Errorw("signature not verified")
 	}
 	return nil
@@ -452,6 +499,9 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 
 // returns a transaction with enough signatures or nil if none yet exist
 func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
+	sp := cs.NewSpan("possiblyDone")
+	defer sp.Finish()
+
 	count := cs.notaryGroup.QuorumCount()
 	for tID, sigList := range cs.signatures {
 		cs.Log.Debugw("check count", "t", []byte(tID), "len", len(sigList), "quorumAt", count)
@@ -463,6 +513,9 @@ func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 }
 
 func (cs *ConflictSet) deadlocked() bool {
+	sp := cs.NewSpan("isDeadlocked")
+	defer sp.Finish()
+
 	unknownSigCount := len(cs.notaryGroup.Signers) - len(cs.signerSigs)
 	quorumAt := cs.notaryGroup.QuorumCount()
 	if len(cs.signerSigs) == 0 {
