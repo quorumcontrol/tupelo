@@ -48,9 +48,6 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
 
 test: vendor $(packr) $(generated) $(gosources)
-	go test ./...
-
-integration-test: vendor $(packr) $(generated) $(gosources)
 	go test ./... -tags=integration
 
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
@@ -64,4 +61,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all test integration-test docker-image clean install
+.PHONY: all test docker-image clean install
