@@ -203,7 +203,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 
 	rootContext := actor.EmptyRootContext
 
-	sigGeneratorActors := make([]*actor.PID, numSigners, numSigners)
+	sigGeneratorActors := make([]*actor.PID, numSigners)
 	for i, signer := range ng.AllSigners() {
 		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
@@ -352,27 +352,6 @@ func (av *AlwaysVerifier) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.SignatureVerification:
 		msg.Verified = true
-		context.Respond(msg)
-	}
-}
-
-type NeverVerifier struct {
-	middleware.LogAwareHolder
-}
-
-func NewNeverVerifierProps() *actor.Props {
-	return actor.PropsFromProducer(func() actor.Actor {
-		return new(NeverVerifier)
-	}).WithReceiverMiddleware(
-		middleware.LoggingMiddleware,
-		plugin.Use(&middleware.LogPlugin{}),
-	)
-}
-
-func (nv *NeverVerifier) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
-	case *messages.SignatureVerification:
-		msg.Verified = false
 		context.Respond(msg)
 	}
 }

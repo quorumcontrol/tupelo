@@ -144,6 +144,7 @@ func TestCommits(t *testing.T) {
 			ObjectID: []byte(trans.ObjectID),
 		}, tipFut.PID())
 		tipResp, err := tipFut.Result()
+		require.Nil(t, err)
 		assert.Equal(t, tipResp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
 
 		stop := time.Now()

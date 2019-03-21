@@ -27,7 +27,13 @@ which again gets embedded into the binary by the [packr](github.com/gobuffalo/pa
 More specifically, the Makefile ensures that `packr2` gets invoked before building, which
 generates some Go source code to embed templates (i.e. version.txt) into the built binary.
 
-### Testing
+## Development
+### Linting
+We use [golangci-lint](https://github.com/golangci/golangci-lint) for linting, which is
+basically an aggregator of individual linters. You can most easily run it via `make lint`,
+which will also install it if necessary.
+
+## Testing
 
 Integration tests are not run by default, add the "integration" tag to run
 these. Also add the path containing the libindy-crypto library as an ldflag so

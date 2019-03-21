@@ -221,9 +221,7 @@ var benchmark = &cobra.Command{
 				results.Errors = append(results.Errors, "WARNING: timeout was triggered")
 			}
 		} else {
-			select {
-			case <-doneCh:
-			}
+			<-doneCh
 		}
 
 		sum := 0
