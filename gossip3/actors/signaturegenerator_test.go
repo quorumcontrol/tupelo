@@ -23,10 +23,11 @@ func TestSignatureGenerator(t *testing.T) {
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	rootContext := actor.EmptyRootContext
+	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
-	sigGenerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
+	sigGenerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
 	defer sigGenerator.Poison()
 
 	fut := actor.NewFuture(5 * time.Second)
@@ -38,13 +39,13 @@ func TestSignatureGenerator(t *testing.T) {
 				value: msg.Value,
 			})
 		case *messages.SignatureWrapper:
-			fut.PID().Tell(msg)
+			context.Send(fut.PID(), msg)
 		case *messages.TransactionWrapper:
 			context.Request(sigGenerator, msg)
 		}
 	}
 
-	sender := actor.Spawn(actor.FromFunc(validatorSenderFunc))
+	sender := rootContext.Spawn(actor.PropsFromFunc(validatorSenderFunc))
 	defer sender.Poison()
 
 	trans := testhelpers.NewValidTransaction(t)
@@ -52,7 +53,7 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)
 
-	sender.Tell(&extmsgs.Store{
+	rootContext.Send(sender, &extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})
@@ -74,10 +75,11 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	rootContext := actor.EmptyRootContext
+	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
-	sigGnerator := actor.Spawn(NewSignatureGeneratorProps(signer, ng))
+	sigGnerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
 	defer sigGnerator.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)
@@ -85,7 +87,7 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
-	transWrapper, err := validator.RequestFuture(&validationRequest{
+	transWrapper, err := rootContext.RequestFuture(validator, &validationRequest{
 		key:   key,
 		value: value,
 	}, 1*time.Second).Result()
@@ -94,7 +96,7 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	second := 1 * time.Second
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := sigGnerator.RequestFuture(transWrapper, second).Result()
+		_, err := rootContext.RequestFuture(sigGnerator, transWrapper, second).Result()
 		require.Nil(b, err)
 	}
 }

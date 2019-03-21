@@ -225,13 +225,13 @@ func (cs *ConflictSet) processTransactions(context actor.Context) {
 		cs.updates++
 	}
 	// do this as a message to make sure we're doing it after all the updates have come in
-	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
+	context.Send(context.Self(), &checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {
 	cs.Log.Debugw("handle new signature", "t", msg.Signature.TransactionID)
 	if msg.Internal {
-		cs.signatureSender.Tell(msg)
+		context.Send(cs.signatureSender, msg)
 	}
 	if len(msg.Signers) > 1 {
 		panic(fmt.Sprintf("currently we don't handle multi signer signatures here"))
@@ -259,7 +259,7 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 	}
 
 	cs.updates++
-	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
+	context.Send(context.Self(), &checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
@@ -384,7 +384,7 @@ func (cs *ConflictSet) validSignature(context actor.Context, currWrapper *messag
 	}
 
 	cs.Log.Debugw("checking signature", "len", len(verKeys))
-	resp, err := cs.signatureChecker.RequestFuture(&messages.SignatureVerification{
+	resp, err := context.RequestFuture(cs.signatureChecker, &messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,
 		VerKeys:   verKeys,
@@ -424,7 +424,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 		cs.behavior.Become(cs.DoneReceive)
 
 		if parent := context.Parent(); parent != nil {
-			parent.Tell(currWrapper)
+			context.Send(parent, currWrapper)
 		}
 	} else {
 		cs.Log.Errorw("signature not verified")

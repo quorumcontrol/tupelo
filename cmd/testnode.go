@@ -59,7 +59,7 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
-		signer.Actor.Tell(&messages.StartGossip{})
+		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 		stopOnSignal(signer)
 	},
 }

@@ -28,7 +28,7 @@ func (ss *SignatureSender) Receive(context actor.Context) {
 	case *messages.SignatureWrapper:
 		for _, target := range msg.RewardsCommittee {
 			ss.Log.Debugw("sending", "t", target.ID, "actor", target.Actor)
-			target.Actor.Tell(msg.Signature)
+			context.Send(target.Actor, msg.Signature)
 		}
 	}
 }
