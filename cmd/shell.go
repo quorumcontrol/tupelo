@@ -5,11 +5,13 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/spf13/cobra"
 )
@@ -24,9 +26,11 @@ var shellCmd = &cobra.Command{
 		var key *ecdsa.PrivateKey
 		var err error
 		var group *gossip3types.NotaryGroup
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		if localNetworkNodeCount > 0 && !remoteNetwork {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
 			group = setupLocalNetwork(ctx, localNetworkNodeCount)
 		} else {
 			key, err = crypto.GenerateKey()
@@ -34,6 +38,19 @@ var shellCmd = &cobra.Command{
 				panic(fmt.Sprintf("error generating key: %v", err))
 			}
 			gossip3remote.Start()
+
+			p2pHost, err := p2p.NewLibP2PHost(ctx, key, 0)
+			if err != nil {
+				panic(fmt.Sprintf("error setting up p2p host: %v", err))
+			}
+			if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
+				panic(err)
+			}
+			if err = p2pHost.WaitForBootstrap(1, 10*time.Second); err != nil {
+				panic(err)
+			}
+			gossip3remote.NewRouter(p2pHost)
+
 			group = setupNotaryGroup(nil, bootstrapPublicKeys)
 			group.SetupAllRemoteActors(&key.PublicKey)
 		}
