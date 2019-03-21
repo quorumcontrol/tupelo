@@ -107,7 +107,9 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	require.Nil(t, err)
 
-	testTree.ProcessBlock(blockWithHeaders)
+	valid, err := testTree.ProcessBlock(blockWithHeaders)
+	require.Equal(t, true, valid)
+	require.Nil(t, err)
 	nodes := dagToByteNodes(t, evilTree)
 
 	bits := sw.WrapObject(blockWithHeaders).RawData()
@@ -126,7 +128,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)
 
-	fut := validator.RequestFuture(&validationRequest{
+	fut := actor.EmptyRootContext.RequestFuture(validator, &validationRequest{
 		key:   key,
 		value: value,
 	}, 5*time.Second)
