@@ -118,12 +118,12 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 			return
 		}
 		syncer.Log.Debugw("providing strata", "remote", destination)
-		context.RequestWithCustomSender(destination, &messages.ProvideStrata{
+		context.Request(destination, &messages.ProvideStrata{
 			Strata: strata.(*ibf.DifferenceStrata),
 			DestinationHolder: messages.DestinationHolder{
 				Destination: extmsgs.ToActorPid(syncer.storageActor),
 			},
-		}, context.Self())
+		})
 	default:
 		syncer.Log.Errorw("unknown response type", "remoteSyncer", remoteSyncer)
 	}
@@ -212,12 +212,12 @@ func (syncer *PushSyncer) handleRequestIBF(context actor.Context, msg *messages.
 		return
 	}
 
-	context.RequestWithCustomSender(context.Sender(), &messages.ProvideBloomFilter{
+	context.Request(context.Sender(), &messages.ProvideBloomFilter{
 		Filter: localIBF,
 		DestinationHolder: messages.DestinationHolder{
 			Destination: extmsgs.ToActorPid(syncer.storageActor),
 		},
-	}, context.Self())
+	})
 }
 
 func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *messages.ProvideBloomFilter) {
@@ -278,7 +278,7 @@ func (syncer *PushSyncer) syncDone(context actor.Context) {
 	sender := context.Sender()
 	syncer.Log.Debugw("sending sync complete", "remote", sender)
 	if sender != nil {
-		context.RequestWithCustomSender(context.Sender(), &messages.SyncDone{}, context.Self())
+		context.Request(context.Sender(), &messages.SyncDone{})
 	}
 	context.Self().Poison()
 }
