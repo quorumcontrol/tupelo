@@ -151,7 +151,7 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		Block:         block,
 		payload:       msg.value,
 	}
-	
+
 	nextState, accepted, err := chainTreeStateHandler(st)
 
 	expectedNewTip := bytes.Equal(nextState, t.NewTip)
