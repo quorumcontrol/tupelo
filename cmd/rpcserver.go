@@ -177,7 +177,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 	}
 
 	for _, signer := range group.AllSigners() {
-		signer.Actor.Tell(&messages.StartGossip{})
+		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 	}
 
 	return group
