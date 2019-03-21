@@ -103,10 +103,8 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
 		if expectedHeight == t.Height {
-			fmt.Printf("Transaction height %d == expectedHeight %d\n", t.Height, expectedHeight)
 			currTip = currentState.Signature.NewTip
 		} else if expectedHeight < t.Height {
-			fmt.Printf("Transaction height %d < expectedHeight %d; snoozing\n", t.Height, expectedHeight)
 			wrapper.PreFlight = true
 			context.Respond(wrapper)
 			return
@@ -118,7 +116,6 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		}
 	} else {
 		if t.Height != 0 {
-			fmt.Println("No current state; snoozing preflight")
 			wrapper.PreFlight = true
 			context.Respond(wrapper)
 			return
