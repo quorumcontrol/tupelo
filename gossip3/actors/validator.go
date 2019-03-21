@@ -95,7 +95,6 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 
-	var preFlight bool
 	if len(objectIDBits) > 0 {
 		expectedHeight := tv.nextHeight(t.ObjectID)
 		var currentState extmsgs.CurrentState
@@ -104,10 +103,13 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
 		if expectedHeight == t.Height {
+			fmt.Printf("Transaction height %d == expectedHeight %d\n", t.Height, expectedHeight)
 			currTip = currentState.Signature.NewTip
-			preFlight = false
 		} else if expectedHeight < t.Height {
-			preFlight = true
+			fmt.Printf("Transaction height %d < expectedHeight %d; snoozing\n", t.Height, expectedHeight)
+			wrapper.PreFlight = true
+			context.Respond(wrapper)
+			return
 		} else {
 			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
 			wrapper.Stale = true
@@ -115,7 +117,12 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 			return
 		}
 	} else {
-		preFlight = t.Height != 0
+		if t.Height != 0 {
+			fmt.Println("No current state; snoozing preflight")
+			wrapper.PreFlight = true
+			context.Respond(wrapper)
+			return
+		}
 	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
@@ -148,16 +155,13 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		payload:       msg.value,
 	}
 
+
 	nextState, accepted, err := chainTreeStateHandler(st)
 
 	expectedNewTip := bytes.Equal(nextState, t.NewTip)
 	if accepted && expectedNewTip {
 		tv.Log.Debugw("accepted", "key", msg.key)
-		if preFlight {
-			wrapper.PreFlight = true
-		} else {
-			wrapper.Accepted = true
-		}
+		wrapper.Accepted = true
 		context.Respond(wrapper)
 		return
 	} else {
