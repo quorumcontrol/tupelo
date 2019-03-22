@@ -1319,7 +1319,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:8e1c510830f8612ff8bc987dc715bfadafd3ad89c3e83c3887a050cf5200535f"
+  digest = "1:b165a648a1600fcd47140ebd672479af92cc859c037701e679e166e870267847"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1334,7 +1334,8 @@
     "tracing",
   ]
   pruneopts = ""
-  revision = "9b2fe34399d4f33bf83a8fb9e0bd0ed2f529f759"
+  revision = "14462356726b7f74cb869ac127a79d6559598733"
+  version = "v0.1.0"
 
 [[projects]]
   digest = "1:d367886e3a8134415fad58fb2ac44e2f38aa88068adca7a02d59a555f87085c0"
