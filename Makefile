@@ -5,9 +5,11 @@ else
 	TAG = $(VERSION)
 endif
 
+MD5CMD = $(shell { command -v md5sum || command -v md5; } 2>/dev/null)
+
 # GUARD is a function which calculates md5 sum for its
 # argument variable name.
-GUARD = $(1)_GUARD_$(shell echo $($(1)) | md5sum | cut -d ' ' -f 1)
+GUARD = $(1)_GUARD_$(shell echo $($(1)) | $(MD5CMD) | cut -d ' ' -f 1)
 
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 VERSION_TXT = resources/templates/version.txt
