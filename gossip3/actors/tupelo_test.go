@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-cid"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
@@ -45,6 +44,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	}
 	return ng, nil
 }
+
 func TestCommits(t *testing.T) {
 	numMembers := 20
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,20 +61,22 @@ func TestCommits(t *testing.T) {
 	require.Len(t, system.Signers, numMembers)
 	t.Logf("syncer 0 id: %s", syncers[0].ID)
 
+	rootContext := actor.EmptyRootContext
+
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
 		bits, err := trans.MarshalMsg(nil)
 		require.Nil(t, err)
 		key := crypto.Keccak256(bits)
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&extmsgs.Store{
+		rootContext.Send(syncers[rand.Intn(len(syncers))].Actor, &extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&extmsgs.Store{
+		rootContext.Send(syncers[rand.Intn(len(syncers))].Actor, &extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
-		syncers[rand.Intn(len(syncers))].Actor.Tell(&extmsgs.Store{
+		rootContext.Send(syncers[rand.Intn(len(syncers))].Actor, &extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
@@ -84,7 +86,7 @@ func TestCommits(t *testing.T) {
 	}
 
 	for _, s := range syncers {
-		s.Actor.Tell(&messages.StartGossip{})
+		rootContext.Send(s.Actor, &messages.StartGossip{})
 	}
 
 	t.Run("commits a good transaction", func(t *testing.T) {
@@ -98,12 +100,12 @@ func TestCommits(t *testing.T) {
 		syncer := syncers[rand.Intn(len(syncers))].Actor
 
 		newTip, _ := cid.Cast(trans.NewTip)
-		syncer.Request(&extmsgs.TipSubscription{
+		rootContext.RequestWithCustomSender(syncer, &extmsgs.TipSubscription{
 			ObjectID: trans.ObjectID,
 			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
-		syncer.Tell(&extmsgs.Store{
+		rootContext.Send(syncer, &extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
@@ -122,13 +124,13 @@ func TestCommits(t *testing.T) {
 		fut := actor.NewFuture(20 * time.Second)
 
 		newTip, _ := cid.Cast(trans.NewTip)
-		syncers[1].Actor.Request(&extmsgs.TipSubscription{
+		rootContext.RequestWithCustomSender(syncers[1].Actor, &extmsgs.TipSubscription{
 			ObjectID: trans.ObjectID,
 			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
 		start := time.Now()
-		syncers[0].Actor.Tell(&extmsgs.Store{
+		rootContext.Send(syncers[0].Actor, &extmsgs.Store{
 			Key:   key,
 			Value: bits,
 		})
@@ -136,6 +138,14 @@ func TestCommits(t *testing.T) {
 		resp, err := fut.Result()
 		require.Nil(t, err)
 		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
+
+		tipFut := actor.NewFuture(5 * time.Second)
+		rootContext.RequestWithCustomSender(syncers[1].Actor, &extmsgs.GetTip{
+			ObjectID: []byte(trans.ObjectID),
+		}, tipFut.PID())
+		tipResp, err := tipFut.Result()
+		require.Nil(t, err)
+		assert.Equal(t, tipResp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
 
 		stop := time.Now()
 		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
@@ -166,14 +176,16 @@ func TestTupeloMemStorage(t *testing.T) {
 	key := id
 	value := bits
 
-	syncer.Tell(&extmsgs.Store{
+	rootContext := actor.EmptyRootContext
+
+	rootContext.Send(syncer, &extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})
 
 	time.Sleep(10 * time.Millisecond)
 
-	val, err := syncer.RequestFuture(&messages.Get{Key: key}, 1*time.Second).Result()
+	val, err := rootContext.RequestFuture(syncer, &messages.Get{Key: key}, 1*time.Second).Result()
 	require.Nil(t, err)
 	require.Equal(t, value, val)
 }

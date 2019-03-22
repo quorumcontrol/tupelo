@@ -6,7 +6,11 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -15,7 +19,8 @@ import (
 
 func TestValidator(t *testing.T) {
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	rootContext := actor.EmptyRootContext
+	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
 	fut := actor.NewFuture(1 * time.Second)
@@ -27,11 +32,11 @@ func TestValidator(t *testing.T) {
 				value: msg.Value,
 			})
 		case *messages.TransactionWrapper:
-			fut.PID().Tell(msg)
+			context.Send(fut.PID(), msg)
 		}
 	}
 
-	sender := actor.Spawn(actor.FromFunc(validatorSenderFunc))
+	sender := rootContext.Spawn(actor.PropsFromFunc(validatorSenderFunc))
 	defer sender.Poison()
 
 	trans := testhelpers.NewValidTransaction(t)
@@ -39,7 +44,7 @@ func TestValidator(t *testing.T) {
 	require.Nil(t, err)
 	key := crypto.Keccak256(value)
 
-	sender.Tell(&extmsgs.Store{
+	rootContext.Send(sender, &extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})
@@ -48,9 +53,95 @@ func TestValidator(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func BenchmarkValidator(b *testing.B) {
+func TestCannotFakeOldHistory(t *testing.T) {
+	// this test makes sure that you can't send in old history on the
+	// genesis transaction and get the notary group to approve your first
+	// transaction.
+
 	currentState := storage.NewMemStorage()
 	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	defer validator.Poison()
+
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	sw := safewrap.SafeWrap{}
+
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	coinName := "evilTuples"
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: nil,
+			Height:      0,
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "MINT_COIN",
+					Payload: &consensus.MintCoinPayload{
+						Name:   coinName,
+						Amount: 4999,
+					},
+				},
+			},
+		},
+	}
+
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	evilTree := consensus.NewEmptyTree(treeDID, nodeStore)
+
+	path, err := consensus.DecodePath("tree/" + consensus.TreePathForCoins)
+	require.Nil(t, err)
+
+	coinPath := append(path, coinName)
+	monetaryPolicyPath := append(coinPath, "monetaryPolicy")
+
+	evilTree, err = evilTree.SetAsLink(monetaryPolicyPath, &consensus.CoinMonetaryPolicy{
+		Maximum: 5000,
+	})
+	require.Nil(t, err)
+
+	testTree, err := chaintree.NewChainTree(evilTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	valid, err := testTree.ProcessBlock(blockWithHeaders)
+	require.Equal(t, true, valid)
+	require.Nil(t, err)
+	nodes := dagToByteNodes(t, evilTree)
+
+	bits := sw.WrapObject(blockWithHeaders).RawData()
+	require.Nil(t, sw.Err)
+
+	trans := extmsgs.Transaction{
+		PreviousTip: evilTree.Tip.Bytes(),
+		Height:      blockWithHeaders.Height,
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     bits,
+		State:       nodes,
+		ObjectID:    []byte(treeDID),
+	}
+
+	value, err := trans.MarshalMsg(nil)
+	require.Nil(t, err)
+	key := crypto.Keccak256(value)
+
+	fut := actor.EmptyRootContext.RequestFuture(validator, &validationRequest{
+		key:   key,
+		value: value,
+	}, 5*time.Second)
+	isValid, err := fut.Result()
+	require.False(t, isValid.(*messages.TransactionWrapper).Accepted)
+
+	require.Nil(t, err)
+}
+
+func BenchmarkValidator(b *testing.B) {
+	currentState := storage.NewMemStorage()
+	rootContext := actor.EmptyRootContext
+	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
 	defer validator.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)
@@ -58,11 +149,11 @@ func BenchmarkValidator(b *testing.B) {
 	require.Nil(b, err)
 	key := crypto.Keccak256(value)
 
-	futures := make([]*actor.Future, b.N, b.N)
+	futures := make([]*actor.Future, b.N)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f := validator.RequestFuture(&validationRequest{
+		f := rootContext.RequestFuture(validator, &validationRequest{
 			key:   key,
 			value: value,
 		}, 5*time.Second)

@@ -42,7 +42,9 @@ var bootstrapNodeCmd = &cobra.Command{
 			}
 		}
 		if len(bootstrapWithoutSelf) > 0 {
-			host.Bootstrap(bootstrapWithoutSelf)
+			if _, err = host.Bootstrap(bootstrapWithoutSelf); err != nil {
+				panic(fmt.Sprintf("bootstrapping failed: %s", err))
+			}
 		}
 
 		fmt.Println("Bootstrap node running at:")

@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand"
 	"sort"
 	"testing"
 	"time"
 
-	"github.com/ipfs/go-cid"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-cid"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -39,6 +38,7 @@ var benchmarkIterations int
 var benchmarkTimeout int
 var benchmarkStrategy string
 var benchmarkSignersFanoutNumber int
+var benchmarkStartDelay int
 
 var activeCounter = 0
 
@@ -63,17 +63,26 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	// Wait for response
 	resp := <-respChan
 
-	if resp == nil {
-		results.Errors = append(results.Errors, did)
+	switch msg := resp.(type) {
+	case *messages.CurrentState:
+		elapsed := time.Since(startTime)
+		duration := int(elapsed / time.Millisecond)
+		results.Durations = append(results.Durations, duration)
+		results.Successes = results.Successes + 1
+	case *messages.Error:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo))
 		results.Failures = results.Failures + 1
-		activeCounter--
-		return
+	case *actor.ReceiveTimeout:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - timeout", did))
+		results.Failures = results.Failures + 1
+	case nil:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - nil response from channel", did))
+		results.Failures = results.Failures + 1
+	default:
+		results.Errors = append(results.Errors, fmt.Sprintf("%s - unkown error: %v", did, resp))
+		results.Failures = results.Failures + 1
 	}
 
-	elapsed := time.Since(startTime)
-	duration := int(elapsed / time.Millisecond)
-	results.Durations = append(results.Durations, duration)
-	results.Successes = results.Successes + 1
 	activeCounter--
 }
 
@@ -161,8 +170,12 @@ var benchmark = &cobra.Command{
 			panic(fmt.Sprintf("error setting up p2p host: %v", err))
 		}
 
-		p2pHost.Bootstrap(p2p.BootstrapNodes())
-		p2pHost.WaitForBootstrap(1, 15*time.Second)
+		if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
+			panic(err)
+		}
+		if err = p2pHost.WaitForBootstrap(1, 15*time.Second); err != nil {
+			panic(err)
+		}
 
 		gossip3remote.NewRouter(p2pHost)
 
@@ -175,6 +188,12 @@ var benchmark = &cobra.Command{
 
 		doneCh := make(chan bool, 1)
 		defer close(doneCh)
+
+		if benchmarkStartDelay > 0 {
+			fmt.Printf("Delaying benchmark kickoff for %d seconds...\n", benchmarkStartDelay)
+			time.Sleep(time.Duration(benchmarkStartDelay) * time.Second)
+			fmt.Println("Running benchmark")
+		}
 
 		switch benchmarkStrategy {
 		case "tps":
@@ -202,9 +221,7 @@ var benchmark = &cobra.Command{
 				results.Errors = append(results.Errors, "WARNING: timeout was triggered")
 			}
 		} else {
-			select {
-			case <-doneCh:
-			}
+			<-doneCh
 		}
 
 		sum := 0
@@ -236,13 +253,6 @@ func init() {
 	benchmark.Flags().IntVarP(&benchmarkIterations, "iterations", "i", 10, "how many transactions to execute total")
 	benchmark.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 0, "seconds to wait before timing out")
 	benchmark.Flags().IntVarP(&benchmarkSignersFanoutNumber, "fanout", "f", 1, "how many signers to fanout to on sending a transaction")
+	benchmark.Flags().IntVarP(&benchmarkStartDelay, "start-delay", "d", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stablize first")
 	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
-}
-
-func randBytes(length int) []byte {
-	b := make([]byte, length)
-	if _, err := rand.Read(b); err != nil {
-		panic("couldn't generate random bytes")
-	}
-	return b
 }

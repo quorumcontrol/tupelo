@@ -17,8 +17,8 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/chaintree"
-  source = "git@github.com:quorumcontrol/chaintree.git"  
-  version = "v5.1.0"
+  source = "git@github.com:quorumcontrol/chaintree.git"
+  version = "v5.1.1"
 
 [[constraint]]
   name = "github.com/quorumcontrol/differencedigest"
@@ -56,4 +56,8 @@
 
 [[constraint]]
   name = "github.com/quorumcontrol/tupelo-go-client"
-  revision = "8cc72153f3c2260ee2e47a8d21712f115727414d"
+  version = "v0.1.0"
+
+[[constraint]]
+  name = "github.com/gobuffalo/packr"
+  version = "2.0.3"

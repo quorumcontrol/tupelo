@@ -4,11 +4,12 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
-	"github.com/ipfs/go-ipld-cbor"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -102,7 +103,11 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 
 	memoryStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	memoryTree := dag.NewDag(tipCid, memoryStore)
-	memoryTree.AddNodes(nodes...)
+	if err = memoryTree.AddNodes(nodes...); err != nil {
+		log.Printf("failed to add IPLD nodes to DAG: %s", err)
+		// TODO: Enable
+		// return nil, fmt.Errorf("failed to add IPLD nodes to DAG: %s", err)
+	}
 
 	tree, err := chaintree.NewChainTree(memoryTree, nil, consensus.DefaultTransactors)
 	if err != nil {
@@ -169,10 +174,16 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 
 	nodes, err := signedChain.ChainTree.Dag.Nodes()
 	if err != nil {
-		return fmt.Errorf("error getting nodes: %v", err)
+		log.Printf("error getting nodes: %s", err)
+		// TODO: Enable
+		// return fmt.Errorf("error getting nodes: %s", err)
 	}
 	for _, node := range nodes {
-		adapter.Store().StoreNode(node)
+		if err = adapter.Store().StoreNode(node); err != nil {
+			log.Printf("failed to store cbor node: %s", err)
+			// TODO: Enable
+			// return fmt.Errorf("failed to store cbor node: %s", err)
+		}
 	}
 
 	sw := &safewrap.SafeWrap{}
@@ -181,8 +192,16 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error wrapping signatures: %v", sw.Err)
 	}
 
-	w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData())
-	w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes())
+	if err = w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData()); err != nil {
+		log.Printf("failed to store node data")
+		// TODO: Enable
+		// return fmt.Errorf("failed to store node data: %s", err)
+	}
+	if err = w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes()); err != nil {
+		log.Printf("failed to store chain tree tip")
+		// TODO: Enable
+		// return fmt.Errorf("failed to store chain tree tip: %s", err)
+	}
 
 	return nil
 }
@@ -198,7 +217,7 @@ func (w *Wallet) ChainExistsForKey(keyAddr string) bool {
 
 func (w *Wallet) ChainExists(chainId string) bool {
 	tip, _ := w.GetTip(chainId)
-	return tip != nil && len(tip) > 0
+	return len(tip) > 0
 }
 
 func (w *Wallet) GetChainIds() ([]string, error) {

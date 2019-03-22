@@ -6,3 +6,7 @@ vendor
 _old
 /tupelo
 /release/
+/resources/templates/
+/VERSION_GUARD_*
+/packrd/
+*-packr.go

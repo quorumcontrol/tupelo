@@ -17,9 +17,9 @@ type SignatureVerifier struct {
 }
 
 func NewSignatureVerifier() *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return new(SignatureVerifier)
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)

@@ -34,8 +34,10 @@ type ConflictSetRouterConfig struct {
 }
 
 type commitNotification struct {
-	store    *extmsgs.Store
-	objectID []byte
+	store      *extmsgs.Store
+	objectID   []byte
+	height     uint64
+	nextHeight uint64
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -43,13 +45,13 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 	if err != nil {
 		panic(fmt.Sprintf("error creating LRU cache: %v", err))
 	}
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &ConflictSetRouter{
 			conflictSets: iradix.New(),
 			cfg:          cfg,
 			recentlyDone: cache,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
@@ -62,7 +64,9 @@ func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.TransactionWrapper:
+		sp := msg.NewSpan("conflictset-router")
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
+		sp.Finish()
 	case *messages.SignatureWrapper:
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
 	case *extmsgs.Signature:
@@ -70,6 +74,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *extmsgs.Store:
 		csr.forwardOrIgnore(context, msg.Key)
 	case *commitNotification:
+		msg.nextHeight = csr.nextHeight(msg.objectID)
 		csr.forwardOrIgnore(context, msg.store.Key)
 	case *messages.CurrentStateWrapper:
 		if parent := context.Parent(); parent != nil {
@@ -78,7 +83,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		if msg.Verified {
 			csr.cleanupConflictSet(msg.Key)
 		}
-	case *messages.ProcessSnoozedTransactions:
+	case *messages.ActivateSnoozingConflictSets:
 		csr.activateSnoozingConflictSets(context, msg.ObjectID)
 	case *messages.ValidateTransaction:
 		if parent := context.Parent(); parent != nil {
