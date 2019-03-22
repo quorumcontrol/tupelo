@@ -230,7 +230,7 @@ func TestLibP2PSigning(t *testing.T) {
 	newTip, err := cid.Cast(trans.NewTip)
 	require.Nil(t, err)
 
-	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 60*time.Second)
+	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 90*time.Second)
 	require.Nil(t, err)
 
 	client.SendTransaction(systems[0].GetRandomSigner(), &trans)
