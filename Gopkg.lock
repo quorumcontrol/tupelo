@@ -76,6 +76,14 @@
   revision = "8b13a72661dae6e9e5dea04f344f0dc95ea29547"
 
 [[projects]]
+  digest = "1:5680f8c40e48f07cb77aece3165a866aaf8276305258b3b70db8ec7ad6ddb78d"
+  name = "github.com/armon/go-radix"
+  packages = ["."]
+  pruneopts = ""
+  revision = "1a2de0c21c94309923825da3df33a4381872c795"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:c0bec5f9b98d0bc872ff5e834fac186b807b656683bd29cb82fb207a1513fabb"
   name = "github.com/beorn7/perks"
@@ -140,6 +148,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "f6d7a1f6fbf35bbf9beb80dc63c56a29dcfb759f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c46fd324e7902268373e1b337436a6377c196e2dbd7b35624c6256d29d494e78"
+  name = "github.com/codahale/hdrhistogram"
+  packages = ["."]
+  pruneopts = ""
+  revision = "3a0bb77429bd3a61596f5e8a3172445844342120"
 
 [[projects]]
   digest = "1:3c3f68ebab415344aef64363d23471e953a4715645115604aaf57923ae904f5e"
@@ -219,6 +235,30 @@
   pruneopts = ""
   revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
   version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:10808a231991506e33d92579224ad81e649bc0b2874d99e0c8be8e234a52c3ab"
+  name = "github.com/elastic/go-sysinfo"
+  packages = [
+    ".",
+    "internal/registry",
+    "providers/darwin",
+    "providers/linux",
+    "providers/shared",
+    "providers/windows",
+    "types",
+  ]
+  pruneopts = ""
+  revision = "59ef8c0eae46c0929e3b219ac86368d4b5934f91"
+
+[[projects]]
+  branch = "master"
+  digest = "1:63509fc7f9aac866d56904b62131b2d1e71291d36513e072c560c3deaad704a0"
+  name = "github.com/elastic/go-windows"
+  packages = ["."]
+  pruneopts = ""
+  revision = "bb1581babc04d5cb29a2bfa7a9ac6781c730c8dd"
 
 [[projects]]
   branch = "master"
@@ -948,6 +988,14 @@
   revision = "aac704a3f4f27190b4ccc05f303a4931fd1241ff"
 
 [[projects]]
+  branch = "master"
+  digest = "1:521a4970efd87aee222f294b7f0c281266fd4325a3e5c31bda725dff082d120a"
+  name = "github.com/joeshaw/multierror"
+  packages = ["."]
+  pruneopts = ""
+  revision = "69b34d4ec901851247ae7e77d33909caf9df99ed"
+
+[[projects]]
   digest = "1:7df5a9695a743c3e1626b28bb8741602c8c15527e1efaeaec48ab2ff9a23f74c"
   name = "github.com/joho/godotenv"
   packages = ["."]
@@ -1271,7 +1319,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:56769dee14e4fb99c8c3c65e066613c2e6e8b22ae6ac7552c4b8ddd1379b9eb0"
+  digest = "1:b165a648a1600fcd47140ebd672479af92cc859c037701e679e166e870267847"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1283,9 +1331,10 @@
     "gossip3/testhelpers",
     "gossip3/types",
     "p2p",
+    "tracing",
   ]
   pruneopts = ""
-  revision = "d9679dfa00fd2c7c33e6f406e56530dc56729250"
+  revision = "14462356726b7f74cb869ac127a79d6559598733"
   version = "v0.1.0"
 
 [[projects]]
@@ -1307,6 +1356,20 @@
   pruneopts = ""
   revision = "9a47f48565a795472d43519dd49aac781f3034fb"
   version = "v1.6.0"
+
+[[projects]]
+  digest = "1:4b73a0659a08dd32fb042bfee9e62f4481bddf18cfc4dbff7dc68084e6ea4460"
+  name = "github.com/santhosh-tekuri/jsonschema"
+  packages = [
+    ".",
+    "decoders",
+    "formats",
+    "loader",
+    "mediatypes",
+  ]
+  pruneopts = ""
+  revision = "534765aa6277d702a0aaf99c986492dda697d48f"
+  version = "v1.2.4"
 
 [[projects]]
   branch = "master"
@@ -1432,6 +1495,40 @@
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:941ab4973b3218a9a6d02d31734f5c762239eb538c0d702fff62d4037af8ab0a"
+  name = "github.com/uber/jaeger-client-go"
+  packages = [
+    ".",
+    "config",
+    "internal/baggage",
+    "internal/baggage/remote",
+    "internal/spanlog",
+    "internal/throttler",
+    "internal/throttler/remote",
+    "log",
+    "rpcmetrics",
+    "thrift",
+    "thrift-gen/agent",
+    "thrift-gen/baggage",
+    "thrift-gen/jaeger",
+    "thrift-gen/sampling",
+    "thrift-gen/zipkincore",
+    "transport",
+    "utils",
+  ]
+  pruneopts = ""
+  revision = "1a782e2da844727691fef1757c72eb190c2909f0"
+  version = "v2.15.0"
+
+[[projects]]
+  digest = "1:aa1598d34009b45ce74fdabdd25e4258d7923d1e1b418d4c98482e79607cb9b0"
+  name = "github.com/uber/jaeger-lib"
+  packages = ["metrics"]
+  pruneopts = ""
+  revision = "ed3a127ec5fef7ae9ea95b01b542c47fbd999ce5"
+  version = "v1.5.0"
+
+[[projects]]
   branch = "master"
   digest = "1:1e10b6e24ab9cbfafc7db7985cc43f01624a5a82d188572baf2ab2257b4427e2"
   name = "github.com/whyrusleeping/base32"
@@ -1446,6 +1543,39 @@
   packages = ["."]
   pruneopts = ""
   revision = "0457bb6b88fc1973573aaf6b5145d8d3ae972390"
+
+[[projects]]
+  digest = "1:a98315339728e075197d04be6a57a46b141aa382db3728392f0771e9a54cf77b"
+  name = "go.elastic.co/apm"
+  packages = [
+    ".",
+    "internal/apmconfig",
+    "internal/apmcontext",
+    "internal/apmhostutil",
+    "internal/apmhttputil",
+    "internal/apmlog",
+    "internal/apmschema",
+    "internal/apmstrings",
+    "internal/iochan",
+    "internal/ringbuffer",
+    "internal/wildcard",
+    "model",
+    "module/apmhttp",
+    "module/apmot",
+    "stacktrace",
+    "transport",
+  ]
+  pruneopts = ""
+  revision = "cc1e77d6cd8552403fc3f91464308b1d3ceebab4"
+  version = "v1.2.0"
+
+[[projects]]
+  digest = "1:e05c654acb77a3d7c00aecaf64fdb66310f5f063f896a0d749be8a8d1fb168df"
+  name = "go.elastic.co/fastjson"
+  packages = ["."]
+  pruneopts = ""
+  revision = "676cec79bd027a8a4618de0991f27cfe632978f1"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:74f86c458e82e1c4efbab95233e0cf51b7cc02dc03193be9f62cd81224e10401"
@@ -1543,6 +1673,7 @@
     "cpu",
     "unix",
     "windows",
+    "windows/registry",
   ]
   pruneopts = ""
   revision = "b90733256f2e882e81d52f9126de08df5615afd9"
@@ -1661,11 +1792,20 @@
   revision = "51d6538a90f86fe93ac480b35f37b2be17fef232"
   version = "v2.2.2"
 
+[[projects]]
+  branch = "master"
+  digest = "1:e43acd1190dde7223727f1f8aeac537156d33bf87776d5637e672e1c6b354be4"
+  name = "howett.net/plist"
+  packages = ["."]
+  pruneopts = ""
+  revision = "591f970eefbbeb04d7b37f334a0c4c3256e32876"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/AsynkronIT/protoactor-go/actor",
+    "github.com/AsynkronIT/protoactor-go/mailbox",
     "github.com/AsynkronIT/protoactor-go/plugin",
     "github.com/AsynkronIT/protoactor-go/router",
     "github.com/Workiva/go-datastructures/bitarray",
@@ -1675,7 +1815,6 @@
     "github.com/ethereum/go-ethereum/crypto",
     "github.com/ethereum/go-ethereum/log",
     "github.com/gobuffalo/packr/v2",
-    "github.com/gobuffalo/packr/v2/file/resolver",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/mux",
@@ -1712,6 +1851,7 @@
     "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers",
     "github.com/quorumcontrol/tupelo-go-client/gossip3/types",
     "github.com/quorumcontrol/tupelo-go-client/p2p",
+    "github.com/quorumcontrol/tupelo-go-client/tracing",
     "github.com/shibukawa/configdir",
     "github.com/spf13/cobra",
     "github.com/spf13/viper",

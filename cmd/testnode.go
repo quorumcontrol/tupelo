@@ -34,6 +34,7 @@ import (
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
@@ -43,6 +44,9 @@ var (
 	BlsSignKeys  []*bls.SignKey
 	EcdsaKeys    []*ecdsa.PrivateKey
 	testnodePort int
+
+	enableJaegerTracing  bool
+	enableElasticTracing bool
 )
 
 // testnodeCmd represents the testnode command
@@ -59,6 +63,15 @@ var testnodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
+		if enableElasticTracing && enableJaegerTracing {
+			panic("only one tracing library may be used at once")
+		}
+		if enableJaegerTracing {
+			tracing.StartJaeger("signer-" + signer.ID)
+		}
+		if enableElasticTracing {
+			tracing.StartElastic()
+		}
 		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 		stopOnSignal(signer)
 	},
@@ -161,16 +174,21 @@ func stopOnSignal(signers ...*gossip3types.Signer) {
 		fmt.Println(sig)
 		for _, signer := range signers {
 			log.Info("gracefully stopping signer")
-			signer.Actor.GracefulStop()
+			signer.Actor.GracefulPoison()
 		}
 		done <- true
 	}()
 	fmt.Println("awaiting signal")
 	<-done
+	if enableJaegerTracing {
+		tracing.StopJaeger()
+	}
 	fmt.Println("exiting")
 }
 
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
 	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
+	testnodeCmd.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
+	testnodeCmd.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
 }

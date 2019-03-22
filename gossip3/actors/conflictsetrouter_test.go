@@ -311,7 +311,6 @@ func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages
 	bits, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
 	key := crypto.Keccak256(bits)
-
 	wrapper := &messages.TransactionWrapper{
 		TransactionID: key,
 		Transaction:   trans,
@@ -322,6 +321,7 @@ func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages
 		Accepted:      true,
 		Metadata:      messages.MetadataMap{"seen": time.Now()},
 	}
+	wrapper.StartTrace("transaction")
 	return wrapper
 }
 
