@@ -1319,7 +1319,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:d31b4c596731714ce7f2149b468d972706ebc12ba098581ea1e4b8b29cb31ddd"
+  digest = "1:8e1c510830f8612ff8bc987dc715bfadafd3ad89c3e83c3887a050cf5200535f"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1334,7 +1334,7 @@
     "tracing",
   ]
   pruneopts = ""
-  revision = "4ab4685bbbf2787ec55b02ee66cb09d3161b2eaa"
+  revision = "9b2fe34399d4f33bf83a8fb9e0bd0ed2f529f759"
 
 [[projects]]
   digest = "1:d367886e3a8134415fad58fb2ac44e2f38aa88068adca7a02d59a555f87085c0"
@@ -1814,7 +1814,6 @@
     "github.com/ethereum/go-ethereum/crypto",
     "github.com/ethereum/go-ethereum/log",
     "github.com/gobuffalo/packr/v2",
-    "github.com/gobuffalo/packr/v2/file/resolver",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/mux",
