@@ -39,16 +39,9 @@ func (cswr *csWorkerRequest) Hash() string {
 }
 
 type ConflictSet struct {
-	// middleware.LogAwareHolder
 	tracing.ContextHolder
 
 	ID string
-	// currentStateStore  storage.Reader
-	// notaryGroup        *types.NotaryGroup
-	// signatureGenerator *actor.PID
-	// signatureChecker   *actor.PID
-	// signatureSender    *actor.PID
-	// signer             *types.Signer
 
 	done          bool
 	signatures    signaturesByTransaction
@@ -134,7 +127,6 @@ func (csw *ConflictSetWorker) Receive(context actor.Context) {
 			csw.Log.Debugw("received message on done CS")
 			return
 		}
-		csw.Log.Debugw("csWorkerRequest", "type", reflect.TypeOf(msg.msg).String(), "msg", msg)
 		csw.OriginalReceive(msg.cs, msg.msg, context)
 	default:
 		csw.Log.Errorw("received bad message", "type", reflect.TypeOf(context.Message()).String())
@@ -190,10 +182,10 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, m
 
 	// no (valid) commit, so let's start validating any snoozed transactions
 	for _, transaction := range cs.transactions {
-		context.RequestWithCustomSender(csw.router, &messages.ValidateTransaction{
+		context.Send(csw.router, &messages.ValidateTransaction{
 			Key:   transaction.Key,
 			Value: transaction.Value,
-		}, csw.router)
+		})
 	}
 }
 
@@ -530,9 +522,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 		sp.SetTag("done", true)
 		csw.Log.Debugw("done")
 
-		csw.Log.Debugw("sending to router")
 		context.Send(csw.router, currWrapper)
-
 	} else {
 		sp.SetTag("badSignature", true)
 		sp.SetTag("error", true)
