@@ -190,7 +190,7 @@
   version = "v1.0.2"
 
 [[projects]]
-  digest = "1:0fb880a9bf3959a41f0d9e66c87699b7bb1eb08aca29326d2acd85c702bdf6e7"
+  digest = "1:dad8e1350d130968ee2369622ce9d2d9914f72443149e9001817fcd05e8fc7c9"
   name = "github.com/dedis/kyber"
   packages = [
     ".",
@@ -203,8 +203,7 @@
     "xof/blake2xb",
   ]
   pruneopts = ""
-  revision = "189774c4cc923eb3772a72eecbb50cec5eaf2610"
-  source = "https://github.com/quorumcontrol/kyber.git"
+  revision = "5cc64601919b0945d10aba014129cdfef5fdda46"
 
 [[projects]]
   digest = "1:d53187f2546fa50fd6dc8a13c32a70de0233ce2a2f6ef189e87c8dd8dad0882c"
@@ -1319,7 +1318,8 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:b165a648a1600fcd47140ebd672479af92cc859c037701e679e166e870267847"
+  branch = "rename/coin-to-token"
+  digest = "1:95ac8283490badafa44997f7dd622245ef8cc2cd6560d304555b43a90dd199e9"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
     "bls",
@@ -1334,8 +1334,7 @@
     "tracing",
   ]
   pruneopts = ""
-  revision = "14462356726b7f74cb869ac127a79d6559598733"
-  version = "v0.1.0"
+  revision = "a6aa36c4385ebacc343162119e06facec82a37de"
 
 [[projects]]
   digest = "1:d367886e3a8134415fad58fb2ac44e2f38aa88068adca7a02d59a555f87085c0"
@@ -1815,6 +1814,7 @@
     "github.com/ethereum/go-ethereum/crypto",
     "github.com/ethereum/go-ethereum/log",
     "github.com/gobuffalo/packr/v2",
+    "github.com/gobuffalo/packr/v2/file/resolver",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/mux",

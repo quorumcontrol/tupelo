@@ -69,7 +69,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 
-	coinName := "evilTuples"
+	tokenName := "evilTuples"
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -77,9 +77,9 @@ func TestCannotFakeOldHistory(t *testing.T) {
 			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "MINT_COIN",
-					Payload: &consensus.MintCoinPayload{
-						Name:   coinName,
+					Type: "MINT_TOKEN",
+					Payload: &consensus.MintTokenPayload{
+						Name:   tokenName,
 						Amount: 4999,
 					},
 				},
@@ -90,13 +90,13 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	evilTree := consensus.NewEmptyTree(treeDID, nodeStore)
 
-	path, err := consensus.DecodePath("tree/" + consensus.TreePathForCoins)
+	path, err := consensus.DecodePath("tree/" + consensus.TreePathForTokens)
 	require.Nil(t, err)
 
-	coinPath := append(path, coinName)
-	monetaryPolicyPath := append(coinPath, "monetaryPolicy")
+	tokenPath := append(path, tokenName)
+	monetaryPolicyPath := append(tokenPath, "monetaryPolicy")
 
-	evilTree, err = evilTree.SetAsLink(monetaryPolicyPath, &consensus.CoinMonetaryPolicy{
+	evilTree, err = evilTree.SetAsLink(monetaryPolicyPath, &consensus.TokenMonetaryPolicy{
 		Maximum: 5000,
 	})
 	require.Nil(t, err)
