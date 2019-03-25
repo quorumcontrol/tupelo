@@ -20,6 +20,7 @@ import (
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo-go-client/tracing"
+	"github.com/quorumcontrol/tupelo/resources"
 	"github.com/spf13/cobra"
 )
 
@@ -41,6 +42,7 @@ var benchmarkTimeout int
 var benchmarkStrategy string
 var benchmarkSignersFanoutNumber int
 var benchmarkStartDelay int
+var tracingTagName string
 
 var activeCounter = 0
 
@@ -54,6 +56,12 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	}
 
 	sp := opentracing.StartSpan("benchmark-transaction")
+	if tracingTagName != "" {
+		sp.SetTag("name", tracingTagName)
+	}
+	if version, err := resources.Version(); err == nil {
+		sp.SetTag("version", version)
+	}
 	sp.SetTag("chainId", did)
 	defer sp.Finish()
 
@@ -276,4 +284,5 @@ func init() {
 	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
 	benchmark.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
 	benchmark.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
+	benchmark.Flags().StringVar(&tracingTagName, "tracing-name", "", "adds tag to tracing for lookup")
 }
