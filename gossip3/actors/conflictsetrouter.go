@@ -22,6 +22,7 @@ type ConflictSetRouter struct {
 	recentlyDone *lru.Cache
 	conflictSets *iradix.Tree
 	cfg          *ConflictSetRouterConfig
+	pool         *actor.PID
 }
 
 type ConflictSetRouterConfig struct {
@@ -63,6 +64,13 @@ func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {
 
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		csr.Log.Debugw("spawning", "self", context.Self().String())
+		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(context.Self()), "csrPool")
+		if err != nil {
+			panic(fmt.Errorf("error spawning csrPool: %v", err))
+		}
+		csr.pool = pool
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
@@ -96,9 +104,9 @@ func (csr *ConflictSetRouter) cleanupConflictSet(id []byte) {
 	csr.Log.Debugw("cleaning up conflict set", "cs", id)
 	idS := conflictSetIDToInternalID(id)
 	csr.recentlyDone.Add(idS, true)
-	sets, csActor, didDelete := csr.conflictSets.Delete([]byte(idS))
+	sets, cs, didDelete := csr.conflictSets.Delete([]byte(idS))
 	if didDelete {
-		csActor.(*actor.PID).Stop()
+		cs.(*ConflictSet).StopTrace()
 		csr.conflictSets = sets
 	}
 }
@@ -106,14 +114,17 @@ func (csr *ConflictSetRouter) cleanupConflictSet(id []byte) {
 func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, id []byte) {
 	cs := csr.getOrCreateCS(context, id)
 	if cs != nil {
-		context.Forward(cs)
+		context.Send(csr.pool, &csWorkerRequest{
+			msg: context.Message(),
+			cs:  cs,
+		})
 	}
 }
 
 // if there is already a conflict set, then forward the message there
 // if there isn't then, look at the recently done and if it's done, return nil
 // if it's not in either set, then create the actor
-func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *actor.PID {
+func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *ConflictSet {
 	idS := conflictSetIDToInternalID(id)
 	id = []byte(idS)
 	cs, ok := csr.conflictSets.Get(id)
@@ -127,13 +138,13 @@ func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *a
 		sets, _, _ := csr.conflictSets.Insert(id, cs)
 		csr.conflictSets = sets
 	}
-	return cs.(*actor.PID)
+	return cs.(*ConflictSet)
 }
 
-func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *actor.PID {
+func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *ConflictSet {
 	csr.Log.Debugw("new conflict set", "id", id)
 	cfg := csr.cfg
-	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
+	cs := NewConflictSet(&ConflictSetConfig{
 		ID:                 id,
 		CurrentStateStore:  cfg.CurrentStateStore,
 		NotaryGroup:        cfg.NotaryGroup,
@@ -141,10 +152,10 @@ func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *
 		SignatureChecker:   cfg.SignatureChecker,
 		SignatureGenerator: cfg.SignatureGenerator,
 		SignatureSender:    cfg.SignatureSender,
-	}), id)
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
+	})
+	sp := cs.StartTrace("conflictset")
+	sp.SetTag("csid", id)
+	sp.SetTag("signer", cs.signer.ID)
 	return cs
 }
 
@@ -154,7 +165,10 @@ func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context
 	cs, ok := csr.conflictSets.Get([]byte(conflictSetIDToInternalID([]byte(conflictSetID))))
 	if ok {
 		csr.Log.Debugw("activating snoozed", "cs", conflictSetIDToInternalID([]byte(conflictSetID)))
-		context.Forward(cs.(*actor.PID))
+		context.Send(csr.pool, &csWorkerRequest{
+			cs:  cs.(*ConflictSet),
+			msg: context.Message(),
+		})
 	}
 }
 
