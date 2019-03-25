@@ -42,13 +42,13 @@ type ConflictSet struct {
 	// middleware.LogAwareHolder
 	tracing.ContextHolder
 
-	ID                 string
-	currentStateStore  storage.Reader
-	notaryGroup        *types.NotaryGroup
-	signatureGenerator *actor.PID
-	signatureChecker   *actor.PID
-	signatureSender    *actor.PID
-	signer             *types.Signer
+	ID string
+	// currentStateStore  storage.Reader
+	// notaryGroup        *types.NotaryGroup
+	// signatureGenerator *actor.PID
+	// signatureChecker   *actor.PID
+	// signatureSender    *actor.PID
+	// signer             *types.Signer
 
 	done          bool
 	signatures    signaturesByTransaction
@@ -62,39 +62,41 @@ type ConflictSet struct {
 }
 
 type ConflictSetConfig struct {
-	ID                 string
 	NotaryGroup        *types.NotaryGroup
 	Signer             *types.Signer
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	CurrentStateStore  storage.Reader
+	ConflictSetRouter  *actor.PID
 }
 
-func NewConflictSet(cfg *ConflictSetConfig) *ConflictSet {
+func NewConflictSet(id string) *ConflictSet {
 	c := &ConflictSet{
-		ID:                 cfg.ID,
-		currentStateStore:  cfg.CurrentStateStore,
-		notaryGroup:        cfg.NotaryGroup,
-		signer:             cfg.Signer,
-		signatureGenerator: cfg.SignatureGenerator,
-		signatureChecker:   cfg.SignatureChecker,
-		signatureSender:    cfg.SignatureSender,
-		signatures:         make(signaturesByTransaction),
-		signerSigs:         make(signaturesBySigner),
-		transactions:       make(transactionMap),
+		ID:           id,
+		signatures:   make(signaturesByTransaction),
+		signerSigs:   make(signaturesBySigner),
+		transactions: make(transactionMap),
 	}
 	return c
 }
 
 const conflictSetConcurrency = 50
 
-func NewConflictSetWorkerPool(csr *actor.PID) *actor.Props {
+func NewConflictSetWorkerPool(cfg *ConflictSetConfig) *actor.Props {
 	// it's important that this is a consistent hash pool rather than round robin
 	// because we do not want two operations on a single conflictset executing concurrently
 	// if you change this, make sure you provide some other "locking" mechanism.
 	return router.NewConsistentHashPool(conflictSetConcurrency).WithProducer(func() actor.Actor {
-		return &ConflictSetWorker{router: csr}
+		return &ConflictSetWorker{
+			router:             cfg.ConflictSetRouter,
+			currentStateStore:  cfg.CurrentStateStore,
+			notaryGroup:        cfg.NotaryGroup,
+			signer:             cfg.Signer,
+			signatureGenerator: cfg.SignatureGenerator,
+			signatureChecker:   cfg.SignatureChecker,
+			signatureSender:    cfg.SignatureSender,
+		}
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
@@ -104,7 +106,14 @@ func NewConflictSetWorkerPool(csr *actor.PID) *actor.Props {
 type ConflictSetWorker struct {
 	middleware.LogAwareHolder
 	tracing.ContextHolder
-	router *actor.PID
+
+	router             *actor.PID
+	currentStateStore  storage.Reader
+	notaryGroup        *types.NotaryGroup
+	signatureGenerator *actor.PID
+	signatureChecker   *actor.PID
+	signatureSender    *actor.PID
+	signer             *types.Signer
 }
 
 func NewConflictSetWorkerProps(csr *actor.PID) *actor.Props {
@@ -138,7 +147,7 @@ func (csw *ConflictSetWorker) OriginalReceive(cs *ConflictSet, sentMsg interface
 		csw.handleNewTransaction(cs, context, msg)
 	// this will be an external signature
 	case *extmsgs.Signature:
-		wrapper, err := sigToWrapper(msg, cs.notaryGroup, cs.signer, false)
+		wrapper, err := sigToWrapper(msg, csw.notaryGroup, csw.signer, false)
 		if err != nil {
 			panic(fmt.Sprintf("error wrapping sig: %v", err))
 		}
@@ -282,7 +291,7 @@ func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor
 		csw.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
 
 		if !cs.didSign {
-			context.RequestWithCustomSender(cs.signatureGenerator, transaction, csw.router)
+			context.RequestWithCustomSender(csw.signatureGenerator, transaction, csw.router)
 			transSpan.SetTag("didSign", true)
 			cs.didSign = true
 		}
@@ -299,7 +308,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 
 	csw.Log.Debugw("handle new signature", "t", msg.Signature.TransactionID)
 	if msg.Internal {
-		context.Send(cs.signatureSender, msg)
+		context.Send(csw.signatureSender, msg)
 	}
 	if len(msg.Signers) > 1 {
 		panic(fmt.Sprintf("currently we don't handle multi signer signatures here"))
@@ -342,7 +351,7 @@ func (csw *ConflictSetWorker) checkState(cs *ConflictSet, context actor.Context,
 		// we know there will be another check state message with a higher update
 		return
 	}
-	if trans := cs.possiblyDone(); trans != nil {
+	if trans := csw.possiblyDone(cs); trans != nil {
 		transSpan := trans.NewSpan("checkState")
 		defer transSpan.Finish()
 		// we have a possibly done transaction, lets make a current state
@@ -352,7 +361,7 @@ func (csw *ConflictSetWorker) checkState(cs *ConflictSet, context actor.Context,
 		return
 	}
 
-	if cs.deadlocked() {
+	if csw.deadlocked(cs) {
 		csw.handleDeadlockedState(cs, context)
 	}
 }
@@ -464,7 +473,7 @@ func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Cont
 	}
 	var verKeys [][]byte
 
-	signers := cs.notaryGroup.AllSigners()
+	signers := csw.notaryGroup.AllSigners()
 	for i, signer := range signers {
 		isSet, err := signerArray.GetBit(uint64(i))
 		if err != nil {
@@ -476,7 +485,7 @@ func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Cont
 	}
 
 	csw.Log.Debugw("checking signature", "len", len(verKeys))
-	resp, err := context.RequestFuture(cs.signatureChecker, &messages.SignatureVerification{
+	resp, err := context.RequestFuture(csw.signatureChecker, &messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,
 		VerKeys:   verKeys,
@@ -533,11 +542,11 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 }
 
 // returns a transaction with enough signatures or nil if none yet exist
-func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
+func (csw *ConflictSetWorker) possiblyDone(cs *ConflictSet) *messages.TransactionWrapper {
 	sp := cs.NewSpan("possiblyDone")
 	defer sp.Finish()
 
-	count := cs.notaryGroup.QuorumCount()
+	count := csw.notaryGroup.QuorumCount()
 	for tID, sigList := range cs.signatures {
 		if uint64(len(sigList)) >= count {
 			return cs.transactions[tID]
@@ -546,12 +555,12 @@ func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 	return nil
 }
 
-func (cs *ConflictSet) deadlocked() bool {
+func (csw *ConflictSetWorker) deadlocked(cs *ConflictSet) bool {
 	sp := cs.NewSpan("isDeadlocked")
 	defer sp.Finish()
 
-	unknownSigCount := len(cs.notaryGroup.Signers) - len(cs.signerSigs)
-	quorumAt := cs.notaryGroup.QuorumCount()
+	unknownSigCount := len(csw.notaryGroup.Signers) - len(cs.signerSigs)
+	quorumAt := csw.notaryGroup.QuorumCount()
 	if len(cs.signerSigs) == 0 {
 		return false
 	}

@@ -66,7 +66,16 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		csr.Log.Debugw("spawning", "self", context.Self().String())
-		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(context.Self()), "csrPool")
+		cfg := csr.cfg
+		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(&ConflictSetConfig{
+			ConflictSetRouter:  context.Self(),
+			CurrentStateStore:  cfg.CurrentStateStore,
+			NotaryGroup:        cfg.NotaryGroup,
+			Signer:             cfg.Signer,
+			SignatureChecker:   cfg.SignatureChecker,
+			SignatureGenerator: cfg.SignatureGenerator,
+			SignatureSender:    cfg.SignatureSender,
+		}), "csrPool")
 		if err != nil {
 			panic(fmt.Errorf("error spawning csrPool: %v", err))
 		}
@@ -144,18 +153,10 @@ func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *C
 func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *ConflictSet {
 	csr.Log.Debugw("new conflict set", "id", id)
 	cfg := csr.cfg
-	cs := NewConflictSet(&ConflictSetConfig{
-		ID:                 id,
-		CurrentStateStore:  cfg.CurrentStateStore,
-		NotaryGroup:        cfg.NotaryGroup,
-		Signer:             cfg.Signer,
-		SignatureChecker:   cfg.SignatureChecker,
-		SignatureGenerator: cfg.SignatureGenerator,
-		SignatureSender:    cfg.SignatureSender,
-	})
+	cs := NewConflictSet(id)
 	sp := cs.StartTrace("conflictset")
 	sp.SetTag("csid", id)
-	sp.SetTag("signer", cs.signer.ID)
+	sp.SetTag("signer", cfg.Signer.ID)
 	return cs
 }
 
