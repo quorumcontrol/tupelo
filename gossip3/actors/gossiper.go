@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
@@ -58,8 +57,6 @@ func NewGossiperProps(kind string, storage *actor.PID, system system, pusherProp
 		plugin.Use(&middleware.LogPlugin{}),
 	).WithSupervisor(
 		supervisor,
-	).WithDispatcher(
-		mailbox.NewSynchronizedDispatcher(300),
 	)
 }
 
