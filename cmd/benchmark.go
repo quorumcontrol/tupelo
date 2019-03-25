@@ -12,12 +12,14 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
+	opentracing "github.com/opentracing/opentracing-go"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	"github.com/spf13/cobra"
 )
 
@@ -45,41 +47,47 @@ var activeCounter = 0
 func measureTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, trans messages.Transaction) {
 
 	startTime := time.Now()
-
 	did := string(trans.ObjectID)
 	newTip, err := cid.Cast(trans.NewTip)
 	if err != nil {
 		results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
 	}
 
+	sp := opentracing.StartSpan("benchmark-transaction")
+	sp.SetTag("chainId", did)
+	defer sp.Finish()
+
 	respChan, err := client.Subscribe(group.GetRandomSigner(), did, newTip, 30*time.Second)
+
+	var errMsg string
+
 	if err != nil {
-		results.Errors = append(results.Errors, fmt.Errorf("subscription failed %v", err).Error())
-		results.Failures = results.Failures + 1
-		activeCounter--
-		return
+		errMsg = fmt.Errorf("subscription failed %v", err).Error()
+	} else {
+		// Wait for response
+		resp := <-respChan
+
+		switch msg := resp.(type) {
+		case *messages.CurrentState:
+			elapsed := time.Since(startTime)
+			duration := int(elapsed / time.Millisecond)
+			results.Durations = append(results.Durations, duration)
+			results.Successes = results.Successes + 1
+		case *messages.Error:
+			errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
+		case *actor.ReceiveTimeout:
+			errMsg = fmt.Sprintf("%s - timeout", did)
+		case nil:
+			errMsg = fmt.Sprintf("%s - nil response from channel", did)
+		default:
+			errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
+		}
 	}
 
-	// Wait for response
-	resp := <-respChan
-
-	switch msg := resp.(type) {
-	case *messages.CurrentState:
-		elapsed := time.Since(startTime)
-		duration := int(elapsed / time.Millisecond)
-		results.Durations = append(results.Durations, duration)
-		results.Successes = results.Successes + 1
-	case *messages.Error:
-		results.Errors = append(results.Errors, fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo))
-		results.Failures = results.Failures + 1
-	case *actor.ReceiveTimeout:
-		results.Errors = append(results.Errors, fmt.Sprintf("%s - timeout", did))
-		results.Failures = results.Failures + 1
-	case nil:
-		results.Errors = append(results.Errors, fmt.Sprintf("%s - nil response from channel", did))
-		results.Failures = results.Failures + 1
-	default:
-		results.Errors = append(results.Errors, fmt.Sprintf("%s - unkown error: %v", did, resp))
+	if errMsg != "" {
+		sp.SetTag("error", true)
+		sp.SetTag("errormessage", errMsg)
+		results.Errors = append(results.Errors, errMsg)
 		results.Failures = results.Failures + 1
 	}
 
@@ -159,6 +167,17 @@ var benchmark = &cobra.Command{
 		gossip3remote.Start()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
+		if enableElasticTracing && enableJaegerTracing {
+			panic("only one tracing library may be used at once")
+		}
+		if enableJaegerTracing {
+			tracing.StartJaeger("benchmarker")
+			defer tracing.StopJaeger()
+		}
+		if enableElasticTracing {
+			tracing.StartElastic()
+		}
 
 		key, err := crypto.GenerateKey()
 		if err != nil {
@@ -255,4 +274,6 @@ func init() {
 	benchmark.Flags().IntVarP(&benchmarkSignersFanoutNumber, "fanout", "f", 1, "how many signers to fanout to on sending a transaction")
 	benchmark.Flags().IntVarP(&benchmarkStartDelay, "start-delay", "d", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stablize first")
 	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
+	benchmark.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
+	benchmark.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
 }
