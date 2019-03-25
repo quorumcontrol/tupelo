@@ -14,6 +14,8 @@ phases:
       - ssh-add ~/.ssh/id_rsa
       - bin/install-dep.sh
       - /go/bin/dep ensure
+      - ./scripts/download-golangci-lint.sh
   build:
     commands:
+      - golangci-lint run
       - go test ./... -tags=integration
