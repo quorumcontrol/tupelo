@@ -22,12 +22,20 @@ import (
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
+	"github.com/jakehl/goid"
 )
 
 type RPCSession struct {
 	client    *gossip3client.Client
 	wallet    *wallet.FileWallet
 	isStarted bool
+}
+
+type TokenPayload struct {
+	TransactionId string
+	Tip cid.Cid
+	Signature consensus.Signature
+	Leaves map[string]interface{}
 }
 
 type ExistingChainError struct {
@@ -195,7 +203,7 @@ func (rpcs *RPCSession) CreateChain(keyAddr string, storageAdapterConfig *adapte
 
 	key, err := rpcs.getKey(keyAddr)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting key: %v", err)
+		return nil, fmt.Errorf("error getting key: %v", err)
 	}
 
 	if rpcs.chainExists(key.PublicKey) {
@@ -375,7 +383,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 
 	err = rpcs.wallet.SaveChain(chain)
 	if err != nil {
-		return nil, fmt.Errorf("Error saving chain: %v", err)
+		return nil, fmt.Errorf("error saving chain: %v", err)
 	}
 
 	return resp, nil
@@ -490,4 +498,123 @@ func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName stri
 	}
 
 	return resp.Tip, nil
+}
+
+func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) (map[string]interface{}, error) {
+	tokenPath, err := consensus.PathForToken(tokenName)
+	if err != nil {
+		return nil, err
+	}
+	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
+	tokenPath = append(tokenPath, consensus.TokenSendLabel)
+
+	allNodesMap := make(map[string]interface{})
+	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
+	if codedErr != nil {
+		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
+	}
+	var sendToken *consensus.SendTokenPayload
+	codedErr = cbornode.DecodeInto(sendTokenNode.RawData(), sendToken)
+	allNodesMap[sendNodeId.String()] = sendToken
+
+	// TODO: Consider generalizing this; it will be useful elsewhere (possibly in the client)
+	for i := len(tokenPath); i > 0; i-- {
+		p := tokenPath[:i-1]
+		node, remaining, err := chain.ChainTree.Dag.Resolve(p)
+		if err != nil {
+			return nil, err
+		}
+		if len(remaining) > 0 {
+			return nil, fmt.Errorf("unresolvable token path elements: %v", remaining)
+		}
+		nMap := node.(map[string]interface{})
+
+		sw := safewrap.SafeWrap{}
+		wrappedNode := sw.WrapObject(nMap)
+		if sw.Err != nil {
+			return nil, fmt.Errorf("error wrapping node: %v", sw.Err)
+		}
+		nodeId := wrappedNode.Cid()
+
+		allNodesMap[nodeId.String()] = nMap
+	}
+
+	return allNodesMap, nil
+}
+
+func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName string, destinationChainId string, amount uint64) (*TokenPayload, error) {
+	if rpcs.IsStopped() {
+		return nil, StoppedError
+	}
+
+	transactionId := goid.NewV4UUID()
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
+		{
+			Type: consensus.TransactionTypeSendToken,
+			Payload: consensus.SendTokenPayload{
+				Id:          transactionId.String(),
+				Name:        tokenName,
+				Amount:      amount,
+				Destination: destinationChainId,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenPath, err := consensus.PathForToken(tokenName)
+	if err != nil {
+		return nil, err
+	}
+	// We have the chaintree root here, not just the tree, so prepend TreeLabel to the path
+	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
+
+	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, tokenPath, consensus.TokenSendLabel)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenSendTx := cid.Undef
+	for _, sendTxCid := range tokenSends {
+		sendTxNode, err := chain.ChainTree.Dag.Get(sendTxCid)
+		if err != nil {
+			return nil, err
+		}
+
+		sendTxNodeObj, err := nodestore.CborNodeToObj(sendTxNode)
+		if err != nil {
+			return nil, err
+		}
+
+		sendTxNodeMap := sendTxNodeObj.(map[string]interface{})
+		if sendTxNodeMap["id"] == transactionId.String() {
+			tokenSendTx = sendTxCid
+			break
+		}
+	}
+
+	if !tokenSendTx.Defined() {
+		return nil, fmt.Errorf("send token transaction not found for ID: %s", transactionId.String())
+	}
+
+	tokenNodes, err := allSendTokenNodes(chain, tokenName, tokenSendTx)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := &TokenPayload{
+		TransactionId: transactionId.String(),
+		Tip:           *resp.Tip,
+		Signature:     resp.Signature,
+		Leaves:        tokenNodes,
+	}
+
+	return payload, nil
 }
