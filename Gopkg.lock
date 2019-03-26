@@ -1318,7 +1318,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  branch = "rename/coin-to-token"
+  branch = "master"
   digest = "1:95ac8283490badafa44997f7dd622245ef8cc2cd6560d304555b43a90dd199e9"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
@@ -1334,7 +1334,7 @@
     "tracing",
   ]
   pruneopts = ""
-  revision = "a6aa36c4385ebacc343162119e06facec82a37de"
+  revision = "b6794c8e414acbe8e2fd8f905803e6d1939517e3"
 
 [[projects]]
   digest = "1:d367886e3a8134415fad58fb2ac44e2f38aa88068adca7a02d59a555f87085c0"
@@ -1835,6 +1835,7 @@
     "github.com/ipsn/go-ipfs/plugin/loader",
     "github.com/ipsn/go-ipfs/repo/fsrepo",
     "github.com/mitchellh/go-homedir",
+    "github.com/opentracing/opentracing-go",
     "github.com/quorumcontrol/chaintree/chaintree",
     "github.com/quorumcontrol/chaintree/dag",
     "github.com/quorumcontrol/chaintree/nodestore",
