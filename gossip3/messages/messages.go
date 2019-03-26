@@ -4,6 +4,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 )
 
 type MetadataMap map[string]interface{}
@@ -95,11 +96,14 @@ type CurrentStateWrapper struct {
 }
 
 type TransactionWrapper struct {
+	tracing.ContextHolder
+
 	ConflictSetID string
 	TransactionID []byte
 	Transaction   *extmsgs.Transaction
 	PreFlight     bool
 	Accepted      bool
+	Stale         bool
 	Key           []byte
 	Value         []byte
 	Metadata      MetadataMap
@@ -115,7 +119,7 @@ type BulkRemove struct {
 
 type SendingDone struct{}
 
-type ProcessSnoozedTransactions struct {
+type ActivateSnoozingConflictSets struct {
 	ObjectID []byte
 }
 

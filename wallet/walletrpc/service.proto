@@ -131,25 +131,25 @@ message ResolveResponse {
   bytes data = 2;
 }
 
-message EstablishCoinRequest {
+message EstablishTokenRequest {
   string chain_id = 2;
   string key_addr = 3;
-  string coin_name = 4;
+  string token_name = 4;
   uint64 maximum = 5;
 }
 
-message EstablishCoinResponse {
+message EstablishTokenResponse {
   string tip = 1;
 }
 
-message MintCoinRequest {
+message MintTokenRequest {
   string chain_id = 2;
   string key_addr = 3;
-  string coin_name = 4;
+  string token_name = 4;
   uint64 amount = 5;
 }
 
-message MintCoinResponse {
+message MintTokenResponse {
   string tip = 1;
 }
 
@@ -234,7 +234,7 @@ service WalletRPCService {
       };
   };
 
-  rpc EstablishCoin (EstablishCoinRequest) returns (EstablishCoinResponse){
+  rpc EstablishToken (EstablishTokenRequest) returns (EstablishTokenResponse){
     option (google.api.http) =
       {
        post: "/api/v1/chains/{chain_id}/tokens"
@@ -242,10 +242,10 @@ service WalletRPCService {
       };
   };
 
-  rpc MintCoin (MintCoinRequest) returns (MintCoinResponse){
+  rpc MintToken (MintTokenRequest) returns (MintTokenResponse){
     option (google.api.http) =
       {
-       put: "/api/v1/chains/{chain_id}/tokens/{coin_name}"
+       put: "/api/v1/chains/{chain_id}/tokens/{token_name}"
        body: "*"
       };
   };

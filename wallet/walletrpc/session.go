@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	fmt "fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -16,8 +17,8 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -289,8 +290,19 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 		storageAdapterConfig = rpcs.defaultChainStorage(signedChainTree.MustId())
 	}
 
-	rpcs.wallet.ConfigureChainStorage(signedChainTree.MustId(), storageAdapterConfig)
-	rpcs.wallet.SaveChain(signedChainTree)
+	if err = rpcs.wallet.ConfigureChainStorage(signedChainTree.MustId(), storageAdapterConfig); err != nil {
+		log.Printf("failed to configure chain storage (chain ID: %s): %s",
+			signedChainTree.MustId(), err)
+		// TODO: Enable
+		// return nil, fmt.Errorf("failed to configure chain storage (chain ID: %s): %s",
+		// 	signedChainTree.MustId(), err)
+	}
+	if err = rpcs.wallet.SaveChain(signedChainTree); err != nil {
+		log.Printf("failed to save chain tree with ID %s: %s", signedChainTree.MustId(), err)
+		// TODO: Enable
+		// return nil, fmt.Errorf("failed to save chain tree with ID %s: %s",
+		// signedChainTree.MustId(), err)
+	}
 
 	return signedChainTree, nil
 }
@@ -429,17 +441,17 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 	return chain.ChainTree.Dag.Resolve(path)
 }
 
-func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) EstablishToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeEstablishCoin,
-			Payload: consensus.EstablishCoinPayload{
-				Name:           coinName,
-				MonetaryPolicy: consensus.CoinMonetaryPolicy{Maximum: amount},
+			Type: consensus.TransactionTypeEstablishToken,
+			Payload: consensus.EstablishTokenPayload{
+				Name:           tokenName,
+				MonetaryPolicy: consensus.TokenMonetaryPolicy{Maximum: amount},
 			},
 		},
 	})
@@ -450,16 +462,16 @@ func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName s
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) MintCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeMintCoin,
-			Payload: consensus.MintCoinPayload{
-				Name:   coinName,
+			Type: consensus.TransactionTypeMintToken,
+			Payload: consensus.MintTokenPayload{
+				Name:   tokenName,
 				Amount: amount,
 			},
 		},

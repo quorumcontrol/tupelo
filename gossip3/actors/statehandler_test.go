@@ -81,7 +81,8 @@ func TestChainTreeStateHandler(t *testing.T) {
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
-	testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(blockWithHeaders)
+	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
 	stateTrans2 := &stateTransaction{
@@ -91,7 +92,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans2)
+	_, _, err = chainTreeStateHandler(stateTrans2)
 	assert.NotNil(t, err)
 
 	transHeight++
@@ -136,7 +137,8 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(blockWithHeaders)
+	assert.Nil(t, err)
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
@@ -232,7 +234,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans5)
+	_, _, err = chainTreeStateHandler(stateTrans5)
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
@@ -282,7 +284,7 @@ func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Tr
 	}
 }
 
-func TestSigner_CoinTransactions(t *testing.T) {
+func TestSigner_TokenTransactions(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -294,9 +296,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "ESTABLISH_COIN",
+					Type: "ESTABLISH_TOKEN",
 					Payload: map[string]interface{}{
-						"name": "testcoin",
+						"name": "testtoken",
 						"monetaryPolicy": map[string]interface{}{
 							"maximum": 8675309,
 						},
@@ -329,16 +331,17 @@ func TestSigner_CoinTransactions(t *testing.T) {
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
-	testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(blockWithHeaders)
+	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
 	tip, err := cid.Cast(newState)
 	require.Nil(t, err)
-	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, tip, trans))
+	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
-	// Can mint from established coin
+	// Can mint from established token
 	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
@@ -346,9 +349,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 				Height:      uint64(testIndex) + 1,
 				Transactions: []*chaintree.Transaction{
 					{
-						Type: "MINT_COIN",
+						Type: "MINT_TOKEN",
 						Payload: map[string]interface{}{
-							"name":   "testcoin",
+							"name":   "testtoken",
 							"amount": testAmount,
 						},
 					},
@@ -372,11 +375,12 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		assert.Nil(t, err)
 		assert.True(t, isAccepted)
 
-		testTree.ProcessBlock(blockWithHeaders)
+		_, err = testTree.ProcessBlock(blockWithHeaders)
+		assert.Nil(t, err)
 
 		assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "coins", "testcoin", "mints", fmt.Sprint(testIndex), "amount"})
+		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "mints", fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
 		assert.Equal(t, mintAmount, testAmount)
 	}
@@ -387,9 +391,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "MINT_COIN",
+					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
-						"name":   "testcoin",
+						"name":   "testtoken",
 						"amount": 675309,
 					},
 				},
@@ -408,7 +412,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -418,9 +422,9 @@ func TestSigner_CoinTransactions(t *testing.T) {
 			PreviousTip: &testTree.Dag.Tip,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "MINT_COIN",
+					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
-						"name":   "testcoin",
+						"name":   "testtoken",
 						"amount": -42,
 					},
 				},
@@ -439,7 +443,7 @@ func TestSigner_CoinTransactions(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }
@@ -451,6 +455,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	assert.Nil(t, err)
 
 	savedcid := emptyTree.Tip
 
@@ -487,7 +492,8 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(blockWithHeaders)
+	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
 	tip, _ := cid.Cast(newState)
@@ -523,7 +529,8 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	testTree.ProcessBlock(blockWithHeaders2)
+	_, err = testTree.ProcessBlock(blockWithHeaders2)
+	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
 	// test that a nil PreviousTip fails
@@ -557,7 +564,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders3).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans3))
+	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans3))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }

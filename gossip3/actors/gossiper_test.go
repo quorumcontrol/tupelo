@@ -40,18 +40,6 @@ func (fv *fakeValidator) Receive(context actor.Context) {
 	}
 }
 
-func (fv *fakeValidator) notifyWorking() {
-	for _, act := range fv.subscriptions {
-		act.Tell(&messages.ValidatorWorking{})
-	}
-}
-
-func (fv *fakeValidator) notifyClear() {
-	for _, act := range fv.subscriptions {
-		act.Tell(&messages.ValidatorClear{})
-	}
-}
-
 func TestGossiper(t *testing.T) {
 	var pusherMsgs []interface{}
 	// var currentPusher *actor.PID
@@ -60,18 +48,20 @@ func TestGossiper(t *testing.T) {
 		// currentPusher = context.Self()
 	}
 
-	pusherProps := actor.FromFunc(fakePusher)
+	rootContext := actor.EmptyRootContext
+
+	pusherProps := actor.PropsFromFunc(fakePusher)
 
 	validator := &fakeValidator{}
-	storage := actor.Spawn(actor.FromFunc(validator.Receive))
+	storage := rootContext.Spawn(actor.PropsFromFunc(validator.Receive))
 	defer storage.Poison()
 
 	system := new(fakeSystem)
 
-	gossiper := actor.Spawn(NewGossiperProps("test", storage, system, pusherProps))
+	gossiper := rootContext.Spawn(NewGossiperProps("test", storage, system, pusherProps))
 	defer gossiper.Poison()
 
-	gossiper.Tell(&messages.StartGossip{})
+	rootContext.Send(gossiper, &messages.StartGossip{})
 	time.Sleep(100 * time.Millisecond)
 	assert.Len(t, pusherMsgs, 2)
 	assert.IsType(t, pusherMsgs[0], &actor.Started{})
@@ -79,7 +69,7 @@ func TestGossiper(t *testing.T) {
 
 	// doing another push should have no affect
 	middleware.Log.Infow("do one gossip")
-	gossiper.Tell(&messages.DoOneGossip{})
+	rootContext.Send(gossiper, &messages.DoOneGossip{})
 
 	assert.Len(t, pusherMsgs, 2)
 }
@@ -87,16 +77,17 @@ func TestGossiper(t *testing.T) {
 func TestFastGossip(t *testing.T) {
 	system := new(fakeSystem)
 
+	rootContext := actor.EmptyRootContext
+
 	numNodes := 5
-	nodes := make([]*actor.PID, numNodes, numNodes)
-	stores := make([]*actor.PID, numNodes, numNodes)
+	nodes := make([]*actor.PID, numNodes)
+	stores := make([]*actor.PID, numNodes)
 	for i := 0; i < numNodes; i++ {
-		storage := actor.Spawn(NewStorageProps(storage.NewMemStorage()))
+		storage := rootContext.Spawn(NewStorageProps(storage.NewMemStorage()))
 		stores[i] = storage
 		defer storage.Poison()
 		pusherProps := NewPushSyncerProps("test", storage)
-		gossiper, err := actor.SpawnPrefix(NewGossiperProps("test", storage, system, pusherProps), "g")
-		require.Nil(t, err)
+		gossiper := rootContext.SpawnPrefix(NewGossiperProps("test", storage, system, pusherProps), "g")
 		defer gossiper.Poison()
 		nodes[i] = gossiper
 	}
@@ -107,13 +98,13 @@ func TestFastGossip(t *testing.T) {
 	for i := 0; i < 1000; i++ {
 		value := []byte(strconv.Itoa(i))
 		key := crypto.Keccak256(value)
-		stores[rand.Intn(len(stores))].Tell(&extmsgs.Store{
+		rootContext.Send(stores[rand.Intn(len(stores))], &extmsgs.Store{
 			Key:   key,
 			Value: value,
 		})
 	}
 	for _, node := range nodes {
-		node.Tell(&messages.StartGossip{})
+		rootContext.Send(node, &messages.StartGossip{})
 	}
 
 	value := []byte("hi")
@@ -126,18 +117,18 @@ func TestFastGossip(t *testing.T) {
 			switch msg := context.Message().(type) {
 			case *extmsgs.Store:
 				if bytes.Equal(msg.Key, key) {
-					fut.PID().Tell(msg)
+					context.Send(fut.PID(), msg)
 				}
 			}
 		}
-		act := actor.Spawn(actor.FromFunc(subActor))
-		store.Tell(&messages.Subscribe{Subscriber: act})
+		act := rootContext.Spawn(actor.PropsFromFunc(subActor))
+		rootContext.Send(store, &messages.Subscribe{Subscriber: act})
 
 		actorsToKill = append(actorsToKill, act)
 		return fut
 	}
 
-	futures := make([]*actor.Future, len(stores)-1, len(stores)-1)
+	futures := make([]*actor.Future, len(stores)-1)
 	for i := 1; i < len(stores); i++ {
 		futures[i-1] = subscribe(key, stores[i])
 	}
@@ -147,7 +138,7 @@ func TestFastGossip(t *testing.T) {
 		}
 	}()
 
-	stores[0].Tell(&extmsgs.Store{
+	rootContext.Send(stores[0], &extmsgs.Store{
 		Key:   key,
 		Value: value,
 	})

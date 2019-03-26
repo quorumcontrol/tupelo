@@ -30,6 +30,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultPort = 50051
+
 func unmarshalKeys(keySet interface{}, bytes []byte) error {
 	if bytes != nil {
 		err := json.Unmarshal(bytes, keySet)
@@ -52,18 +54,14 @@ func loadKeyFile(keySet interface{}, path string, name string) error {
 
 func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
 	var keySet []*PublicKeySet
-	var err error
-
-	err = loadKeyFile(&keySet, path, publicKeyFile)
+	err := loadKeyFile(&keySet, path, publicKeyFile)
 
 	return keySet, err
 }
 
 func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
 	var keySet []*PrivateKeySet
-	var err error
-
-	err = loadKeyFile(&keySet, path, privateKeyFile)
+	err := loadKeyFile(&keySet, path, privateKeyFile)
 
 	return keySet, err
 }
@@ -108,13 +106,17 @@ func syncerActorName(signer *gossip3types.Signer) string {
 
 func signerCommitPath(storagePath string, signer *gossip3types.Signer) (path string) {
 	path = filepath.Join(storagePath, signer.ID+"-commit")
-	os.MkdirAll(path, 0755)
+	if err := os.MkdirAll(path, 0755); err != nil {
+		panic(err)
+	}
 	return
 }
 
 func signerCurrentPath(storagePath string, signer *gossip3types.Signer) (path string) {
 	path = filepath.Join(storagePath, signer.ID+"-current")
-	os.MkdirAll(path, 0755)
+	if err := os.MkdirAll(path, 0755); err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -175,21 +177,10 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 	}
 
 	for _, signer := range group.AllSigners() {
-		signer.Actor.Tell(&messages.StartGossip{})
+		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 	}
 
 	return group
-}
-
-func bootstrapAddresses(bootstrapHost p2p.Node) []string {
-	addresses := bootstrapHost.Addresses()
-	for _, addr := range addresses {
-		addrStr := addr.String()
-		if strings.Contains(addrStr, "127.0.0.1") {
-			return []string{addrStr}
-		}
-	}
-	return nil
 }
 
 func panicWithoutTLSOpts() {
@@ -237,9 +228,13 @@ var rpcServerCmd = &cobra.Command{
 				panic(fmt.Sprintf("error setting up p2p host: %v", err))
 			}
 			fmt.Println("Bootstrapping node")
-			p2pHost.Bootstrap(p2p.BootstrapNodes())
+			if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
+				panic(err)
+			}
 			fmt.Println("Waiting for bootstrap")
-			p2pHost.WaitForBootstrap(1, 10*time.Second)
+			if err = p2pHost.WaitForBootstrap(1, 10*time.Second); err != nil {
+				panic(err)
+			}
 			fmt.Println("Bootstrapped!")
 
 			gossip3remote.NewRouter(p2pHost)
@@ -255,13 +250,13 @@ var rpcServerCmd = &cobra.Command{
 
 		if tls {
 			panicWithoutTLSOpts()
-			server, err := walletrpc.ServeTLS(walletStorage, client, certFile, keyFile)
+			server, err := walletrpc.ServeTLS(walletStorage, client, certFile, keyFile, defaultPort)
 			if err != nil {
 				panic(err)
 			}
 			grpcServer = server
 		} else {
-			server, err := walletrpc.ServeInsecure(walletStorage, client)
+			server, err := walletrpc.ServeInsecure(walletStorage, client, defaultPort)
 			if err != nil {
 				panic(err)
 			}

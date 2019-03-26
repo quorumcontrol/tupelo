@@ -13,6 +13,7 @@ import (
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
@@ -26,6 +27,7 @@ type checkStateMsg struct {
 
 type ConflictSet struct {
 	middleware.LogAwareHolder
+	tracing.ContextHolder
 
 	ID                 string
 	currentStateStore  storage.Reader
@@ -35,14 +37,17 @@ type ConflictSet struct {
 	signatureSender    *actor.PID
 	signer             *types.Signer
 
-	done         bool
-	signatures   signaturesByTransaction
-	signerSigs   signaturesBySigner
-	didSign      bool
-	transactions transactionMap
-	view         uint64
-	updates      uint64
-	active       bool
+	done          bool
+	signatures    signaturesByTransaction
+	signerSigs    signaturesBySigner
+	didSign       bool
+	transactions  transactionMap
+	snoozedCommit *messages.CurrentStateWrapper
+	view          uint64
+	updates       uint64
+	active        bool
+
+	behavior actor.Behavior
 }
 
 type ConflictSetConfig struct {
@@ -56,8 +61,8 @@ type ConflictSetConfig struct {
 }
 
 func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
-		return &ConflictSet{
+	return actor.PropsFromProducer(func() actor.Actor {
+		c := &ConflictSet{
 			ID:                 cfg.ID,
 			currentStateStore:  cfg.CurrentStateStore,
 			notaryGroup:        cfg.NotaryGroup,
@@ -68,15 +73,30 @@ func NewConflictSetProps(cfg *ConflictSetConfig) *actor.Props {
 			signatures:         make(signaturesByTransaction),
 			signerSigs:         make(signaturesBySigner),
 			transactions:       make(transactionMap),
+			behavior:           actor.NewBehavior(),
 		}
-	}).WithMiddleware(
+
+		c.behavior.Become(c.NormalState)
+
+		return c
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
 
-func (cs *ConflictSet) Receive(context actor.Context) {
+func (cs *ConflictSet) Receive(ctx actor.Context) {
+	cs.behavior.Receive(ctx)
+}
+
+func (cs *ConflictSet) NormalState(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		sp := cs.StartTrace("conflictSet")
+		sp.SetTag("self", context.Self().String())
+		sp.SetTag("active", cs.active)
+	case *actor.Stopped:
+		cs.StopTrace()
 	case *messages.TransactionWrapper:
 		cs.handleNewTransaction(context, msg)
 	// this will be an external signature
@@ -90,66 +110,122 @@ func (cs *ConflictSet) Receive(context actor.Context) {
 		cs.handleNewSignature(context, msg)
 	case *extmsgs.CurrentState:
 		cs.Log.Errorw("something called this")
-	case *messages.CurrentStateWrapper:
-		cs.handleCurrentStateWrapper(context, msg)
-	case *extmsgs.Store:
-		cs.handleStore(context, msg)
 	case *commitNotification:
-		if cs.active {
-			cs.handleStore(context, msg.store)
-		} else {
-			snoozedTransactions := len(cs.transactions)
-			if snoozedTransactions > 0 {
-				panic(fmt.Errorf("received commit notification with %d snoozed transactions; this should not happen", snoozedTransactions))
-			}
+		err := cs.handleCommit(context, msg)
+		if err != nil {
+			panic(err)
 		}
 	case *checkStateMsg:
 		cs.checkState(context, msg)
-	case *messages.ProcessSnoozedTransactions:
-		if parent := context.Parent(); parent != nil {
-			for _, transaction := range cs.transactions {
-				context.Request(parent, &messages.ValidateTransaction{
-					Key:   transaction.Key,
-					Value: transaction.Value,
-				})
-			}
+	case *messages.ActivateSnoozingConflictSets:
+		cs.activate(context, msg)
+	}
+}
+
+func (cs *ConflictSet) activate(context actor.Context, msg *messages.ActivateSnoozingConflictSets) {
+	cs.Log.Debug("activate")
+
+	cs.active = true
+
+	var err error
+	if cs.snoozedCommit != nil {
+		err = cs.handleCurrentStateWrapper(context, cs.snoozedCommit)
+	}
+	if err != nil {
+		panic(fmt.Errorf("error processing snoozed commit: %v", err))
+	}
+
+	if cs.done {
+		// We had a valid commit already, so we're done
+		return
+	}
+
+	// no (valid) commit, so let's start validating any snoozed transactions
+	if parent := context.Parent(); parent != nil {
+		for _, transaction := range cs.transactions {
+			context.Request(parent, &messages.ValidateTransaction{
+				Key:   transaction.Key,
+				Value: transaction.Value,
+			})
 		}
 	}
 }
 
-func (cs *ConflictSet) handleStore(context actor.Context, msg *extmsgs.Store) {
-	cs.Log.Debugw("handleStore")
+func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotification) error {
+	cs.Log.Debug("handleCommit")
+
 	var currState extmsgs.CurrentState
-	_, err := currState.UnmarshalMsg(msg.Value)
+	_, err := currState.UnmarshalMsg(msg.store.Value)
 	if err != nil {
 		panic(fmt.Errorf("error unmarshaling: %v", err))
 	}
 	wrapper := &messages.CurrentStateWrapper{
 		CurrentState: &currState,
 		Internal:     false,
-		Key:          msg.Key,
-		Value:        msg.Value,
+		Key:          msg.store.Key,
+		Value:        msg.store.Value,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
-	cs.handleCurrentStateWrapper(context, wrapper)
+
+	if cs.active {
+		return cs.handleCurrentStateWrapper(context, wrapper)
+	} else {
+		verified, err := cs.validSignature(context, wrapper)
+		if err != nil {
+			panic(fmt.Errorf("error verifying signature: %v", err))
+		}
+		if verified {
+			wrapper.Verified = true
+			wrapper.Metadata["verifiedAt"] = time.Now()
+			if msg.height == msg.nextHeight {
+				cs.active = true
+				return cs.handleCurrentStateWrapper(context, wrapper)
+			}
+
+			cs.Log.Debug("snoozing commit for later")
+			if cs.snoozedCommit == nil {
+				cs.snoozedCommit = wrapper
+			} else {
+				panic(fmt.Errorf("received new commit with one already snoozed"))
+			}
+			return nil
+		}
+		return fmt.Errorf("signature not verified")
+	}
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {
-	cs.Log.Debugw("done cs received message")
 	// do nothing when in the done state
+	cs.Log.Debugw("done cs received message")
+	switch context.Message().(type) {
+	case *actor.Stopped:
+		cs.StopTrace()
+	}
 }
 
 func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
+	sp := cs.NewSpan("handleNewTransaction")
+	defer sp.Finish()
+	sp.SetTag("transaction", msg.TransactionID)
+
+	transSpan := msg.NewSpan("conflictset-handlenewtransaction")
+	defer transSpan.Finish()
+
 	cs.Log.Debugw("new transaction", "trans", msg.TransactionID)
 	if !msg.PreFlight && !msg.Accepted {
 		panic(fmt.Sprintf("we should only handle pre-flight or accepted transactions at this level"))
 	}
 
 	if msg.Accepted {
+		sp.SetTag("accepted", true)
+		sp.SetTag("active", true)
+		transSpan.SetTag("accepted", true)
 		cs.active = true
 	}
 
 	if !cs.active {
+		sp.SetTag("snoozing", true)
+		transSpan.SetTag("snoozing", true)
 		cs.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
@@ -159,27 +235,36 @@ func (cs *ConflictSet) handleNewTransaction(context actor.Context, msg *messages
 }
 
 func (cs *ConflictSet) processTransactions(context actor.Context) {
+	sp := cs.NewSpan("processTransactions")
+	defer sp.Finish()
+
 	if !cs.active {
 		panic(fmt.Errorf("error: processTransactions called on inactive ConflictSet"))
 	}
 
 	for _, transaction := range cs.transactions {
+		transSpan := transaction.NewSpan("conflictset-processing")
 		cs.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
 
 		if !cs.didSign {
 			context.Request(cs.signatureGenerator, transaction)
+			transSpan.SetTag("didSign", true)
 			cs.didSign = true
 		}
 		cs.updates++
+		transSpan.Finish()
 	}
 	// do this as a message to make sure we're doing it after all the updates have come in
-	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
+	context.Send(context.Self(), &checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.SignatureWrapper) {
+	sp := cs.NewSpan("handleNewSignature")
+	defer sp.Finish()
+
 	cs.Log.Debugw("handle new signature", "t", msg.Signature.TransactionID)
 	if msg.Internal {
-		cs.signatureSender.Tell(msg)
+		context.Send(cs.signatureSender, msg)
 	}
 	if len(msg.Signers) > 1 {
 		panic(fmt.Sprintf("currently we don't handle multi signer signatures here"))
@@ -207,19 +292,27 @@ func (cs *ConflictSet) handleNewSignature(context actor.Context, msg *messages.S
 	}
 
 	cs.updates++
-	context.Self().Tell(&checkStateMsg{atUpdate: cs.updates})
+	context.Send(context.Self(), &checkStateMsg{atUpdate: cs.updates})
 }
 
 func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
+	sp := cs.NewSpan("checkState")
+	defer sp.Finish()
+
 	cs.Log.Debugw("check state")
 	if cs.updates < msg.atUpdate {
 		cs.Log.Debugw("old update")
+		sp.SetTag("oldUpdate", true)
 		// we know there will be another check state message with a higher update
 		return
 	}
 	if trans := cs.possiblyDone(); trans != nil {
+		transSpan := trans.NewSpan("checkState")
+		defer transSpan.Finish()
 		// we have a possibly done transaction, lets make a current state
-		cs.createCurrentStateFromTrans(context, trans)
+		if err := cs.createCurrentStateFromTrans(context, trans); err != nil {
+			panic(err)
+		}
 		return
 	}
 
@@ -229,10 +322,14 @@ func (cs *ConflictSet) checkState(context actor.Context, msg *checkStateMsg) {
 }
 
 func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
+	sp := cs.NewSpan("handleDeadlockedState")
+	defer sp.Finish()
 	cs.Log.Debugw("handle deadlocked state")
 
 	var lowestTrans *messages.TransactionWrapper
 	for transID, trans := range cs.transactions {
+		transSpan := trans.NewSpan("handleDeadlockedState")
+		defer transSpan.Finish()
 		if lowestTrans == nil {
 			lowestTrans = trans
 			continue
@@ -247,6 +344,9 @@ func (cs *ConflictSet) handleDeadlockedState(context actor.Context) {
 }
 
 func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
+	sp := cs.NewSpan("nextView")
+	defer sp.Finish()
+
 	cs.view++
 	cs.didSign = false
 	cs.transactions = make(transactionMap)
@@ -258,6 +358,13 @@ func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
 }
 
 func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans *messages.TransactionWrapper) error {
+	sp := cs.NewSpan("createCurrentStateFromTrans")
+	defer sp.Finish()
+	transSpan := trans.NewSpan("createCurrentState")
+	defer transSpan.Finish()
+
+	sp.SetTag("winner", trans.TransactionID)
+
 	cs.Log.Debugw("createCurrentStateFromTrans", "t", trans.Key)
 	sigs := cs.signatures[string(trans.TransactionID)]
 	var sigBytes [][]byte
@@ -310,13 +417,14 @@ func (cs *ConflictSet) createCurrentStateFromTrans(context actor.Context, trans 
 	return cs.handleCurrentStateWrapper(context, currStateWrapper)
 }
 
-func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-	cs.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
+func (cs *ConflictSet) validSignature(context actor.Context, currWrapper *messages.CurrentStateWrapper) (bool, error) {
+	sp := cs.NewSpan("validSignature")
+	defer sp.Finish()
 
 	sig := currWrapper.CurrentState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling: %v", err)
+		return false, fmt.Errorf("error unmarshaling: %v", err)
 	}
 	var verKeys [][]byte
 
@@ -324,7 +432,7 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	for i, signer := range signers {
 		isSet, err := signerArray.GetBit(uint64(i))
 		if err != nil {
-			return fmt.Errorf("error getting bit: %v", err)
+			return false, fmt.Errorf("error getting bit: %v", err)
 		}
 		if isSet {
 			verKeys = append(verKeys, signer.VerKey.Bytes())
@@ -332,34 +440,58 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 	}
 
 	cs.Log.Debugw("checking signature", "len", len(verKeys))
-	resp, err := cs.signatureChecker.RequestFuture(&messages.SignatureVerification{
+	resp, err := context.RequestFuture(cs.signatureChecker, &messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,
 		VerKeys:   verKeys,
 	}, 10*time.Second).Result()
 
 	if err != nil {
-		return fmt.Errorf("error waiting for signature validation: %v", err)
+		return false, fmt.Errorf("error waiting for signature validation: %v", err)
 	}
 
-	if resp.(*messages.SignatureVerification).Verified {
-		currWrapper.Metadata["verifiedAt"] = time.Now()
-		currWrapper.Verified = true
-		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions), len(cs.transactions))
+	return resp.(*messages.SignatureVerification).Verified, nil
+}
+
+func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	sp := cs.NewSpan("handleCurrentStateWrapper")
+	defer sp.Finish()
+
+	cs.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
+
+	if !currWrapper.Verified {
+		verified, err := cs.validSignature(context, currWrapper)
+		if err != nil {
+			panic(fmt.Errorf("error verifying signature: %v", err))
+		}
+		if verified {
+			currWrapper.Verified = true
+			currWrapper.Metadata["verifiedAt"] = time.Now()
+		}
+	}
+
+	if currWrapper.Verified {
+		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
+			transSpan := t.NewSpan("handleCurrentStateWrapper")
+			defer transSpan.Finish()
+			transSpan.SetTag("done", true)
 			currWrapper.CleanupTransactions[i] = t
 			i++
 		}
 
 		cs.done = true
+		sp.SetTag("done", true)
 		cs.Log.Debugw("done")
-		context.SetBehavior(cs.DoneReceive)
+		cs.behavior.Become(cs.DoneReceive)
 
 		if parent := context.Parent(); parent != nil {
-			parent.Tell(currWrapper)
+			context.Send(parent, currWrapper)
 		}
 	} else {
+		sp.SetTag("badSignature", true)
+		sp.SetTag("error", true)
 		cs.Log.Errorw("signature not verified")
 	}
 	return nil
@@ -367,6 +499,9 @@ func (cs *ConflictSet) handleCurrentStateWrapper(context actor.Context, currWrap
 
 // returns a transaction with enough signatures or nil if none yet exist
 func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
+	sp := cs.NewSpan("possiblyDone")
+	defer sp.Finish()
+
 	count := cs.notaryGroup.QuorumCount()
 	for tID, sigList := range cs.signatures {
 		cs.Log.Debugw("check count", "t", []byte(tID), "len", len(sigList), "quorumAt", count)
@@ -378,6 +513,9 @@ func (cs *ConflictSet) possiblyDone() *messages.TransactionWrapper {
 }
 
 func (cs *ConflictSet) deadlocked() bool {
+	sp := cs.NewSpan("isDeadlocked")
+	defer sp.Finish()
+
 	unknownSigCount := len(cs.notaryGroup.Signers) - len(cs.signerSigs)
 	quorumAt := cs.notaryGroup.QuorumCount()
 	if len(cs.signerSigs) == 0 {

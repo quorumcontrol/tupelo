@@ -5,14 +5,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -26,7 +27,6 @@ import (
 
 const (
 	defaultWebPort    = ":50050"
-	defaultRpcPort    = ":50051"
 	walletMetaKey     = "wallet"
 	passphraseMetaKey = "passphrase"
 )
@@ -431,7 +431,7 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 	}, nil
 }
 
-func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (*EstablishCoinResponse, error) {
+func (s *server) EstablishToken(ctx context.Context, req *EstablishTokenRequest) (*EstablishTokenResponse, error) {
 	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
@@ -449,17 +449,17 @@ func (s *server) EstablishCoin(ctx context.Context, req *EstablishCoinRequest) (
 
 	defer session.Stop()
 
-	tipCid, err := session.EstablishCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Maximum)
+	tipCid, err := session.EstablishToken(req.ChainId, req.KeyAddr, req.TokenName, req.Maximum)
 	if err != nil {
 		return nil, err
 	}
 
-	return &EstablishCoinResponse{
+	return &EstablishTokenResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
 
-func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinResponse, error) {
+func (s *server) MintToken(ctx context.Context, req *MintTokenRequest) (*MintTokenResponse, error) {
 	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
@@ -477,22 +477,35 @@ func (s *server) MintCoin(ctx context.Context, req *MintCoinRequest) (*MintCoinR
 
 	defer session.Stop()
 
-	tipCid, err := session.MintCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Amount)
+	tipCid, err := session.MintToken(req.ChainId, req.KeyAddr, req.TokenName, req.Amount)
 	if err != nil {
 		return nil, err
 	}
 
-	return &MintCoinResponse{
+	return &MintTokenResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
 
-func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
-	log.Printf("Starting Tupelo RPC server, listening on port %v\n", defaultRpcPort)
+func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client, port int) (*grpc.Server, error) {
+	fmt.Println("Starting Tupelo RPC server")
 
-	listener, err := net.Listen("tcp", defaultRpcPort)
+	// By providing port 0 to net.Listen, we get a randomized one
+	if port <= 0 {
+		port = 0
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		return nil, err
+		log.Printf("Failed to open listener: %s", err)
+		return nil, fmt.Errorf("failed to open listener: %s", err)
+	}
+
+	if port == 0 {
+		comps := strings.Split(listener.Addr().String(), ":")
+		port, err = strconv.Atoi(comps[len(comps)-1])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	s := &server{
@@ -504,6 +517,7 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	reflection.Register(grpcServer)
 
 	go func() {
+		fmt.Println("Listening on port", port)
 		err := grpcServer.Serve(listener)
 		if err != nil {
 			log.Printf("error serving: %v", err)
@@ -512,24 +526,31 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	return grpcServer, nil
 }
 
-func ServeInsecure(storagePath string, client *gossip3client.Client) (*grpc.Server, error) {
-	grpcServer, err := startServer(grpc.NewServer(), storagePath, client)
+// Start gRPC unsecured server.
+// Passing 0 for port means to pick any available port.
+func ServeInsecure(storagePath string, client *gossip3client.Client, port int) (
+	*grpc.Server, error) {
+	grpcServer, err := startServer(grpc.NewServer(), storagePath, client, port)
 	if err != nil {
 		return nil, fmt.Errorf("error starting: %v", err)
 	}
 	return grpcServer, nil
 }
 
-func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string) (*grpc.Server, error) {
+// Start gRPC server secured with TLS.
+// Passing 0 for port means to pick any available port.
+func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string,
+	port int) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create server TLS credentials from cert %s and key %s: %s",
+			certFile, keyFile, err)
 	}
 
 	credsOption := grpc.Creds(creds)
 	grpcServer := grpc.NewServer(credsOption)
 
-	return startServer(grpcServer, storagePath, client)
+	return startServer(grpcServer, storagePath, client, port)
 }
 
 func ServeWebInsecure(ctx context.Context, grpcServer *grpc.Server) (*http.Server, error) {
@@ -576,7 +597,7 @@ func createGrpcWeb(ctx context.Context, grpcServer *grpc.Server, port string, op
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	httpHandler, err := httpProxyHandler(ctx, opts)
+	httpHandler, err := httpProxyHandler(ctx, port, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -606,8 +627,8 @@ func createGrpcWeb(ctx context.Context, grpcServer *grpc.Server, port string, op
 	return s, nil
 }
 
-func httpProxyHandler(ctx context.Context, opts []grpc.DialOption) (*runtime.ServeMux, error) {
-	rpcHost := grpcHost()
+func httpProxyHandler(ctx context.Context, port string, opts []grpc.DialOption) (*runtime.ServeMux, error) {
+	rpcHost := grpcHost(port)
 
 	credMetadata := runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
 		wallet, passphrase, _ := req.BasicAuth()
@@ -623,6 +644,6 @@ func httpProxyHandler(ctx context.Context, opts []grpc.DialOption) (*runtime.Ser
 	return mux, nil
 }
 
-func grpcHost() string {
-	return "localhost:" + defaultRpcPort
+func grpcHost(port string) string {
+	return "localhost:" + port
 }

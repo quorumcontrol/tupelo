@@ -36,7 +36,6 @@ type ibfMap map[int]*ibf.InvertibleBloomFilter
 type Storage struct {
 	middleware.LogAwareHolder
 
-	id              string
 	ibfs            ibfMap
 	storage         storage.Storage
 	strata          *ibf.DifferenceStrata
@@ -49,7 +48,7 @@ func NewStorageProps(store storage.Storage) *actor.Props {
 	if err != nil {
 		panic(fmt.Errorf("error generating lru: %v", err))
 	}
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		s := &Storage{
 			ibfs:            make(ibfMap),
 			storage:         store,
@@ -60,7 +59,7 @@ func NewStorageProps(store storage.Storage) *actor.Props {
 			s.ibfs[size] = ibf.NewInvertibleBloomFilter(size, 4)
 		}
 		return s
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
@@ -181,10 +180,12 @@ func (s *Storage) BulkRemove(objectIDs [][]byte) {
 }
 
 func (s *Storage) loadIBFAtStart() {
-	s.storage.ForEachKey([]byte{}, func(key []byte) error {
+	if err := s.storage.ForEachKey([]byte{}, func(key []byte) error {
 		s.addKeyToIBFs(key)
 		return nil
-	})
+	}); err != nil {
+		panic(err)
+	}
 }
 
 func byteToIBFsObjectId(byteID []byte) ibf.ObjectId {

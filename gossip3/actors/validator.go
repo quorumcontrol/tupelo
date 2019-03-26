@@ -51,17 +51,17 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 		return &TransactionValidator{
 			reader: currentStateStore,
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
 }
 
-func (tv *TransactionValidator) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
+func (tv *TransactionValidator) Receive(actorCtx actor.Context) {
+	switch msg := actorCtx.Message().(type) {
 	case *validationRequest:
 		tv.Log.Debugw("stateHandler initial", "key", msg.key)
-		tv.handleRequest(context, msg)
+		tv.handleRequest(actorCtx, msg)
 	}
 }
 
@@ -69,24 +69,32 @@ func (tv *TransactionValidator) nextHeight(objectID []byte) uint64 {
 	return nextHeight(tv.reader, objectID)
 }
 
-func (tv *TransactionValidator) handleRequest(context actor.Context, msg *validationRequest) {
+func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *validationRequest) {
 	wrapper := &messages.TransactionWrapper{
 		Key:       msg.key,
 		Value:     msg.value,
 		PreFlight: false,
 		Accepted:  false,
+		Stale:     false,
 		Metadata:  messages.MetadataMap{"seen": time.Now()},
 	}
+	parentSpan := wrapper.StartTrace("transaction")
+
+	sp := wrapper.NewSpan("validator")
+	defer sp.Finish()
+
 	var t extmsgs.Transaction
 	_, err := t.UnmarshalMsg(msg.value)
 	if err != nil {
 		tv.Log.Infow("error unmarshaling", "err", err)
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 	wrapper.ConflictSetID = t.ConflictSetID()
 	wrapper.Transaction = &t
 	wrapper.TransactionID = msg.key
+	parentSpan.SetTag("conflictSetID", string(wrapper.ConflictSetID))
+	parentSpan.SetTag("transactionID", string(wrapper.TransactionID))
 
 	var currTip []byte
 	objectIDBits, err := tv.reader.Get(t.ObjectID)
@@ -94,7 +102,6 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 
-	var preFlight bool
 	if len(objectIDBits) > 0 {
 		expectedHeight := tv.nextHeight(t.ObjectID)
 		var currentState extmsgs.CurrentState
@@ -104,20 +111,27 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 		}
 		if expectedHeight == t.Height {
 			currTip = currentState.Signature.NewTip
-			preFlight = false
 		} else if expectedHeight < t.Height {
-			preFlight = true
+			wrapper.PreFlight = true
+			actorCtx.Respond(wrapper)
+			return
 		} else {
 			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
+			wrapper.Stale = true
+			actorCtx.Respond(wrapper)
 			return
 		}
 	} else {
-		preFlight = t.Height != 0
+		if t.Height != 0 {
+			wrapper.PreFlight = true
+			actorCtx.Respond(wrapper)
+			return
+		}
 	}
 
 	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
 		tv.Log.Errorw("invalid transaction: key did not match value")
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 
@@ -125,13 +139,13 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	err = cbornode.DecodeInto(t.Payload, block)
 	if err != nil {
 		tv.Log.Errorw("invalid transaction: payload is not a block")
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 
 	if block.Height != t.Height {
 		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Height, "transHeight", t.Height, "transaction", msg.key)
-		context.Respond(wrapper)
+		actorCtx.Respond(wrapper)
 		return
 	}
 
@@ -150,25 +164,24 @@ func (tv *TransactionValidator) handleRequest(context actor.Context, msg *valida
 	expectedNewTip := bytes.Equal(nextState, t.NewTip)
 	if accepted && expectedNewTip {
 		tv.Log.Debugw("accepted", "key", msg.key)
-		if preFlight {
-			wrapper.PreFlight = true
-		} else {
-			wrapper.Accepted = true
-		}
-		context.Respond(wrapper)
+		wrapper.Accepted = true
+		sp.SetTag("accepted", true)
+		actorCtx.Respond(wrapper)
 		return
-	} else {
-		if err == nil && !expectedNewTip {
-			nextStateCid, _ := cid.Cast(nextState)
-			newTipCid, _ := cid.Cast(t.NewTip)
-			err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
-		}
-		wrapper.Metadata["error"] = err
 	}
+	sp.SetTag("accepted", false)
+
+	if err == nil && !expectedNewTip {
+		nextStateCid, _ := cid.Cast(nextState)
+		newTipCid, _ := cid.Cast(t.NewTip)
+		err = fmt.Errorf("error: expected new tip: %s but got: %s", nextStateCid.String(), newTipCid.String())
+	}
+	sp.SetTag("error", err)
+	wrapper.Metadata["error"] = err
 
 	tv.Log.Debugw("rejected", "err", err)
 
-	context.Respond(wrapper)
+	actorCtx.Respond(wrapper)
 }
 
 func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {
@@ -190,12 +203,6 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 		if !currentTip.Equals(transPreviousTip) {
 			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 		}
-	} else {
-		// TODO: This seems insecure.
-		currentTip = transPreviousTip
-
-		// Should it be the empty tip for this chaintree? Seems like that's what we're trusting the transPreviousTip to be.
-		// If so, how do we construct that here?
 	}
 
 	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
@@ -205,13 +212,23 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 	for i, node := range stateTrans.Transaction.State {
 		cborNodes[i] = sw.Decode(node)
 	}
-
 	if sw.Err != nil {
 		return nil, false, fmt.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
 	}
+
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-	tree := dag.NewDag(currentTip, nodeStore)
-	tree.AddNodes(cborNodes...)
+
+	var tree *dag.Dag
+
+	if currentTip.Defined() {
+		tree = dag.NewDag(currentTip, nodeStore)
+	} else {
+		tree = consensus.NewEmptyTree(string(stateTrans.ObjectID), nodeStore)
+	}
+
+	if err = tree.AddNodes(cborNodes...); err != nil {
+		return nil, false, err
+	}
 
 	chainTree, err := chaintree.NewChainTree(
 		tree,

@@ -34,6 +34,7 @@ import (
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
@@ -43,6 +44,9 @@ var (
 	BlsSignKeys  []*bls.SignKey
 	EcdsaKeys    []*ecdsa.PrivateKey
 	testnodePort int
+
+	enableJaegerTracing  bool
+	enableElasticTracing bool
 )
 
 // testnodeCmd represents the testnode command
@@ -53,11 +57,22 @@ var testnodeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		logging.SetLogLevel("gossip", "ERROR")
+		if err := logging.SetLogLevel("gossip", "ERROR"); err != nil {
+			log.Error("failed to set log level of 'gossip'", "err", err)
+		}
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
 		signer := setupGossipNode(ctx, ecdsaKeyHex, blsKeyHex, "distributed-network", testnodePort)
-		signer.Actor.Tell(&messages.StartGossip{})
+		if enableElasticTracing && enableJaegerTracing {
+			panic("only one tracing library may be used at once")
+		}
+		if enableJaegerTracing {
+			tracing.StartJaeger("signer-" + signer.ID)
+		}
+		if enableElasticTracing {
+			tracing.StartElastic()
+		}
+		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 		stopOnSignal(signer)
 	},
 }
@@ -124,7 +139,9 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	if err != nil {
 		panic("error setting up p2p host")
 	}
-	p2pHost.Bootstrap(p2p.BootstrapNodes())
+	if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
+		panic(fmt.Sprintf("failed to bootstrap: %s", err))
+	}
 	err = p2pHost.WaitForBootstrap(1, 60*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("error waiting for bootstrap: %v", err))
@@ -157,16 +174,21 @@ func stopOnSignal(signers ...*gossip3types.Signer) {
 		fmt.Println(sig)
 		for _, signer := range signers {
 			log.Info("gracefully stopping signer")
-			signer.Actor.GracefulStop()
+			signer.Actor.GracefulPoison()
 		}
 		done <- true
 	}()
 	fmt.Println("awaiting signal")
 	<-done
+	if enableJaegerTracing {
+		tracing.StopJaeger()
+	}
 	fmt.Println("exiting")
 }
 
 func init() {
 	rootCmd.AddCommand(testnodeCmd)
 	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
+	testnodeCmd.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
+	testnodeCmd.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
 }

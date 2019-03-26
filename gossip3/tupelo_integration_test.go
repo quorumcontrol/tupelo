@@ -14,8 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
@@ -33,6 +38,58 @@ const (
 	testCommitPath  = testRootPath + "/teststore/commit"
 	testCurrentPath = testRootPath + "/teststore/current"
 )
+
+func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
+	cborNodes, err := dagTree.Nodes()
+	require.Nil(t, err)
+	nodes := make([][]byte, len(cborNodes))
+	for i, node := range cborNodes {
+		nodes[i] = node.RawData()
+	}
+	return nodes
+}
+
+func newValidTransaction(t *testing.T) extmsgs.Transaction {
+	sw := safewrap.SafeWrap{}
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+
+	unsignedBlock := &chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip: nil,
+			Transactions: []*chaintree.Transaction{
+				{
+					Type: "SET_DATA",
+					Payload: map[string]string{
+						"path":  "down/in/the/thing",
+						"value": "hi",
+					},
+				},
+			},
+		},
+	}
+
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTip := emptyTree.Tip
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+
+	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	require.Nil(t, err)
+
+	testTree.ProcessBlock(blockWithHeaders)
+	nodes := dagToByteNodes(t, emptyTree)
+	return extmsgs.Transaction{
+		State:       nodes,
+		PreviousTip: emptyTip.Bytes(),
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
+		ObjectID:    []byte(treeDID),
+	}
+}
 
 func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
 	ng := types.NewNotaryGroup("test notary")
@@ -173,7 +230,7 @@ func TestLibP2PSigning(t *testing.T) {
 	newTip, err := cid.Cast(trans.NewTip)
 	require.Nil(t, err)
 
-	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 60*time.Second)
+	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 90*time.Second)
 	require.Nil(t, err)
 
 	client.SendTransaction(systems[0].GetRandomSigner(), &trans)

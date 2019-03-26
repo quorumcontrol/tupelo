@@ -26,11 +26,11 @@ type objectSubscriptionManager struct {
 }
 
 func newObjectSubscriptionManagerProps() *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &objectSubscriptionManager{
 			subscriptions: make(actorPIDHolder),
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
@@ -47,11 +47,11 @@ type SubscriptionHandler struct {
 }
 
 func NewSubscriptionHandlerProps() *actor.Props {
-	return actor.FromProducer(func() actor.Actor {
+	return actor.PropsFromProducer(func() actor.Actor {
 		return &SubscriptionHandler{
 			subscriptionManagers: make(subscriptionMap),
 		}
-	}).WithMiddleware(
+	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
 	)
@@ -156,7 +156,7 @@ func (sh *SubscriptionHandler) newManager(context actor.Context, msg *extmsgs.Ti
 func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.ReceiveTimeout:
-		context.SetReceiveTimeout(0)
+		context.CancelReceiveTimeout()
 		osm.Log.Debugw("killing unused subscription")
 		context.Self().Stop()
 	case *extmsgs.TipSubscription:
@@ -170,10 +170,6 @@ func (osm *objectSubscriptionManager) Receive(context actor.Context) {
 		context.SetReceiveTimeout(subscriptionTimeout)
 		osm.notifySubscribers(context, msg)
 	}
-}
-
-func (osm *objectSubscriptionManager) subscriptionKeys(context actor.Context, msg *extmsgs.TipSubscription) []string {
-	return subscriptionKeys(context.Sender().String(), msg.TipValue)
 }
 
 func (osm *objectSubscriptionManager) subscribe(context actor.Context, msg *extmsgs.TipSubscription) {
