@@ -515,6 +515,9 @@ func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendN
 	}
 	var sendToken *consensus.SendTokenPayload
 	codedErr = cbornode.DecodeInto(sendTokenNode.RawData(), sendToken)
+	if codedErr != nil {
+		return nil, fmt.Errorf("error decoding CBOR send token node: %v", codedErr)
+	}
 	allNodesMap[sendNodeId.String()] = sendToken
 
 	// TODO: Consider generalizing this; it will be useful elsewhere (possibly in the client)
