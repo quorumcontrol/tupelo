@@ -60,7 +60,7 @@ required = [
 
 [[constraint]]
   name = "github.com/quorumcontrol/tupelo-go-client"
-  revision = "a6aa36c4385ebacc343162119e06facec82a37de"
+  revision = "cf5a1487e6ed4bd9c09ab4fcb3552afb4175fa05"
 
 [[constraint]]
   name = "github.com/gobuffalo/packr"
