@@ -169,29 +169,36 @@ func (cs *ConflictSet) handleCommit(context actor.Context, msg *commitNotificati
 
 	if cs.active {
 		return cs.handleCurrentStateWrapper(context, wrapper)
-	} else {
-		verified, err := cs.validSignature(context, wrapper)
-		if err != nil {
-			panic(fmt.Errorf("error verifying signature: %v", err))
-		}
-		if verified {
-			wrapper.Verified = true
-			wrapper.Metadata["verifiedAt"] = time.Now()
-			if msg.height == msg.nextHeight {
-				cs.active = true
-				return cs.handleCurrentStateWrapper(context, wrapper)
-			}
+	}
 
-			cs.Log.Debug("snoozing commit for later")
-			if cs.snoozedCommit == nil {
-				cs.snoozedCommit = wrapper
-			} else {
-				panic(fmt.Errorf("received new commit with one already snoozed"))
-			}
-			return nil
-		}
+	verified, err := cs.validSignature(context, wrapper)
+	if err != nil {
+		return fmt.Errorf("error verifying signature: %v", err)
+	}
+	if !verified {
 		return fmt.Errorf("signature not verified")
 	}
+
+	wrapper.Verified = true
+	wrapper.Metadata["verifiedAt"] = time.Now()
+	if msg.height == msg.nextHeight {
+		cs.active = true
+		return cs.handleCurrentStateWrapper(context, wrapper)
+	}
+	if msg.height < msg.nextHeight {
+		cs.Log.Warnw("received stale commit notification (height too low) - ignoring it",
+			"height", msg.height, "nextHeight", msg.nextHeight)
+		return nil
+	}
+
+	cs.Log.Debug("snoozing commit for later")
+	if cs.snoozedCommit != nil {
+		return fmt.Errorf("received new commit with one already snoozed")
+	}
+
+	cs.snoozedCommit = wrapper
+
+	return nil
 }
 
 func (cs *ConflictSet) DoneReceive(context actor.Context) {
