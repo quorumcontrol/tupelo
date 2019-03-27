@@ -1318,6 +1318,7 @@
   version = "v1.1.1"
 
 [[projects]]
+  branch = "master"
   digest = "1:847f045ae7471febd531b836ca4f555bc7ce718ccfd5e77ed8fa28b6a9f6d28a"
   name = "github.com/quorumcontrol/tupelo-go-client"
   packages = [
@@ -1813,6 +1814,7 @@
     "github.com/ethereum/go-ethereum/crypto",
     "github.com/ethereum/go-ethereum/log",
     "github.com/gobuffalo/packr/v2",
+    "github.com/gobuffalo/packr/v2/file/resolver",
     "github.com/gogo/protobuf/proto",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/mux",
