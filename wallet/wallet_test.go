@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	ipfsConfig "github.com/ipfs/go-ipfs-config"
+	ipfsCmds "github.com/ipfs/go-ipfs/commands"
+	ipfsCore "github.com/ipfs/go-ipfs/core"
+	ipfsCoreHttp "github.com/ipfs/go-ipfs/core/corehttp"
+	ipfsMock "github.com/ipfs/go-ipfs/core/mock"
+	ipfsPluginLoader "github.com/ipfs/go-ipfs/plugin/loader"
+	ipfsFsRepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	ipfsCmds "github.com/ipsn/go-ipfs/commands"
-	ipfsCore "github.com/ipsn/go-ipfs/core"
-	ipfsCoreHttp "github.com/ipsn/go-ipfs/core/corehttp"
-	ipfsMock "github.com/ipsn/go-ipfs/core/mock"
-	ipfsConfig "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-ipfs-config"
-	ma "github.com/ipsn/go-ipfs/gxlibs/github.com/multiformats/go-multiaddr"
-	ipfsPluginLoader "github.com/ipsn/go-ipfs/plugin/loader"
-	ipfsFsRepo "github.com/ipsn/go-ipfs/repo/fsrepo"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
@@ -68,7 +68,6 @@ func TestIpldHttpWallet(t *testing.T) {
 	cfg.Addresses.API = []string{apiMaddr.String()}
 
 	cmdContext := ipfsCmds.Context{
-		Online:     true,
 		ConfigRoot: "/tmp/.mockipfsconfig",
 		ReqLog:     &ipfsCmds.ReqLog{},
 		LoadConfig: func(path string) (*ipfsConfig.Config, error) {

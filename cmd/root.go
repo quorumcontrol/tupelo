@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/log"
-	ipfslogging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	ipfslogging "github.com/ipfs/go-log"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/quorumcontrol/tupelo/gossip3"
 	"github.com/shibukawa/configdir"

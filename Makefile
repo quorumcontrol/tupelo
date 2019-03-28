@@ -37,11 +37,12 @@ $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 $(generated): gossip3/messages/internal.go
 	cd gossip3/messages && go generate
 
-vendor: Gopkg.toml Gopkg.lock
-	dep ensure
+vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
+	go mod vendor
+	modvendor -copy="**/*.c **/*.h"
 
-tupelo: vendor $(packr) $(generated) $(gosources)
-	go build
+tupelo: $(packr) $(generated) $(gosources) go.mod go.sum
+	go build ./...
 
 lint: $(FIRSTGOPATH)/bin/golangci-lint
 	$(FIRSTGOPATH)/bin/golangci-lint run
@@ -49,13 +50,16 @@ lint: $(FIRSTGOPATH)/bin/golangci-lint
 $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
 
-test: vendor $(packr) $(generated) $(gosources)
+test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
-install: vendor $(packr) $(generated) $(gosources)
+$(FIRSTGOPATH)/bin/modvendor:
+	go get -u github.com/goware/modvendor
+
+install: $(packr) $(generated) $(gosources) go.mod go.sum
 	go install -a -gcflags=-trimpath=$(GOPATH) -asmflags=-trimpath=$(GOPATH)
 
 clean:
@@ -63,4 +67,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all test docker-image clean install
+.PHONY: all test docker-image clean install lint
