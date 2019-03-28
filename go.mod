@@ -32,7 +32,7 @@ require (
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/go-ipfs-http-client v0.0.0-20190328094730-8b0b06c1f26a
 	github.com/quorumcontrol/storage v1.1.2-0.20190327124148-72743a2b202a
-	github.com/quorumcontrol/tupelo-go-client v0.1.1-0.20190328151837-a793ad8ca0fa
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190328183529-4246c12d5811
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
