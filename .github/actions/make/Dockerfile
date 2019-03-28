@@ -1,7 +1,7 @@
-FROM golang:1.11.5
+FROM golang:1.12.1
 
-LABEL "com.github.actions.name"="Golang Dep"
-LABEL "com.github.actions.description"="Run dep ensure with access to private repos"
+LABEL "com.github.actions.name"="Golang Mod"
+LABEL "com.github.actions.description"="Run go mod with access to private repos"
 LABEL "com.github.actions.icon"="download"
 LABEL "com.github.actions.color"="purple"
 
@@ -13,12 +13,8 @@ RUN mkdir -p ~/.ssh && \
     cat github.pub >> ~/.ssh/known_hosts && \
     rm -f github.pub
 
-RUN curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-
 ADD entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-
-CMD ["ensure"]
