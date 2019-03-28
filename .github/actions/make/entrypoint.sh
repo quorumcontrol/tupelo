@@ -8,6 +8,8 @@ if [[ ! -z "$SSH_PRIVATE_KEY" ]]; then
   ssh-add /ssh/id_rsa > /dev/null 2>&1
 fi
 
+git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
+
 cd ${GITHUB_WORKSPACE}
 
 exec make "$@"
