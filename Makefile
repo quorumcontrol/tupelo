@@ -41,7 +41,7 @@ vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 	go mod vendor
 	modvendor -copy="**/*.c **/*.h"
 
-tupelo: $(packr) $(generated) $(gosources)
+tupelo: $(packr) $(generated) $(gosources) go.mod go.sum
 	go build ./...
 
 lint: $(FIRSTGOPATH)/bin/golangci-lint
@@ -50,7 +50,7 @@ lint: $(FIRSTGOPATH)/bin/golangci-lint
 $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
 
-test: $(packr) $(generated) $(gosources)
+test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
@@ -59,7 +59,7 @@ docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
 $(FIRSTGOPATH)/bin/modvendor:
 	go get -u github.com/goware/modvendor
 
-install: $(packr) $(generated) $(gosources)
+install: $(packr) $(generated) $(gosources) go.mod go.sum
 	go install -a -gcflags=-trimpath=$(GOPATH) -asmflags=-trimpath=$(GOPATH)
 
 clean:
@@ -67,4 +67,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all test docker-image clean install
+.PHONY: all test docker-image clean install lint
