@@ -176,6 +176,26 @@ message MintTokenResponse {
   string tip = 1;
 }
 
+message SendTokenRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string token_name = 4;
+  string destination_chain_id = 5;
+  uint64 amount = 6;
+}
+
+message SendTokenResponse {
+  string send_token = 1;
+}
+
+message TokenPayload {
+  string transaction_id = 1;
+  string tip = 2;
+  SerializableSignature signature = 3;
+  map<string, bytes> leaves = 4;
+}
+
 service WalletRPCService {
   rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse);
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
@@ -191,4 +211,5 @@ service WalletRPCService {
   rpc ResolveAt (ResolveAtRequest) returns (ResolveResponse);
   rpc EstablishToken (EstablishTokenRequest) returns (EstablishTokenResponse);
   rpc MintToken (MintTokenRequest) returns (MintTokenResponse);
+  rpc SendToken (SendTokenRequest) returns (SendTokenResponse);
 }

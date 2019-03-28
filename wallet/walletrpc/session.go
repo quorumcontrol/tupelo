@@ -31,13 +31,6 @@ type RPCSession struct {
 	isStarted bool
 }
 
-type TokenPayload struct {
-	TransactionId string
-	Tip cid.Cid
-	Signature consensus.Signature
-	Leaves map[string]interface{}
-}
-
 type ExistingChainError struct {
 	publicKey *ecdsa.PublicKey
 }
@@ -106,6 +99,14 @@ func serializeDag(dag *dag.Dag) ([][]byte, error) {
 	return dagBytes, nil
 }
 
+func serializeNodes(nodes map[string]*cbornode.Node) map[string][]byte {
+	bytes := make(map[string][]byte, len(nodes))
+	for i, node := range nodes {
+		bytes[i] = node.RawData()
+	}
+	return bytes
+}
+
 func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.SignatureMap, error) {
 	signatures := make(consensus.SignatureMap)
 
@@ -122,14 +123,18 @@ func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.
 	return signatures, nil
 }
 
+func serializeSignature(sig consensus.Signature) *SerializableSignature {
+	return &SerializableSignature{
+		Signers:   sig.Signers,
+		Signature: sig.Signature,
+		Type:      sig.Type,
+	}
+}
+
 func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializableSignature {
 	serializedSigs := make(map[string]*SerializableSignature)
 	for k, sig := range sigs {
-		serializedSigs[k] = &SerializableSignature{
-			Signers:   sig.Signers,
-			Signature: sig.Signature,
-			Type:      sig.Type,
-		}
+		serializedSigs[k] = serializeSignature(sig)
 	}
 
 	return serializedSigs
@@ -500,7 +505,15 @@ func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName stri
 	return resp.Tip, nil
 }
 
-func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) (map[string]interface{}, error) {
+func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) (map[string]*cbornode.Node, error) {
+	allNodes := make(map[string]*cbornode.Node)
+	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
+	if codedErr != nil {
+		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
+	}
+
+	allNodes[sendNodeId.String()] = sendTokenNode
+
 	tokenPath, err := consensus.PathForToken(tokenName)
 	if err != nil {
 		return nil, err
@@ -508,46 +521,21 @@ func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendN
 	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
 	tokenPath = append(tokenPath, consensus.TokenSendLabel)
 
-	allNodesMap := make(map[string]interface{})
-	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
+	tokenSendsNodes, codedErr := chain.ChainTree.Dag.NodesForPath(tokenPath)
 	if codedErr != nil {
-		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
-	}
-	var sendToken *consensus.SendTokenPayload
-	codedErr = cbornode.DecodeInto(sendTokenNode.RawData(), sendToken)
-	if codedErr != nil {
-		return nil, fmt.Errorf("error decoding CBOR send token node: %v", codedErr)
-	}
-	allNodesMap[sendNodeId.String()] = sendToken
-
-	// TODO: Consider generalizing this; it will be useful elsewhere (possibly in the client)
-	for i := len(tokenPath); i > 0; i-- {
-		p := tokenPath[:i-1]
-		node, remaining, err := chain.ChainTree.Dag.Resolve(p)
-		if err != nil {
-			return nil, err
-		}
-		if len(remaining) > 0 {
-			return nil, fmt.Errorf("unresolvable token path elements: %v", remaining)
-		}
-		nMap := node.(map[string]interface{})
-
-		sw := safewrap.SafeWrap{}
-		wrappedNode := sw.WrapObject(nMap)
-		if sw.Err != nil {
-			return nil, fmt.Errorf("error wrapping node: %v", sw.Err)
-		}
-		nodeId := wrappedNode.Cid()
-
-		allNodesMap[nodeId.String()] = nMap
+		return nil, codedErr
 	}
 
-	return allNodesMap, nil
+	for _, node := range tokenSendsNodes {
+		allNodes[node.Cid().String()] = node
+	}
+
+	return allNodes, nil
 }
 
-func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName string, destinationChainId string, amount uint64) (*TokenPayload, error) {
+func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName string, destinationChainId string, amount uint64) (string, error) {
 	if rpcs.IsStopped() {
-		return nil, StoppedError
+		return "", StoppedError
 	}
 
 	transactionId := goid.NewV4UUID()
@@ -564,36 +552,36 @@ func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName stri
 		},
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	tokenPath, err := consensus.PathForToken(tokenName)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	// We have the chaintree root here, not just the tree, so prepend TreeLabel to the path
 	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
 
 	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, tokenPath, consensus.TokenSendLabel)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	tokenSendTx := cid.Undef
 	for _, sendTxCid := range tokenSends {
 		sendTxNode, err := chain.ChainTree.Dag.Get(sendTxCid)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		sendTxNodeObj, err := nodestore.CborNodeToObj(sendTxNode)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 
 		sendTxNodeMap := sendTxNodeObj.(map[string]interface{})
@@ -604,20 +592,27 @@ func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName stri
 	}
 
 	if !tokenSendTx.Defined() {
-		return nil, fmt.Errorf("send token transaction not found for ID: %s", transactionId.String())
+		return "", fmt.Errorf("send token transaction not found for ID: %s", transactionId.String())
 	}
 
 	tokenNodes, err := allSendTokenNodes(chain, tokenName, tokenSendTx)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
+
+	tip := *resp.Tip
 
 	payload := &TokenPayload{
 		TransactionId: transactionId.String(),
-		Tip:           *resp.Tip,
-		Signature:     resp.Signature,
-		Leaves:        tokenNodes,
+		Tip:           tip.String(),
+		Signature:     serializeSignature(resp.Signature),
+		Leaves:        serializeNodes(tokenNodes),
 	}
 
-	return payload, nil
+	serializedPayload, err := proto.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(serializedPayload), nil
 }

@@ -2,9 +2,11 @@ package walletrpc
 
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
+	"encoding/base64"
 	"os"
 	"testing"
 
@@ -127,10 +129,15 @@ func TestSendToken(t *testing.T) {
 
 	sendTokens, err := sess.SendToken(chain.MustId(), addr, "test-token", destChain.MustId(), 5)
 	require.Nil(t, err)
+	decodedSendTokens, err := base64.StdEncoding.DecodeString(sendTokens)
+	require.Nil(t, err)
+	unmarshalledSendTokens := &TokenPayload{}
+	err = proto.Unmarshal(decodedSendTokens, unmarshalledSendTokens)
+	require.Nil(t, err)
 
 	// TODO: Improve these assertions
-	assert.NotEmpty(t, sendTokens.TransactionId)
-	assert.NotEmpty(t, sendTokens.Leaves)
-	assert.NotNil(t, sendTokens.Tip)
-	assert.NotNil(t, sendTokens.Signature)
+	assert.NotEmpty(t, unmarshalledSendTokens.TransactionId)
+	assert.NotEmpty(t, unmarshalledSendTokens.Leaves)
+	assert.NotNil(t, unmarshalledSendTokens.Tip)
+	assert.NotNil(t, unmarshalledSendTokens.Signature)
 }
