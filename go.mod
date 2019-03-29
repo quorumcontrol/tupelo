@@ -28,11 +28,11 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/opentracing/opentracing-go v1.0.2
-	github.com/quorumcontrol/chaintree v0.0.0-20190328142253-45b9858fff12
+	github.com/quorumcontrol/chaintree v0.0.0-20190329104254-a21b0b73e0ee
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/go-ipfs-http-client v0.0.0-20190328094730-8b0b06c1f26a
-	github.com/quorumcontrol/storage v1.1.2-0.20190327124148-72743a2b202a
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190328183529-4246c12d5811
+	github.com/quorumcontrol/storage v1.1.1
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190329105519-24212ff09a60
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
