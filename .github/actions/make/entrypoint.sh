@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ ! -z "$SSH_PRIVATE_KEY" ]]; then
   mkdir -p /ssh
@@ -8,12 +8,8 @@ if [[ ! -z "$SSH_PRIVATE_KEY" ]]; then
   ssh-add /ssh/id_rsa > /dev/null 2>&1
 fi
 
-build_dir=$GOPATH/src/github.com/$GITHUB_REPOSITORY
+git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
 
-mkdir -p $(dirname $build_dir)
+cd ${GITHUB_WORKSPACE}
 
-ln -s $GITHUB_WORKSPACE $build_dir
-
-cd $build_dir
-
-exec /go/bin/dep "$@"
+exec make "$@"

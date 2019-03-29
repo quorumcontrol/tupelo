@@ -28,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	logging "github.com/ipsn/go-ipfs/gxlibs/github.com/ipfs/go-log"
+	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
@@ -49,7 +49,7 @@ var (
 	enableElasticTracing bool
 )
 
-// testnodeCmd represents the testnode command
+// testnodeCmd represents the test-node command
 var testnodeCmd = &cobra.Command{
 	Use:   "test-node [index of key]",
 	Short: "Run a testnet node with hardcoded (insecure) keys",
@@ -114,7 +114,7 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
-		panic("error fetching ecdsa key - set env variable TUPELO_NODE_ECDSA_KEY_HEX")
+		panic("error decoding ECDSA key (from $TUPELO_NODE_ECDSA_KEY_HEX)")
 	}
 
 	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))

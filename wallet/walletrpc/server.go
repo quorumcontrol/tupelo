@@ -347,7 +347,7 @@ func (s *server) Resolve(ctx context.Context, req *services.ResolveRequest) (*se
 	}, nil
 }
 
-func (s *server) EstablishCoin(ctx context.Context, req *services.EstablishCoinRequest) (*services.EstablishCoinResponse, error) {
+func (s *server) EstablishToken(ctx context.Context, req *services.EstablishTokenRequest) (*services.EstablishTokenResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -360,17 +360,17 @@ func (s *server) EstablishCoin(ctx context.Context, req *services.EstablishCoinR
 
 	defer session.Stop()
 
-	tipCid, err := session.EstablishCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Maximum)
+	tipCid, err := session.EstablishToken(req.ChainId, req.KeyAddr, req.TokenName, req.Maximum)
 	if err != nil {
 		return nil, err
 	}
 
-	return &services.EstablishCoinResponse{
+	return &services.EstablishTokenResponse{
 		Tip: tipCid.String(),
 	}, nil
 }
 
-func (s *server) MintCoin(ctx context.Context, req *services.MintCoinRequest) (*services.MintCoinResponse, error) {
+func (s *server) MintToken(ctx context.Context, req *services.MintTokenRequest) (*services.MintTokenResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
@@ -383,12 +383,12 @@ func (s *server) MintCoin(ctx context.Context, req *services.MintCoinRequest) (*
 
 	defer session.Stop()
 
-	tipCid, err := session.MintCoin(req.ChainId, req.KeyAddr, req.CoinName, req.Amount)
+	tipCid, err := session.MintToken(req.ChainId, req.KeyAddr, req.TokenName, req.Amount)
 	if err != nil {
 		return nil, err
 	}
 
-	return &services.MintCoinResponse{
+	return &services.MintTokenResponse{
 		Tip: tipCid.String(),
 	}, nil
 }

@@ -296,7 +296,7 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 			signedChainTree.MustId(), err)
 		// TODO: Enable
 		// return nil, fmt.Errorf("failed to configure chain storage (chain ID: %s): %s",
-		// 	signedChainTree.MustId(), err)
+		//	signedChainTree.MustId(), err)
 	}
 	if err = rpcs.wallet.SaveChain(signedChainTree); err != nil {
 		log.Printf("failed to save chain tree with ID %s: %s", signedChainTree.MustId(), err)
@@ -436,17 +436,17 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 	return chain.ChainTree.Dag.Resolve(path)
 }
 
-func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) EstablishToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeEstablishCoin,
-			Payload: transactions.EstablishCoinPayload{
-				Name:           coinName,
-				MonetaryPolicy: &transactions.CoinMonetaryPolicy{Maximum: amount},
+			Type: consensus.TransactionTypeEstablishToken,
+			Payload: transactions.EstablishToken{
+				Name:           tokenName,
+				MonetaryPolicy: &transactions.TokenMonetaryPolicy{Maximum: amount},
 			},
 		},
 	})
@@ -457,15 +457,15 @@ func (rpcs *RPCSession) EstablishCoin(chainId string, keyAddr string, coinName s
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) MintCoin(chainId string, keyAddr string, coinName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeMintCoin,
-			Payload: transactions.MintCoinPayload{
+			Type: consensus.TransactionTypeMintToken,
+			Payload: transactions.MintTokenPayload{
 				Name:   coinName,
 				Amount: amount,
 			},

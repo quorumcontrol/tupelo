@@ -22,7 +22,7 @@ var bootstrapNodeCmd = &cobra.Command{
 		ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 		ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 		if err != nil {
-			panic("error fetching ecdsa key - set env variable TUPELO_NODE_ECDSA_KEY_HEX")
+			panic(fmt.Sprintf("error decoding ecdsa key: %s", err))
 		}
 
 		ctx := context.Background()
