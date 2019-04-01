@@ -77,7 +77,7 @@ func NewConflictSet(id string) *ConflictSet {
 	return c
 }
 
-const conflictSetConcurrency = 128
+const conflictSetConcurrency = 50
 
 func NewConflictSetWorkerPool(cfg *ConflictSetConfig) *actor.Props {
 	// it's important that this is a consistent hash pool rather than round robin
