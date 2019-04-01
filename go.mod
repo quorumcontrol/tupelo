@@ -22,23 +22,22 @@ require (
 	github.com/ipfs/go-cid v0.0.1
 	github.com/ipfs/go-ipfs v0.4.19-rc2.0.20190327141900-b9e45e8941ef
 	github.com/ipfs/go-ipfs-config v0.0.1
+	github.com/ipfs/go-ipfs-http-client v0.0.0-20190329134716-880cd0134a92
 	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
 	github.com/ipfs/go-log v0.0.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/opentracing/opentracing-go v1.0.2
-	github.com/quorumcontrol/chaintree v0.0.0-20190328142253-45b9858fff12
+	github.com/quorumcontrol/chaintree v0.0.0-20190329154239-0a2da8b38ce9
 	github.com/quorumcontrol/differencedigest v0.0.3
-	github.com/quorumcontrol/go-ipfs-http-client v0.0.0-20190328094730-8b0b06c1f26a
 	github.com/quorumcontrol/messages v0.0.0-20190329073357-72154292315e
-	github.com/quorumcontrol/storage v1.1.2-0.20190327124148-72743a2b202a
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190328183529-4246c12d5811
+	github.com/quorumcontrol/storage v1.1.1
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190329154750-29244d910cc9
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0
 	golang.org/x/net v0.0.0-20190328230028-74de082e2cca
-	google.golang.org/genproto v0.0.0-20180831171423-11092d34479b // indirect
 	google.golang.org/grpc v1.19.1
 )
