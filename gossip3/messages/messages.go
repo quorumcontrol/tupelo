@@ -83,6 +83,7 @@ type SignatureVerification struct {
 	Message   []byte
 	Signature []byte
 	VerKeys   [][]byte
+	Memo      interface{}
 }
 
 type CurrentStateWrapper struct {

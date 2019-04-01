@@ -52,6 +52,9 @@ type ConflictSet struct {
 	view          uint64
 	updates       uint64
 	active        bool
+
+	height     uint64
+	nextHeight uint64
 }
 
 type ConflictSetConfig struct {
@@ -74,7 +77,7 @@ func NewConflictSet(id string) *ConflictSet {
 	return c
 }
 
-const conflictSetConcurrency = 20
+const conflictSetConcurrency = 128
 
 func NewConflictSetWorkerPool(cfg *ConflictSetConfig) *actor.Props {
 	// it's important that this is a consistent hash pool rather than round robin
@@ -146,6 +149,8 @@ func (csw *ConflictSetWorker) OriginalReceive(cs *ConflictSet, sentMsg interface
 		csw.handleNewSignature(cs, context, wrapper)
 	case *messages.SignatureWrapper:
 		csw.handleNewSignature(cs, context, msg)
+	case *messages.CurrentStateWrapper:
+		csw.handleCurrentStateWrapper(cs, context, msg)
 	case *extmsgs.CurrentState:
 		csw.Log.Errorw("something called this")
 	case *commitNotification:
@@ -205,38 +210,42 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
 
-	if cs.active {
-		return csw.handleCurrentStateWrapper(cs, context, wrapper)
-	}
-
-	verified, err := csw.validSignature(cs, context, wrapper)
-	if err != nil {
-		return fmt.Errorf("error verifying signature: %v", err)
-	}
-	if !verified {
-		return fmt.Errorf("signature not verified")
-	}
-
-	wrapper.Verified = true
-	wrapper.Metadata["verifiedAt"] = time.Now()
 	if msg.height == msg.nextHeight {
 		cs.active = true
-		return csw.handleCurrentStateWrapper(cs, context, wrapper)
-	}
-	if msg.height < msg.nextHeight {
-		csw.Log.Warnw("received stale commit notification (height too low) - ignoring it",
-			"height", msg.height, "nextHeight", msg.nextHeight)
-		return nil
 	}
 
-	csw.Log.Debug("snoozing commit for later")
-	if cs.snoozedCommit != nil {
-		return fmt.Errorf("received new commit with one already snoozed")
-	}
+	// if cs.active {
+	return csw.validSignature(cs, context, wrapper)
+	// }
 
-	cs.snoozedCommit = wrapper
+	// verified, err := csw.validSignature(cs, context, wrapper)
+	// if err != nil {
+	// 	return fmt.Errorf("error verifying signature: %v", err)
+	// }
+	// if !verified {
+	// 	return fmt.Errorf("signature not verified")
+	// }
 
-	return nil
+	// wrapper.Verified = true
+	// wrapper.Metadata["verifiedAt"] = time.Now()
+	// if msg.height == msg.nextHeight {
+	// 	cs.active = true
+	// 	return csw.handleCurrentStateWrapper(cs, context, wrapper)
+	// }
+	// if msg.height < msg.nextHeight {
+	// 	csw.Log.Warnw("received stale commit notification (height too low) - ignoring it",
+	// 		"height", msg.height, "nextHeight", msg.nextHeight)
+	// 	return nil
+	// }
+
+	// csw.Log.Debug("snoozing commit for later")
+	// if cs.snoozedCommit != nil {
+	// 	return fmt.Errorf("received new commit with one already snoozed")
+	// }
+
+	// cs.snoozedCommit = wrapper
+
+	// return nil
 }
 
 func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context actor.Context, msg *messages.TransactionWrapper) {
@@ -451,17 +460,17 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 	}
 
 	// don't use message passing, because we can skip a lot of processing if we're done right here
-	return csw.handleCurrentStateWrapper(cs, context, currStateWrapper)
+	return csw.validSignature(cs, context, currStateWrapper)
 }
 
-func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) (bool, error) {
+func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
 	sp := cs.NewSpan("validSignature")
 	defer sp.Finish()
 
 	sig := currWrapper.CurrentState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
-		return false, fmt.Errorf("error unmarshaling: %v", err)
+		return fmt.Errorf("error unmarshaling: %v", err)
 	}
 	var verKeys [][]byte
 
@@ -469,7 +478,7 @@ func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Cont
 	for i, signer := range signers {
 		isSet, err := signerArray.GetBit(uint64(i))
 		if err != nil {
-			return false, fmt.Errorf("error getting bit: %v", err)
+			return fmt.Errorf("error getting bit: %v", err)
 		}
 		if isSet {
 			verKeys = append(verKeys, signer.VerKey.Bytes())
@@ -477,17 +486,14 @@ func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Cont
 	}
 
 	csw.Log.Debugw("checking signature", "len", len(verKeys))
-	resp, err := context.RequestFuture(csw.signatureChecker, &messages.SignatureVerification{
+	context.RequestWithCustomSender(csw.signatureChecker, &messages.SignatureVerification{
 		Message:   sig.GetSignable(),
 		Signature: sig.Signature,
 		VerKeys:   verKeys,
-	}, 10*time.Second).Result()
+		Memo:      currWrapper,
+	}, csw.router)
 
-	if err != nil {
-		return false, fmt.Errorf("error waiting for signature validation: %v", err)
-	}
-
-	return resp.(*messages.SignatureVerification).Verified, nil
+	return nil
 }
 
 func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
@@ -496,18 +502,14 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 
 	csw.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal)
 
-	if !currWrapper.Verified {
-		verified, err := csw.validSignature(cs, context, currWrapper)
-		if err != nil {
-			panic(fmt.Errorf("error verifying signature: %v", err))
-		}
-		if verified {
-			currWrapper.Verified = true
-			currWrapper.Metadata["verifiedAt"] = time.Now()
-		}
-	}
-
 	if currWrapper.Verified {
+		if !cs.active {
+			if cs.snoozedCommit != nil {
+				return fmt.Errorf("received new commit with one already snoozed")
+			}
+			cs.snoozedCommit = currWrapper
+			return nil
+		}
 		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
 		i := 0
 		for _, t := range cs.transactions {
@@ -523,11 +525,12 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 		csw.Log.Debugw("done")
 
 		context.Send(csw.router, currWrapper)
-	} else {
-		sp.SetTag("badSignature", true)
-		sp.SetTag("error", true)
-		csw.Log.Errorw("signature not verified")
+		return nil
 	}
+
+	sp.SetTag("badSignature", true)
+	sp.SetTag("error", true)
+	csw.Log.Errorw("signature not verified AND SHOULD NEVER GET HERE")
 	return nil
 }
 
