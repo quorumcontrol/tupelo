@@ -21,7 +21,6 @@ import (
 )
 
 func TestConflictSetRouterQuorum(t *testing.T) {
-	middleware.SetLogLevel("DEBUG")
 	numSigners := 3
 	ts := testnotarygroup.NewTestSet(t, numSigners)
 	ng, err := newActorlessSystem(ts)
