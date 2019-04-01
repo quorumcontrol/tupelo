@@ -466,7 +466,7 @@ func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName stri
 		{
 			Type: consensus.TransactionTypeMintToken,
 			Payload: transactions.MintTokenPayload{
-				Name:   coinName,
+				Name:   tokenName,
 				Amount: amount,
 			},
 		},
