@@ -407,6 +407,9 @@ func (s *server) PlayTransactions(ctx context.Context, req *services.PlayTransac
 	defer session.Stop()
 
 	tipCid, err := session.PlayTransactions(req.ChainId, req.KeyAddr, req.Transactions)
+	if err != nil {
+		return nil, fmt.Errorf("error playing transactions onto chaintree: %v", err)
+	}
 
 	return &services.PlayTransactionsResponse{
 		Tip: tipCid.String(),
