@@ -10,3 +10,4 @@ _old
 /VERSION_GUARD_*
 /packrd/
 *-packr.go
+/local-run/
