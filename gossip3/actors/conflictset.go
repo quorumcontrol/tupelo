@@ -54,9 +54,6 @@ type ConflictSet struct {
 	view          uint64
 	updates       uint64
 	active        bool
-
-	height     uint64
-	nextHeight uint64
 }
 
 type ConflictSetConfig struct {
@@ -152,7 +149,9 @@ func (csw *ConflictSetWorker) OriginalReceive(cs *ConflictSet, sentMsg interface
 	case *messages.SignatureWrapper:
 		csw.handleNewSignature(cs, context, msg)
 	case *messages.CurrentStateWrapper:
-		csw.handleCurrentStateWrapper(cs, context, msg)
+		if err := csw.handleCurrentStateWrapper(cs, context, msg); err != nil {
+			csw.Log.Errorw("error handling current state", "err", err)
+		}
 	case *extmsgs.CurrentState:
 		csw.Log.Errorw("something called this")
 	case *commitNotification:

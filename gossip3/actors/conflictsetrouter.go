@@ -107,7 +107,9 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 			context.Forward(parent)
 		}
 	case *messages.SignatureVerification:
-		csr.handleSignatureResponse(context, msg)
+		if err := csr.handleSignatureResponse(context, msg); err != nil {
+			csr.Log.Errorw("error handling signature response", "err", err)
+		}
 	}
 }
 
@@ -137,6 +139,7 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 	sp := wrapper.NewSpan("handleSignatureResponse")
 	csr.Log.Debugw("handleSignatureResponse")
 	if ver.Verified {
+		sp.SetTag("verified", true)
 		wrapper.Verified = true
 		csr.forwardOrIgnore(context, wrapper, wrapper.Key)
 		sp.Finish()
