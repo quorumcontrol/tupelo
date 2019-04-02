@@ -133,13 +133,18 @@ func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, msg interfa
 }
 
 func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver *messages.SignatureVerification) error {
+	wrapper := ver.Memo.(*messages.CurrentStateWrapper)
+	sp := wrapper.NewSpan("handleSignatureResponse")
 	csr.Log.Debugw("handleSignatureResponse")
 	if ver.Verified {
-		wrapper := ver.Memo.(*messages.CurrentStateWrapper)
 		wrapper.Verified = true
 		csr.forwardOrIgnore(context, wrapper, wrapper.Key)
+		sp.Finish()
 		return nil
 	}
+	sp.SetTag("error", true)
+	sp.Finish()
+	wrapper.StopTrace()
 	csr.Log.Errorw("invalid signature")
 	// for now we can just ignore
 	return nil

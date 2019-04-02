@@ -87,6 +87,8 @@ type SignatureVerification struct {
 }
 
 type CurrentStateWrapper struct {
+	tracing.ContextHolder
+
 	Internal            bool
 	Verified            bool
 	CurrentState        *extmsgs.CurrentState

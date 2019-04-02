@@ -1,10 +1,12 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/storage"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -212,6 +214,8 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 		Value:        msg.store.Value,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
+
+	setupCurrStateCtx(wrapper, cs)
 
 	if msg.height == msg.nextHeight {
 		sp.SetTag("activating", true)
@@ -432,12 +436,14 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
 
+	setupCurrStateCtx(currStateWrapper, cs)
+
 	// don't use message passing, because we can skip a lot of processing if we're done right here
 	return csw.validSignature(cs, context, currStateWrapper)
 }
 
 func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-	sp := cs.NewSpan("validSignature")
+	sp := cs.NewSpan("cs-validSignature")
 	defer sp.Finish()
 
 	sig := currWrapper.CurrentState.Signature
@@ -470,6 +476,9 @@ func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Cont
 }
 
 func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	currWrapperSpan := currWrapper.NewSpan("handleCurrentStateWrapper")
+	defer currWrapper.StopTrace()
+	defer currWrapperSpan.Finish()
 	sp := cs.NewSpan("handleCurrentStateWrapper")
 	defer sp.Finish()
 
@@ -571,4 +580,13 @@ func sigToWrapper(sig *extmsgs.Signature, ng *types.NotaryGroup, self *types.Sig
 		Signature:        sig,
 		Metadata:         messages.MetadataMap{"seen": time.Now()},
 	}, nil
+}
+
+// this is a bit of custom tracing magic to give the currentStateWrapper a standard
+// lifecycle of its own, but also link it up with this conflictSet
+func setupCurrStateCtx(wrapper *messages.CurrentStateWrapper, cs *ConflictSet) {
+	csSpan := opentracing.SpanFromContext(cs.GetContext())
+	wrapperSpan := opentracing.StartSpan("currentStateWrapper", opentracing.FollowsFrom(csSpan.Context()))
+	wrapperCtx := opentracing.ContextWithSpan(context.Background(), wrapperSpan)
+	wrapper.SetContext(wrapperCtx)
 }
