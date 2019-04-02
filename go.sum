@@ -564,6 +564,12 @@ github.com/prometheus/procfs v0.0.0-20190319124303-40f3c57fb198 h1:gANBAZ/83d6fD
 github.com/prometheus/procfs v0.0.0-20190319124303-40f3c57fb198/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/quorumcontrol/chaintree v0.0.0-20190329154239-0a2da8b38ce9 h1:qK6wGaBVqM9s6U7Qd75Ilnj+qXui3hwIitwI5oNHs+k=
 github.com/quorumcontrol/chaintree v0.0.0-20190329154239-0a2da8b38ce9/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
+github.com/quorumcontrol/chaintree v0.0.0-20190402081445-cae7a2b09f23 h1:lQgXhFzze87Fh2nZpRt+b88w5e8mErvQc3Q+nUBc9+s=
+github.com/quorumcontrol/chaintree v0.0.0-20190402081445-cae7a2b09f23/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
+github.com/quorumcontrol/chaintree v0.0.0-20190402183008-3dc1c93480c9 h1:iVlwUbkVYvrJrWzbnustLQEKPltT2/XyYeUuoaU0Hpc=
+github.com/quorumcontrol/chaintree v0.0.0-20190402183008-3dc1c93480c9/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
+github.com/quorumcontrol/chaintree v0.0.0-20190403065858-dd3b42109016 h1:t037YiBmJCnKYeEz4WXCykmIbpOBLxDTpSMB6ol5wpU=
+github.com/quorumcontrol/chaintree v0.0.0-20190403065858-dd3b42109016/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
 github.com/quorumcontrol/differencedigest v0.0.3 h1:ufVJ5VSd+4WKP2ac6lM6NirGm8XpJZHeFEFtQDme1To=
 github.com/quorumcontrol/differencedigest v0.0.3/go.mod h1:KtZwFczRYGg+vuej/y7lpjYyHVbw8xC6VLtWtFKgX8k=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF7FTLpcl171qo5MFvbKjrLEsLtcKF72uQpefiPM=
