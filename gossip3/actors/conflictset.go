@@ -195,6 +195,9 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, m
 }
 
 func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Context, msg *commitNotification) error {
+	sp := cs.NewSpan("handleCommit")
+	defer sp.Finish()
+
 	csw.Log.Debug("handleCommit")
 
 	var currState extmsgs.CurrentState
@@ -211,41 +214,11 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 	}
 
 	if msg.height == msg.nextHeight {
+		sp.SetTag("activating", true)
 		cs.active = true
 	}
 
-	// if cs.active {
 	return csw.validSignature(cs, context, wrapper)
-	// }
-
-	// verified, err := csw.validSignature(cs, context, wrapper)
-	// if err != nil {
-	// 	return fmt.Errorf("error verifying signature: %v", err)
-	// }
-	// if !verified {
-	// 	return fmt.Errorf("signature not verified")
-	// }
-
-	// wrapper.Verified = true
-	// wrapper.Metadata["verifiedAt"] = time.Now()
-	// if msg.height == msg.nextHeight {
-	// 	cs.active = true
-	// 	return csw.handleCurrentStateWrapper(cs, context, wrapper)
-	// }
-	// if msg.height < msg.nextHeight {
-	// 	csw.Log.Warnw("received stale commit notification (height too low) - ignoring it",
-	// 		"height", msg.height, "nextHeight", msg.nextHeight)
-	// 	return nil
-	// }
-
-	// csw.Log.Debug("snoozing commit for later")
-	// if cs.snoozedCommit != nil {
-	// 	return fmt.Errorf("received new commit with one already snoozed")
-	// }
-
-	// cs.snoozedCommit = wrapper
-
-	// return nil
 }
 
 func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context actor.Context, msg *messages.TransactionWrapper) {
