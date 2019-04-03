@@ -13,6 +13,7 @@ response=$(curl --silent --show-error --fail \
     releases(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
       nodes {
         tag {
+          prefix
           name
         }
       }
@@ -23,22 +24,25 @@ EOF
 )
 
 latest=$(echo $response | jq -r ".data.repository.releases.nodes[0].tag.name")
+prefix=$(echo $response | jq -r ".data.repository.releases.nodes[0].tag.prefix")
 
 if [[ -z "$latest" ]]; then
   echo "No releases found"
   exit 78
 fi
 
+latestref="${prefix}${latest}"
+
 case "$GITHUB_REF" in
   "")
     echo "\$GITHUB_REF is not set"
     exit 1
     ;;
-  $latest)
+  $latestref)
     echo "$GITHUB_REF is latest release"
     exit 0
     ;;
   *)
-    echo "$GITHUB_REF does not match latest release of $latest"
+    echo "$GITHUB_REF does not match latest release of $latestref"
     exit 78
 esac
