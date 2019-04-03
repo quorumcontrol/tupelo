@@ -67,13 +67,12 @@ type ConflictSetConfig struct {
 }
 
 func NewConflictSet(id string) *ConflictSet {
-	c := &ConflictSet{
+	return &ConflictSet{
 		ID:           id,
 		signatures:   make(signaturesByTransaction),
 		signerSigs:   make(signaturesBySigner),
 		transactions: make(transactionMap),
 	}
-	return c
 }
 
 const conflictSetConcurrency = 50
@@ -129,13 +128,13 @@ func (csw *ConflictSetWorker) Receive(context actor.Context) {
 			csw.Log.Debugw("received message on done CS")
 			return
 		}
-		csw.OriginalReceive(msg.cs, msg.msg, context)
+		csw.dispatchWithConflictSet(msg.cs, msg.msg, context)
 	default:
 		csw.Log.Errorw("received bad message", "type", reflect.TypeOf(context.Message()).String())
 	}
 }
 
-func (csw *ConflictSetWorker) OriginalReceive(cs *ConflictSet, sentMsg interface{}, context actor.Context) {
+func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg interface{}, context actor.Context) {
 	switch msg := sentMsg.(type) {
 	case *messages.TransactionWrapper:
 		csw.handleNewTransaction(cs, context, msg)
@@ -221,7 +220,7 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 		cs.active = true
 	}
 
-	return csw.validSignature(cs, context, wrapper)
+	return csw.requestSignatureValidation(cs, context, wrapper)
 }
 
 func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context actor.Context, msg *messages.TransactionWrapper) {
@@ -438,11 +437,11 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 	setupCurrStateCtx(currStateWrapper, cs)
 
 	// don't use message passing, because we can skip a lot of processing if we're done right here
-	return csw.validSignature(cs, context, currStateWrapper)
+	return csw.requestSignatureValidation(cs, context, currStateWrapper)
 }
 
-func (csw *ConflictSetWorker) validSignature(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-	sp := cs.NewSpan("cs-validSignature")
+func (csw *ConflictSetWorker) requestSignatureValidation(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	sp := cs.NewSpan("cs-requestSignatureValidation")
 	defer sp.Finish()
 
 	sig := currWrapper.CurrentState.Signature
