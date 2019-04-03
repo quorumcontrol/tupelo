@@ -28,7 +28,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/opentracing/opentracing-go v1.0.2
-	github.com/quorumcontrol/chaintree v0.0.0-20190329154239-0a2da8b38ce9
+	github.com/quorumcontrol/chaintree v0.0.0-20190403065858-dd3b42109016
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/messages v0.0.0-20190329073357-72154292315e
 	github.com/quorumcontrol/storage v1.1.1
@@ -39,5 +39,6 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0
 	golang.org/x/net v0.0.0-20190328230028-74de082e2cca
+	google.golang.org/genproto v0.0.0-20180831171423-11092d34479b // indirect
 	google.golang.org/grpc v1.19.1
 )

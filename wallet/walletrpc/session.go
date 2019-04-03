@@ -424,6 +424,11 @@ func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, val
 }
 
 func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []string, error) {
+	return rpcs.resolveAt(chainId, path, nil)
+}
+
+func (rpcs *RPCSession) resolveAt(chainId string, path []string, tip *cid.Cid) (interface{},
+	[]string, error) {
 	if rpcs.IsStopped() {
 		return nil, nil, StoppedError
 	}
@@ -433,7 +438,11 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 		return nil, nil, err
 	}
 
-	return chain.ChainTree.Dag.Resolve(path)
+	if tip == nil {
+		tip = &chain.ChainTree.Dag.Tip
+	}
+
+	return chain.ChainTree.Dag.ResolveAt(*tip, path)
 }
 
 func (rpcs *RPCSession) EstablishToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
