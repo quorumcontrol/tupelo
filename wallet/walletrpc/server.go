@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
@@ -312,24 +313,38 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 }
 
 func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResponse, error) {
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	return s.resolveAt(ctx, req.Creds, req.ChainId, req.Path, nil)
+}
+
+func (s *server) ResolveAt(ctx context.Context, req *ResolveAtRequest) (*ResolveResponse,
+	error) {
+	t, err := cid.Decode(req.Tip)
+	if err != nil {
+		return nil, fmt.Errorf("A valid tip CID must be provided")
+	}
+	return s.resolveAt(ctx, req.Creds, req.ChainId, req.Path, &t)
+}
+
+func (s *server) resolveAt(ctx context.Context, creds *Credentials, chainId string, path string,
+	tip *cid.Cid) (*ResolveResponse, error) {
+	session, err := NewSession(s.storagePath, creds.WalletName, s.Client)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(req.Creds.PassPhrase)
+	err = session.Start(creds.PassPhrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
 
 	defer session.Stop()
 
-	pathSegments, err := consensus.DecodePath(req.Path)
+	pathSegments, err := consensus.DecodePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("bad path: %v", err)
 	}
 
-	data, remainingSegments, err := session.Resolve(req.ChainId, pathSegments)
+	data, remainingSegments, err := session.resolveAt(chainId, pathSegments, tip)
 	if err != nil {
 		return nil, err
 	}
