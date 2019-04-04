@@ -83,9 +83,12 @@ type SignatureVerification struct {
 	Message   []byte
 	Signature []byte
 	VerKeys   [][]byte
+	Memo      interface{}
 }
 
 type CurrentStateWrapper struct {
+	tracing.ContextHolder
+
 	Internal            bool
 	Verified            bool
 	CurrentState        *extmsgs.CurrentState
