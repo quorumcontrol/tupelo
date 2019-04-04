@@ -7,7 +7,7 @@ COPY . .
 RUN go install -mod=vendor -v -a -ldflags '-extldflags "-static"' -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH
 
 FROM alpine:3.9
-LABEL maintainer="dev@quroumcontrol.com"
+LABEL maintainer="dev@quorumcontrol.com"
 
 RUN mkdir -p /var/lib/tupelo
 
