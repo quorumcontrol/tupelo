@@ -22,6 +22,7 @@ type ConflictSetRouter struct {
 	recentlyDone *lru.Cache
 	conflictSets *iradix.Tree
 	cfg          *ConflictSetRouterConfig
+	pool         *actor.PID
 }
 
 type ConflictSetRouterConfig struct {
@@ -63,19 +64,35 @@ func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {
 
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		csr.Log.Debugw("spawning", "self", context.Self().String())
+		cfg := csr.cfg
+		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(&ConflictSetConfig{
+			ConflictSetRouter:  context.Self(),
+			CurrentStateStore:  cfg.CurrentStateStore,
+			NotaryGroup:        cfg.NotaryGroup,
+			Signer:             cfg.Signer,
+			SignatureChecker:   cfg.SignatureChecker,
+			SignatureGenerator: cfg.SignatureGenerator,
+			SignatureSender:    cfg.SignatureSender,
+		}), "csrPool")
+		if err != nil {
+			panic(fmt.Errorf("error spawning csrPool: %v", err))
+		}
+		csr.pool = pool
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
-		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
+		csr.forwardOrIgnore(context, context.Message(), []byte(msg.ConflictSetID))
 		sp.Finish()
 	case *messages.SignatureWrapper:
-		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID))
+		csr.forwardOrIgnore(context, context.Message(), []byte(msg.ConflictSetID))
 	case *extmsgs.Signature:
-		csr.forwardOrIgnore(context, []byte(msg.ConflictSetID()))
+		csr.forwardOrIgnore(context, context.Message(), []byte(msg.ConflictSetID()))
 	case *extmsgs.Store:
-		csr.forwardOrIgnore(context, msg.Key)
+		csr.forwardOrIgnore(context, context.Message(), msg.Key)
 	case *commitNotification:
 		msg.nextHeight = csr.nextHeight(msg.objectID)
-		csr.forwardOrIgnore(context, msg.store.Key)
+		csr.forwardOrIgnore(context, context.Message(), msg.store.Key)
 	case *messages.CurrentStateWrapper:
 		if parent := context.Parent(); parent != nil {
 			context.Forward(parent)
@@ -89,6 +106,10 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		if parent := context.Parent(); parent != nil {
 			context.Forward(parent)
 		}
+	case *messages.SignatureVerification:
+		if err := csr.handleSignatureResponse(context, msg); err != nil {
+			csr.Log.Errorw("error handling signature response", "err", err)
+		}
 	}
 }
 
@@ -96,24 +117,46 @@ func (csr *ConflictSetRouter) cleanupConflictSet(id []byte) {
 	csr.Log.Debugw("cleaning up conflict set", "cs", id)
 	idS := conflictSetIDToInternalID(id)
 	csr.recentlyDone.Add(idS, true)
-	sets, csActor, didDelete := csr.conflictSets.Delete([]byte(idS))
+	sets, cs, didDelete := csr.conflictSets.Delete([]byte(idS))
 	if didDelete {
-		csActor.(*actor.PID).Stop()
+		cs.(*ConflictSet).StopTrace()
 		csr.conflictSets = sets
 	}
 }
 
-func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, id []byte) {
-	cs := csr.getOrCreateCS(context, id)
+func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, msg interface{}, id []byte) {
+	cs := csr.getOrCreateCS(id)
 	if cs != nil {
-		context.Forward(cs)
+		context.Send(csr.pool, &csWorkerRequest{
+			msg: msg,
+			cs:  cs,
+		})
 	}
+}
+
+func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver *messages.SignatureVerification) error {
+	wrapper := ver.Memo.(*messages.CurrentStateWrapper)
+	sp := wrapper.NewSpan("handleSignatureResponse")
+	csr.Log.Debugw("handleSignatureResponse")
+	if ver.Verified {
+		sp.SetTag("verified", true)
+		wrapper.Verified = true
+		csr.forwardOrIgnore(context, wrapper, wrapper.Key)
+		sp.Finish()
+		return nil
+	}
+	sp.SetTag("error", true)
+	sp.Finish()
+	wrapper.StopTrace()
+	csr.Log.Errorw("invalid signature")
+	// for now we can just ignore
+	return nil
 }
 
 // if there is already a conflict set, then forward the message there
 // if there isn't then, look at the recently done and if it's done, return nil
 // if it's not in either set, then create the actor
-func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *actor.PID {
+func (csr *ConflictSetRouter) getOrCreateCS(id []byte) *ConflictSet {
 	idS := conflictSetIDToInternalID(id)
 	id = []byte(idS)
 	cs, ok := csr.conflictSets.Get(id)
@@ -123,28 +166,20 @@ func (csr *ConflictSetRouter) getOrCreateCS(context actor.Context, id []byte) *a
 			return nil
 		}
 		csr.Log.Debugw("creating conflict set", "cs", idS)
-		cs = csr.newConflictSet(context, idS)
+		cs = csr.newConflictSet(idS)
 		sets, _, _ := csr.conflictSets.Insert(id, cs)
 		csr.conflictSets = sets
 	}
-	return cs.(*actor.PID)
+	return cs.(*ConflictSet)
 }
 
-func (csr *ConflictSetRouter) newConflictSet(context actor.Context, id string) *actor.PID {
+func (csr *ConflictSetRouter) newConflictSet(id string) *ConflictSet {
 	csr.Log.Debugw("new conflict set", "id", id)
 	cfg := csr.cfg
-	cs, err := context.SpawnNamed(NewConflictSetProps(&ConflictSetConfig{
-		ID:                 id,
-		CurrentStateStore:  cfg.CurrentStateStore,
-		NotaryGroup:        cfg.NotaryGroup,
-		Signer:             cfg.Signer,
-		SignatureChecker:   cfg.SignatureChecker,
-		SignatureGenerator: cfg.SignatureGenerator,
-		SignatureSender:    cfg.SignatureSender,
-	}), id)
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
+	cs := NewConflictSet(id)
+	sp := cs.StartTrace("conflictset")
+	sp.SetTag("csid", id)
+	sp.SetTag("signer", cfg.Signer.ID)
 	return cs
 }
 
@@ -154,7 +189,10 @@ func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context
 	cs, ok := csr.conflictSets.Get([]byte(conflictSetIDToInternalID([]byte(conflictSetID))))
 	if ok {
 		csr.Log.Debugw("activating snoozed", "cs", conflictSetIDToInternalID([]byte(conflictSetID)))
-		context.Forward(cs.(*actor.PID))
+		context.Send(csr.pool, &csWorkerRequest{
+			cs:  cs.(*ConflictSet),
+			msg: context.Message(),
+		})
 	}
 }
 

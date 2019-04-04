@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/mailbox"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/opentracing/opentracing-go"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/tracing"
@@ -140,7 +141,13 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 
 		if g.syncersAvailable > 0 {
 			receiveSyncer := actorContext.SpawnPrefix(g.pusherProps, remoteSyncerPrefix)
-			actorContext.Send(receiveSyncer, &setContext{context: msg.GetContext()})
+			// we are using StartSpanFromContext here because ocastionally we
+			// do not get the right context from the pushsyncer side.
+			// This will handle the case in either good (we have a context)
+			// or bad (there is no context). The span is stopped by the pushsyncer
+			_, msgCtx := opentracing.StartSpanFromContext(msg.GetContext(), "receiverSyncer")
+			actorContext.Send(receiveSyncer, &setContext{context: msgCtx})
+
 			g.syncersAvailable--
 			available := &messages.SyncerAvailable{}
 			available.SetDestination(extmsgs.ToActorPid(receiveSyncer))
