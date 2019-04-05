@@ -3,6 +3,7 @@ package actors
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -105,7 +106,7 @@ func (syncer *PushSyncer) stop(context actor.Context) {
 }
 
 func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPush) {
-	sp := syncer.StartTrace("push-syncer")
+	parentSpan := syncer.StartTrace("push-syncer")
 	syncer.start = time.Now()
 	syncer.Log.Debugw("sync start", "now", syncer.start)
 	var remoteGossiper *actor.PID
@@ -114,34 +115,44 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 	}
 	syncer.remote = remoteGossiper
 	syncer.Log.Debugw("requesting syncer", "remote", remoteGossiper.Id)
-	sp.SetTag("remote", remoteGossiper.String())
+	parentSpan.SetTag("remote", remoteGossiper.String())
 	getSyncerMsg := &messages.GetSyncer{
 		Kind: syncer.kind,
 	}
 	getSyncerMsg.SetContext(syncer.GetContext())
+
+	sp := syncer.NewSpan("push-syncer-request-remote")
 	resp, err := context.RequestFuture(remoteGossiper, getSyncerMsg, 10*time.Second).Result()
 	if err != nil {
 		syncer.Log.Errorw("timeout waiting for remote syncer", "err", err, "remote", remoteGossiper.String())
 		sp.SetTag("error", true)
 		sp.SetTag("timeout", true)
 		syncer.stop(context)
+		sp.Finish()
 		return
 	}
+	sp.Finish()
 
 	switch remoteSyncer := resp.(type) {
 	case *messages.NoSyncersAvailable:
 		syncer.Log.Debugw("remote busy")
-		sp.SetTag("unavailable", true)
+		parentSpan.SetTag("unavailable", true)
 		syncer.poison(context)
 	case *messages.SyncerAvailable:
 		destination := extmsgs.FromActorPid(remoteSyncer.Destination)
 		syncer.Log.Debugw("requesting strata")
+		sp := syncer.NewSpan("push-syncer-local-request-strata")
 		strata, err := context.RequestFuture(syncer.storageActor, &messages.GetStrata{}, 2*time.Second).Result()
 		if err != nil {
 			syncer.Log.Errorw("timeout waiting for strata", "err", err)
+			sp.SetTag("error", true)
 			syncer.syncDone(context)
+			sp.Finish()
 			return
 		}
+		sp.Finish()
+		sp = syncer.NewSpan("push-syncer-provdie-strata")
+		defer sp.Finish()
 		syncer.Log.Debugw("providing strata", "remote", destination)
 		context.Request(destination, &messages.ProvideStrata{
 			Strata: strata.(*ibf.DifferenceStrata),
@@ -150,13 +161,15 @@ func (syncer *PushSyncer) handleDoPush(context actor.Context, msg *messages.DoPu
 			},
 		})
 	default:
+		parentSpan.SetTag("error", true)
+		parentSpan.SetTag("responseType", reflect.TypeOf(remoteSyncer).String())
 		syncer.Log.Errorw("unknown response type", "remoteSyncer", remoteSyncer)
 	}
 }
 
 func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messages.ProvideStrata) {
-	sp := syncer.NewSpan("handleProvideStrata")
-	defer sp.Finish()
+	parentSpan := syncer.NewSpan("handleProvideStrata")
+	defer parentSpan.Finish()
 
 	syncer.Log.Debugw("handleProvideStrata")
 	syncer.start = time.Now()
@@ -169,9 +182,12 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 		return
 	}
 	syncer.Log.Debugw("estimating strata")
+
+	sp := syncer.NewSpan("push-syncer-estimateStrata")
 	localStrata := localStrataInt.(*ibf.DifferenceStrata)
 	count, result := localStrata.Estimate(msg.Strata)
-	sp.SetTag("count", count)
+	sp.Finish()
+	parentSpan.SetTag("count", count)
 	if result == nil {
 		syncer.Log.Debugw("nil result")
 		if count > 0 {
@@ -189,15 +205,17 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 				syncer.syncDone(context)
 				return
 			}
-			sp.SetTag("IBFSize", sizeToSend)
+			parentSpan.SetTag("IBFSize", sizeToSend)
 
+			sp = syncer.NewSpan("push-syncer-getLocalIBF")
 			localIBF, err := syncer.getLocalIBF(context, sizeToSend)
 			if err != nil {
 				syncer.Log.Errorw("error getting local IBF", "err", err)
+				sp.Finish()
 				syncer.syncDone(context)
 				return
 			}
-
+			sp.Finish()
 			context.Request(context.Sender(), &messages.ProvideBloomFilter{
 				Filter: localIBF,
 				DestinationHolder: messages.DestinationHolder{
@@ -205,13 +223,13 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 				},
 			})
 		} else {
-			sp.SetTag("synced", true)
+			parentSpan.SetTag("synced", true)
 			syncer.Log.Debugw("synced", "remote", context.Sender())
 			syncer.syncDone(context)
 		}
 	} else {
 		if len(result.LeftSet) == 0 && len(result.RightSet) == 0 {
-			sp.SetTag("synced", true)
+			parentSpan.SetTag("synced", true)
 			syncer.Log.Debugw("synced", "remote", context.Sender())
 			syncer.syncDone(context)
 		} else {
@@ -277,6 +295,7 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 func (syncer *PushSyncer) handleRequestKeys(context actor.Context, msg *messages.RequestKeys) {
 	sp := syncer.NewSpan("handleRequestKeys")
 	defer sp.Finish()
+	sp.SetTag("count", len(msg.Keys))
 	syncer.sendPrefixes(context, msg.Keys, context.Sender())
 }
 
@@ -309,7 +328,7 @@ func (syncer *PushSyncer) handleDiff(context actor.Context, diff ibf.DecodeResul
 func (syncer *PushSyncer) sendPrefixes(context actor.Context, prefixes []uint64, destination *actor.PID) {
 	sp := syncer.NewSpan("sendPrefixes")
 	defer sp.Finish()
-	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.storageActor), "objectSender")
+	sender := context.SpawnPrefix(NewObjectSenderProps(syncer.GetContext(), syncer.storageActor), "objectSender")
 	for _, pref := range prefixes {
 		context.Send(sender, &messages.SendPrefix{
 			Prefix:      uint64ToBytes(pref),

@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -9,21 +10,26 @@ import (
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 // Sender sends objects off to somewhere else
 type ObjectSender struct {
+	tracing.ContextHolder
+
 	middleware.LogAwareHolder
 	reader storage.Reader
 	store  *actor.PID
 }
 
-func NewObjectSenderProps(store *actor.PID) *actor.Props {
+func NewObjectSenderProps(ctx context.Context, store *actor.PID) *actor.Props {
 	return actor.PropsFromProducer(func() actor.Actor {
-		return &ObjectSender{
+		os := &ObjectSender{
 			store: store,
 		}
+		os.SetContext(ctx)
+		return os
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
 		plugin.Use(&middleware.LogPlugin{}),
@@ -43,7 +49,11 @@ func (o *ObjectSender) Receive(context actor.Context) {
 	case *messages.SendingDone:
 		context.Respond(msg)
 	case *messages.SendPrefix:
+		sp := o.NewSpan("objectsender-sendPrefix")
+		defer sp.Finish()
+		storageSpan := o.NewSpan("objectsender-GetPairsByPrefix")
 		keys, err := o.reader.GetPairsByPrefix(msg.Prefix)
+		storageSpan.Finish()
 		if err != nil {
 			panic("error getting prefix")
 		}
