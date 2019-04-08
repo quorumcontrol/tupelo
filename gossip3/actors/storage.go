@@ -31,6 +31,13 @@ var standardIBFSizes = []int{500, 2000, 100000}
 
 type ibfMap map[int]*ibf.InvertibleBloomFilter
 
+type differenceDigestSnapshot struct {
+	strata *ibf.DifferenceStrata
+	ibfs   ibfMap
+}
+
+type getDifferenceSnapshot struct{}
+
 // PushSyncer is the main remote-facing actor that handles
 // Sending out syncs
 type Storage struct {
@@ -94,6 +101,8 @@ func (s *Storage) Receive(context actor.Context) {
 		context.Respond(snapshotStrata(s.strata))
 	case *messages.GetIBF:
 		context.Respond(snapshotIBF(s.ibfs[msg.Size]))
+	case *getDifferenceSnapshot:
+		s.handleDifferenceSnapshot(context)
 	case *messages.GetThreadsafeReader:
 		context.Respond(storage.Reader(s.storage))
 	case *messages.GetPrefix:
@@ -123,6 +132,17 @@ func snapshotStrata(existing *ibf.DifferenceStrata) *ibf.DifferenceStrata {
 		newStrata.Filters[i] = snapshotIBF(filt)
 	}
 	return newStrata
+}
+
+func (s *Storage) handleDifferenceSnapshot(context actor.Context) {
+	ibfs := make(ibfMap)
+	for size, ibf := range s.ibfs {
+		ibfs[size] = snapshotIBF(ibf)
+	}
+	context.Respond(&differenceDigestSnapshot{
+		strata: snapshotStrata(s.strata),
+		ibfs:   ibfs,
+	})
 }
 
 func (s *Storage) Add(key, value []byte) (bool, error) {
