@@ -514,7 +514,7 @@ func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendN
 
 	allNodes[sendNodeId.String()] = sendTokenNode
 
-	tokenPath, err := consensus.PathForToken(tokenName)
+	tokenPath, err := consensus.TokenPath(tokenName)
 	if err != nil {
 		return nil, err
 	}
@@ -560,14 +560,7 @@ func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName stri
 		return "", err
 	}
 
-	tokenPath, err := consensus.PathForToken(tokenName)
-	if err != nil {
-		return "", err
-	}
-	// We have the chaintree root here, not just the tree, so prepend TreeLabel to the path
-	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
-
-	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, tokenPath, consensus.TokenSendLabel)
+	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, tokenName, consensus.TokenSendLabel)
 	if err != nil {
 		return "", err
 	}

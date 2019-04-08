@@ -565,6 +565,7 @@ github.com/prometheus/procfs v0.0.0-20181204211112-1dc9a6cbc91a/go.mod h1:c3At6R
 github.com/prometheus/procfs v0.0.0-20190319124303-40f3c57fb198 h1:gANBAZ/83d6fDlpF7LDau8/JzhJgjWsD0HSglJO3KxI=
 github.com/prometheus/procfs v0.0.0-20190319124303-40f3c57fb198/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/quorumcontrol/chaintree v0.0.0-20190329154239-0a2da8b38ce9/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
+github.com/quorumcontrol/chaintree v0.0.0-20190408142253-d51249460e8033b6d1eec9c85644bff9280b85ca h1:3YojAX22wKhZv5pV/S8HlAXViXqcMXjkEYy3Kw6UNgA=
 github.com/quorumcontrol/chaintree v0.0.0-20190408142253-d51249460e8033b6d1eec9c85644bff9280b85ca/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
 github.com/quorumcontrol/differencedigest v0.0.3 h1:ufVJ5VSd+4WKP2ac6lM6NirGm8XpJZHeFEFtQDme1To=
 github.com/quorumcontrol/differencedigest v0.0.3/go.mod h1:KtZwFczRYGg+vuej/y7lpjYyHVbw8xC6VLtWtFKgX8k=
@@ -574,7 +575,10 @@ github.com/quorumcontrol/storage v1.1.1 h1:9ijuxMAKS0MwLL/thV4kwJe/AshFVF5Du1dTO
 github.com/quorumcontrol/storage v1.1.1/go.mod h1:ARuX26Pi5Hnequ0LDAHmrXyhdjuhUS7Y1rjGkec6WM8=
 github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190329183529-eab58552dceb88919a013b0f6065ac1f7bc33430 h1:TcbDcO8C9SFSxl2hZDvqCCOLIVthxhqROYOmUx4rzIs=
 github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190329183529-eab58552dceb88919a013b0f6065ac1f7bc33430/go.mod h1:gxULsao7BQK1+nliJ+lPErVPBvJIa1MPZFW5MLgN5Vc=
+github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190408183529-00efbb78ce291eacf06d1c2d14818df38d8159fe h1:AbPgnQb10Ji7nd3C8JfD85GZvvHsOh2++MKGr1Ke37I=
 github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190408183529-00efbb78ce291eacf06d1c2d14818df38d8159fe/go.mod h1:CS+CRbF7nOL1oAjQ2cjr2C02x+mjDU4XCU9WxHAOthc=
+github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190408193529-87e892dfb3b8ff97c19bcf2e1ae8905a694c1186 h1:9NZ649OkX3D41LnPMcyME1ftg6DiNWruPHz0LNMIkYM=
+github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190408193529-87e892dfb3b8ff97c19bcf2e1ae8905a694c1186/go.mod h1:CS+CRbF7nOL1oAjQ2cjr2C02x+mjDU4XCU9WxHAOthc=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2 h1:J7U/N7eRtzjhs26d6GqMh2HBuXP8/Z64Densiiieafo=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
