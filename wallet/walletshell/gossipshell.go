@@ -343,6 +343,11 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 			tip, err := session.EstablishToken(c.Args[0], c.Args[1], c.Args[2], maxTokens)
+			if err != nil {
+				c.Printf("error establishing token: %v\n", err)
+				return
+			}
+
 			c.Printf("new tip: %v\n", tip)
 		},
 	})
@@ -362,6 +367,11 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 			tip, err := session.MintToken(c.Args[0], c.Args[1], c.Args[2], amount)
+			if err != nil {
+				c.Printf("error minting token: %v\n", err)
+				return
+			}
+
 			c.Printf("new tip: %v\n", tip)
 		},
 	})
@@ -381,6 +391,11 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				return
 			}
 			token, err := session.SendToken(c.Args[0], c.Args[1], c.Args[2], c.Args[3], amount)
+			if err != nil {
+				c.Printf("error generating send token payload: %v\n", err)
+				return
+			}
+			
 			c.Printf("token: %s\n", token)
 		},
 	})
