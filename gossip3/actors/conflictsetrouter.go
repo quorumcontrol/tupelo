@@ -2,6 +2,8 @@ package actors
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -83,22 +85,20 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()
-		csr.forwardOrIgnore(context, context.Message(), []byte(msg.ConflictSetID))
+		csr.forwardOrIgnore(context, context.Message(), msg.Transaction.ObjectID,
+			msg.Transaction.Height)
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
-		csr.forwardOrIgnore(context, context.Message(), []byte(msg.ConflictSetID))
+		csr.forwardOrIgnore(context, context.Message(), msg.Signature.ObjectID, msg.Signature.Height)
 	case *extmsgs.Signature:
 		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID)
-		csr.forwardOrIgnore(context, context.Message(), []byte(msg.ConflictSetID()))
-	case *extmsgs.Store:
-		csr.Log.Debugw("forwarding store message to conflict set", "key", msg.Key)
-		csr.forwardOrIgnore(context, context.Message(), msg.Key)
+		csr.forwardOrIgnore(context, context.Message(), msg.ObjectID, msg.Height)
 	case *commitNotification:
 		csr.Log.Debugw("received commit notification, computing next transaction height")
 		msg.nextHeight = csr.nextHeight(msg.objectID)
 		csr.Log.Debugw("forwarding commit notification to conflict set", "store.Key", msg.store.Key,
 			"nextHeight", msg.nextHeight)
-		csr.forwardOrIgnore(context, context.Message(), msg.store.Key)
+		csr.forwardOrIgnore(context, context.Message(), msg.objectID, msg.height)
 	case *messages.CurrentStateWrapper:
 		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
 			"height", msg.CurrentState.Signature.Height)
@@ -126,27 +126,53 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 
 // Clean up conflict sets corresponding to current state and of lower transaction height
 func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrapper) {
-	csr.Log.Debugw("cleaning up conflict sets", "numSets", csr.conflictSets.Len())
-	// For each conflict set corresponding to object ID and up to/including transaction height
-	// TODO: Consider if there's a more efficient way of finding stale conflict sets
-	objectID := msg.CurrentState.Signature.ObjectID
-	for h := uint64(0); h <= msg.CurrentState.Signature.Height; h++ {
-		idS := conflictSetIDToInternalID([]byte(extmsgs.ConflictSetID(objectID, h)))
-		csr.Log.Debugw("deleting conflict set if it exists", "objectID", objectID, "height", h,
-			"id", idS)
-		sets, cs, didDelete := csr.conflictSets.Delete([]byte(idS))
-		if didDelete {
-			csr.recentlyDone.Add(idS, true)
-			cs.(*ConflictSet).StopTrace()
-			csr.Log.Debugw("deleted conflict set", "id", idS)
-			csr.conflictSets = sets
-		}
+	numConflictSets := csr.conflictSets.Len()
+	if numConflictSets == 0 {
+		csr.Log.Debugw("no conflict sets to clean up")
+		return
 	}
+
+	curHeight := msg.CurrentState.Signature.Height
+	objectID := msg.CurrentState.Signature.ObjectID
+	csr.Log.Debugw("cleaning up conflict sets", "numSets", numConflictSets, "objectID",
+		string(objectID), "currentHeight", curHeight)
+
+	// Delete conflict sets for object ID and with height <= current one
+	txn := csr.conflictSets.Txn()
+	root := csr.conflictSets.Root()
+	root.WalkPrefix([]byte(fmt.Sprintf("%s/", objectID)), func(k []byte, v interface{}) bool {
+		kS := string(k)
+		splitKey := strings.SplitN(kS, "/", 2)
+		heightS := splitKey[len(splitKey)-1]
+		height, err := strconv.ParseInt(heightS, 10, 64)
+		if err != nil {
+			csr.Log.Errorw("invalid key in csr.conflictSets", "key", string(k), "split", splitKey,
+				"height", heightS, "err", err)
+			return false
+		}
+
+		if uint64(height) > curHeight {
+			// Higher than the current height, no need to prune
+			return false
+		}
+
+		// Prune as of height less than or equal to current height
+		cs := v.(*ConflictSet)
+		csr.Log.Debugw("deleting conflict set", "objectID", string(objectID), "height", height)
+		idS := conflictSetIDToInternalID([]byte(extmsgs.ConflictSetID(objectID, uint64(height))))
+		csr.recentlyDone.Add(idS, true)
+		cs.StopTrace()
+		txn.Delete(k)
+		return false
+	})
+	csr.conflictSets = txn.Commit()
+
 	csr.Log.Debugw("finished cleaning up conflict sets", "numRemaining", csr.conflictSets.Len())
 }
 
-func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, msg interface{}, id []byte) {
-	cs := csr.getOrCreateCS(id)
+func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, msg interface{},
+	objectID []byte, height uint64) {
+	cs := csr.getOrCreateCS(objectID, height)
 	if cs != nil {
 		context.Send(csr.pool, &csWorkerRequest{
 			msg: msg,
@@ -162,7 +188,8 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 	if ver.Verified {
 		sp.SetTag("verified", true)
 		wrapper.Verified = true
-		csr.forwardOrIgnore(context, wrapper, wrapper.Key)
+		csr.forwardOrIgnore(context, wrapper, wrapper.CurrentState.Signature.ObjectID,
+			wrapper.CurrentState.Signature.Height)
 		sp.Finish()
 		return nil
 	}
@@ -177,36 +204,32 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 // if there is already a conflict set, then forward the message there
 // if there isn't then, look at the recently done and if it's done, return nil
 // if it's not in either set, then create the actor
-func (csr *ConflictSetRouter) getOrCreateCS(id []byte) *ConflictSet {
-	idS := conflictSetIDToInternalID(id)
-	id = []byte(idS)
+func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *ConflictSet {
+	idS := conflictSetIDToInternalID([]byte(extmsgs.ConflictSetID(objectID, height)))
 	csr.Log.Debugw("determining whether or not to create another conflict set", "numExistingSets",
-		csr.conflictSets.Len(), "id", idS)
-	cs, ok := csr.conflictSets.Get(id)
+		csr.conflictSets.Len(), "objectID", objectID, "height", height)
+	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, height))
+	csI, ok := csr.conflictSets.Get(nodeID)
 	if ok {
-		csr.Log.Debugw("got existing conflict set", "cs", idS)
-		return cs.(*ConflictSet)
+		csr.Log.Debugw("got existing conflict set", "objectID", objectID, "height", height)
+		return csI.(*ConflictSet)
 	}
 
 	if _, ok = csr.recentlyDone.Get(idS); ok {
-		csr.Log.Debugw("conflict set is already done", "cs", idS)
+		csr.Log.Debugw("conflict set is already done", "objectID", objectID, "height", height)
 		return nil
 	}
 
-	csr.Log.Debugw("creating conflict set", "cs", idS)
-	cs = csr.newConflictSet(idS)
-	sets, _, _ := csr.conflictSets.Insert(id, cs)
-	csr.conflictSets = sets
-	return cs.(*ConflictSet)
-}
-
-func (csr *ConflictSetRouter) newConflictSet(id string) *ConflictSet {
-	csr.Log.Debugw("new conflict set", "id", id)
+	csr.Log.Debugw("creating conflict set", "objectID", objectID, "height", height)
 	cfg := csr.cfg
-	cs := NewConflictSet(id)
+	cs := NewConflictSet(idS)
 	sp := cs.StartTrace("conflictset")
-	sp.SetTag("csid", id)
+	sp.SetTag("csid", idS)
+	sp.SetTag("objectID", objectID)
+	sp.SetTag("height", height)
 	sp.SetTag("signer", cfg.Signer.ID)
+	sets, _, _ := csr.conflictSets.Insert(nodeID, cs)
+	csr.conflictSets = sets
 	return cs
 }
 

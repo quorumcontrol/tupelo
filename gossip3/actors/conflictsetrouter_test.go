@@ -509,6 +509,5 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	numConflictSets, err := ctx.RequestFuture(conflictSetRouter0,
 		messages.GetNumConflictSets{}, 1*time.Second).Result()
 	require.Nil(t, err)
-	t.Logf("got %d conflict set(s) from conflict set router #1", numConflictSets)
 	require.Equal(t, 0, numConflictSets)
 }

@@ -156,6 +156,9 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 		csw.checkState(cs, context, msg)
 	case *messages.ActivateSnoozingConflictSets:
 		csw.activate(cs, context, msg)
+	default:
+		csw.Log.Warnw("received unhandled message type for conflict set", "type",
+			reflect.TypeOf(sentMsg).Name())
 	}
 }
 
@@ -198,11 +201,13 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 	if _, err := currState.UnmarshalMsg(msg.store.Value); err != nil {
 		return fmt.Errorf("error unmarshaling: %v", err)
 	}
+
 	csw.Log.Debugw("unmarshaled current state from commit notification successfully", "height",
 		currState.Signature.Height)
 	if currState.Signature.Height != msg.height {
 		return fmt.Errorf("current state height != commit height")
 	}
+
 	wrapper := &messages.CurrentStateWrapper{
 		CurrentState: &currState,
 		Internal:     false,
@@ -264,7 +269,6 @@ func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor
 
 	for _, tw := range cs.transactions {
 		transSpan := tw.NewSpan("conflictset-processing")
-		defer transSpan.Finish()
 		csw.Log.Debugw("processing transaction", "t", tw.TransactionID, "height", tw.Transaction.Height)
 
 		if !cs.didSign {
@@ -273,6 +277,7 @@ func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor
 			cs.didSign = true
 		}
 		cs.updates++
+		transSpan.Finish()
 	}
 	// do this as a message to make sure we're doing it after all the updates have come in
 	context.Send(context.Self(), &csWorkerRequest{cs: cs, msg: &checkStateMsg{atUpdate: cs.updates}})

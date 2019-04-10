@@ -41,6 +41,7 @@ require (
 	github.com/tinylib/msgp v1.1.0
 	go.uber.org/zap v1.9.1
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a
+	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19 // indirect
 	google.golang.org/grpc v1.19.0
 )
