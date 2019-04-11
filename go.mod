@@ -9,7 +9,7 @@ require (
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
 	github.com/chzyer/logex v1.1.10 // indirect
 	github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1 // indirect
-	github.com/ethereum/go-ethereum v1.8.23
+	github.com/ethereum/go-ethereum v1.8.25
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/gobuffalo/packr/v2 v2.0.8
 	github.com/gogo/protobuf v1.2.1
@@ -30,7 +30,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.1
 	github.com/opentracing/opentracing-go v1.0.2
-	github.com/quorumcontrol/chaintree v0.0.0-20190408142253-d51249460e8033b6d1eec9c85644bff9280b85ca
+	github.com/quorumcontrol/chaintree v0.0.0-20190411154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.1
 	github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-8ea088627013503578c2267d5f9d2867251b90f7

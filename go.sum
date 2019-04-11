@@ -91,6 +91,7 @@ github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
 github.com/ethereum/go-ethereum v1.8.23 h1:xVKYpRpe3cbkaWN8gsRgStsyTvz3s82PcQsbEofjhEQ=
 github.com/ethereum/go-ethereum v1.8.23/go.mod h1:PwpWDrCLZrV+tfrhqqF6kPknbISMHaJv9Ln3kPCZLwY=
+github.com/ethereum/go-ethereum v1.8.25/go.mod h1:PwpWDrCLZrV+tfrhqqF6kPknbISMHaJv9Ln3kPCZLwY=
 github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5 h1:BBso6MBKW8ncyZLv37o+KNyy0HrrHgfnOaGQC2qvN+A=
 github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5/go.mod h1:JpoxHjuQauoxiFMl1ie8Xc/7TfLuMZ5eOCONd1sUBHg=
 github.com/fatih/color v1.6.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
@@ -583,8 +584,10 @@ github.com/prometheus/procfs v0.0.0-20190117184657-bf6a532e95b1/go.mod h1:c3At6R
 github.com/prometheus/procfs v0.0.0-20190319124303-40f3c57fb198 h1:gANBAZ/83d6fDlpF7LDau8/JzhJgjWsD0HSglJO3KxI=
 github.com/prometheus/procfs v0.0.0-20190319124303-40f3c57fb198/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/quorumcontrol/chaintree v0.0.0-20190329154239-0a2da8b38ce9/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
+github.com/quorumcontrol/chaintree v0.0.0-20190329154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
 github.com/quorumcontrol/chaintree v0.0.0-20190408142253-d51249460e8033b6d1eec9c85644bff9280b85ca h1:3YojAX22wKhZv5pV/S8HlAXViXqcMXjkEYy3Kw6UNgA=
 github.com/quorumcontrol/chaintree v0.0.0-20190408142253-d51249460e8033b6d1eec9c85644bff9280b85ca/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
+github.com/quorumcontrol/chaintree v0.0.0-20190411154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a/go.mod h1:zmfcsjUc9t5KFBCYbGbpFdAHuULQZUrIUh6jvRkRClw=
 github.com/quorumcontrol/differencedigest v0.0.3 h1:ufVJ5VSd+4WKP2ac6lM6NirGm8XpJZHeFEFtQDme1To=
 github.com/quorumcontrol/differencedigest v0.0.3/go.mod h1:KtZwFczRYGg+vuej/y7lpjYyHVbw8xC6VLtWtFKgX8k=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF7FTLpcl171qo5MFvbKjrLEsLtcKF72uQpefiPM=
