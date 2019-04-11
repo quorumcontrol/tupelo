@@ -328,6 +328,78 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 		},
 	})
 
+	establishTokenUsage := "usage: establish-token chain-id key-id token-name max-tokens"
+	shell.AddCmd(&ishell.Cmd{
+		Name: "establish-token",
+		Help: "establish new token. 0 for max-tokens means unlimited. "+establishTokenUsage,
+		Func: func(c *ishell.Context) {
+			if len(c.Args) < 4 {
+				c.Println("not enough arguments to establish-token. "+establishTokenUsage)
+				return
+			}
+			maxTokens, err := strconv.ParseUint(c.Args[3], 10, 64)
+			if err != nil {
+				c.Printf("error parsing max-tokens \"%s\": %v\n", maxTokens, err)
+				return
+			}
+			tip, err := session.EstablishToken(c.Args[0], c.Args[1], c.Args[2], maxTokens)
+			if err != nil {
+				c.Printf("error establishing token: %v\n", err)
+				return
+			}
+
+			c.Printf("new tip: %v\n", tip)
+		},
+	})
+
+	mintTokenUsage := "usage: mint-token chain-id key-id token-name amount"
+	shell.AddCmd(&ishell.Cmd{
+		Name: "mint-token",
+		Help: "mint token(s). must be established first (see establish-token). "+mintTokenUsage,
+		Func: func(c *ishell.Context) {
+			if len(c.Args) < 4 {
+				c.Println("not enough arguments to mint-token. "+mintTokenUsage)
+				return
+			}
+			amount, err := strconv.ParseUint(c.Args[3], 10, 64)
+			if err != nil {
+				c.Printf("error parsing amount \"%s\": %v\n", amount, err)
+				return
+			}
+			tip, err := session.MintToken(c.Args[0], c.Args[1], c.Args[2], amount)
+			if err != nil {
+				c.Printf("error minting token: %v\n", err)
+				return
+			}
+
+			c.Printf("new tip: %v\n", tip)
+		},
+	})
+
+	sendTokenUsage := "usage: send-token chain-id key-id token-name destination-chain-id amount"
+	shell.AddCmd(&ishell.Cmd{
+		Name: "send-token",
+		Help: "send token(s) to another chaintree. "+sendTokenUsage,
+		Func: func(c *ishell.Context) {
+			if len(c.Args) < 5 {
+				c.Println("not enough arguments to send-token. "+sendTokenUsage)
+				return
+			}
+			amount, err := strconv.ParseUint(c.Args[4], 10, 64)
+			if err != nil {
+				c.Printf("error parsing amount \"%s\": %v\n", amount, err)
+				return
+			}
+			token, err := session.SendToken(c.Args[0], c.Args[1], c.Args[2], c.Args[3], amount)
+			if err != nil {
+				c.Printf("error generating send token payload: %v\n", err)
+				return
+			}
+			
+			c.Printf("token: %s\n", token)
+		},
+	})
+
 	// run shell
 	shell.Run()
 }

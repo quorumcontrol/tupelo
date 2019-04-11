@@ -142,7 +142,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 		panic(fmt.Sprintf("error setting up badger storage: %v", err))
 	}
 
-	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       group,
 		CommitStore:       commitStore,
