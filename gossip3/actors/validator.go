@@ -217,6 +217,7 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 		tree,
 		[]chaintree.BlockValidatorFunc{
 			isOwner,
+			consensus.IsTokenRecipient,
 		},
 		consensus.DefaultTransactors,
 	)
