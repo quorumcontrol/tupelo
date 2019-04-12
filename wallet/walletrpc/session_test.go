@@ -1,17 +1,19 @@
 package walletrpc
 
 import (
+	"encoding/base64"
+	"os"
+	"testing"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
-	"encoding/base64"
-	"os"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-client/client"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -86,18 +88,22 @@ func TestSendToken(t *testing.T) {
 	ng := types.NewNotaryGroup("send-token-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	broadcaster := remote.NewSimulatedBroadcaster()
+
+	txType := (&extmsgs.Transaction{}).TypeCode()
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              signer,
-		NotaryGroup:       ng,
-		CommitStore:       storage.NewMemStorage(),
-		CurrentStateStore: storage.NewMemStorage(),
+		Self:                   signer,
+		NotaryGroup:            ng,
+		CommitStore:            storage.NewMemStorage(),
+		CurrentStateStore:      storage.NewMemStorage(),
+		BroadcastReceiverProps: broadcaster.NewSubscriberProps(txType),
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
 	defer syncer.Poison()
 	ng.AddSigner(signer)
 
-	tupeloClient := client.New(ng)
+	tupeloClient := client.New(ng, broadcaster)
 	sess, err := NewSession(path, "send-token-test", tupeloClient)
 	require.Nil(t, err)
 
