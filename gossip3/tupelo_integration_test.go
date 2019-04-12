@@ -91,7 +91,7 @@ func newValidTransaction(t *testing.T) extmsgs.Transaction {
 	}
 }
 
-func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
+func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
 	ng := types.NewNotaryGroup("test notary")
 
 	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal].ToEcdsaPub(), testSet.SignKeys[indexOfLocal])
@@ -109,11 +109,22 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
 
+	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
+
+	node, err := p2p.NewLibP2PHost(ctx, testSet.EcdsaKeys[indexOfLocal], 0)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating p2p node")
+	}
+	node.Bootstrap(bootAddrs)
+	remote.NewRouter(node)
+
+	txType := (&extmsgs.Transaction{}).TypeCode()
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              localSigner,
-		NotaryGroup:       ng,
-		CommitStore:       commitStore,
-		CurrentStateStore: currentStore,
+		Self:                   localSigner,
+		NotaryGroup:            ng,
+		CommitStore:            commitStore,
+		CurrentStateStore:      currentStore,
+		BroadcastReceiverProps: remote.NewNetworkSubscriberProps(txType, node),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -137,30 +148,30 @@ func newSystemWithRemotes(ctx context.Context, indexOfLocal int, testSet *testno
 	return localSigner, ng, nil
 }
 
-func createHostsAndBridges(ctx context.Context, t *testing.T, bootstrap p2p.Node, testSet *testnotarygroup.TestSet) {
-	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
+// func createHostsAndBridges(ctx context.Context, t *testing.T, bootstrap p2p.Node, testSet *testnotarygroup.TestSet) {
+// 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
 
-	nodes := make([]p2p.Node, len(testSet.EcdsaKeys), len(testSet.EcdsaKeys))
-	for i, key := range testSet.EcdsaKeys {
-		node, err := p2p.NewLibP2PHost(ctx, key, 0)
-		if err != nil {
-			t.Fatalf("error creating libp2p host: %v", err)
-		}
-		node.Bootstrap(bootAddrs)
-		nodes[i] = node
-		remote.NewRouter(node)
-	}
-	wg := sync.WaitGroup{}
-	for _, node := range nodes {
-		wg.Add(1)
-		go func() {
-			err := node.WaitForBootstrap(1, 1*time.Second)
-			wg.Done()
-			require.Nil(t, err)
-		}()
-	}
-	wg.Wait()
-}
+// 	nodes := make([]p2p.Node, len(testSet.EcdsaKeys), len(testSet.EcdsaKeys))
+// 	for i, key := range testSet.EcdsaKeys {
+// 		node, err := p2p.NewLibP2PHost(ctx, key, 0)
+// 		if err != nil {
+// 			t.Fatalf("error creating libp2p host: %v", err)
+// 		}
+// 		node.Bootstrap(bootAddrs)
+// 		nodes[i] = node
+// 		remote.NewRouter(node)
+// 	}
+// 	wg := sync.WaitGroup{}
+// 	for _, node := range nodes {
+// 		wg.Add(1)
+// 		go func() {
+// 			err := node.WaitForBootstrap(1, 1*time.Second)
+// 			wg.Done()
+// 			require.Nil(t, err)
+// 		}()
+// 	}
+// 	wg.Wait()
+// }
 
 func TestLibP2PSigning(t *testing.T) {
 	paths := []string{
@@ -183,20 +194,20 @@ func TestLibP2PSigning(t *testing.T) {
 	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
+	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
+
 	localSyncers := make([]*actor.PID, numMembers, numMembers)
 	systems := make([]*types.NotaryGroup, numMembers, numMembers)
 	for i := 0; i < numMembers; i++ {
-		local, ng, err := newSystemWithRemotes(ctx, i, ts)
+		local, ng, err := newSystemWithRemotes(ctx, bootstrap, i, ts)
 		require.Nil(t, err)
 		systems[i] = ng
 		localSyncers[i] = local.Actor
 		signers := ng.AllSigners()
 		require.Len(t, signers, numMembers)
 	}
-	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
-	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
 
-	createHostsAndBridges(ctx, t, bootstrap, ts)
 	libp2plogging.SetLogLevel("swarm2", "ERROR")
 	time.Sleep(100 * time.Millisecond) // give time for bootstrap
 
@@ -205,18 +216,20 @@ func TestLibP2PSigning(t *testing.T) {
 	clientHost, err := p2p.NewLibP2PHost(ctx, clientKey, 0)
 	require.Nil(t, err)
 	clientHost.Bootstrap(bootAddrs)
-	err = clientHost.WaitForBootstrap(1, 1*time.Second)
+	err = clientHost.WaitForBootstrap(2, 1*time.Second)
 	require.Nil(t, err)
 
+	broadcaster := remote.NewNetworkBroadcaster(clientHost)
+
 	remote.NewRouter(clientHost)
-	client := client.New(systems[0])
+	client := client.New(systems[0], broadcaster)
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
 
 	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
-		err := client.SendTransaction(systems[0].GetRandomSigner(), &trans)
+		err := client.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
@@ -233,7 +246,7 @@ func TestLibP2PSigning(t *testing.T) {
 	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 90*time.Second)
 	require.Nil(t, err)
 
-	client.SendTransaction(systems[0].GetRandomSigner(), &trans)
+	client.SendTransaction(&trans)
 	start := time.Now()
 
 	resp := <-ch

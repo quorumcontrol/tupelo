@@ -4,7 +4,6 @@ go 1.12
 
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190318154652-aa1aa20c2fa0
-	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Workiva/go-datastructures v1.0.50
 	github.com/abiosoft/ishell v2.0.0+incompatible
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
@@ -40,5 +39,9 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a
-	google.golang.org/grpc v1.18.0
+	google.golang.org/appengine v1.4.0 // indirect
+	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19 // indirect
+	google.golang.org/grpc v1.19.0
 )
+
+replace github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190329154750-29244d910cc9 => ../tupelo-go-client

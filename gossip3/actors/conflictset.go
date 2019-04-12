@@ -188,8 +188,7 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, m
 	// no (valid) commit, so let's start validating any snoozed transactions
 	for _, transaction := range cs.transactions {
 		context.Send(csw.router, &messages.ValidateTransaction{
-			Key:   transaction.Key,
-			Value: transaction.Value,
+			Transaction: transaction.Transaction,
 		})
 	}
 }
@@ -246,7 +245,7 @@ func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context acto
 	if !cs.active {
 		sp.SetTag("snoozing", true)
 		transSpan.SetTag("snoozing", true)
-		csw.Log.Debugw("snoozing transaction", "t", msg.Key, "height", msg.Transaction.Height)
+		csw.Log.Debugw("snoozing transaction", "t", msg.TransactionID, "height", msg.Transaction.Height)
 	}
 	cs.transactions[string(msg.TransactionID)] = msg
 	if cs.active {
@@ -264,7 +263,7 @@ func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor
 
 	for _, transaction := range cs.transactions {
 		transSpan := transaction.NewSpan("conflictset-processing")
-		csw.Log.Debugw("processing transaction", "t", transaction.Key, "height", transaction.Transaction.Height)
+		csw.Log.Debugw("processing transaction", "t", transaction.TransactionID, "height", transaction.Transaction.Height)
 
 		if !cs.didSign {
 			context.RequestWithCustomSender(csw.signatureGenerator, transaction, csw.router)
@@ -386,7 +385,7 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 
 	sp.SetTag("winner", trans.TransactionID)
 
-	csw.Log.Debugw("createCurrentStateFromTrans", "t", trans.Key)
+	csw.Log.Debugw("createCurrentStateFromTrans", "t", trans.TransactionID)
 	sigs := cs.signatures[string(trans.TransactionID)]
 	var sigBytes [][]byte
 	signersArray := bitarray.NewSparseBitArray()

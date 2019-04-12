@@ -69,7 +69,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		Height:        msg.Transaction.Height,
 	}
 
-	sg.Log.Debugw("signing", "t", msg.Key)
+	sg.Log.Debugw("signing", "t", msg.TransactionID)
 	sig, err := sg.signer.SignKey.Sign(signature.GetSignable())
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
