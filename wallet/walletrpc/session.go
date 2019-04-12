@@ -99,28 +99,30 @@ func serializeDag(dag *dag.Dag) ([][]byte, error) {
 	return dagBytes, nil
 }
 
-func serializeNodes(nodes map[string]*cbornode.Node) map[string][]byte {
-	bytes := make(map[string][]byte, len(nodes))
-	for i, node := range nodes {
-		bytes[i] = node.RawData()
+func serializeNodes(nodes []*cbornode.Node) [][]byte {
+	var bytes [][]byte
+	for _, node := range nodes {
+		bytes = append(bytes, node.RawData())
 	}
 	return bytes
 }
 
-func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.SignatureMap, error) {
+func decodeSignature(encodedSig *SerializableSignature) consensus.Signature {
+	return consensus.Signature{
+		Type:      encodedSig.Type,
+		Signers:   encodedSig.Signers,
+		Signature: encodedSig.Signature,
+	}
+}
+
+func decodeSignatures(encodedSigs map[string]*SerializableSignature) consensus.SignatureMap {
 	signatures := make(consensus.SignatureMap)
 
 	for k, encodedSig := range encodedSigs {
-		signature := consensus.Signature{
-			Type:      encodedSig.Type,
-			Signers:   encodedSig.Signers,
-			Signature: encodedSig.Signature,
-		}
-
-		signatures[k] = signature
+		signatures[k] = decodeSignature(encodedSig)
 	}
 
-	return signatures, nil
+	return signatures
 }
 
 func serializeSignature(sig consensus.Signature) *SerializableSignature {
@@ -289,10 +291,7 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 		return nil, fmt.Errorf("error getting new chaintree: %v", err)
 	}
 
-	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
-	if err != nil {
-		return nil, err
-	}
+	sigs := decodeSignatures(unmarshalledChain.Signatures)
 
 	signedChainTree := &consensus.SignedChainTree{
 		ChainTree:  chainTree,
@@ -361,7 +360,7 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 	return &tip, nil
 }
 
-func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
+func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions []*chaintree.Transaction) (*consensus.AddBlockResponse, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -394,7 +393,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId string, keyAddr string, transac
 	return resp, nil
 }
 
-func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddrs []string) (*cid.Cid, error) {
+func (rpcs *RPCSession) SetOwner(chainId, keyAddr string, newOwnerKeyAddrs []string) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -414,7 +413,7 @@ func (rpcs *RPCSession) SetOwner(chainId string, keyAddr string, newOwnerKeyAddr
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) SetData(chainId string, keyAddr string, path string, value []byte) (*cid.Cid, error) {
+func (rpcs *RPCSession) SetData(chainId, keyAddr, path string, value []byte) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -463,7 +462,7 @@ func (rpcs *RPCSession) resolveAt(chainId string, path []string, tip *cid.Cid) (
 	return chain.ChainTree.Dag.ResolveAt(*tip, path)
 }
 
-func (rpcs *RPCSession) EstablishToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) EstablishToken(chainId, keyAddr, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -484,7 +483,7 @@ func (rpcs *RPCSession) EstablishToken(chainId string, keyAddr string, tokenName
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName string, amount uint64) (*cid.Cid, error) {
+func (rpcs *RPCSession) MintToken(chainId, keyAddr, tokenName string, amount uint64) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -505,14 +504,11 @@ func (rpcs *RPCSession) MintToken(chainId string, keyAddr string, tokenName stri
 	return resp.Tip, nil
 }
 
-func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) (map[string]*cbornode.Node, error) {
-	allNodes := make(map[string]*cbornode.Node)
+func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) ([]*cbornode.Node, error) {
 	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
 	if codedErr != nil {
 		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
 	}
-
-	allNodes[sendNodeId.String()] = sendTokenNode
 
 	tokenPath, err := consensus.TokenPath(tokenName)
 	if err != nil {
@@ -521,19 +517,17 @@ func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendN
 	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
 	tokenPath = append(tokenPath, consensus.TokenSendLabel)
 
-	tokenSendsNodes, codedErr := chain.ChainTree.Dag.NodesForPath(tokenPath)
+	tokenSendNodes, codedErr := chain.ChainTree.Dag.NodesForPath(tokenPath)
 	if codedErr != nil {
 		return nil, codedErr
 	}
 
-	for _, node := range tokenSendsNodes {
-		allNodes[node.Cid().String()] = node
-	}
+	tokenSendNodes = append(tokenSendNodes, sendTokenNode)
 
-	return allNodes, nil
+	return tokenSendNodes, nil
 }
 
-func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName string, destinationChainId string, amount uint64) (string, error) {
+func (rpcs *RPCSession) SendToken(chainId, keyAddr, tokenName, destinationChainId string, amount uint64) (string, error) {
 	if rpcs.IsStopped() {
 		return "", StoppedError
 	}
@@ -542,7 +536,7 @@ func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName stri
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
-			Type: consensus.TransactionTypeSendToken,
+			Type:    consensus.TransactionTypeSendToken,
 			Payload: consensus.SendTokenPayload{
 				Id:          transactionId.String(),
 				Name:        tokenName,
@@ -608,4 +602,43 @@ func (rpcs *RPCSession) SendToken(chainId string, keyAddr string, tokenName stri
 	}
 
 	return base64.StdEncoding.EncodeToString(serializedPayload), nil
+}
+
+func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid, error) {
+	if rpcs.IsStopped() {
+		return nil, StoppedError
+	}
+
+	serializedPayload, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenPayload := &TokenPayload{}
+	err = proto.Unmarshal(serializedPayload, tokenPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	tip, err := cid.Decode(tokenPayload.Tip)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
+		{
+			Type:    consensus.TransactionTypeReceiveToken,
+			Payload: consensus.ReceiveTokenPayload{
+				SendTokenTransactionId: tokenPayload.TransactionId,
+				Tip:                    tip.Bytes(),
+				Signature:              decodeSignature(tokenPayload.Signature),
+				Leaves:                 tokenPayload.Leaves,
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Tip, nil
 }

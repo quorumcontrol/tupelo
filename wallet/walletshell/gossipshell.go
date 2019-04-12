@@ -400,6 +400,25 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 		},
 	})
 
+	receiveTokenUsage := "usage: receive-token chain-id key-id token-payload"
+	shell.AddCmd(&ishell.Cmd{
+		Name: "receive-token",
+		Help: "receives token(s) sent to a local chaintree. "+receiveTokenUsage,
+		Func: func(c *ishell.Context) {
+			if len(c.Args) < 3 {
+				c.Println("not enough arguments to receive-token. "+receiveTokenUsage)
+				return
+			}
+			tip, err := session.ReceiveToken(c.Args[0], c.Args[1], c.Args[2])
+			if err != nil {
+				c.Printf("error receiving token: %v\n", err)
+				return
+			}
+
+			c.Printf("new tip: %v\n", tip)
+		},
+	})
+
 	// run shell
 	shell.Run()
 }

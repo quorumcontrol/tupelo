@@ -430,6 +430,29 @@ func (s *server) SendToken(ctx context.Context, req *SendTokenRequest) (*SendTok
 	}, nil
 }
 
+func (s *server) ReceiveToken(ctx context.Context, req *ReceiveTokenRequest) (*ReceiveTokenResponse, error) {
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(req.Creds.PassPhrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	tipCid, err := session.ReceiveToken(req.ChainId, req.KeyAddr, req.TokenPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReceiveTokenResponse{
+		Tip: tipCid.String(),
+	}, nil
+}
+
 func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client,
 	port int) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")

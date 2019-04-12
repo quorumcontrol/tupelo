@@ -193,7 +193,18 @@ message TokenPayload {
   string transaction_id = 1;
   string tip = 2;
   SerializableSignature signature = 3;
-  map<string, bytes> leaves = 4;
+  repeated bytes leaves = 4;
+}
+
+message ReceiveTokenRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string token_payload = 4;
+}
+
+message ReceiveTokenResponse {
+  string tip = 1;
 }
 
 service WalletRPCService {
@@ -212,4 +223,5 @@ service WalletRPCService {
   rpc EstablishToken (EstablishTokenRequest) returns (EstablishTokenResponse);
   rpc MintToken (MintTokenRequest) returns (MintTokenResponse);
   rpc SendToken (SendTokenRequest) returns (SendTokenResponse);
+  rpc ReceiveToken (ReceiveTokenRequest) returns (ReceiveTokenResponse);
 }
