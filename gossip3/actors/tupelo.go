@@ -61,8 +61,6 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		tn.handleStarted(context)
-	// case *messages.Get:
-	// 	context.Forward(tn.mempoolStore)
 	case *extmsgs.GetTip:
 		tn.handleGetTip(context, msg)
 	case *messages.GetSyncer:
@@ -71,9 +69,6 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleStartGossip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentState(context, msg)
-	// case *extmsgs.Store:
-	// 	// TODO: this becomes a publish and a handle
-	// 	context.Forward(tn.mempoolStore)
 	case *extmsgs.Signature:
 		context.Forward(tn.conflictSetRouter)
 	case *extmsgs.Transaction:
@@ -96,13 +91,6 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		}
 		// un-snooze waiting conflict sets
 		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
-		// cleanup the transactions
-		ids := make([][]byte, len(msg.CleanupTransactions))
-		for i, trans := range msg.CleanupTransactions {
-			trans.StopTrace()
-			ids[i] = trans.TransactionID
-		}
-		// context.Send(tn.mempoolStore, &messages.BulkRemove{ObjectIDs: ids})
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		context.Send(tn.subscriptionHandler, msg)
 	} else {
@@ -148,7 +136,6 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 				})
 			}
 			msg.StopTrace()
-			// context.Send(tn.mempoolStore, &messages.Remove{Key: msg.Key})
 		}
 	}
 }
@@ -182,7 +169,6 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 	newMsg := &messages.StartGossip{
 		System: tn.notaryGroup,
 	}
-	// context.Send(tn.mempoolGossiper, newMsg)
 	context.Send(tn.committedGossiper, newMsg)
 }
 
@@ -206,9 +192,6 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 
 func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSyncer) {
 	switch msg.Kind {
-	case mempoolKind:
-		tn.Log.Errorw("called old mempoolKind")
-		// context.Forward(tn.mempoolGossiper)
 	case committedKind:
 		context.Forward(tn.committedGossiper)
 	default:
@@ -222,18 +205,6 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("err spawning broadcast receiver: %v", err))
 	}
 
-	// mempoolStore, err := context.SpawnNamed(NewStorageProps(storage.NewLockFreeMemStorage()), "mempoolvalidator")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("err: %v", err))
-	// }
-
-	// mempoolSubscriber, err := context.SpawnNamed(actor.PropsFromFunc(tn.handleNewTransaction), "mempoolSubscriber")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("error spawning: %v", err))
-	// }
-
-	// context.Send(mempoolStore, &messages.Subscribe{Subscriber: mempoolSubscriber})
-
 	committedStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CommitStore), "committedstore")
 	if err != nil {
 		panic(fmt.Sprintf("err: %v", err))
@@ -246,13 +217,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 
 	context.Send(committedStore, &messages.Subscribe{Subscriber: commitSubscriber})
 
-	// mempoolPusherProps := NewPushSyncerProps(mempoolKind, mempoolStore)
 	committedProps := NewPushSyncerProps(committedKind, committedStore)
-
-	// mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolStore, tn.notaryGroup, mempoolPusherProps), mempoolKind)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("error spawning: %v", err))
-	// }
 	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedStore, tn.notaryGroup, committedProps), committedKind)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -297,9 +262,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	}
 
 	tn.conflictSetRouter = router
-	// tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
-	// tn.mempoolStore = mempoolStore
 	tn.committedStore = committedStore
 	tn.validatorPool = validatorPool
 	tn.subscriptionHandler = subHandler

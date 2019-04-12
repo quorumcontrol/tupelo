@@ -89,13 +89,12 @@ type SignatureVerification struct {
 type CurrentStateWrapper struct {
 	tracing.ContextHolder
 
-	Internal            bool
-	Verified            bool
-	CurrentState        *extmsgs.CurrentState
-	Metadata            MetadataMap
-	Key                 []byte
-	Value               []byte
-	CleanupTransactions []*TransactionWrapper
+	Internal     bool
+	Verified     bool
+	CurrentState *extmsgs.CurrentState
+	Metadata     MetadataMap
+	Key          []byte
+	Value        []byte
 }
 
 type TransactionWrapper struct {
@@ -107,17 +106,7 @@ type TransactionWrapper struct {
 	PreFlight     bool
 	Accepted      bool
 	Stale         bool
-	// Key           []byte
-	// Value         []byte
-	Metadata MetadataMap
-}
-
-type MemPoolCleanup struct {
-	Transactions [][]byte
-}
-
-type BulkRemove struct {
-	ObjectIDs [][]byte
+	Metadata      MetadataMap
 }
 
 type SendingDone struct{}

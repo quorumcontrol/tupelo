@@ -489,14 +489,11 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 			cs.snoozedCommit = currWrapper
 			return nil
 		}
-		currWrapper.CleanupTransactions = make([]*messages.TransactionWrapper, len(cs.transactions))
-		i := 0
+
 		for _, t := range cs.transactions {
 			transSpan := t.NewSpan("handleCurrentStateWrapper")
-			defer transSpan.Finish()
 			transSpan.SetTag("done", true)
-			currWrapper.CleanupTransactions[i] = t
-			i++
+			transSpan.Finish()
 		}
 
 		cs.done = true
