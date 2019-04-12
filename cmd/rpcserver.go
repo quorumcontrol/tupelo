@@ -13,6 +13,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
+	"github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"google.golang.org/grpc"
 
@@ -23,6 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
@@ -120,7 +123,7 @@ func signerCurrentPath(storagePath string, signer *gossip3types.Signer) (path st
 	return
 }
 
-func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
+func setupLocalSigner(ctx context.Context, broadcaster *remote.SimulatedBroadcaster, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic(fmt.Sprintf("error decoding ecdsa key: %v", err))
@@ -142,11 +145,13 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 		panic(fmt.Sprintf("error setting up badger storage: %v", err))
 	}
 
+	txType := (&extmsgs.Transaction{}).TypeCode()
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              signer,
-		NotaryGroup:       group,
-		CommitStore:       commitStore,
-		CurrentStateStore: currentStore,
+		Self:                   signer,
+		NotaryGroup:            group,
+		CommitStore:            commitStore,
+		CurrentStateStore:      currentStore,
+		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
 	}), syncerActorName(signer))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning actor: %v", err))
@@ -163,7 +168,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 	return signer
 }
 
-func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryGroup {
+func setupLocalNetwork(ctx context.Context, broadcaster *remote.SimulatedBroadcaster, nodeCount int) *gossip3types.NotaryGroup {
 	privateKeys, _, err := loadLocalKeys(nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
@@ -173,7 +178,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 
 	for _, keys := range privateKeys {
 		log.Info("setting up gossip node")
-		setupLocalSigner(ctx, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
+		setupLocalSigner(ctx, broadcaster, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
 	}
 
 	for _, signer := range group.AllSigners() {
@@ -221,9 +226,13 @@ var rpcServerCmd = &cobra.Command{
 		var group *gossip3types.NotaryGroup
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
+		var broadcaster client.Broadcaster
+
 		if localNetworkNodeCount > 0 && !remoteNetwork {
 			fmt.Printf("Setting up local network with %d nodes\n", localNetworkNodeCount)
-			group = setupLocalNetwork(ctx, localNetworkNodeCount)
+			broadcaster = remote.NewSimulatedBroadcaster()
+			group = setupLocalNetwork(ctx, broadcaster.(*remote.SimulatedBroadcaster), localNetworkNodeCount)
 		} else {
 			fmt.Println("Using remote network")
 			gossip3remote.Start()
@@ -244,6 +253,7 @@ var rpcServerCmd = &cobra.Command{
 				panic(err)
 			}
 			fmt.Println("Bootstrapped!")
+			broadcaster = remote.NewNetworkBroadcaster(p2pHost)
 
 			gossip3remote.NewRouter(p2pHost)
 
@@ -252,7 +262,7 @@ var rpcServerCmd = &cobra.Command{
 		}
 		walletStorage := walletPath()
 
-		client := gossip3client.New(group)
+		client := gossip3client.New(group, broadcaster)
 
 		var grpcServer *grpc.Server
 

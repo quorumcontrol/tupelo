@@ -314,8 +314,6 @@ func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages
 	wrapper := &messages.TransactionWrapper{
 		TransactionID: key,
 		Transaction:   trans,
-		Key:           key,
-		Value:         bits,
 		ConflictSetID: trans.ConflictSetID(),
 		PreFlight:     true,
 		Accepted:      true,
