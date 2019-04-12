@@ -6,7 +6,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/Workiva/go-datastructures/bitarray"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
@@ -33,10 +32,9 @@ func TestSignatureGenerator(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *extmsgs.Store:
+		case *extmsgs.Transaction:
 			context.Request(validator, &validationRequest{
-				key:   msg.Key,
-				value: msg.Value,
+				transaction: msg,
 			})
 		case *messages.SignatureWrapper:
 			context.Send(fut.PID(), msg)
@@ -49,14 +47,8 @@ func TestSignatureGenerator(t *testing.T) {
 	defer sender.Poison()
 
 	trans := testhelpers.NewValidTransaction(t)
-	value, err := trans.MarshalMsg(nil)
-	require.Nil(t, err)
-	key := crypto.Keccak256(value)
 
-	rootContext.Send(sender, &extmsgs.Store{
-		Key:   key,
-		Value: value,
-	})
+	rootContext.Send(sender, &trans)
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
@@ -83,13 +75,9 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	defer sigGnerator.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)
-	value, err := trans.MarshalMsg(nil)
-	require.Nil(b, err)
-	key := crypto.Keccak256(value)
 
 	transWrapper, err := rootContext.RequestFuture(validator, &validationRequest{
-		key:   key,
-		value: value,
+		transaction: &trans,
 	}, 1*time.Second).Result()
 	require.Nil(b, err)
 

@@ -26,10 +26,9 @@ func TestValidator(t *testing.T) {
 	fut := actor.NewFuture(1 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *extmsgs.Store:
+		case *extmsgs.Transaction:
 			context.Request(validator, &validationRequest{
-				key:   msg.Key,
-				value: msg.Value,
+				transaction: msg,
 			})
 		case *messages.TransactionWrapper:
 			context.Send(fut.PID(), msg)
@@ -40,16 +39,10 @@ func TestValidator(t *testing.T) {
 	defer sender.Poison()
 
 	trans := testhelpers.NewValidTransaction(t)
-	value, err := trans.MarshalMsg(nil)
-	require.Nil(t, err)
-	key := crypto.Keccak256(value)
 
-	rootContext.Send(sender, &extmsgs.Store{
-		Key:   key,
-		Value: value,
-	})
+	rootContext.Send(sender, &trans)
 
-	_, err = fut.Result()
+	_, err := fut.Result()
 	require.Nil(t, err)
 }
 
@@ -124,13 +117,8 @@ func TestCannotFakeOldHistory(t *testing.T) {
 		ObjectID:    []byte(treeDID),
 	}
 
-	value, err := trans.MarshalMsg(nil)
-	require.Nil(t, err)
-	key := crypto.Keccak256(value)
-
 	fut := actor.EmptyRootContext.RequestFuture(validator, &validationRequest{
-		key:   key,
-		value: value,
+		transaction: &trans,
 	}, 5*time.Second)
 	isValid, err := fut.Result()
 	require.False(t, isValid.(*messages.TransactionWrapper).Accepted)
@@ -145,17 +133,13 @@ func BenchmarkValidator(b *testing.B) {
 	defer validator.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)
-	value, err := trans.MarshalMsg(nil)
-	require.Nil(b, err)
-	key := crypto.Keccak256(value)
 
 	futures := make([]*actor.Future, b.N)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f := rootContext.RequestFuture(validator, &validationRequest{
-			key:   key,
-			value: value,
+			transaction: &trans,
 		}, 5*time.Second)
 		futures[i] = f
 	}

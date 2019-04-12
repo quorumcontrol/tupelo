@@ -107,9 +107,9 @@ type TransactionWrapper struct {
 	PreFlight     bool
 	Accepted      bool
 	Stale         bool
-	Key           []byte
-	Value         []byte
-	Metadata      MetadataMap
+	// Key           []byte
+	// Value         []byte
+	Metadata MetadataMap
 }
 
 type MemPoolCleanup struct {
@@ -127,6 +127,5 @@ type ActivateSnoozingConflictSets struct {
 }
 
 type ValidateTransaction struct {
-	Key   []byte
-	Value []byte
+	Transaction *extmsgs.Transaction
 }

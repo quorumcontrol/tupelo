@@ -21,14 +21,14 @@ const ErrBadTransaction = 1
 type TupeloNode struct {
 	middleware.LogAwareHolder
 
-	self              *types.Signer
-	notaryGroup       *types.NotaryGroup
-	mempoolGossiper   *actor.PID
+	self        *types.Signer
+	notaryGroup *types.NotaryGroup
+	// mempoolGossiper   *actor.PID
 	committedGossiper *actor.PID
 
 	conflictSetRouter *actor.PID
 
-	mempoolStore        *actor.PID
+	// mempoolStore        *actor.PID
 	committedStore      *actor.PID
 	subscriptionHandler *actor.PID
 
@@ -37,10 +37,11 @@ type TupeloNode struct {
 }
 
 type TupeloConfig struct {
-	Self              *types.Signer
-	NotaryGroup       *types.NotaryGroup
-	CommitStore       storage.Storage
-	CurrentStateStore storage.Storage
+	Self                   *types.Signer
+	NotaryGroup            *types.NotaryGroup
+	CommitStore            storage.Storage
+	CurrentStateStore      storage.Storage
+	BroadcastReceiverProps *actor.Props
 }
 
 func NewTupeloNodeProps(cfg *TupeloConfig) *actor.Props {
@@ -60,8 +61,8 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		tn.handleStarted(context)
-	case *messages.Get:
-		context.Forward(tn.mempoolStore)
+	// case *messages.Get:
+	// 	context.Forward(tn.mempoolStore)
 	case *extmsgs.GetTip:
 		tn.handleGetTip(context, msg)
 	case *messages.GetSyncer:
@@ -70,10 +71,13 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleStartGossip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentState(context, msg)
-	case *extmsgs.Store:
-		context.Forward(tn.mempoolStore)
+	// case *extmsgs.Store:
+	// 	// TODO: this becomes a publish and a handle
+	// 	context.Forward(tn.mempoolStore)
 	case *extmsgs.Signature:
 		context.Forward(tn.conflictSetRouter)
+	case *extmsgs.Transaction:
+		tn.handleNewTransaction(context)
 	case *extmsgs.TipSubscription:
 		context.Forward(tn.subscriptionHandler)
 	case *messages.ValidateTransaction:
@@ -98,7 +102,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 			trans.StopTrace()
 			ids[i] = trans.TransactionID
 		}
-		context.Send(tn.mempoolStore, &messages.BulkRemove{ObjectIDs: ids})
+		// context.Send(tn.mempoolStore, &messages.BulkRemove{ObjectIDs: ids})
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		context.Send(tn.subscriptionHandler, msg)
 	} else {
@@ -110,14 +114,12 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 	}
 }
 
-// this function is its own actor
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *extmsgs.Store:
-		// mempoolStore is notifying us that it just stored a new transaction
+	case *extmsgs.Transaction:
+		// broadcaster has sent us a fresh transaction
 		tn.validateTransaction(context, &messages.ValidateTransaction{
-			Key:   msg.Key,
-			Value: msg.Value,
+			Transaction: msg,
 		})
 	case *messages.ValidateTransaction:
 		// snoozed transaction has been activated and needs full validation
@@ -137,7 +139,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 					errSource = string(msg.Transaction.ObjectID)
 				} else {
 					// ...but fallback on this rather than generating a nil deref error
-					errSource = string(msg.Key)
+					errSource = string(msg.TransactionID)
 				}
 				context.Send(tn.subscriptionHandler, &extmsgs.Error{
 					Source: errSource,
@@ -146,7 +148,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 				})
 			}
 			msg.StopTrace()
-			context.Send(tn.mempoolStore, &messages.Remove{Key: msg.Key})
+			// context.Send(tn.mempoolStore, &messages.Remove{Key: msg.Key})
 		}
 	}
 }
@@ -154,8 +156,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.ValidateTransaction) {
 	tn.Log.Debugw("validating transaction", "msg", msg)
 	context.Request(tn.validatorPool, &validationRequest{
-		key:   msg.Key,
-		value: msg.Value,
+		transaction: msg.Transaction,
 	})
 }
 
@@ -181,7 +182,7 @@ func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.Sta
 	newMsg := &messages.StartGossip{
 		System: tn.notaryGroup,
 	}
-	context.Send(tn.mempoolGossiper, newMsg)
+	// context.Send(tn.mempoolGossiper, newMsg)
 	context.Send(tn.committedGossiper, newMsg)
 }
 
@@ -206,7 +207,8 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSyncer) {
 	switch msg.Kind {
 	case mempoolKind:
-		context.Forward(tn.mempoolGossiper)
+		tn.Log.Errorw("called old mempoolKind")
+		// context.Forward(tn.mempoolGossiper)
 	case committedKind:
 		context.Forward(tn.committedGossiper)
 	default:
@@ -215,17 +217,22 @@ func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSy
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	mempoolStore, err := context.SpawnNamed(NewStorageProps(storage.NewLockFreeMemStorage()), "mempoolvalidator")
+	_, err := context.SpawnNamed(tn.cfg.BroadcastReceiverProps, "broadcast-subscriber")
 	if err != nil {
-		panic(fmt.Sprintf("err: %v", err))
+		panic(fmt.Sprintf("err spawning broadcast receiver: %v", err))
 	}
 
-	mempoolSubscriber, err := context.SpawnNamed(actor.PropsFromFunc(tn.handleNewTransaction), "mempoolSubscriber")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
+	// mempoolStore, err := context.SpawnNamed(NewStorageProps(storage.NewLockFreeMemStorage()), "mempoolvalidator")
+	// if err != nil {
+	// 	panic(fmt.Sprintf("err: %v", err))
+	// }
 
-	context.Send(mempoolStore, &messages.Subscribe{Subscriber: mempoolSubscriber})
+	// mempoolSubscriber, err := context.SpawnNamed(actor.PropsFromFunc(tn.handleNewTransaction), "mempoolSubscriber")
+	// if err != nil {
+	// 	panic(fmt.Sprintf("error spawning: %v", err))
+	// }
+
+	// context.Send(mempoolStore, &messages.Subscribe{Subscriber: mempoolSubscriber})
 
 	committedStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CommitStore), "committedstore")
 	if err != nil {
@@ -239,13 +246,13 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 
 	context.Send(committedStore, &messages.Subscribe{Subscriber: commitSubscriber})
 
-	mempoolPusherProps := NewPushSyncerProps(mempoolKind, mempoolStore)
+	// mempoolPusherProps := NewPushSyncerProps(mempoolKind, mempoolStore)
 	committedProps := NewPushSyncerProps(committedKind, committedStore)
 
-	mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolStore, tn.notaryGroup, mempoolPusherProps), mempoolKind)
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
+	// mempoolGossiper, err := context.SpawnNamed(NewGossiperProps(mempoolKind, mempoolStore, tn.notaryGroup, mempoolPusherProps), mempoolKind)
+	// if err != nil {
+	// 	panic(fmt.Sprintf("error spawning: %v", err))
+	// }
 	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedStore, tn.notaryGroup, committedProps), committedKind)
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -290,9 +297,9 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	}
 
 	tn.conflictSetRouter = router
-	tn.mempoolGossiper = mempoolGossiper
+	// tn.mempoolGossiper = mempoolGossiper
 	tn.committedGossiper = committedGossiper
-	tn.mempoolStore = mempoolStore
+	// tn.mempoolStore = mempoolStore
 	tn.committedStore = committedStore
 	tn.validatorPool = validatorPool
 	tn.subscriptionHandler = subHandler
