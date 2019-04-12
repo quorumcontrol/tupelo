@@ -124,7 +124,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 		NotaryGroup:            ng,
 		CommitStore:            commitStore,
 		CurrentStateStore:      currentStore,
-		BroadcastReceiverProps: remote.NewNetworkSubscriberProps(txType, node),
+		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(txType, node),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)

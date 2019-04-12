@@ -159,7 +159,7 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 		NotaryGroup:            group,
 		CommitStore:            badgerCommit,
 		CurrentStateStore:      badgerCurrent,
-		BroadcastReceiverProps: remote.NewNetworkSubscriberProps(txType, p2pHost),
+		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(txType, p2pHost),
 	}), syncerActorName(localSigner))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))

@@ -151,7 +151,7 @@ func setupLocalSigner(ctx context.Context, broadcaster *remote.SimulatedBroadcas
 		NotaryGroup:            group,
 		CommitStore:            commitStore,
 		CurrentStateStore:      currentStore,
-		BroadcastReceiverProps: broadcaster.NewSubscriberProps(txType),
+		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
 	}), syncerActorName(signer))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning actor: %v", err))

@@ -33,7 +33,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 			NotaryGroup:            ng,
 			CommitStore:            storage.NewMemStorage(),
 			CurrentStateStore:      storage.NewMemStorage(),
-			BroadcastReceiverProps: broadcaster.NewSubscriberProps(txType),
+			BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
 		}), "tupelo-"+signer.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error spawning: %v", err)

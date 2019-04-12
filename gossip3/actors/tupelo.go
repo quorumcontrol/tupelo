@@ -34,11 +34,11 @@ type TupeloNode struct {
 }
 
 type TupeloConfig struct {
-	Self                   *types.Signer
-	NotaryGroup            *types.NotaryGroup
-	CommitStore            storage.Storage
-	CurrentStateStore      storage.Storage
-	BroadcastReceiverProps *actor.Props
+	Self                     *types.Signer
+	NotaryGroup              *types.NotaryGroup
+	CommitStore              storage.Storage
+	CurrentStateStore        storage.Storage
+	BroadcastSubscriberProps *actor.Props
 }
 
 func NewTupeloNodeProps(cfg *TupeloConfig) *actor.Props {
@@ -197,7 +197,7 @@ func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSy
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	_, err := context.SpawnNamed(tn.cfg.BroadcastReceiverProps, "broadcast-subscriber")
+	_, err := context.SpawnNamed(tn.cfg.BroadcastSubscriberProps, "broadcast-subscriber")
 	if err != nil {
 		panic(fmt.Sprintf("err spawning broadcast receiver: %v", err))
 	}

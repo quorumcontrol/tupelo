@@ -96,7 +96,7 @@ func TestSendToken(t *testing.T) {
 		NotaryGroup:            ng,
 		CommitStore:            storage.NewMemStorage(),
 		CurrentStateStore:      storage.NewMemStorage(),
-		BroadcastReceiverProps: broadcaster.NewSubscriberProps(txType),
+		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
