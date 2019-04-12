@@ -32,16 +32,13 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190408142253-d51249460e8033b6d1eec9c85644bff9280b85ca
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.1
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190409193529-02f3057febe6ef4e35774059d24cbc179adbdc81
+	github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190329154750-20807d188263dc9351ed4f13ebac904cfe9dbadf
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0
 	golang.org/x/net v0.0.0-20190311183353-d8887717615a
-	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19 // indirect
 	google.golang.org/grpc v1.19.0
 )
-
-replace github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190329154750-29244d910cc9 => ../tupelo-go-client
