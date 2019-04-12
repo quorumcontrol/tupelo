@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +27,10 @@ func TestImportExport(t *testing.T) {
 	require.Nil(t, err)
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
-	client := client.New(ng)
+
+	broadcaster := remote.NewSimulatedBroadcaster()
+
+	client := client.New(ng, broadcaster)
 	sess, err := NewSession(path, "test-only", client)
 	require.Nil(t, err)
 
