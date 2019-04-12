@@ -15,6 +15,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -106,26 +107,13 @@ func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGro
 	fakeT := &testing.T{}
 	trans := gossip3testhelpers.NewValidTransaction(fakeT)
 
-	used := map[string]bool{}
-
 	if shouldMeasure {
 		go measureTransaction(client, group, trans)
 	}
 
-	tries := 0
-
-	for len(used) < benchmarkSignersFanoutNumber {
-		target := group.GetRandomSigner()
-		used[target.ID] = true
-
-		err := client.SendTransaction(target, &trans)
-		if err != nil {
-			tries++
-			used[target.ID] = false
-			if tries > 5 {
-				panic(fmt.Sprintf("Couldn't add transaction, %v", err))
-			}
-		}
+	err := client.SendTransaction(&trans)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't add transaction, %v", err))
 	}
 
 	activeCounter++
@@ -209,7 +197,9 @@ var benchmark = &cobra.Command{
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
 		group.SetupAllRemoteActors(&key.PublicKey)
 
-		client := gossip3client.New(group)
+		broadcaster := remote.NewNetworkBroadcaster(p2pHost)
+
+		client := gossip3client.New(group, broadcaster)
 
 		results = ResultSet{}
 

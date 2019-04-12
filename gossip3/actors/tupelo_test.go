@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -21,19 +21,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, error) {
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, *remote.SimulatedBroadcaster, error) {
+	txType := (&extmsgs.Transaction{}).TypeCode()
+	broadcaster := remote.NewSimulatedBroadcaster()
 	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
-			Self:              signer,
-			NotaryGroup:       ng,
-			CommitStore:       storage.NewMemStorage(),
-			CurrentStateStore: storage.NewMemStorage(),
+			Self:                   signer,
+			NotaryGroup:            ng,
+			CommitStore:            storage.NewMemStorage(),
+			CurrentStateStore:      storage.NewMemStorage(),
+			BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
 		}), "tupelo-"+signer.ID)
 		if err != nil {
-			return nil, fmt.Errorf("error spawning: %v", err)
+			return nil, nil, fmt.Errorf("error spawning: %v", err)
 		}
 		signer.Actor = syncer
 		go func() {
@@ -42,7 +45,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		}()
 		ng.AddSigner(signer)
 	}
-	return ng, nil
+	return ng, broadcaster, nil
 }
 
 func TestCommits(t *testing.T) {
@@ -54,7 +57,7 @@ func TestCommits(t *testing.T) {
 	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
-	system, err := newTupeloSystem(ctx, ts)
+	system, broadcaster, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
 	syncers := system.AllSigners()
@@ -65,24 +68,8 @@ func TestCommits(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
+		err := broadcaster.Broadcast(&trans)
 		require.Nil(t, err)
-		key := crypto.Keccak256(bits)
-		rootContext.Send(syncers[rand.Intn(len(syncers))].Actor, &extmsgs.Store{
-			Key:   key,
-			Value: bits,
-		})
-		rootContext.Send(syncers[rand.Intn(len(syncers))].Actor, &extmsgs.Store{
-			Key:   key,
-			Value: bits,
-		})
-		rootContext.Send(syncers[rand.Intn(len(syncers))].Actor, &extmsgs.Store{
-			Key:   key,
-			Value: bits,
-		})
-		if err != nil {
-			t.Fatalf("error sending transaction: %v", err)
-		}
 	}
 
 	for _, s := range syncers {
@@ -91,9 +78,6 @@ func TestCommits(t *testing.T) {
 
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
-		require.Nil(t, err)
-		key := crypto.Keccak256(bits)
 
 		fut := actor.NewFuture(20 * time.Second)
 
@@ -105,10 +89,8 @@ func TestCommits(t *testing.T) {
 			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
-		rootContext.Send(syncer, &extmsgs.Store{
-			Key:   key,
-			Value: bits,
-		})
+		err := broadcaster.Broadcast(&trans)
+		require.Nil(t, err)
 
 		resp, err := fut.Result()
 		require.Nil(t, err)
@@ -117,9 +99,6 @@ func TestCommits(t *testing.T) {
 
 	t.Run("reaches another node", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
-		bits, err := trans.MarshalMsg(nil)
-		require.Nil(t, err)
-		key := crypto.Keccak256(bits)
 
 		fut := actor.NewFuture(20 * time.Second)
 
@@ -130,10 +109,9 @@ func TestCommits(t *testing.T) {
 		}, fut.PID())
 
 		start := time.Now()
-		rootContext.Send(syncers[0].Actor, &extmsgs.Store{
-			Key:   key,
-			Value: bits,
-		})
+
+		err := broadcaster.Broadcast(&trans)
+		require.Nil(t, err)
 
 		resp, err := fut.Result()
 		require.Nil(t, err)
@@ -151,41 +129,4 @@ func TestCommits(t *testing.T) {
 		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	})
 
-}
-
-func TestTupeloMemStorage(t *testing.T) {
-	numMembers := 3
-	ts := testnotarygroup.NewTestSet(t, numMembers)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer func() {
-		middleware.Log.Infow("---- tests over ----")
-		cancel()
-	}()
-	system, err := newTupeloSystem(ctx, ts)
-	require.Nil(t, err)
-
-	require.Len(t, system.Signers, numMembers)
-	syncer := system.AllSigners()[0].Actor
-
-	trans := testhelpers.NewValidTransaction(t)
-	bits, err := trans.MarshalMsg(nil)
-	require.Nil(t, err)
-	id := crypto.Keccak256(bits)
-
-	key := id
-	value := bits
-
-	rootContext := actor.EmptyRootContext
-
-	rootContext.Send(syncer, &extmsgs.Store{
-		Key:   key,
-		Value: value,
-	})
-
-	time.Sleep(10 * time.Millisecond)
-
-	val, err := rootContext.RequestFuture(syncer, &messages.Get{Key: key}, 1*time.Second).Result()
-	require.Nil(t, err)
-	require.Equal(t, value, val)
 }
