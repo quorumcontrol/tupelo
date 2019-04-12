@@ -4,7 +4,7 @@ package walletrpc;
 
 option go_package = "walletrpc";
 
-enum TransactionType {
+enum ProtoTransactionType {
   Unknown = 0;
   SetData = 1;
   SetOwnership = 2;
@@ -13,36 +13,36 @@ enum TransactionType {
   Stake = 5;
 }
 
-message SetDataPayload {
+message ProtoSetDataPayload {
   string path = 1;
   bytes value = 2;
 }
 
-message SetOwnershipPayload {
+message ProtoSetOwnershipPayload {
   repeated string authentication = 1;
 }
 
-message TokenMonetaryPolicy{
+message ProtoTokenMonetaryPolicy{
   uint64 maximum = 1;
 }
 
-message EstablishTokenPayload{
+message ProtoEstablishTokenPayload{
   string name = 1;
-  TokenMonetaryPolicy monetary_policy = 2;
+  ProtoTokenMonetaryPolicy monetary_policy = 2;
 }
 
-message MintTokenPayload{
+message ProtoMintTokenPayload{
   string name = 1;
   uint64 amount = 2;
 }
 
-message Transaction{
-  TransactionType type = 1;
+message ProtoTransaction{
+  ProtoTransactionType type = 1;
   oneof payload {
-    SetDataPayload set_data_payload = 2;
-    SetOwnershipPayload set_ownership_payload = 3;
-    EstablishTokenPayload establish_token_payload = 4;
-    MintTokenPayload mint_token_payload = 5;
+    ProtoSetDataPayload set_data_payload = 2;
+    ProtoSetOwnershipPayload set_ownership_payload = 3;
+    ProtoEstablishTokenPayload establish_token_payload = 4;
+    ProtoMintTokenPayload mint_token_payload = 5;
   }
 }
 
@@ -240,7 +240,9 @@ message TokenPayload {
 
 message PlayTransactionsRequest {
   Credentials creds = 1;
-  repeated Transaction transactions = 2;
+  string chain_id = 2;
+  string key_addr = 3;
+  repeated ProtoTransaction transactions = 4;
 }
 
 message PlayTransactionsResponse {
