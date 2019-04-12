@@ -12,7 +12,6 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
-const mempoolKind = "mempool"
 const committedKind = "committed"
 const ErrBadTransaction = 1
 
@@ -21,14 +20,12 @@ const ErrBadTransaction = 1
 type TupeloNode struct {
 	middleware.LogAwareHolder
 
-	self        *types.Signer
-	notaryGroup *types.NotaryGroup
-	// mempoolGossiper   *actor.PID
+	self              *types.Signer
+	notaryGroup       *types.NotaryGroup
 	committedGossiper *actor.PID
 
 	conflictSetRouter *actor.PID
 
-	// mempoolStore        *actor.PID
 	committedStore      *actor.PID
 	subscriptionHandler *actor.PID
 

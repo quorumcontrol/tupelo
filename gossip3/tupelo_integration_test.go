@@ -148,31 +148,6 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	return localSigner, ng, nil
 }
 
-// func createHostsAndBridges(ctx context.Context, t *testing.T, bootstrap p2p.Node, testSet *testnotarygroup.TestSet) {
-// 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
-
-// 	nodes := make([]p2p.Node, len(testSet.EcdsaKeys), len(testSet.EcdsaKeys))
-// 	for i, key := range testSet.EcdsaKeys {
-// 		node, err := p2p.NewLibP2PHost(ctx, key, 0)
-// 		if err != nil {
-// 			t.Fatalf("error creating libp2p host: %v", err)
-// 		}
-// 		node.Bootstrap(bootAddrs)
-// 		nodes[i] = node
-// 		remote.NewRouter(node)
-// 	}
-// 	wg := sync.WaitGroup{}
-// 	for _, node := range nodes {
-// 		wg.Add(1)
-// 		go func() {
-// 			err := node.WaitForBootstrap(1, 1*time.Second)
-// 			wg.Done()
-// 			require.Nil(t, err)
-// 		}()
-// 	}
-// 	wg.Wait()
-// }
-
 func TestLibP2PSigning(t *testing.T) {
 	paths := []string{
 		testCommitPath,
