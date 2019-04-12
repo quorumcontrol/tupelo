@@ -238,6 +238,15 @@ message TokenPayload {
   map<string, bytes> leaves = 4;
 }
 
+message PlayTransactionsRequest {
+  Credentials creds = 1;
+  repeated Transaction transactions = 2;
+}
+
+message PlayTransactionsResponse {
+  string tip = 1;
+}
+
 service WalletRPCService {
   rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse);
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
