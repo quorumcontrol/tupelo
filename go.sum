@@ -590,8 +590,8 @@ github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1/go.mod h1:7JSFW45PpKoXFaUpaJ8YtCNIwQWut0+Huo9ugBnKVe4=
 github.com/quorumcontrol/storage v1.1.1 h1:9ijuxMAKS0MwLL/thV4kwJe/AshFVF5Du1dTOhYW+eM=
 github.com/quorumcontrol/storage v1.1.1/go.mod h1:ARuX26Pi5Hnequ0LDAHmrXyhdjuhUS7Y1rjGkec6WM8=
-github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190329154750-20807d188263dc9351ed4f13ebac904cfe9dbadf h1:EPdxLe2m+Wqt4/lLlOD5HXOX4JhInAXWQiCxkik7c1g=
-github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190329154750-20807d188263dc9351ed4f13ebac904cfe9dbadf/go.mod h1:EfSm5oNhvkAjeW/XmV7FUD0IAV3rzx9adoi8MQHVqzU=
+github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190329154750-ec26283919028842a904fc553b46dd069a53ef1c h1:VdfZkGJRgCaJh65bsQl9qvfs5LlPT6k1ep9Kx9PLOO8=
+github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190329154750-ec26283919028842a904fc553b46dd069a53ef1c/go.mod h1:EfSm5oNhvkAjeW/XmV7FUD0IAV3rzx9adoi8MQHVqzU=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2 h1:J7U/N7eRtzjhs26d6GqMh2HBuXP8/Z64Densiiieafo=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
