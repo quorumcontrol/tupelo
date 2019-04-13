@@ -4,15 +4,6 @@ package walletrpc;
 
 option go_package = "walletrpc";
 
-enum ProtoTransactionType {
-  Unknown = 0;
-  SetData = 1;
-  SetOwnership = 2;
-  EstablishToken = 3;
-  MintToken = 4;
-  Stake = 5;
-}
-
 message ProtoSetDataPayload {
   string path = 1;
   bytes value = 2;
@@ -37,7 +28,16 @@ message ProtoMintTokenPayload{
 }
 
 message ProtoTransaction{
-  ProtoTransactionType type = 1;
+  enum Type {
+    UNKNOWN = 0;
+    SETDATA = 1;
+    SETOWNERSHIP = 2;
+    ESTABLISHTOKEN = 3;
+    MINTTOKEN = 4;
+    STAKE = 5;
+  }
+
+  Type type = 1;
   oneof payload {
     ProtoSetDataPayload set_data_payload = 2;
     ProtoSetOwnershipPayload set_ownership_payload = 3;
