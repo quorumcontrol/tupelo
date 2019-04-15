@@ -31,7 +31,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/bls"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -153,13 +153,12 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 
 	group := setupNotaryGroup(localSigner, bootstrapPublicKeys)
 
-	txType := (&extmsgs.Transaction{}).TypeCode()
 	act, err := actor.SpawnNamed(gossip3actors.NewTupeloNodeProps(&gossip3actors.TupeloConfig{
-		Self:                   localSigner,
-		NotaryGroup:            group,
-		CommitStore:            badgerCommit,
-		CurrentStateStore:      badgerCurrent,
-		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(txType, p2pHost),
+		Self:                     localSigner,
+		NotaryGroup:              group,
+		CommitStore:              badgerCommit,
+		CurrentStateStore:        badgerCurrent,
+		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(client.TransactionBroadcastTopic, p2pHost),
 	}), syncerActorName(localSigner))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))

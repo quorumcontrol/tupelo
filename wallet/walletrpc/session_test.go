@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-client/client"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -90,13 +89,12 @@ func TestSendToken(t *testing.T) {
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	broadcaster := remote.NewSimulatedBroadcaster()
 
-	txType := (&extmsgs.Transaction{}).TypeCode()
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:                   signer,
-		NotaryGroup:            ng,
-		CommitStore:            storage.NewMemStorage(),
-		CurrentStateStore:      storage.NewMemStorage(),
-		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
+		Self:                     signer,
+		NotaryGroup:              ng,
+		CommitStore:              storage.NewMemStorage(),
+		CurrentStateStore:        storage.NewMemStorage(),
+		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(client.TransactionBroadcastTopic),
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer

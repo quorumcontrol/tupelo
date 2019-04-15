@@ -24,7 +24,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -145,13 +144,12 @@ func setupLocalSigner(ctx context.Context, broadcaster *remote.SimulatedBroadcas
 		panic(fmt.Sprintf("error setting up badger storage: %v", err))
 	}
 
-	txType := (&extmsgs.Transaction{}).TypeCode()
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:                   signer,
-		NotaryGroup:            group,
-		CommitStore:            commitStore,
-		CurrentStateStore:      currentStore,
-		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
+		Self:                     signer,
+		NotaryGroup:              group,
+		CommitStore:              commitStore,
+		CurrentStateStore:        currentStore,
+		BroadcastSubscriberProps: broadcaster.NewSubscriberProps(client.TransactionBroadcastTopic),
 	}), syncerActorName(signer))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning actor: %v", err))

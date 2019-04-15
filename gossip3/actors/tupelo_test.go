@@ -10,6 +10,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo-go-client/client"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
@@ -22,18 +23,17 @@ import (
 )
 
 func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, *remote.SimulatedBroadcaster, error) {
-	txType := (&extmsgs.Transaction{}).TypeCode()
 	broadcaster := remote.NewSimulatedBroadcaster()
 	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
-			Self:                   signer,
-			NotaryGroup:            ng,
-			CommitStore:            storage.NewMemStorage(),
-			CurrentStateStore:      storage.NewMemStorage(),
-			BroadcastSubscriberProps: broadcaster.NewSubscriberProps(txType),
+			Self:                     signer,
+			NotaryGroup:              ng,
+			CommitStore:              storage.NewMemStorage(),
+			CurrentStateStore:        storage.NewMemStorage(),
+			BroadcastSubscriberProps: broadcaster.NewSubscriberProps(client.TransactionBroadcastTopic),
 		}), "tupelo-"+signer.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -68,7 +68,7 @@ func TestCommits(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
-		err := broadcaster.Broadcast(&trans)
+		err := broadcaster.Broadcast(client.TransactionBroadcastTopic, &trans)
 		require.Nil(t, err)
 	}
 
@@ -89,7 +89,7 @@ func TestCommits(t *testing.T) {
 			TipValue: newTip.Bytes(),
 		}, fut.PID())
 
-		err := broadcaster.Broadcast(&trans)
+		err := broadcaster.Broadcast(client.TransactionBroadcastTopic, &trans)
 		require.Nil(t, err)
 
 		resp, err := fut.Result()
@@ -110,7 +110,7 @@ func TestCommits(t *testing.T) {
 
 		start := time.Now()
 
-		err := broadcaster.Broadcast(&trans)
+		err := broadcaster.Broadcast(client.TransactionBroadcastTopic, &trans)
 		require.Nil(t, err)
 
 		resp, err := fut.Result()

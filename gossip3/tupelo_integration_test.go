@@ -118,13 +118,12 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	node.Bootstrap(bootAddrs)
 	remote.NewRouter(node)
 
-	txType := (&extmsgs.Transaction{}).TypeCode()
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:                   localSigner,
-		NotaryGroup:            ng,
-		CommitStore:            commitStore,
-		CurrentStateStore:      currentStore,
-		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(txType, node),
+		Self:                     localSigner,
+		NotaryGroup:              ng,
+		CommitStore:              commitStore,
+		CurrentStateStore:        currentStore,
+		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(client.TransactionBroadcastTopic, node),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
