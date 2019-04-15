@@ -21,9 +21,9 @@ func TestServerStartup(t *testing.T) {
 	require.Nil(t, err)
 	defer os.RemoveAll(".tmp")
 
-	broadcaster := remote.NewSimulatedBroadcaster()
+	pubSubSystem := remote.NewSimulatedPubSub()
 	ng := types.NewNotaryGroup("ohhijusttesting")
-	cli := client.New(ng, broadcaster)
+	cli := client.New(ng, pubSubSystem)
 
 	grpcServer, err := ServeInsecure(path, cli, 0)
 	require.Nil(t, err)
