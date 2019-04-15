@@ -88,10 +88,10 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		// if we are the ones creating this current state then broadcast
 		if msg.Internal {
 			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
-			tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState)
+			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
+				tn.Log.Errorw("error publishing", "err", err)
+			}
 		}
-		// context.Send(tn.subscriptionHandler, msg)
-
 	} else {
 		tn.Log.Debugw("removing bad current state", "key", msg.Key)
 		err := tn.cfg.CurrentStateStore.Delete(msg.Key)
@@ -128,11 +128,14 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 					// ...but fallback on this rather than generating a nil deref error
 					errSource = string(msg.TransactionID)
 				}
-				tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
+				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
 					Source: errSource,
 					Code:   ErrBadTransaction,
 					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 				})
+				if err != nil {
+					tn.Log.Errorw("error publishing", "err", err)
+				}
 			}
 			msg.StopTrace()
 		}
