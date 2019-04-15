@@ -501,8 +501,6 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 			transSpan.SetTag("done", true)
 			transSpan.Finish()
 		}
-		csw.Log.Debugw("set CleanUpTransactions on the CurrentStateWrapper", "numTransactions",
-			len(currWrapper.CleanupTransactions))
 
 		cs.done = true
 		sp.SetTag("done", true)

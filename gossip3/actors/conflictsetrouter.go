@@ -96,8 +96,8 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *commitNotification:
 		csr.Log.Debugw("received commit notification, computing next transaction height")
 		msg.nextHeight = csr.nextHeight(msg.objectID)
-		csr.Log.Debugw("forwarding commit notification to conflict set", "store.Key", msg.store.Key,
-			"nextHeight", msg.nextHeight)
+		csr.Log.Debugw("forwarding commit notification to conflict set", "objectID", msg.objectID,
+			"height", msg.height, "nextHeight", msg.nextHeight)
 		csr.forwardOrIgnore(context, context.Message(), msg.objectID, msg.height)
 	case *messages.CurrentStateWrapper:
 		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
