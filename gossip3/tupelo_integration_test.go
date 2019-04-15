@@ -119,11 +119,11 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	remote.NewRouter(node)
 
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:                     localSigner,
-		NotaryGroup:              ng,
-		CommitStore:              commitStore,
-		CurrentStateStore:        currentStore,
-		BroadcastSubscriberProps: remote.NewNetworkSubscriberProps(client.TransactionBroadcastTopic, node),
+		Self:              localSigner,
+		NotaryGroup:       ng,
+		CommitStore:       commitStore,
+		CurrentStateStore: currentStore,
+		PubSubSystem:      remote.NewNetworkPubSub(node),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -193,10 +193,10 @@ func TestLibP2PSigning(t *testing.T) {
 	err = clientHost.WaitForBootstrap(2, 1*time.Second)
 	require.Nil(t, err)
 
-	broadcaster := remote.NewNetworkBroadcaster(clientHost)
+	pubSub := remote.NewNetworkPubSub(clientHost)
 
 	remote.NewRouter(clientHost)
-	client := client.New(systems[0], broadcaster)
+	client := client.New(systems[0], pubSub)
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
@@ -217,13 +217,14 @@ func TestLibP2PSigning(t *testing.T) {
 	newTip, err := cid.Cast(trans.NewTip)
 	require.Nil(t, err)
 
-	ch, err := client.Subscribe(systems[0].AllSigners()[0], string(trans.ObjectID), newTip, 90*time.Second)
+	fut := client.Subscribe(string(trans.ObjectID), newTip, 90*time.Second)
 	require.Nil(t, err)
 
 	client.SendTransaction(&trans)
 	start := time.Now()
 
-	resp := <-ch
+	resp, err := fut.Result()
+	require.Nil(t, err)
 	require.NotNil(t, resp)
 	require.IsType(t, &extmsgs.CurrentState{}, resp)
 	stop := time.Now()

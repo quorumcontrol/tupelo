@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -66,7 +65,7 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	sp.SetTag("chainId", did)
 	defer sp.Finish()
 
-	respChan, err := client.Subscribe(group.GetRandomSigner(), did, newTip, 30*time.Second)
+	fut := client.Subscribe(did, newTip, 30*time.Second)
 
 	var errMsg string
 
@@ -74,22 +73,23 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 		errMsg = fmt.Errorf("subscription failed %v", err).Error()
 	} else {
 		// Wait for response
-		resp := <-respChan
-
-		switch msg := resp.(type) {
-		case *messages.CurrentState:
-			elapsed := time.Since(startTime)
-			duration := int(elapsed / time.Millisecond)
-			results.Durations = append(results.Durations, duration)
-			results.Successes = results.Successes + 1
-		case *messages.Error:
-			errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
-		case *actor.ReceiveTimeout:
+		resp, err := fut.Result()
+		if err == nil {
+			switch msg := resp.(type) {
+			case *messages.CurrentState:
+				elapsed := time.Since(startTime)
+				duration := int(elapsed / time.Millisecond)
+				results.Durations = append(results.Durations, duration)
+				results.Successes = results.Successes + 1
+			case *messages.Error:
+				errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
+			case nil:
+				errMsg = fmt.Sprintf("%s - nil response from channel", did)
+			default:
+				errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
+			}
+		} else {
 			errMsg = fmt.Sprintf("%s - timeout", did)
-		case nil:
-			errMsg = fmt.Sprintf("%s - nil response from channel", did)
-		default:
-			errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
 		}
 	}
 
@@ -197,9 +197,9 @@ var benchmark = &cobra.Command{
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
 		group.SetupAllRemoteActors(&key.PublicKey)
 
-		broadcaster := remote.NewNetworkBroadcaster(p2pHost)
+		pubSubSystem := remote.NewNetworkPubSub(p2pHost)
 
-		client := gossip3client.New(group, broadcaster)
+		client := gossip3client.New(group, pubSubSystem)
 
 		results = ResultSet{}
 

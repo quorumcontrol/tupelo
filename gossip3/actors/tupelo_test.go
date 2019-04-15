@@ -3,12 +3,11 @@ package actors
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/ipfs/go-cid"
+	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/client"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
@@ -22,18 +21,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, *remote.SimulatedBroadcaster, error) {
-	broadcaster := remote.NewSimulatedBroadcaster()
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, *client.Client, error) {
+	simulatedPubSub := remote.NewSimulatedPubSub()
+
 	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
-			Self:                     signer,
-			NotaryGroup:              ng,
-			CommitStore:              storage.NewMemStorage(),
-			CurrentStateStore:        storage.NewMemStorage(),
-			BroadcastSubscriberProps: broadcaster.NewSubscriberProps(client.TransactionBroadcastTopic),
+			Self:              signer,
+			NotaryGroup:       ng,
+			CommitStore:       storage.NewMemStorage(),
+			CurrentStateStore: storage.NewMemStorage(),
+			PubSubSystem:      simulatedPubSub,
 		}), "tupelo-"+signer.ID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -45,11 +45,13 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		}()
 		ng.AddSigner(signer)
 	}
-	return ng, broadcaster, nil
+
+	return ng, client.New(ng, simulatedPubSub), nil
 }
 
 func TestCommits(t *testing.T) {
-	numMembers := 20
+	// middleware.SetLogLevel("debug")
+	numMembers := 3
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		middleware.Log.Infow("---- tests over ----")
@@ -57,7 +59,7 @@ func TestCommits(t *testing.T) {
 	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
-	system, broadcaster, err := newTupeloSystem(ctx, ts)
+	system, cli, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
 	syncers := system.AllSigners()
@@ -66,11 +68,11 @@ func TestCommits(t *testing.T) {
 
 	rootContext := actor.EmptyRootContext
 
-	for i := 0; i < 100; i++ {
-		trans := testhelpers.NewValidTransaction(t)
-		err := broadcaster.Broadcast(client.TransactionBroadcastTopic, &trans)
-		require.Nil(t, err)
-	}
+	// for i := 0; i < 100; i++ {
+	// 	trans := testhelpers.NewValidTransaction(t)
+	// 	err := cli.SendTransaction(&trans)
+	// 	require.Nil(t, err)
+	// }
 
 	for _, s := range syncers {
 		rootContext.Send(s.Actor, &messages.StartGossip{})
@@ -79,54 +81,16 @@ func TestCommits(t *testing.T) {
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
 
-		fut := actor.NewFuture(20 * time.Second)
-
-		syncer := syncers[rand.Intn(len(syncers))].Actor
-
 		newTip, _ := cid.Cast(trans.NewTip)
-		rootContext.RequestWithCustomSender(syncer, &extmsgs.TipSubscription{
-			ObjectID: trans.ObjectID,
-			TipValue: newTip.Bytes(),
-		}, fut.PID())
+		fut := cli.Subscribe(string(trans.ObjectID), newTip, 10*time.Second)
 
-		err := broadcaster.Broadcast(client.TransactionBroadcastTopic, &trans)
+		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 
 		resp, err := fut.Result()
+
 		require.Nil(t, err)
 		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
-	})
-
-	t.Run("reaches another node", func(t *testing.T) {
-		trans := testhelpers.NewValidTransaction(t)
-
-		fut := actor.NewFuture(20 * time.Second)
-
-		newTip, _ := cid.Cast(trans.NewTip)
-		rootContext.RequestWithCustomSender(syncers[1].Actor, &extmsgs.TipSubscription{
-			ObjectID: trans.ObjectID,
-			TipValue: newTip.Bytes(),
-		}, fut.PID())
-
-		start := time.Now()
-
-		err := broadcaster.Broadcast(client.TransactionBroadcastTopic, &trans)
-		require.Nil(t, err)
-
-		resp, err := fut.Result()
-		require.Nil(t, err)
-		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
-
-		tipFut := actor.NewFuture(5 * time.Second)
-		rootContext.RequestWithCustomSender(syncers[1].Actor, &extmsgs.GetTip{
-			ObjectID: []byte(trans.ObjectID),
-		}, tipFut.PID())
-		tipResp, err := tipFut.Result()
-		require.Nil(t, err)
-		assert.Equal(t, tipResp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
-
-		stop := time.Now()
-		t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
 	})
 
 }
