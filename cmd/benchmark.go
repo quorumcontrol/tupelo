@@ -186,9 +186,6 @@ var benchmark = &cobra.Command{
 		if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
 			panic(err)
 		}
-		if err = p2pHost.WaitForBootstrap(1, 15*time.Second); err != nil {
-			panic(err)
-		}
 
 		gossip3remote.NewRouter(p2pHost)
 
@@ -198,6 +195,10 @@ var benchmark = &cobra.Command{
 		pubSubSystem := remote.NewNetworkPubSub(p2pHost)
 
 		client := gossip3client.New(group, pubSubSystem)
+
+		if err = p2pHost.WaitForBootstrap(max(3, len(group.Signers)), 15*time.Second); err != nil {
+			panic(err)
+		}
 
 		results = ResultSet{}
 
@@ -273,4 +274,11 @@ func init() {
 	benchmark.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
 	benchmark.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
 	benchmark.Flags().StringVar(&tracingTagName, "tracing-name", "", "adds tag to tracing for lookup")
+}
+
+func max(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
