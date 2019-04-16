@@ -9,6 +9,8 @@ require (
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
 	github.com/chzyer/logex v1.1.10 // indirect
 	github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1 // indirect
+	github.com/dedis/fixbuf v1.0.2 // indirect
+	github.com/dedis/kyber v0.0.0-20190121102031-5cc64601919b // indirect
 	github.com/ethereum/go-ethereum v1.8.25
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/gobuffalo/packr/v2 v2.2.0
@@ -33,7 +35,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190411154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.1
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190416212153-3dfd91413c81
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190416212708-2559d2a59b4f
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
