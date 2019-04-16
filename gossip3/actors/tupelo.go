@@ -86,7 +86,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		// if we are the ones creating this current state then broadcast
-		if msg.Internal {
+		if tn.isOnRewardsCommittee(msg.CurrentState.Signature.NewTip) {
 			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
 			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
@@ -268,4 +268,18 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	tn.committedGossiper = committedGossiper
 	tn.committedStore = committedStore
 	tn.validatorPool = validatorPool
+}
+
+func (tn *TupeloNode) isOnRewardsCommittee(tip []byte) bool {
+	// send in a blank signer so it includes the signer
+	committee, err := tn.notaryGroup.RewardsCommittee(tip, &types.Signer{})
+	if err != nil {
+		panic(fmt.Errorf("error getting rewards committee: %v", err))
+	}
+	for _, signer := range committee {
+		if signer.ID == tn.self.ID {
+			return true
+		}
+	}
+	return false
 }
