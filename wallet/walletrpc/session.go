@@ -111,9 +111,14 @@ func serializeNodes(nodes []*cbornode.Node) [][]byte {
 
 func decodeSignature(encodedSig *SerializableSignature) extmsgs.Signature {
 	return extmsgs.Signature{
-		Type:      encodedSig.Type,
-		Signers:   encodedSig.Signers,
-		Signature: encodedSig.Signature,
+		ObjectID:    encodedSig.ObjectId,
+		PreviousTip: encodedSig.PreviousTip,
+		NewTip:      encodedSig.NewTip,
+		View:        encodedSig.View,
+		Cycle:       encodedSig.Cycle,
+		Type:        encodedSig.Type,
+		Signers:     encodedSig.Signers,
+		Signature:   encodedSig.Signature,
 	}
 }
 
@@ -129,9 +134,14 @@ func decodeSignatures(encodedSigs map[string]*SerializableSignature) consensus.S
 
 func serializeSignature(sig extmsgs.Signature) *SerializableSignature {
 	return &SerializableSignature{
-		Signers:   sig.Signers,
-		Signature: sig.Signature,
-		Type:      sig.Type,
+		ObjectId:    sig.ObjectID,
+		PreviousTip: sig.PreviousTip,
+		NewTip:      sig.NewTip,
+		View:        sig.View,
+		Cycle:       sig.Cycle,
+		Signers:     sig.Signers,
+		Signature:   sig.Signature,
+		Type:        sig.Type,
 	}
 }
 
@@ -591,6 +601,8 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, tokenName, destinationChainI
 
 	tip := *resp.Tip
 
+	fmt.Printf("Got sig: %+v\n", resp.Signature)
+
 	payload := &TokenPayload{
 		TransactionId: transactionId.String(),
 		Tip:           tip.String(),
@@ -643,4 +655,55 @@ func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid
 	}
 
 	return resp.Tip, nil
+}
+
+func (rpcs *RPCSession) ListTokens(chainId, keyAddr string) (string, error) {
+	tokensPath, err := consensus.DecodePath("tree/_tupelo/tokens")
+	if err != nil {
+		return "", err
+	}
+
+	tokensObj, remaining, err := rpcs.Resolve(chainId, tokensPath)
+	if err != nil {
+		return "", err
+	}
+	if len(remaining) > 0 {
+		return "", nil // no tokens yet
+	}
+
+	tokens, ok := tokensObj.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("tokens node was of unexpected type")
+	}
+
+	tokensList := ""
+
+	i := 0
+	for name, tokenObj := range tokens {
+		tokenCid, ok := tokenObj.(cid.Cid)
+		if !ok {
+			continue // I guess?
+		}
+
+		chain, err := rpcs.GetChain(chainId)
+		if err != nil {
+			return "", err
+		}
+		tokenNode, err := chain.ChainTree.Dag.Get(tokenCid)
+		if err != nil {
+			return "", err
+		}
+
+		token := consensus.Token{}
+		err = cbornode.DecodeInto(tokenNode.RawData(), &token)
+		if err != nil {
+			return "", err
+		}
+
+		tokensList += fmt.Sprintf("%d: %s (balance: %d)\n", i, name, token.Balance)
+
+		i++
+	}
+
+	return tokensList, nil
 }

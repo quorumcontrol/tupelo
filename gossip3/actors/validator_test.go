@@ -20,7 +20,10 @@ import (
 func TestValidator(t *testing.T) {
 	currentState := storage.NewMemStorage()
 	rootContext := actor.EmptyRootContext
-	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
+	cfg := &TransactionValidatorConfig{
+		CurrentStateStore: currentState,
+	}
+	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer validator.Poison()
 
 	fut := actor.NewFuture(1 * time.Second)
@@ -52,7 +55,10 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	// transaction.
 
 	currentState := storage.NewMemStorage()
-	validator := actor.Spawn(NewTransactionValidatorProps(currentState))
+	cfg := &TransactionValidatorConfig{
+		CurrentStateStore: currentState,
+	}
+	validator := actor.Spawn(NewTransactionValidatorProps(cfg))
 	defer validator.Poison()
 
 	treeKey, err := crypto.GenerateKey()
@@ -129,7 +135,10 @@ func TestCannotFakeOldHistory(t *testing.T) {
 func BenchmarkValidator(b *testing.B) {
 	currentState := storage.NewMemStorage()
 	rootContext := actor.EmptyRootContext
-	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
+	cfg := &TransactionValidatorConfig{
+		CurrentStateStore: currentState,
+	}
+	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer validator.Poison()
 
 	trans := testhelpers.NewValidTransaction(b)

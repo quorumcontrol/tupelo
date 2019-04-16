@@ -23,7 +23,11 @@ func TestSignatureGenerator(t *testing.T) {
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
 	rootContext := actor.EmptyRootContext
-	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
+	cfg := &TransactionValidatorConfig{
+		CurrentStateStore: currentState,
+		NotaryGroup:       ng,
+	}
+	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer validator.Poison()
 
 	sigGenerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
@@ -68,7 +72,11 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
 	rootContext := actor.EmptyRootContext
-	validator := rootContext.Spawn(NewTransactionValidatorProps(currentState))
+	cfg := &TransactionValidatorConfig{
+		CurrentStateStore: currentState,
+		NotaryGroup:       ng,
+	}
+	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer validator.Poison()
 
 	sigGnerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
