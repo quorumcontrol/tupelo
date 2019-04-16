@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -46,14 +47,10 @@ var tracingTagName string
 
 var activeCounter = 0
 
-func measureTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, trans messages.Transaction) {
+func measureTransaction(subscriptionFuture *actor.Future, group *gossip3types.NotaryGroup, trans messages.Transaction) {
 
 	startTime := time.Now()
 	did := string(trans.ObjectID)
-	newTip, err := cid.Cast(trans.NewTip)
-	if err != nil {
-		results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
-	}
 
 	sp := opentracing.StartSpan("benchmark-transaction")
 	if tracingTagName != "" {
@@ -65,32 +62,26 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	sp.SetTag("chainId", did)
 	defer sp.Finish()
 
-	fut := client.Subscribe(did, newTip, 30*time.Second)
-
 	var errMsg string
 
-	if err != nil {
-		errMsg = fmt.Errorf("subscription failed %v", err).Error()
-	} else {
-		// Wait for response
-		resp, err := fut.Result()
-		if err == nil {
-			switch msg := resp.(type) {
-			case *messages.CurrentState:
-				elapsed := time.Since(startTime)
-				duration := int(elapsed / time.Millisecond)
-				results.Durations = append(results.Durations, duration)
-				results.Successes = results.Successes + 1
-			case *messages.Error:
-				errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
-			case nil:
-				errMsg = fmt.Sprintf("%s - nil response from channel", did)
-			default:
-				errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
-			}
-		} else {
-			errMsg = fmt.Sprintf("%s - timeout", did)
+	// Wait for response
+	resp, err := subscriptionFuture.Result()
+	if err == nil {
+		switch msg := resp.(type) {
+		case *messages.CurrentState:
+			elapsed := time.Since(startTime)
+			duration := int(elapsed / time.Millisecond)
+			results.Durations = append(results.Durations, duration)
+			results.Successes = results.Successes + 1
+		case *messages.Error:
+			errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
+		case nil:
+			errMsg = fmt.Sprintf("%s - nil response from channel", did)
+		default:
+			errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
 		}
+	} else {
+		errMsg = fmt.Sprintf("%s - timeout", did)
 	}
 
 	if errMsg != "" {
@@ -108,7 +99,14 @@ func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGro
 	trans := gossip3testhelpers.NewValidTransaction(fakeT)
 
 	if shouldMeasure {
-		go measureTransaction(client, group, trans)
+		newTip, err := cid.Cast(trans.NewTip)
+		if err != nil {
+			results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
+		}
+		did := string(trans.ObjectID)
+
+		subscriptionFuture := client.Subscribe(did, newTip, 30*time.Second)
+		go measureTransaction(subscriptionFuture, group, trans)
 	}
 
 	err := client.SendTransaction(&trans)
