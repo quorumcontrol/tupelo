@@ -33,7 +33,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190411154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.1
-	github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-8ea088627013503578c2267d5f9d2867251b90f7
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190416212153-3dfd91413c81
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
@@ -45,6 +45,8 @@ require (
 	golang.org/x/net v0.0.0-20190415214537-1da14a5a36f2
 	golang.org/x/sys v0.0.0-20190416152802-12500544f89f // indirect
 	golang.org/x/tools v0.0.0-20190416194154-76038274be7a // indirect
+	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19 // indirect
 	google.golang.org/grpc v1.19.0
+	gotest.tools/gotestsum v0.3.4 // indirect
 )
