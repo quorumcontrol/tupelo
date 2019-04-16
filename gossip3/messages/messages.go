@@ -118,3 +118,5 @@ type ActivateSnoozingConflictSets struct {
 type ValidateTransaction struct {
 	Transaction *extmsgs.Transaction
 }
+
+type GetNumConflictSets struct{}

@@ -63,7 +63,7 @@ func (tv *TransactionValidator) Receive(actorCtx actor.Context) {
 }
 
 func (tv *TransactionValidator) nextHeight(objectID []byte) uint64 {
-	return nextHeight(tv.reader, objectID)
+	return nextHeight(tv.Log, tv.reader, objectID)
 }
 
 func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *validationRequest) {

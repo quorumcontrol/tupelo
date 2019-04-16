@@ -159,6 +159,8 @@ github.com/gorilla/mux v1.7.0 h1:tOSd0UKHQd6urX6ApfOn4XdBMY6Sh1MfxV3kmaazO+U=
 github.com/gorilla/mux v1.7.0/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
 github.com/gorilla/websocket v1.4.0 h1:WDFjx/TMzVgy9VdMMQi2K2Emtwi2QcUQsztZ/zLaH/Q=
 github.com/gorilla/websocket v1.4.0/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoAMk2YaljkQ=
+github.com/goware/modvendor v0.0.0-20180827175348-07a105bce74a h1:Oe6hGIgc1vPasxaCT+OJ6XMQrNk3WT4Vf/KIVwxB6R8=
+github.com/goware/modvendor v0.0.0-20180827175348-07a105bce74a/go.mod h1:iTv+KoD55Rr5NW/P2WlDEJQ2Wa7+LRblD6/u/xJl/i0=
 github.com/gxed/go-shellwords v1.0.3/go.mod h1:N7paucT91ByIjmVJHhvoarjoQnmsi3Jd3vH7VqgtMxQ=
 github.com/gxed/hashland/keccakpg v0.0.1 h1:wrk3uMNaMxbXiHibbPO4S0ymqJMm41WiudyFSs7UnsU=
 github.com/gxed/hashland/keccakpg v0.0.1/go.mod h1:kRzw3HkwxFU1mpmPP8v1WyQzwdGfmKFJ6tItnhQ67kU=
@@ -495,6 +497,9 @@ github.com/mattn/go-isatty v0.0.5 h1:tHXDdz1cpzGaovsTB+TVB8q90WEokoVmfMqoVcrLUgw
 github.com/mattn/go-isatty v0.0.5/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
 github.com/mattn/go-runewidth v0.0.4 h1:2BvfKmzob6Bmd4YsL0zygOqfdFnK7GR4QL06Do4/p7Y=
 github.com/mattn/go-runewidth v0.0.4/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
+github.com/mattn/go-zglob v0.0.0-20180803001819-2ea3427bfa53/go.mod h1:9fxibJccNxU2cnpIKLRRFA7zX7qhkJIQWBb449FYHOo=
+github.com/mattn/go-zglob v0.0.1 h1:xsEx/XUoVlI6yXjqBK062zYhRTZltCNmYPx6v+8DNaY=
+github.com/mattn/go-zglob v0.0.1/go.mod h1:9fxibJccNxU2cnpIKLRRFA7zX7qhkJIQWBb449FYHOo=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b h1:j7+1HpAFS1zy5+Q4qx1fWh90gTKwiN4QCGoY9TWyyO4=
@@ -588,6 +593,7 @@ github.com/quorumcontrol/storage v1.1.1 h1:9ijuxMAKS0MwLL/thV4kwJe/AshFVF5Du1dTO
 github.com/quorumcontrol/storage v1.1.1/go.mod h1:ARuX26Pi5Hnequ0LDAHmrXyhdjuhUS7Y1rjGkec6WM8=
 github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-8ea088627013503578c2267d5f9d2867251b90f7 h1:XnkTIgje2JqrCezTBam/0p3YEfJ7HbvbIR6tQ41XZ+s=
 github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-8ea088627013503578c2267d5f9d2867251b90f7/go.mod h1:cb4qWFPQYJWzpp2KT6K6aT8PW1i11VRIMTkO+t10luc=
+github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190409193529-02f3057febe6ef4e35774059d24cbc179adbdc81 h1:wJy9Sh+4whV7S99B5ONsZt3hcB8XeZNgEF4ALsTZmD8=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2 h1:J7U/N7eRtzjhs26d6GqMh2HBuXP8/Z64Densiiieafo=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
