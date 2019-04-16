@@ -4,25 +4,27 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"errors"
-	fmt "fmt"
+	"fmt"
 	"log"
 	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
-	cid "github.com/ipfs/go-cid"
+	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/jakehl/goid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
+
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
-	"github.com/jakehl/goid"
 )
 
 type RPCSession struct {
@@ -107,8 +109,8 @@ func serializeNodes(nodes []*cbornode.Node) [][]byte {
 	return bytes
 }
 
-func decodeSignature(encodedSig *SerializableSignature) consensus.Signature {
-	return consensus.Signature{
+func decodeSignature(encodedSig *SerializableSignature) extmsgs.Signature {
+	return extmsgs.Signature{
 		Type:      encodedSig.Type,
 		Signers:   encodedSig.Signers,
 		Signature: encodedSig.Signature,
@@ -125,7 +127,7 @@ func decodeSignatures(encodedSigs map[string]*SerializableSignature) consensus.S
 	return signatures
 }
 
-func serializeSignature(sig consensus.Signature) *SerializableSignature {
+func serializeSignature(sig extmsgs.Signature) *SerializableSignature {
 	return &SerializableSignature{
 		Signers:   sig.Signers,
 		Signature: sig.Signature,
