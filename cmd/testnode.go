@@ -143,14 +143,16 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
 		panic(fmt.Sprintf("failed to bootstrap: %s", err))
 	}
-	err = p2pHost.WaitForBootstrap(1, 60*time.Second)
+
+	group := setupNotaryGroup(localSigner, bootstrapPublicKeys)
+
+	// wait until we connect to half the network
+	err = p2pHost.WaitForBootstrap(1+len(group.Signers)/2, 60*time.Second)
 	if err != nil {
 		panic(fmt.Sprintf("error waiting for bootstrap: %v", err))
 	}
 
 	gossip3remote.NewRouter(p2pHost)
-
-	group := setupNotaryGroup(localSigner, bootstrapPublicKeys)
 
 	act, err := actor.SpawnNamed(gossip3actors.NewTupeloNodeProps(&gossip3actors.TupeloConfig{
 		Self:              localSigner,
