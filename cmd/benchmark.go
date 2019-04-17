@@ -106,6 +106,7 @@ func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGro
 		did := string(trans.ObjectID)
 
 		subscriptionFuture := client.Subscribe(did, newTip, 30*time.Second)
+		time.Sleep(100 * time.Millisecond)
 		go measureTransaction(subscriptionFuture, group, trans)
 	}
 
