@@ -258,6 +258,7 @@ service WalletRPCService {
   rpc GetTip (GetTipRequest) returns (GetTipResponse);
   rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
   rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
+  rpc PlayTransactions (PlayTransactionsRequest) returns (PlayTransactionsResponse);
   rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
   rpc SetData (SetDataRequest) returns (SetDataResponse);
   rpc Resolve (ResolveRequest) returns (ResolveResponse);
