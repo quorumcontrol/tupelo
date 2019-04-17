@@ -25,9 +25,7 @@ for i in $(seq 1 $num_nodes); do
   go run main.go test-node -k $keys_dir 2>&1 | tee $run_dir/node$i.log &
 done
 
-sleep 30
-
-echo "starting benchmark"
+sleep 60
 
 go run main.go benchmark -k $keys_dir -c 2 -i 60 -s tps -t 91
 
