@@ -271,7 +271,7 @@ func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Tran
 	chaintreeTxns := make([]*chaintree.Transaction, len(protoTransactions))
 	for i, protoTxn := range protoTransactions {
 		switch protoTxn.Type {
-		case ProtoTransaction_EstablishToken:
+		case ProtoTransaction_ESTABLISHTOKEN:
 			payload := protoTxn.GetEstablishTokenPayload()
 			chaintreeTxns[i] = &chaintree.Transaction{
 				Type: consensus.TransactionTypeEstablishToken,
@@ -282,7 +282,7 @@ func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Tran
 					},
 				},
 			}
-		case ProtoTransaction_MintToken:
+		case ProtoTransaction_MINTTOKEN:
 			payload := protoTxn.GetMintTokenPayload()
 			chaintreeTxns[i] = &chaintree.Transaction{
 				Type: consensus.TransactionTypeMintToken,
@@ -291,7 +291,7 @@ func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Tran
 					Amount: payload.Amount,
 				},
 			}
-		case ProtoTransaction_SetData:
+		case ProtoTransaction_SETDATA:
 			payload := protoTxn.GetSetDataPayload()
 			chaintreeTxns[i] = &chaintree.Transaction{
 				Type: consensus.TransactionTypeSetData,
@@ -300,7 +300,7 @@ func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Tran
 					Value: payload.Value,
 				},
 			}
-		case ProtoTransaction_SetOwnership:
+		case ProtoTransaction_SETOWNERSHIP:
 			payload := protoTxn.GetSetOwnershipPayload()
 			chaintreeTxns[i] = &chaintree.Transaction{
 				Type: consensus.TransactionTypeSetOwnership,
