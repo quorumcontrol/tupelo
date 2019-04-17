@@ -15,7 +15,6 @@ require (
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.0
 	github.com/gorilla/mux v1.7.0
-	github.com/goware/modvendor v0.0.0-20180827175348-07a105bce74a // indirect
 	github.com/hashicorp/go-immutable-radix v1.0.0
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/improbable-eng/grpc-web v0.9.0
@@ -34,7 +33,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190411154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.1
-	github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-b04a6173ddf7c9ce2abc04c11cf63551f218d7d2
+	github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-74fd5a840df09d78afed581314c603d791b10fb0
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
