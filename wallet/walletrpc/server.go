@@ -293,11 +293,18 @@ func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Tran
 			}
 		case ProtoTransaction_SETDATA:
 			payload := protoTxn.GetSetDataPayload()
+
+			var decodedVal interface{}
+			err := cbornode.DecodeInto(payload.Value, &decodedVal)
+			if err != nil {
+				return nil, fmt.Errorf("error decoding value: %v", err)
+			}
+
 			chaintreeTxns[i] = &chaintree.Transaction{
 				Type: consensus.TransactionTypeSetData,
 				Payload: consensus.SetDataPayload{
 					Path:  payload.Path,
-					Value: payload.Value,
+					Value: decodedVal,
 				},
 			}
 		case ProtoTransaction_SETOWNERSHIP:
