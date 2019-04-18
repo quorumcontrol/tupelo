@@ -19,10 +19,17 @@ action "Private Go Mod" {
   secrets = ["SSH_PRIVATE_KEY"]
 }
 
+action "Prepare Build Environment" {
+  uses = "./.github/actions/make"
+  args = "github-prepare"
+  needs = ["Private Go Mod"]
+  secrets = ["SSH_PRIVATE_KEY"]
+}
+
 action "Docker Login" {
   uses = "actions/docker/login@8cdf801b322af5f369e00d85e9cf3a7122f49108"
   secrets = ["DOCKER_PASSWORD", "DOCKER_USERNAME"]
-  needs = ["Private Go Mod"]
+  needs = ["Prepare Build Environment"]
 }
 
 action "Docker Build Container" {

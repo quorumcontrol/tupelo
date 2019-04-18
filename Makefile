@@ -78,4 +78,8 @@ clean:
 	go clean
 	rm -rf vendor
 
+github-prepare:
+	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
+	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
+
 .PHONY: all test ci-test docker-image clean install lint
