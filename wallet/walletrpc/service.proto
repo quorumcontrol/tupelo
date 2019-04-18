@@ -4,6 +4,48 @@ package walletrpc;
 
 option go_package = "walletrpc";
 
+message ProtoSetDataPayload {
+  string path = 1;
+  bytes value = 2;
+}
+
+message ProtoSetOwnershipPayload {
+  repeated string authentication = 1;
+}
+
+message ProtoTokenMonetaryPolicy{
+  uint64 maximum = 1;
+}
+
+message ProtoEstablishTokenPayload{
+  string name = 1;
+  ProtoTokenMonetaryPolicy monetary_policy = 2;
+}
+
+message ProtoMintTokenPayload{
+  string name = 1;
+  uint64 amount = 2;
+}
+
+message ProtoTransaction{
+  enum Type {
+    UNKNOWN = 0;
+    SETDATA = 1;
+    SETOWNERSHIP = 2;
+    ESTABLISHTOKEN = 3;
+    MINTTOKEN = 4;
+    STAKE = 5;
+  }
+
+  Type type = 1;
+  oneof payload {
+    ProtoSetDataPayload set_data_payload = 2;
+    ProtoSetOwnershipPayload set_ownership_payload = 3;
+    ProtoEstablishTokenPayload establish_token_payload = 4;
+    ProtoMintTokenPayload mint_token_payload = 5;
+  }
+}
+
 message Credentials {
   string wallet_name = 1;
   string pass_phrase = 2;
@@ -196,6 +238,17 @@ message TokenPayload {
   map<string, bytes> leaves = 4;
 }
 
+message PlayTransactionsRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  repeated ProtoTransaction transactions = 4;
+}
+
+message PlayTransactionsResponse {
+  string tip = 1;
+}
+
 service WalletRPCService {
   rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse);
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
@@ -205,6 +258,7 @@ service WalletRPCService {
   rpc GetTip (GetTipRequest) returns (GetTipResponse);
   rpc ListChainIds (ListChainIdsRequest) returns (ListChainIdsResponse);
   rpc ListKeys (ListKeysRequest) returns (ListKeysResponse);
+  rpc PlayTransactions (PlayTransactionsRequest) returns (PlayTransactionsResponse);
   rpc SetOwner (SetOwnerRequest) returns (SetOwnerResponse);
   rpc SetData (SetDataRequest) returns (SetDataResponse);
   rpc Resolve (ResolveRequest) returns (ResolveResponse);

@@ -12,6 +12,7 @@ import (
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/chaintree/chaintree"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet"
@@ -263,6 +264,90 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 
 	return &GetTipResponse{
 		Tip: tipCid.String(),
+	}, nil
+}
+
+func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Transaction, error) {
+	chaintreeTxns := make([]*chaintree.Transaction, len(protoTransactions))
+	for i, protoTxn := range protoTransactions {
+		switch protoTxn.Type {
+		case ProtoTransaction_ESTABLISHTOKEN:
+			payload := protoTxn.GetEstablishTokenPayload()
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeEstablishToken,
+				Payload: consensus.EstablishTokenPayload{
+					Name: payload.Name,
+					MonetaryPolicy: consensus.TokenMonetaryPolicy{
+						Maximum: payload.MonetaryPolicy.Maximum,
+					},
+				},
+			}
+		case ProtoTransaction_MINTTOKEN:
+			payload := protoTxn.GetMintTokenPayload()
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeMintToken,
+				Payload: consensus.MintTokenPayload{
+					Name:   payload.Name,
+					Amount: payload.Amount,
+				},
+			}
+		case ProtoTransaction_SETDATA:
+			payload := protoTxn.GetSetDataPayload()
+
+			var decodedVal interface{}
+			err := cbornode.DecodeInto(payload.Value, &decodedVal)
+			if err != nil {
+				return nil, fmt.Errorf("error decoding value: %v", err)
+			}
+
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeSetData,
+				Payload: consensus.SetDataPayload{
+					Path:  payload.Path,
+					Value: decodedVal,
+				},
+			}
+		case ProtoTransaction_SETOWNERSHIP:
+			payload := protoTxn.GetSetOwnershipPayload()
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeSetOwnership,
+				Payload: consensus.SetOwnershipPayload{
+					Authentication: payload.Authentication,
+				},
+			}
+		default:
+			return nil, fmt.Errorf("unrecognized transaction type: %v", protoTxn.Type)
+		}
+	}
+
+	return chaintreeTxns, nil
+}
+
+func (s *server) PlayTransactions(ctx context.Context, req *PlayTransactionsRequest) (*PlayTransactionsResponse, error) {
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.Client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(req.Creds.PassPhrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	transactions, err := buildTransactions(req.Transactions)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := session.PlayTransactions(req.ChainId, req.KeyAddr, transactions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PlayTransactionsResponse{
+		Tip: resp.Tip.String(),
 	}, nil
 }
 
