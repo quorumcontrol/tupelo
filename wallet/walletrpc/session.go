@@ -8,6 +8,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-cid"
@@ -109,49 +110,78 @@ func serializeNodes(nodes []*cbornode.Node) [][]byte {
 	return bytes
 }
 
-func decodeSignature(encodedSig *SerializableSignature) extmsgs.Signature {
-	return extmsgs.Signature{
+func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, error) {
+	signers := bitarray.NewBitArray(uint64(len(encodedSig.Signers)), encodedSig.Signers...)
+	marshalledSigners, err := bitarray.Marshal(signers)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling signers array: %v", err)
+	}
+
+	return &extmsgs.Signature{
 		ObjectID:    encodedSig.ObjectId,
 		PreviousTip: encodedSig.PreviousTip,
 		NewTip:      encodedSig.NewTip,
 		View:        encodedSig.View,
 		Cycle:       encodedSig.Cycle,
 		Type:        encodedSig.Type,
-		Signers:     encodedSig.Signers,
+		Signers:     marshalledSigners,
 		Signature:   encodedSig.Signature,
-	}
+	}, nil
 }
 
-func decodeSignatures(encodedSigs map[string]*SerializableSignature) consensus.SignatureMap {
+func decodeSignatures(encodedSigs map[string]*SerializableSignature) (*consensus.SignatureMap, error) {
 	signatures := make(consensus.SignatureMap)
 
 	for k, encodedSig := range encodedSigs {
-		signatures[k] = decodeSignature(encodedSig)
+		decodedSig, err := decodeSignature(encodedSig)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding signature: %v", err)
+		}
+		signatures[k] = *decodedSig
 	}
 
-	return signatures
+	return &signatures, nil
 }
 
-func serializeSignature(sig extmsgs.Signature) *SerializableSignature {
+func serializeSignature(sig extmsgs.Signature) (*SerializableSignature, error) {
+	signers, err := bitarray.Unmarshal(sig.Signers)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling signers array: %v", err)
+	}
+
+	signersBools := make([]bool, signers.Capacity())
+	for i := uint64(0); i < signers.Capacity(); i++ {
+		isSet, err := signers.GetBit(i)
+		if err != nil {
+			return nil, fmt.Errorf("error getting signer from bitarray: %v", err)
+		}
+
+		signersBools[i] = isSet
+	}
+
 	return &SerializableSignature{
 		ObjectId:    sig.ObjectID,
 		PreviousTip: sig.PreviousTip,
 		NewTip:      sig.NewTip,
 		View:        sig.View,
 		Cycle:       sig.Cycle,
-		Signers:     sig.Signers,
+		Signers:     signersBools,
 		Signature:   sig.Signature,
 		Type:        sig.Type,
-	}
+	}, nil
 }
 
-func serializeSignatures(sigs consensus.SignatureMap) map[string]*SerializableSignature {
+func serializeSignatures(sigs consensus.SignatureMap) (map[string]*SerializableSignature, error) {
 	serializedSigs := make(map[string]*SerializableSignature)
 	for k, sig := range sigs {
-		serializedSigs[k] = serializeSignature(sig)
+		serialized, err := serializeSignature(sig)
+		if err != nil {
+			return nil, fmt.Errorf("error serializing signature: %v", err)
+		}
+		serializedSigs[k] = serialized
 	}
 
-	return serializedSigs
+	return serializedSigs, nil
 }
 
 func (rpcs *RPCSession) CreateWallet(passPhrase string) error {
@@ -252,7 +282,10 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 		return "", err
 	}
 
-	serializedSigs := serializeSignatures(chain.Signatures)
+	serializedSigs, err := serializeSignatures(chain.Signatures)
+	if err != nil {
+		return "", err
+	}
 
 	serializableChain := SerializableChainTree{
 		Dag:        dagBytes,
@@ -303,11 +336,14 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 		return nil, fmt.Errorf("error getting new chaintree: %v", err)
 	}
 
-	sigs := decodeSignatures(unmarshalledChain.Signatures)
+	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding signatures: %v", err)
+	}
 
 	signedChainTree := &consensus.SignedChainTree{
 		ChainTree:  chainTree,
-		Signatures: sigs,
+		Signatures: *sigs,
 	}
 
 	if storageAdapterConfig == nil {
@@ -601,12 +637,15 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, tokenName, destinationChainI
 
 	tip := *resp.Tip
 
-	fmt.Printf("Got sig: %+v\n", resp.Signature)
+	serialized, err := serializeSignature(resp.Signature)
+	if err != nil {
+		return "", err
+	}
 
 	payload := &TokenPayload{
 		TransactionId: transactionId.String(),
 		Tip:           tip.String(),
-		Signature:     serializeSignature(resp.Signature),
+		Signature:     serialized,
 		Leaves:        serializeNodes(tokenNodes),
 	}
 
@@ -639,13 +678,18 @@ func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid
 		return nil, err
 	}
 
+	decodedSig, err := decodeSignature(tokenPayload.Signature)
+	if err != nil {
+		return nil, err
+	}
+
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
 		{
 			Type:    consensus.TransactionTypeReceiveToken,
 			Payload: consensus.ReceiveTokenPayload{
 				SendTokenTransactionId: tokenPayload.TransactionId,
 				Tip:                    tip.Bytes(),
-				Signature:              decodeSignature(tokenPayload.Signature),
+				Signature:              *decodedSig,
 				Leaves:                 tokenPayload.Leaves,
 			},
 		},
