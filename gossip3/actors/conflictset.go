@@ -224,7 +224,7 @@ func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Contex
 		cs.active = true
 	}
 
-	return csw.requestSignatureValidation(cs, context, wrapper)
+	return csw.requestSignatureVerification(cs, context, wrapper)
 }
 
 func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context actor.Context, msg *messages.TransactionWrapper) {
@@ -442,11 +442,11 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 	setupCurrStateCtx(currStateWrapper, cs)
 
 	// don't use message passing, because we can skip a lot of processing if we're done right here
-	return csw.requestSignatureValidation(cs, context, currStateWrapper)
+	return csw.requestSignatureVerification(cs, context, currStateWrapper)
 }
 
-func (csw *ConflictSetWorker) requestSignatureValidation(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-	sp := cs.NewSpan("cs-requestSignatureValidation")
+func (csw *ConflictSetWorker) requestSignatureVerification(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	sp := cs.NewSpan("cs-requestSignatureVerification")
 	defer sp.Finish()
 
 	sig := currWrapper.CurrentState.Signature

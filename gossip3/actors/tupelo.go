@@ -220,11 +220,6 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
-	validatorPool, err := context.SpawnNamed(NewTransactionValidatorProps(tn.cfg.CurrentStateStore), "validator")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
-
 	sender, err := context.SpawnNamed(NewSignatureSenderProps(), "signatureSender")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -240,7 +235,17 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 
-	cfg := &ConflictSetRouterConfig{
+	tvConfig := &TransactionValidatorConfig{
+		NotaryGroup:       tn.notaryGroup,
+		SignatureChecker:  sigChecker,
+		CurrentStateStore: tn.cfg.CurrentStateStore,
+	}
+	validatorPool, err := context.SpawnNamed(NewTransactionValidatorProps(tvConfig), "validator")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	csrConfig := &ConflictSetRouterConfig{
 		NotaryGroup:        tn.notaryGroup,
 		Signer:             tn.self,
 		SignatureGenerator: sigGenerator,
@@ -248,7 +253,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		SignatureSender:    sender,
 		CurrentStateStore:  tn.cfg.CurrentStateStore,
 	}
-	router, err := context.SpawnNamed(NewConflictSetRouterProps(cfg), "conflictSetRouter")
+	router, err := context.SpawnNamed(NewConflictSetRouterProps(csrConfig), "conflictSetRouter")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}

@@ -12,10 +12,11 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 )
 
 func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
@@ -74,7 +75,8 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(stateTrans)
+	validator := TransactionValidator{}
+	newState, isAccepted, err := validator.chainTreeStateHandler(nil, stateTrans)
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -92,7 +94,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	_, _, err = chainTreeStateHandler(stateTrans2)
+	_, _, err = validator.chainTreeStateHandler(nil, stateTrans2)
 	assert.NotNil(t, err)
 
 	transHeight++
@@ -133,7 +135,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans3)
+	newState, isAccepted, err = validator.chainTreeStateHandler(nil, stateTrans3)
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -185,7 +187,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans4)
+	newState, isAccepted, err = validator.chainTreeStateHandler(nil, stateTrans4)
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -234,7 +236,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	_, _, err = chainTreeStateHandler(stateTrans5)
+	_, _, err = validator.chainTreeStateHandler(nil, stateTrans5)
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
@@ -255,7 +257,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(stateTrans6)
+	newState, isAccepted, err = validator.chainTreeStateHandler(nil, stateTrans6)
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -324,7 +326,8 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(transToStateTrans(t, treeDID, cid.Undef, trans))
+	validator := TransactionValidator{}
+	newState, isAccepted, err := validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, cid.Undef, trans))
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -337,7 +340,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 	tip, err := cid.Cast(newState)
 	require.Nil(t, err)
-	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, tip, trans))
+	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -371,7 +374,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 			Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 		}
 
-		newState, isAccepted, err := chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+		newState, isAccepted, err := validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 		assert.Nil(t, err)
 		assert.True(t, isAccepted)
 
@@ -412,7 +415,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 
@@ -443,7 +446,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }
@@ -488,7 +491,8 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	newState, isAccepted, err := chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	validator := TransactionValidator{}
+	newState, isAccepted, err := validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -525,7 +529,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders2).RawData(),
 	}
 
-	newState, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans2))
+	newState, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans2))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
@@ -564,7 +568,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders3).RawData(),
 	}
 
-	_, isAccepted, err = chainTreeStateHandler(transToStateTrans(t, treeDID, testTree.Dag.Tip, trans3))
+	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans3))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
 }

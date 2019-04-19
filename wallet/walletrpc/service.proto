@@ -55,6 +55,11 @@ message SerializableSignature {
   repeated bool signers = 1;
   bytes signature = 2;
   string type = 3;
+  bytes object_id = 4;
+  bytes previous_tip = 5;
+  bytes new_tip = 6;
+  uint64 view = 7;
+  uint64 cycle = 8;
 }
 
 message SerializableChainTree {
@@ -235,7 +240,18 @@ message TokenPayload {
   string transaction_id = 1;
   string tip = 2;
   SerializableSignature signature = 3;
-  map<string, bytes> leaves = 4;
+  repeated bytes leaves = 4;
+}
+
+message ReceiveTokenRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string key_addr = 3;
+  string token_payload = 4;
+}
+
+message ReceiveTokenResponse {
+  string tip = 1;
 }
 
 message PlayTransactionsRequest {
@@ -266,4 +282,5 @@ service WalletRPCService {
   rpc EstablishToken (EstablishTokenRequest) returns (EstablishTokenResponse);
   rpc MintToken (MintTokenRequest) returns (MintTokenResponse);
   rpc SendToken (SendTokenRequest) returns (SendTokenResponse);
+  rpc ReceiveToken (ReceiveTokenRequest) returns (ReceiveTokenResponse);
 }
