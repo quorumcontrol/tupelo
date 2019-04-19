@@ -1,4 +1,4 @@
-![build status](https://codebuild.eu-central-1.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiNzNEYm4vWFlsRmQrdHNWajZjNW1aVEZTZWVUNkVodXFxbmJQdEJ6N2RZVVZhY2lKbXFyWEV6azBvTGpWRXRNempRbUxCYWJjL0g5S29RVG1kTDVrK3NzPSIsIml2UGFyYW1ldGVyU3BlYyI6Ii9KOTZXT2xFdk90SlJnTE0iLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=master)
+[![CircleCI](https://circleci.com/gh/quorumcontrol/tupelo.svg?style=svg&circle-token=a3b4706845320feab8531490674c95d0c72f2c62)](https://circleci.com/gh/quorumcontrol/tupelo)
 
 ## Dependencies
 
