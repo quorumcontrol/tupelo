@@ -129,7 +129,7 @@ func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, err
 	}, nil
 }
 
-func decodeSignatures(encodedSigs map[string]*SerializableSignature) (*consensus.SignatureMap, error) {
+func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.SignatureMap, error) {
 	signatures := make(consensus.SignatureMap)
 
 	for k, encodedSig := range encodedSigs {
@@ -140,7 +140,7 @@ func decodeSignatures(encodedSigs map[string]*SerializableSignature) (*consensus
 		signatures[k] = *decodedSig
 	}
 
-	return &signatures, nil
+	return signatures, nil
 }
 
 func serializeSignature(sig extmsgs.Signature) (*SerializableSignature, error) {
@@ -343,7 +343,7 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 
 	signedChainTree := &consensus.SignedChainTree{
 		ChainTree:  chainTree,
-		Signatures: *sigs,
+		Signatures: sigs,
 	}
 
 	if storageAdapterConfig == nil {
