@@ -50,7 +50,6 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 }
 
 func TestCommits(t *testing.T) {
-	// middleware.SetLogLevel("debug")
 	numMembers := 3
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -68,11 +67,11 @@ func TestCommits(t *testing.T) {
 
 	rootContext := actor.EmptyRootContext
 
-	// for i := 0; i < 100; i++ {
-	// 	trans := testhelpers.NewValidTransaction(t)
-	// 	err := cli.SendTransaction(&trans)
-	// 	require.Nil(t, err)
-	// }
+	for i := 0; i < 100; i++ {
+		trans := testhelpers.NewValidTransaction(t)
+		err := cli.SendTransaction(&trans)
+		require.Nil(t, err)
+	}
 
 	for _, s := range syncers {
 		rootContext.Send(s.Actor, &messages.StartGossip{})
