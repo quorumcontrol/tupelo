@@ -55,6 +55,9 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
+ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
+	go test -mod=readonly ./... -tags=integration
+
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
@@ -69,4 +72,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all test docker-image clean install lint
+.PHONY: all test ci-test docker-image clean install lint
