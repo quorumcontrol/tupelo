@@ -9,8 +9,6 @@ require (
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
 	github.com/chzyer/logex v1.1.10 // indirect
 	github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1 // indirect
-	github.com/dedis/fixbuf v1.0.2 // indirect
-	github.com/dedis/kyber v0.0.0-20190121102031-5cc64601919b // indirect
 	github.com/ethereum/go-ethereum v1.8.25
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/gobuffalo/packr/v2 v2.2.0
@@ -42,13 +40,13 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v1.1.0
+	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/crypto v0.0.0-20190411191339-88737f569e3a // indirect
+	golang.org/x/crypto v0.0.0-20190418165655-df01cb2cc480 // indirect
 	golang.org/x/net v0.0.0-20190415214537-1da14a5a36f2
-	golang.org/x/sys v0.0.0-20190416152802-12500544f89f // indirect
+	golang.org/x/sys v0.0.0-20190418153312-f0ce4c0180be // indirect
 	golang.org/x/tools v0.0.0-20190416194154-76038274be7a // indirect
 	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190307195333-5fe7a883aa19 // indirect
 	google.golang.org/grpc v1.19.0
-	gotest.tools/gotestsum v0.3.4 // indirect
 )
