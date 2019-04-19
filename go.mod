@@ -33,7 +33,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190411154239-922edd1eb41ea5a299e5eb1d6d9ff38c4dee330a
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.1
-	github.com/quorumcontrol/tupelo-go-client v0.0.0-0.20190412154750-de4920664c1eb3ecf8d863ab99ae8186e10e30d2
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419154402-de4920664c1e
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
