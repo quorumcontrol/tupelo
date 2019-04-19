@@ -29,13 +29,16 @@ $(call GUARD,VERSION):
 	rm -rf VERSION_GUARD_*
 	touch $@
 
+$(FIRSTGOPATH)/bin/msgp:
+	go get -u -t github.com/tinylib/msgp
+
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
 
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
-$(generated): gossip3/messages/internal.go wallet/walletrpc/service.proto
+$(generated): gossip3/messages/internal.go wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp
 	cd gossip3/messages && go generate
 	cd wallet/walletrpc && go generate
 

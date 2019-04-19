@@ -59,7 +59,7 @@ func (ProtoTransaction_Type) EnumDescriptor() ([]byte, []int) {
 }
 
 type ProtoSetDataPayload struct {
-	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Path                 string   `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
 	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -105,7 +105,7 @@ func (m *ProtoSetDataPayload) GetValue() []byte {
 }
 
 type ProtoSetOwnershipPayload struct {
-	Authentication       []string `protobuf:"bytes,1,rep,name=authentication,proto3" json:"authentication,omitempty"`
+	Authentication       []string `protobuf:"bytes,1,rep,name=authentication" json:"authentication,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -143,7 +143,7 @@ func (m *ProtoSetOwnershipPayload) GetAuthentication() []string {
 }
 
 type ProtoTokenMonetaryPolicy struct {
-	Maximum              uint64   `protobuf:"varint,1,opt,name=maximum,proto3" json:"maximum,omitempty"`
+	Maximum              uint64   `protobuf:"varint,1,opt,name=maximum" json:"maximum,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -181,8 +181,8 @@ func (m *ProtoTokenMonetaryPolicy) GetMaximum() uint64 {
 }
 
 type ProtoEstablishTokenPayload struct {
-	Name                 string                    `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	MonetaryPolicy       *ProtoTokenMonetaryPolicy `protobuf:"bytes,2,opt,name=monetary_policy,json=monetaryPolicy,proto3" json:"monetary_policy,omitempty"`
+	Name                 string                    `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	MonetaryPolicy       *ProtoTokenMonetaryPolicy `protobuf:"bytes,2,opt,name=monetary_policy,json=monetaryPolicy" json:"monetary_policy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                  `json:"-"`
 	XXX_unrecognized     []byte                    `json:"-"`
 	XXX_sizecache        int32                     `json:"-"`
@@ -227,8 +227,8 @@ func (m *ProtoEstablishTokenPayload) GetMonetaryPolicy() *ProtoTokenMonetaryPoli
 }
 
 type ProtoMintTokenPayload struct {
-	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Amount               uint64   `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Name                 string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Amount               uint64   `protobuf:"varint,2,opt,name=amount" json:"amount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -273,7 +273,7 @@ func (m *ProtoMintTokenPayload) GetAmount() uint64 {
 }
 
 type ProtoTransaction struct {
-	Type ProtoTransaction_Type `protobuf:"varint,1,opt,name=type,proto3,enum=walletrpc.ProtoTransaction_Type" json:"type,omitempty"`
+	Type ProtoTransaction_Type `protobuf:"varint,1,opt,name=type,enum=walletrpc.ProtoTransaction_Type" json:"type,omitempty"`
 	// Types that are valid to be assigned to Payload:
 	//	*ProtoTransaction_SetDataPayload
 	//	*ProtoTransaction_SetOwnershipPayload
@@ -309,46 +309,40 @@ func (m *ProtoTransaction) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ProtoTransaction proto.InternalMessageInfo
 
-func (m *ProtoTransaction) GetType() ProtoTransaction_Type {
-	if m != nil {
-		return m.Type
-	}
-	return ProtoTransaction_UNKNOWN
-}
-
 type isProtoTransaction_Payload interface {
 	isProtoTransaction_Payload()
 }
 
 type ProtoTransaction_SetDataPayload struct {
-	SetDataPayload *ProtoSetDataPayload `protobuf:"bytes,2,opt,name=set_data_payload,json=setDataPayload,proto3,oneof"`
+	SetDataPayload *ProtoSetDataPayload `protobuf:"bytes,2,opt,name=set_data_payload,json=setDataPayload,oneof"`
 }
-
 type ProtoTransaction_SetOwnershipPayload struct {
-	SetOwnershipPayload *ProtoSetOwnershipPayload `protobuf:"bytes,3,opt,name=set_ownership_payload,json=setOwnershipPayload,proto3,oneof"`
+	SetOwnershipPayload *ProtoSetOwnershipPayload `protobuf:"bytes,3,opt,name=set_ownership_payload,json=setOwnershipPayload,oneof"`
 }
-
 type ProtoTransaction_EstablishTokenPayload struct {
-	EstablishTokenPayload *ProtoEstablishTokenPayload `protobuf:"bytes,4,opt,name=establish_token_payload,json=establishTokenPayload,proto3,oneof"`
+	EstablishTokenPayload *ProtoEstablishTokenPayload `protobuf:"bytes,4,opt,name=establish_token_payload,json=establishTokenPayload,oneof"`
 }
-
 type ProtoTransaction_MintTokenPayload struct {
-	MintTokenPayload *ProtoMintTokenPayload `protobuf:"bytes,5,opt,name=mint_token_payload,json=mintTokenPayload,proto3,oneof"`
+	MintTokenPayload *ProtoMintTokenPayload `protobuf:"bytes,5,opt,name=mint_token_payload,json=mintTokenPayload,oneof"`
 }
 
-func (*ProtoTransaction_SetDataPayload) isProtoTransaction_Payload() {}
-
-func (*ProtoTransaction_SetOwnershipPayload) isProtoTransaction_Payload() {}
-
+func (*ProtoTransaction_SetDataPayload) isProtoTransaction_Payload()        {}
+func (*ProtoTransaction_SetOwnershipPayload) isProtoTransaction_Payload()   {}
 func (*ProtoTransaction_EstablishTokenPayload) isProtoTransaction_Payload() {}
-
-func (*ProtoTransaction_MintTokenPayload) isProtoTransaction_Payload() {}
+func (*ProtoTransaction_MintTokenPayload) isProtoTransaction_Payload()      {}
 
 func (m *ProtoTransaction) GetPayload() isProtoTransaction_Payload {
 	if m != nil {
 		return m.Payload
 	}
 	return nil
+}
+
+func (m *ProtoTransaction) GetType() ProtoTransaction_Type {
+	if m != nil {
+		return m.Type
+	}
+	return ProtoTransaction_UNKNOWN
 }
 
 func (m *ProtoTransaction) GetSetDataPayload() *ProtoSetDataPayload {
@@ -492,8 +486,8 @@ func _ProtoTransaction_OneofSizer(msg proto.Message) (n int) {
 }
 
 type Credentials struct {
-	WalletName           string   `protobuf:"bytes,1,opt,name=wallet_name,json=walletName,proto3" json:"wallet_name,omitempty"`
-	PassPhrase           string   `protobuf:"bytes,2,opt,name=pass_phrase,json=passPhrase,proto3" json:"pass_phrase,omitempty"`
+	WalletName           string   `protobuf:"bytes,1,opt,name=wallet_name,json=walletName" json:"wallet_name,omitempty"`
+	PassPhrase           string   `protobuf:"bytes,2,opt,name=pass_phrase,json=passPhrase" json:"pass_phrase,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -538,9 +532,9 @@ func (m *Credentials) GetPassPhrase() string {
 }
 
 type SerializableSignature struct {
-	Signers              []bool   `protobuf:"varint,1,rep,packed,name=signers,proto3" json:"signers,omitempty"`
+	Signers              []bool   `protobuf:"varint,1,rep,packed,name=signers" json:"signers,omitempty"`
 	Signature            []byte   `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
-	Type                 string   `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Type                 string   `protobuf:"bytes,3,opt,name=type" json:"type,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -593,10 +587,10 @@ func (m *SerializableSignature) GetType() string {
 
 type SerializableChainTree struct {
 	Dag        [][]byte                          `protobuf:"bytes,1,rep,name=dag,proto3" json:"dag,omitempty"`
-	Signatures map[string]*SerializableSignature `protobuf:"bytes,2,rep,name=signatures,proto3" json:"signatures,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Signatures map[string]*SerializableSignature `protobuf:"bytes,2,rep,name=signatures" json:"signatures,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// tip is a string because of compatability with the javascript layer
 	// which cannot seem to parse a golang cid.Bytes()
-	Tip                  string   `protobuf:"bytes,3,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,3,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -648,7 +642,7 @@ func (m *SerializableChainTree) GetTip() string {
 }
 
 type RegisterWalletRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -686,7 +680,7 @@ func (m *RegisterWalletRequest) GetCreds() *Credentials {
 }
 
 type RegisterWalletResponse struct {
-	WalletName           string   `protobuf:"bytes,1,opt,name=wallet_name,json=walletName,proto3" json:"wallet_name,omitempty"`
+	WalletName           string   `protobuf:"bytes,1,opt,name=wallet_name,json=walletName" json:"wallet_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -724,7 +718,7 @@ func (m *RegisterWalletResponse) GetWalletName() string {
 }
 
 type StorageAdapterConfigForBadger struct {
-	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Path                 string   `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -762,9 +756,9 @@ func (m *StorageAdapterConfigForBadger) GetPath() string {
 }
 
 type StorageAdapterConfigForIpld struct {
-	Path                 string   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Address              string   `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-	Offline              bool     `protobuf:"varint,3,opt,name=offline,proto3" json:"offline,omitempty"`
+	Path                 string   `protobuf:"bytes,1,opt,name=path" json:"path,omitempty"`
+	Address              string   `protobuf:"bytes,2,opt,name=address" json:"address,omitempty"`
+	Offline              bool     `protobuf:"varint,3,opt,name=offline" json:"offline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -854,16 +848,14 @@ type isStorageAdapterConfig_AdapterConfig interface {
 }
 
 type StorageAdapterConfig_Badger struct {
-	Badger *StorageAdapterConfigForBadger `protobuf:"bytes,1,opt,name=badger,proto3,oneof"`
+	Badger *StorageAdapterConfigForBadger `protobuf:"bytes,1,opt,name=badger,oneof"`
 }
-
 type StorageAdapterConfig_Ipld struct {
-	Ipld *StorageAdapterConfigForIpld `protobuf:"bytes,2,opt,name=ipld,proto3,oneof"`
+	Ipld *StorageAdapterConfigForIpld `protobuf:"bytes,2,opt,name=ipld,oneof"`
 }
 
 func (*StorageAdapterConfig_Badger) isStorageAdapterConfig_AdapterConfig() {}
-
-func (*StorageAdapterConfig_Ipld) isStorageAdapterConfig_AdapterConfig() {}
+func (*StorageAdapterConfig_Ipld) isStorageAdapterConfig_AdapterConfig()   {}
 
 func (m *StorageAdapterConfig) GetAdapterConfig() isStorageAdapterConfig_AdapterConfig {
 	if m != nil {
@@ -961,9 +953,9 @@ func _StorageAdapterConfig_OneofSizer(msg proto.Message) (n int) {
 }
 
 type GenerateChainRequest struct {
-	Creds                *Credentials          `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	KeyAddr              string                `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	StorageAdapter       *StorageAdapterConfig `protobuf:"bytes,3,opt,name=storage_adapter,json=storageAdapter,proto3" json:"storage_adapter,omitempty"`
+	Creds                *Credentials          `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	KeyAddr              string                `protobuf:"bytes,2,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	StorageAdapter       *StorageAdapterConfig `protobuf:"bytes,3,opt,name=storage_adapter,json=storageAdapter" json:"storage_adapter,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -1015,7 +1007,7 @@ func (m *GenerateChainRequest) GetStorageAdapter() *StorageAdapterConfig {
 }
 
 type GenerateChainResponse struct {
-	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1053,8 +1045,8 @@ func (m *GenerateChainResponse) GetChainId() string {
 }
 
 type ExportChainRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1099,7 +1091,7 @@ func (m *ExportChainRequest) GetChainId() string {
 }
 
 type ExportChainResponse struct {
-	ChainTree            string   `protobuf:"bytes,1,opt,name=chain_tree,json=chainTree,proto3" json:"chain_tree,omitempty"`
+	ChainTree            string   `protobuf:"bytes,1,opt,name=chain_tree,json=chainTree" json:"chain_tree,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1137,10 +1129,10 @@ func (m *ExportChainResponse) GetChainTree() string {
 }
 
 type ImportChainRequest struct {
-	Creds *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
+	Creds *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
 	// index 2 is a deleted key, intentionally omitted
-	ChainTree            string                `protobuf:"bytes,3,opt,name=chain_tree,json=chainTree,proto3" json:"chain_tree,omitempty"`
-	StorageAdapter       *StorageAdapterConfig `protobuf:"bytes,4,opt,name=storage_adapter,json=storageAdapter,proto3" json:"storage_adapter,omitempty"`
+	ChainTree            string                `protobuf:"bytes,3,opt,name=chain_tree,json=chainTree" json:"chain_tree,omitempty"`
+	StorageAdapter       *StorageAdapterConfig `protobuf:"bytes,4,opt,name=storage_adapter,json=storageAdapter" json:"storage_adapter,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`
@@ -1192,7 +1184,7 @@ func (m *ImportChainRequest) GetStorageAdapter() *StorageAdapterConfig {
 }
 
 type ImportChainResponse struct {
-	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	ChainId              string   `protobuf:"bytes,1,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1230,7 +1222,7 @@ func (m *ImportChainResponse) GetChainId() string {
 }
 
 type GenerateKeyRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1268,7 +1260,7 @@ func (m *GenerateKeyRequest) GetCreds() *Credentials {
 }
 
 type GenerateKeyResponse struct {
-	KeyAddr              string   `protobuf:"bytes,1,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
+	KeyAddr              string   `protobuf:"bytes,1,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1306,8 +1298,8 @@ func (m *GenerateKeyResponse) GetKeyAddr() string {
 }
 
 type GetTipRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1352,7 +1344,7 @@ func (m *GetTipRequest) GetChainId() string {
 }
 
 type GetTipResponse struct {
-	Tip                  string   `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,1,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1390,7 +1382,7 @@ func (m *GetTipResponse) GetTip() string {
 }
 
 type ListChainIdsRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1428,7 +1420,7 @@ func (m *ListChainIdsRequest) GetCreds() *Credentials {
 }
 
 type ListChainIdsResponse struct {
-	ChainIds             []string `protobuf:"bytes,1,rep,name=chain_ids,json=chainIds,proto3" json:"chain_ids,omitempty"`
+	ChainIds             []string `protobuf:"bytes,1,rep,name=chain_ids,json=chainIds" json:"chain_ids,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1466,7 +1458,7 @@ func (m *ListChainIdsResponse) GetChainIds() []string {
 }
 
 type ListKeysRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1504,7 +1496,7 @@ func (m *ListKeysRequest) GetCreds() *Credentials {
 }
 
 type ListKeysResponse struct {
-	KeyAddrs             []string `protobuf:"bytes,1,rep,name=key_addrs,json=keyAddrs,proto3" json:"key_addrs,omitempty"`
+	KeyAddrs             []string `protobuf:"bytes,1,rep,name=key_addrs,json=keyAddrs" json:"key_addrs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1542,10 +1534,10 @@ func (m *ListKeysResponse) GetKeyAddrs() []string {
 }
 
 type SetOwnerRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	NewOwnerKeys         []string     `protobuf:"bytes,4,rep,name=new_owner_keys,json=newOwnerKeys,proto3" json:"new_owner_keys,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	NewOwnerKeys         []string     `protobuf:"bytes,4,rep,name=new_owner_keys,json=newOwnerKeys" json:"new_owner_keys,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1604,7 +1596,7 @@ func (m *SetOwnerRequest) GetNewOwnerKeys() []string {
 }
 
 type SetOwnerResponse struct {
-	Tip                  string   `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,1,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1642,10 +1634,10 @@ func (m *SetOwnerResponse) GetTip() string {
 }
 
 type SetDataRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	Path                 string       `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	Path                 string       `protobuf:"bytes,4,opt,name=path" json:"path,omitempty"`
 	Value                []byte       `protobuf:"bytes,5,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
@@ -1712,7 +1704,7 @@ func (m *SetDataRequest) GetValue() []byte {
 }
 
 type SetDataResponse struct {
-	Tip                  string   `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,1,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1750,9 +1742,9 @@ func (m *SetDataResponse) GetTip() string {
 }
 
 type ResolveRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	Path                 string       `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	Path                 string       `protobuf:"bytes,3,opt,name=path" json:"path,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1804,7 +1796,7 @@ func (m *ResolveRequest) GetPath() string {
 }
 
 type ResolveResponse struct {
-	RemainingPath        string   `protobuf:"bytes,1,opt,name=remaining_path,json=remainingPath,proto3" json:"remaining_path,omitempty"`
+	RemainingPath        string   `protobuf:"bytes,1,opt,name=remaining_path,json=remainingPath" json:"remaining_path,omitempty"`
 	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1850,10 +1842,10 @@ func (m *ResolveResponse) GetData() []byte {
 }
 
 type ResolveAtRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	Tip                  string       `protobuf:"bytes,3,opt,name=tip,proto3" json:"tip,omitempty"`
-	Path                 string       `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	Tip                  string       `protobuf:"bytes,3,opt,name=tip" json:"tip,omitempty"`
+	Path                 string       `protobuf:"bytes,4,opt,name=path" json:"path,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1912,11 +1904,11 @@ func (m *ResolveAtRequest) GetPath() string {
 }
 
 type EstablishTokenRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	TokenName            string       `protobuf:"bytes,4,opt,name=token_name,json=tokenName,proto3" json:"token_name,omitempty"`
-	Maximum              uint64       `protobuf:"varint,5,opt,name=maximum,proto3" json:"maximum,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	TokenName            string       `protobuf:"bytes,4,opt,name=token_name,json=tokenName" json:"token_name,omitempty"`
+	Maximum              uint64       `protobuf:"varint,5,opt,name=maximum" json:"maximum,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -1982,7 +1974,7 @@ func (m *EstablishTokenRequest) GetMaximum() uint64 {
 }
 
 type EstablishTokenResponse struct {
-	Tip                  string   `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,1,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2020,11 +2012,11 @@ func (m *EstablishTokenResponse) GetTip() string {
 }
 
 type MintTokenRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	TokenName            string       `protobuf:"bytes,4,opt,name=token_name,json=tokenName,proto3" json:"token_name,omitempty"`
-	Amount               uint64       `protobuf:"varint,5,opt,name=amount,proto3" json:"amount,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	TokenName            string       `protobuf:"bytes,4,opt,name=token_name,json=tokenName" json:"token_name,omitempty"`
+	Amount               uint64       `protobuf:"varint,5,opt,name=amount" json:"amount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -2090,7 +2082,7 @@ func (m *MintTokenRequest) GetAmount() uint64 {
 }
 
 type MintTokenResponse struct {
-	Tip                  string   `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,1,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2128,12 +2120,12 @@ func (m *MintTokenResponse) GetTip() string {
 }
 
 type SendTokenRequest struct {
-	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	TokenName            string       `protobuf:"bytes,4,opt,name=token_name,json=tokenName,proto3" json:"token_name,omitempty"`
-	DestinationChainId   string       `protobuf:"bytes,5,opt,name=destination_chain_id,json=destinationChainId,proto3" json:"destination_chain_id,omitempty"`
-	Amount               uint64       `protobuf:"varint,6,opt,name=amount,proto3" json:"amount,omitempty"`
+	Creds                *Credentials `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string       `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	KeyAddr              string       `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	TokenName            string       `protobuf:"bytes,4,opt,name=token_name,json=tokenName" json:"token_name,omitempty"`
+	DestinationChainId   string       `protobuf:"bytes,5,opt,name=destination_chain_id,json=destinationChainId" json:"destination_chain_id,omitempty"`
+	Amount               uint64       `protobuf:"varint,6,opt,name=amount" json:"amount,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -2206,7 +2198,7 @@ func (m *SendTokenRequest) GetAmount() uint64 {
 }
 
 type SendTokenResponse struct {
-	SendToken            string   `protobuf:"bytes,1,opt,name=send_token,json=sendToken,proto3" json:"send_token,omitempty"`
+	SendToken            string   `protobuf:"bytes,1,opt,name=send_token,json=sendToken" json:"send_token,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2244,10 +2236,10 @@ func (m *SendTokenResponse) GetSendToken() string {
 }
 
 type TokenPayload struct {
-	TransactionId        string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
-	Tip                  string                 `protobuf:"bytes,2,opt,name=tip,proto3" json:"tip,omitempty"`
-	Signature            *SerializableSignature `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-	Leaves               map[string][]byte      `protobuf:"bytes,4,rep,name=leaves,proto3" json:"leaves,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	TransactionId        string                 `protobuf:"bytes,1,opt,name=transaction_id,json=transactionId" json:"transaction_id,omitempty"`
+	Tip                  string                 `protobuf:"bytes,2,opt,name=tip" json:"tip,omitempty"`
+	Signature            *SerializableSignature `protobuf:"bytes,3,opt,name=signature" json:"signature,omitempty"`
+	Leaves               map[string][]byte      `protobuf:"bytes,4,rep,name=leaves" json:"leaves,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
@@ -2306,10 +2298,10 @@ func (m *TokenPayload) GetLeaves() map[string][]byte {
 }
 
 type PlayTransactionsRequest struct {
-	Creds                *Credentials        `protobuf:"bytes,1,opt,name=creds,proto3" json:"creds,omitempty"`
-	ChainId              string              `protobuf:"bytes,2,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	KeyAddr              string              `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr,proto3" json:"key_addr,omitempty"`
-	Transactions         []*ProtoTransaction `protobuf:"bytes,4,rep,name=transactions,proto3" json:"transactions,omitempty"`
+	Creds                *Credentials        `protobuf:"bytes,1,opt,name=creds" json:"creds,omitempty"`
+	ChainId              string              `protobuf:"bytes,2,opt,name=chain_id,json=chainId" json:"chain_id,omitempty"`
+	KeyAddr              string              `protobuf:"bytes,3,opt,name=key_addr,json=keyAddr" json:"key_addr,omitempty"`
+	Transactions         []*ProtoTransaction `protobuf:"bytes,4,rep,name=transactions" json:"transactions,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -2368,7 +2360,7 @@ func (m *PlayTransactionsRequest) GetTransactions() []*ProtoTransaction {
 }
 
 type PlayTransactionsResponse struct {
-	Tip                  string   `protobuf:"bytes,1,opt,name=tip,proto3" json:"tip,omitempty"`
+	Tip                  string   `protobuf:"bytes,1,opt,name=tip" json:"tip,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
