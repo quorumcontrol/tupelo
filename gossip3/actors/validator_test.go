@@ -69,6 +69,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 
 	tokenName := "evilTuples"
+	tokenFullName := consensus.TokenName{ChainTreeDID: treeDID, LocalName: tokenName}
 
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -76,7 +77,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: "MINT_TOKEN",
+					Type: consensus.TransactionTypeMintToken,
 					Payload: &consensus.MintTokenPayload{
 						Name:   tokenName,
 						Amount: 4999,
@@ -92,7 +93,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	path, err := consensus.DecodePath("tree/" + consensus.TreePathForTokens)
 	require.Nil(t, err)
 
-	tokenPath := append(path, tokenName)
+	tokenPath := append(path, tokenFullName.String())
 	monetaryPolicyPath := append(tokenPath, "monetaryPolicy")
 
 	evilTree, err = evilTree.SetAsLink(monetaryPolicyPath, &consensus.TokenMonetaryPolicy{
