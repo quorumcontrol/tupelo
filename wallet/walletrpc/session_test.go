@@ -1,17 +1,19 @@
 package walletrpc
 
 import (
+	"encoding/base64"
+	"os"
+	"testing"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
-	"encoding/base64"
-	"os"
-	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
@@ -26,7 +28,10 @@ func TestImportExport(t *testing.T) {
 	require.Nil(t, err)
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
-	client := client.New(ng)
+
+	pubSubSystem := remote.NewSimulatedPubSub()
+
+	client := client.New(ng, pubSubSystem)
 	sess, err := NewSession(path, "test-only", client)
 	require.Nil(t, err)
 
@@ -82,18 +87,21 @@ func TestSendToken(t *testing.T) {
 	ng := types.NewNotaryGroup("send-token-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	pubSubSystem := remote.NewSimulatedPubSub()
+
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       ng,
 		CommitStore:       storage.NewMemStorage(),
 		CurrentStateStore: storage.NewMemStorage(),
+		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
 	defer syncer.Poison()
 	ng.AddSigner(signer)
 
-	tupeloClient := client.New(ng)
+	tupeloClient := client.New(ng, pubSubSystem)
 	sess, err := NewSession(path, "send-token-test", tupeloClient)
 	require.Nil(t, err)
 

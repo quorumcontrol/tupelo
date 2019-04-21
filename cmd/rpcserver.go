@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
@@ -120,7 +121,7 @@ func signerCurrentPath(storagePath string, signer *gossip3types.Signer) (path st
 	return
 }
 
-func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
+func setupLocalSigner(ctx context.Context, pubSubSystem remote.PubSub, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
 		panic(fmt.Sprintf("error decoding ecdsa key: %v", err))
@@ -147,6 +148,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 		NotaryGroup:       group,
 		CommitStore:       commitStore,
 		CurrentStateStore: currentStore,
+		PubSubSystem:      pubSubSystem,
 	}), syncerActorName(signer))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning actor: %v", err))
@@ -163,7 +165,7 @@ func setupLocalSigner(ctx context.Context, group *gossip3types.NotaryGroup, ecds
 	return signer
 }
 
-func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryGroup {
+func setupLocalNetwork(ctx context.Context, pubSubSystem remote.PubSub, nodeCount int) *gossip3types.NotaryGroup {
 	privateKeys, _, err := loadLocalKeys(nodeCount)
 	if err != nil {
 		panic(fmt.Sprintf("error generating node keys: %v", err))
@@ -173,7 +175,7 @@ func setupLocalNetwork(ctx context.Context, nodeCount int) *gossip3types.NotaryG
 
 	for _, keys := range privateKeys {
 		log.Info("setting up gossip node")
-		setupLocalSigner(ctx, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
+		setupLocalSigner(ctx, pubSubSystem, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
 	}
 
 	for _, signer := range group.AllSigners() {
@@ -221,9 +223,13 @@ var rpcServerCmd = &cobra.Command{
 		var group *gossip3types.NotaryGroup
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
+
+		var pubSubSystem remote.PubSub
+
 		if localNetworkNodeCount > 0 && !remoteNetwork {
 			fmt.Printf("Setting up local network with %d nodes\n", localNetworkNodeCount)
-			group = setupLocalNetwork(ctx, localNetworkNodeCount)
+			pubSubSystem = remote.NewSimulatedPubSub()
+			group = setupLocalNetwork(ctx, pubSubSystem, localNetworkNodeCount)
 		} else {
 			fmt.Println("Using remote network")
 			gossip3remote.Start()
@@ -244,6 +250,7 @@ var rpcServerCmd = &cobra.Command{
 				panic(err)
 			}
 			fmt.Println("Bootstrapped!")
+			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
 
 			gossip3remote.NewRouter(p2pHost)
 
@@ -252,7 +259,7 @@ var rpcServerCmd = &cobra.Command{
 		}
 		walletStorage := walletPath()
 
-		client := gossip3client.New(group)
+		client := gossip3client.New(group, pubSubSystem)
 
 		var grpcServer *grpc.Server
 

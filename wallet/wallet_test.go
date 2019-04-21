@@ -23,10 +23,12 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
 func TestMockAdapterWallet(t *testing.T) {
@@ -211,7 +213,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	ecdsaSig, _ := crypto.Sign(hsh, key)
 
-	sig := &consensus.Signature{
+	sig := &extmsgs.Signature{
 		Type:      consensus.KeyTypeSecp256k1,
 		Signature: ecdsaSig,
 	}

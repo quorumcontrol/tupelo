@@ -15,6 +15,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -46,14 +47,10 @@ var tracingTagName string
 
 var activeCounter = 0
 
-func measureTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, trans messages.Transaction) {
+func measureTransaction(subscriptionFuture *actor.Future, group *gossip3types.NotaryGroup, trans messages.Transaction) {
 
 	startTime := time.Now()
 	did := string(trans.ObjectID)
-	newTip, err := cid.Cast(trans.NewTip)
-	if err != nil {
-		results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
-	}
 
 	sp := opentracing.StartSpan("benchmark-transaction")
 	if tracingTagName != "" {
@@ -65,16 +62,11 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 	sp.SetTag("chainId", did)
 	defer sp.Finish()
 
-	respChan, err := client.Subscribe(group.GetRandomSigner(), did, newTip, 30*time.Second)
-
 	var errMsg string
 
-	if err != nil {
-		errMsg = fmt.Errorf("subscription failed %v", err).Error()
-	} else {
-		// Wait for response
-		resp := <-respChan
-
+	// Wait for response
+	resp, err := subscriptionFuture.Result()
+	if err == nil {
 		switch msg := resp.(type) {
 		case *messages.CurrentState:
 			elapsed := time.Since(startTime)
@@ -83,13 +75,13 @@ func measureTransaction(client *gossip3client.Client, group *gossip3types.Notary
 			results.Successes = results.Successes + 1
 		case *messages.Error:
 			errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
-		case *actor.ReceiveTimeout:
-			errMsg = fmt.Sprintf("%s - timeout", did)
 		case nil:
 			errMsg = fmt.Sprintf("%s - nil response from channel", did)
 		default:
 			errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
 		}
+	} else {
+		errMsg = fmt.Sprintf("%s - timeout", did)
 	}
 
 	if errMsg != "" {
@@ -106,26 +98,20 @@ func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGro
 	fakeT := &testing.T{}
 	trans := gossip3testhelpers.NewValidTransaction(fakeT)
 
-	used := map[string]bool{}
-
 	if shouldMeasure {
-		go measureTransaction(client, group, trans)
+		newTip, err := cid.Cast(trans.NewTip)
+		if err != nil {
+			results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
+		}
+		did := string(trans.ObjectID)
+
+		subscriptionFuture := client.Subscribe(did, newTip, 30*time.Second)
+		go measureTransaction(subscriptionFuture, group, trans)
 	}
 
-	tries := 0
-
-	for len(used) < benchmarkSignersFanoutNumber {
-		target := group.GetRandomSigner()
-		used[target.ID] = true
-
-		err := client.SendTransaction(target, &trans)
-		if err != nil {
-			tries++
-			used[target.ID] = false
-			if tries > 5 {
-				panic(fmt.Sprintf("Couldn't add transaction, %v", err))
-			}
-		}
+	err := client.SendTransaction(&trans)
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't add transaction, %v", err))
 	}
 
 	activeCounter++
@@ -200,16 +186,19 @@ var benchmark = &cobra.Command{
 		if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
 			panic(err)
 		}
-		if err = p2pHost.WaitForBootstrap(1, 15*time.Second); err != nil {
-			panic(err)
-		}
 
 		gossip3remote.NewRouter(p2pHost)
 
 		group := setupNotaryGroup(nil, bootstrapPublicKeys)
 		group.SetupAllRemoteActors(&key.PublicKey)
 
-		client := gossip3client.New(group)
+		pubSubSystem := remote.NewNetworkPubSub(p2pHost)
+
+		client := gossip3client.New(group, pubSubSystem)
+
+		if err = p2pHost.WaitForBootstrap(1+len(group.Signers)/2, 15*time.Second); err != nil {
+			panic(err)
+		}
 
 		results = ResultSet{}
 
