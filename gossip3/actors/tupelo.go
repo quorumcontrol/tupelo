@@ -104,6 +104,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		}
 	case *services.AddBlockRequest:
 		// broadcaster has sent us a fresh transaction
+		tn.Log.Debugw("received broadcasted transaction message")
 		tn.validateTransaction(context, &messages.ValidateTransaction{
 			Transaction: msg,
 		})
