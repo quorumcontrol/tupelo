@@ -292,6 +292,9 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 
+	tokenName := "testtoken"
+	tokenFullName := consensus.TokenName{ChainTreeDID: treeDID, LocalName: tokenName}
+
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip: nil,
@@ -300,7 +303,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 				{
 					Type: "ESTABLISH_TOKEN",
 					Payload: map[string]interface{}{
-						"name": "testtoken",
+						"name": tokenName,
 						"monetaryPolicy": map[string]interface{}{
 							"maximum": 8675309,
 						},
@@ -354,7 +357,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 					{
 						Type: "MINT_TOKEN",
 						Payload: map[string]interface{}{
-							"name":   "testtoken",
+							"name":   tokenName,
 							"amount": testAmount,
 						},
 					},
@@ -383,7 +386,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 		assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", "testtoken", "mints", fmt.Sprint(testIndex), "amount"})
+		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", tokenFullName.String(), consensus.TokenMintLabel, fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
 		assert.Equal(t, mintAmount, testAmount)
 	}
@@ -396,7 +399,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 				{
 					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
-						"name":   "testtoken",
+						"name":   tokenName,
 						"amount": 675309,
 					},
 				},
@@ -427,7 +430,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 				{
 					Type: "MINT_TOKEN",
 					Payload: map[string]interface{}{
-						"name":   "testtoken",
+						"name":   tokenName,
 						"amount": -42,
 					},
 				},
