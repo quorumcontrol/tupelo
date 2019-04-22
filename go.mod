@@ -25,7 +25,6 @@ require (
 	github.com/ipfs/go-ipfs-http-client v0.0.0-20190329134716-880cd0134a92
 	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
 	github.com/ipfs/go-log v0.0.1
-	github.com/ipsn/go-ipfs v0.0.0-20190407150747-8b9b72514244 // indirect
 	github.com/jakehl/goid v1.1.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
@@ -33,7 +32,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190419151602-218126bd680e
 	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-e9b1076e3c0b
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-d0bc2769a2f64d918dd16529025b807117afc28b
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
