@@ -5,6 +5,9 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -66,8 +69,9 @@ func decodeBootstrapperConfig(confB []byte) (bootstrapperConfiguration, error) {
 	return config, nil
 }
 
-func loadBootstrapperConfig() (*bootstrapperConfiguration, error) {
-	confB, err := readConfJson()
+func loadBootstrapperConfig(ctx context.Context, cancel context.CancelFunc) (
+	*bootstrapperConfiguration, error) {
+	confB, err := readConfJson(ctx, cancel)
 	if err == nil {
 		config, err := decodeBootstrapperConfig(confB)
 		if err != nil {
@@ -85,13 +89,13 @@ var bootstrapNodeCmd = &cobra.Command{
 	Short: "Run a bootstrap node",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		config, err := loadBootstrapperConfig()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		config, err := loadBootstrapperConfig(ctx, cancel)
 		if err != nil {
 			panic(err)
 		}
-
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
 
 		c, err := nodebuilder.LegacyBootstrapConfig(configNamespace, bootstrapNodePort, config)
 		if err != nil {
@@ -113,8 +117,30 @@ var bootstrapNodeCmd = &cobra.Command{
 		for _, addr := range nb.Host().Addresses() {
 			fmt.Println(addr)
 		}
-		select {}
+
+		stopBootstrapperOnSignal(ctx)
 	},
+}
+
+func stopBootstrapperOnSignal(ctx context.Context) {
+	sigs := make(chan os.Signal, 1)
+	done := make(chan struct{}, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		middleware.Log.Debugw("received signal", "signal", sig)
+		done <- struct{}{}
+	}()
+	middleware.Log.Infow("awaiting signal...")
+
+	select {
+	case <-done:
+		middleware.Log.Debugw("stopping due to receipt of signal")
+	case <-ctx.Done():
+		middleware.Log.Debugw("stopping due to canceling of context")
+	}
+
+	middleware.Log.Infow("exiting")
 }
 
 func init() {

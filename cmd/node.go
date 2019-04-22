@@ -117,8 +117,9 @@ func decodeSignerConfig(confB []byte) (signerConfiguration, error) {
 	return config, nil
 }
 
-func loadSignerConfig() (*signerConfiguration, error) {
-	confB, err := readConfJson()
+func loadSignerConfig(ctx context.Context, cancel context.CancelFunc) (
+	*signerConfiguration, error) {
+	confB, err := readConfJson(ctx, cancel)
 	if err == nil {
 		config, err := decodeSignerConfig(confB)
 		if err != nil {
@@ -145,7 +146,7 @@ var testnodeCmd = &cobra.Command{
 
 		remote.Start()
 
-		config, err := loadSignerConfig()
+		config, err := loadSignerConfig(ctx, cancel)
 		if err != nil {
 			panic(err)
 		}
