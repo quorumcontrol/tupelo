@@ -27,12 +27,13 @@ type Gossiper struct {
 	middleware.LogAwareHolder
 	tracing.ContextHolder
 
-	kind             string
-	pids             map[string]*actor.PID
-	system           system
-	syncersAvailable int64
-	validatorClear   bool
-	pusherProps      *actor.Props
+	kind              string
+	pids              map[string]*actor.PID
+	system            system
+	syncersAvailable  int64
+	validatorClear    bool
+	pusherProps       *actor.Props
+	fullExchangeActor *actor.PID
 
 	// it is expected the storageActor is actually
 	// fronted with a validator
@@ -72,6 +73,12 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 	// 	}
 	// }()
 	switch msg := actorContext.Message().(type) {
+	case *actor.Started:
+		fullExchangeActor, err := actorContext.SpawnNamed(NewFullExchangeProps(g.storageActor), "fullExchange")
+		if err != nil {
+			panic(fmt.Sprintf("error spawning: %v", err))
+		}
+		g.fullExchangeActor = fullExchangeActor
 	case *actor.Restarting:
 		g.Log.Infow("restarting")
 	case *actor.Terminated:
@@ -132,6 +139,10 @@ func (g *Gossiper) Receive(actorContext actor.Context) {
 		actorContext.Send(localsyncer, &messages.DoPush{
 			System: g.system,
 		})
+	case *messages.RequestFullExchange:
+		actorContext.Request(g.fullExchangeActor, msg)
+	case *messages.ReceiveFullExchange:
+		actorContext.Forward(g.fullExchangeActor)
 	case *messages.GetSyncer:
 		sp := g.StartTrace("getSyncer")
 		defer g.StopTrace()

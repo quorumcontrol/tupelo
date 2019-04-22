@@ -89,6 +89,8 @@ func (syncer *PushSyncer) Receive(context actor.Context) {
 		if !syncer.sendingObjects {
 			syncer.poison(context)
 		}
+	case *messages.RequestFullExchange:
+		context.Send(context.Parent(), msg)
 	case *setContext:
 		syncer.SetContext(msg.context)
 	}
@@ -186,6 +188,11 @@ func (syncer *PushSyncer) handleProvideStrata(context actor.Context, msg *messag
 			}
 			if sizeToSend == 0 {
 				syncer.Log.Errorf("estimate too large to send an IBF: %d", count)
+				context.Request(context.Sender(), &messages.RequestFullExchange{
+					DestinationHolder: messages.DestinationHolder{
+						Destination: extmsgs.ToActorPid(context.Parent()),
+					},
+				})
 				syncer.syncDone(context)
 				return
 			}
@@ -268,6 +275,11 @@ func (syncer *PushSyncer) handleProvideBloomFilter(context actor.Context, msg *m
 	diff, err := subtracted.Decode()
 	if err != nil {
 		syncer.Log.Errorw("error getting diff", "peer", context.Sender(), "diff", len(msg.Filter.Cells), "err", err)
+		context.Request(context.Sender(), &messages.RequestFullExchange{
+			DestinationHolder: messages.DestinationHolder{
+				Destination: extmsgs.ToActorPid(context.Parent()),
+			},
+		})
 		syncer.syncDone(context)
 		return
 	}
