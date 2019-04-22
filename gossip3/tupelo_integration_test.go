@@ -218,7 +218,6 @@ func TestLibP2PSigning(t *testing.T) {
 	require.Nil(t, err)
 
 	fut := client.Subscribe(string(trans.ObjectID), newTip, 90*time.Second)
-	require.Nil(t, err)
 
 	client.SendTransaction(&trans)
 	start := time.Now()

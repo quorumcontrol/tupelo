@@ -597,7 +597,17 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, tokenName, destinationChainI
 		return "", err
 	}
 
-	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, tokenName, consensus.TokenSendLabel)
+	tree, err := chain.ChainTree.Tree()
+	if err != nil {
+		return "", err
+	}
+
+	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, tokenName, false)
+	if err != nil {
+		return "", err
+	}
+
+	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, canonicalTokenName.String(), consensus.TokenSendLabel)
 	if err != nil {
 		return "", err
 	}
@@ -625,7 +635,7 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, tokenName, destinationChainI
 		return "", fmt.Errorf("send token transaction not found for ID: %s", transactionId.String())
 	}
 
-	tokenNodes, err := allSendTokenNodes(chain, tokenName, tokenSendTx)
+	tokenNodes, err := allSendTokenNodes(chain, canonicalTokenName.String(), tokenSendTx)
 	if err != nil {
 		return "", err
 	}
