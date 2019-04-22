@@ -60,12 +60,12 @@ var shellCmd = &cobra.Command{
 			}
 			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
 
-			gossip3remote.NewRouter(p2pHost)
-
-			group = nb.NotaryGroup()
+			group, err := setupNotaryGroup(nil, bootstrapPublicKeys)
+			if err != nil {
+				panic(err)
+			}
+			group.SetupAllRemoteActors(&key.PublicKey)
 		}
-		group.SetupAllRemoteActors(&key.PublicKey)
-
 		walletStorage := walletPath()
 		if err = os.MkdirAll(walletStorage, 0700); err != nil {
 			panic(err)
