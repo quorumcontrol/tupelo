@@ -17,6 +17,8 @@ func init() {
 	extmsgs.RegisterMessage(&ProvideBloomFilter{})
 	extmsgs.RegisterMessage(&RequestKeys{})
 	extmsgs.RegisterMessage(&RequestIBF{})
+	extmsgs.RegisterMessage(&RequestFullExchange{})
+	extmsgs.RegisterMessage(&ReceiveFullExchange{})
 }
 
 type DestinationHolder struct {
@@ -97,4 +99,21 @@ type ProvideBloomFilter struct {
 
 func (ProvideBloomFilter) TypeCode() int8 {
 	return -107
+}
+
+type RequestFullExchange struct {
+	DestinationHolder
+}
+
+func (RequestFullExchange) TypeCode() int8 {
+	return -108
+}
+
+type ReceiveFullExchange struct {
+	Payload             []byte
+	RequestExchangeBack bool
+}
+
+func (ReceiveFullExchange) TypeCode() int8 {
+	return -109
 }

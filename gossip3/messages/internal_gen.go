@@ -871,6 +871,330 @@ func (z *ProvideStrata) Msgsize() (s int) {
 }
 
 // DecodeMsg implements msgp.Decodable
+func (z *ReceiveFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Payload":
+			z.Payload, err = dc.ReadBytes(z.Payload)
+			if err != nil {
+				err = msgp.WrapError(err, "Payload")
+				return
+			}
+		case "RequestExchangeBack":
+			z.RequestExchangeBack, err = dc.ReadBool()
+			if err != nil {
+				err = msgp.WrapError(err, "RequestExchangeBack")
+				return
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *ReceiveFullExchange) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 2
+	// write "Payload"
+	err = en.Append(0x82, 0xa7, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64)
+	if err != nil {
+		return
+	}
+	err = en.WriteBytes(z.Payload)
+	if err != nil {
+		err = msgp.WrapError(err, "Payload")
+		return
+	}
+	// write "RequestExchangeBack"
+	err = en.Append(0xb3, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x42, 0x61, 0x63, 0x6b)
+	if err != nil {
+		return
+	}
+	err = en.WriteBool(z.RequestExchangeBack)
+	if err != nil {
+		err = msgp.WrapError(err, "RequestExchangeBack")
+		return
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z *ReceiveFullExchange) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 2
+	// string "Payload"
+	o = append(o, 0x82, 0xa7, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64)
+	o = msgp.AppendBytes(o, z.Payload)
+	// string "RequestExchangeBack"
+	o = append(o, 0xb3, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x42, 0x61, 0x63, 0x6b)
+	o = msgp.AppendBool(o, z.RequestExchangeBack)
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *ReceiveFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "Payload":
+			z.Payload, bts, err = msgp.ReadBytesBytes(bts, z.Payload)
+			if err != nil {
+				err = msgp.WrapError(err, "Payload")
+				return
+			}
+		case "RequestExchangeBack":
+			z.RequestExchangeBack, bts, err = msgp.ReadBoolBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "RequestExchangeBack")
+				return
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *ReceiveFullExchange) Msgsize() (s int) {
+	s = 1 + 8 + msgp.BytesPrefixSize + len(z.Payload) + 20 + msgp.BoolSize
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
+func (z *RequestFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, err = dc.ReadMapHeader()
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, err = dc.ReadMapKeyPtr()
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "DestinationHolder":
+			var zb0002 uint32
+			zb0002, err = dc.ReadMapHeader()
+			if err != nil {
+				err = msgp.WrapError(err, "DestinationHolder")
+				return
+			}
+			for zb0002 > 0 {
+				zb0002--
+				field, err = dc.ReadMapKeyPtr()
+				if err != nil {
+					err = msgp.WrapError(err, "DestinationHolder")
+					return
+				}
+				switch msgp.UnsafeString(field) {
+				case "Destination":
+					if dc.IsNil() {
+						err = dc.ReadNil()
+						if err != nil {
+							err = msgp.WrapError(err, "DestinationHolder", "Destination")
+							return
+						}
+						z.DestinationHolder.Destination = nil
+					} else {
+						if z.DestinationHolder.Destination == nil {
+							z.DestinationHolder.Destination = new(extmsgs.ActorPID)
+						}
+						err = z.DestinationHolder.Destination.DecodeMsg(dc)
+						if err != nil {
+							err = msgp.WrapError(err, "DestinationHolder", "Destination")
+							return
+						}
+					}
+				default:
+					err = dc.Skip()
+					if err != nil {
+						err = msgp.WrapError(err, "DestinationHolder")
+						return
+					}
+				}
+			}
+		default:
+			err = dc.Skip()
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	return
+}
+
+// EncodeMsg implements msgp.Encodable
+func (z *RequestFullExchange) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 1
+	// write "DestinationHolder"
+	// map header, size 1
+	// write "Destination"
+	err = en.Append(0x81, 0xb1, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x6f, 0x6c, 0x64, 0x65, 0x72, 0x81, 0xab, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e)
+	if err != nil {
+		return
+	}
+	if z.DestinationHolder.Destination == nil {
+		err = en.WriteNil()
+		if err != nil {
+			return
+		}
+	} else {
+		err = z.DestinationHolder.Destination.EncodeMsg(en)
+		if err != nil {
+			err = msgp.WrapError(err, "DestinationHolder", "Destination")
+			return
+		}
+	}
+	return
+}
+
+// MarshalMsg implements msgp.Marshaler
+func (z *RequestFullExchange) MarshalMsg(b []byte) (o []byte, err error) {
+	o = msgp.Require(b, z.Msgsize())
+	// map header, size 1
+	// string "DestinationHolder"
+	// map header, size 1
+	// string "Destination"
+	o = append(o, 0x81, 0xb1, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x48, 0x6f, 0x6c, 0x64, 0x65, 0x72, 0x81, 0xab, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e)
+	if z.DestinationHolder.Destination == nil {
+		o = msgp.AppendNil(o)
+	} else {
+		o, err = z.DestinationHolder.Destination.MarshalMsg(o)
+		if err != nil {
+			err = msgp.WrapError(err, "DestinationHolder", "Destination")
+			return
+		}
+	}
+	return
+}
+
+// UnmarshalMsg implements msgp.Unmarshaler
+func (z *RequestFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
+	var field []byte
+	_ = field
+	var zb0001 uint32
+	zb0001, bts, err = msgp.ReadMapHeaderBytes(bts)
+	if err != nil {
+		err = msgp.WrapError(err)
+		return
+	}
+	for zb0001 > 0 {
+		zb0001--
+		field, bts, err = msgp.ReadMapKeyZC(bts)
+		if err != nil {
+			err = msgp.WrapError(err)
+			return
+		}
+		switch msgp.UnsafeString(field) {
+		case "DestinationHolder":
+			var zb0002 uint32
+			zb0002, bts, err = msgp.ReadMapHeaderBytes(bts)
+			if err != nil {
+				err = msgp.WrapError(err, "DestinationHolder")
+				return
+			}
+			for zb0002 > 0 {
+				zb0002--
+				field, bts, err = msgp.ReadMapKeyZC(bts)
+				if err != nil {
+					err = msgp.WrapError(err, "DestinationHolder")
+					return
+				}
+				switch msgp.UnsafeString(field) {
+				case "Destination":
+					if msgp.IsNil(bts) {
+						bts, err = msgp.ReadNilBytes(bts)
+						if err != nil {
+							return
+						}
+						z.DestinationHolder.Destination = nil
+					} else {
+						if z.DestinationHolder.Destination == nil {
+							z.DestinationHolder.Destination = new(extmsgs.ActorPID)
+						}
+						bts, err = z.DestinationHolder.Destination.UnmarshalMsg(bts)
+						if err != nil {
+							err = msgp.WrapError(err, "DestinationHolder", "Destination")
+							return
+						}
+					}
+				default:
+					bts, err = msgp.Skip(bts)
+					if err != nil {
+						err = msgp.WrapError(err, "DestinationHolder")
+						return
+					}
+				}
+			}
+		default:
+			bts, err = msgp.Skip(bts)
+			if err != nil {
+				err = msgp.WrapError(err)
+				return
+			}
+		}
+	}
+	o = bts
+	return
+}
+
+// Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
+func (z *RequestFullExchange) Msgsize() (s int) {
+	s = 1 + 18 + 1 + 12
+	if z.DestinationHolder.Destination == nil {
+		s += msgp.NilSize
+	} else {
+		s += z.DestinationHolder.Destination.Msgsize()
+	}
+	return
+}
+
+// DecodeMsg implements msgp.Decodable
 func (z *RequestIBF) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field

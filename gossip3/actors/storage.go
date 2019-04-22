@@ -1,8 +1,11 @@
 package actors
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 
@@ -106,6 +109,10 @@ func (s *Storage) Receive(context actor.Context) {
 			s.Log.Errorw("error getting key", "err", err, "key", msg.Key)
 		}
 		context.Respond(val)
+	case *messages.GzipExport:
+		context.Respond(s.GzipExport())
+	case *messages.GzipImport:
+		context.Respond(s.GzipImport(context, msg.Payload))
 	}
 }
 
@@ -194,4 +201,82 @@ func uint64ToBytes(id uint64) []byte {
 	a := make([]byte, 8)
 	binary.BigEndian.PutUint64(a, id)
 	return a
+}
+
+func (s *Storage) GzipExport() []byte {
+	buf := new(bytes.Buffer)
+	w := gzip.NewWriter(buf)
+	wroteCount := 0
+
+	s.Log.Debugw("gzipExport started")
+
+	s.storage.ForEach([]byte{}, func(key, value []byte) error {
+		wroteCount++
+		keyPrefix := make([]byte, 4)
+		binary.BigEndian.PutUint32(keyPrefix, uint32(len(key)))
+		pairPrefix := make([]byte, 4)
+		binary.BigEndian.PutUint32(pairPrefix, uint32(len(keyPrefix)+len(key)+len(value)))
+
+		w.Write(pairPrefix)
+		w.Write(keyPrefix)
+		w.Write(key)
+		w.Write(value)
+		return nil
+	})
+	w.Close()
+
+	if wroteCount == 0 {
+		return nil
+	}
+
+	s.Log.Debugw("gzipExport exported %d keys", wroteCount)
+
+	return buf.Bytes()
+}
+
+func (s *Storage) GzipImport(context actor.Context, payload []byte) uint64 {
+	buf := bytes.NewBuffer(payload)
+	reader, err := gzip.NewReader(buf)
+	if err != nil {
+		panic(fmt.Sprintf("Error creating gzip reader %v", err))
+	}
+	defer reader.Close()
+
+	s.Log.Debugw("gzipImport from %v started", context.Sender())
+
+	var wroteCount uint64
+
+	bytesLeft := true
+
+	for bytesLeft {
+		prefix := make([]byte, 4)
+		_, err := io.ReadFull(reader, prefix)
+		if err != nil {
+			panic(fmt.Sprintf("Error reading kv pair length %v", err))
+		}
+		prefixLength := binary.BigEndian.Uint32(prefix)
+
+		kvPair := make([]byte, int(prefixLength))
+		_, err = io.ReadFull(reader, kvPair)
+		if err != nil {
+			panic(fmt.Sprintf("Error reading kv pair %v", err))
+		}
+
+		keyLength := binary.BigEndian.Uint32(kvPair[0:4])
+		valueStartIndex := 4 + keyLength
+
+		context.Send(context.Self(), &extmsgs.Store{
+			Key:        kvPair[4:valueStartIndex],
+			Value:      kvPair[valueStartIndex:],
+			SkipNotify: true,
+		})
+
+		wroteCount++
+
+		bytesLeft = buf.Len() > 0
+	}
+
+	s.Log.Debugw("gzipImport from %v loaded %d keys", context.Sender(), wroteCount)
+
+	return wroteCount
 }

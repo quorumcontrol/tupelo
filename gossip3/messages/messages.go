@@ -120,3 +120,10 @@ type ValidateTransaction struct {
 }
 
 type GetNumConflictSets struct{}
+
+type GzipExport struct {
+}
+
+type GzipImport struct {
+	Payload []byte
+}
