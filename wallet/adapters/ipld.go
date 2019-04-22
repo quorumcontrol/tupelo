@@ -3,7 +3,6 @@ package adapters
 import (
 	"context"
 	"fmt"
-	"log"
 
 	ipfsHttpClient "github.com/ipfs/go-ipfs-http-client"
 	"github.com/ipfs/go-ipfs/core"
@@ -81,14 +80,10 @@ func NewIpldNodeStorage(config map[string]interface{}) (*IpldStorageAdapter, err
 		return nil, fmt.Errorf("Could not initialize ipfs plugin loader")
 	}
 	if err = plugins.Initialize(); err != nil {
-		log.Printf("failed to initialize ipfs plugins: %s", err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to initialize ipfs plugins: %s", err)
+		return nil, fmt.Errorf("failed to initialize ipfs plugins: %s", err)
 	}
 	if err = plugins.Inject(); err != nil {
-		log.Printf("failed to inject ipfs plugins: %s", err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to inject ipfs plugins: %s", err)
+		return nil, fmt.Errorf("failed to inject ipfs plugins: %s", err)
 	}
 
 	repo, err := fsrepo.Open(repoRoot)
