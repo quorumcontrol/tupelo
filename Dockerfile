@@ -1,17 +1,15 @@
-FROM golang:1.11.5 AS build
+FROM golang:1.12.4-alpine3.9 AS build
 
 WORKDIR /app
 
+RUN apk add --no-cache --update build-base
+
 COPY . .
 
-RUN go install -mod=vendor -v -a -ldflags '-extldflags "-static"' -gcflags=-trimpath=$GOPATH -asmflags=-trimpath=$GOPATH
+RUN go install -mod=vendor -v -a -ldflags '-extldflags "-static"' -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}"
 
 FROM alpine:3.9
 LABEL maintainer="dev@quorumcontrol.com"
-
-RUN mkdir -p /var/lib/tupelo
-
-WORKDIR /var/lib/tupelo
 
 COPY --from=build /go/bin/tupelo /usr/bin/tupelo
 
