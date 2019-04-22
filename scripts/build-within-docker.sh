@@ -9,6 +9,7 @@ if [[ "${CI}" == "true" ]]; then
   sudo ./scripts/download-protoc.sh
 fi
 
+go mod download
 make lint
 if [[ "${CI}" == "true" ]]; then
   make ci-test
