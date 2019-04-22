@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"log"
 
+	ipfsHttpClient "github.com/ipfs/go-ipfs-http-client"
 	"github.com/ipfs/go-ipfs/core"
 	"github.com/ipfs/go-ipfs/core/coreapi"
 	"github.com/ipfs/go-ipfs/plugin/loader"
 	"github.com/ipfs/go-ipfs/repo/fsrepo"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	ipfsHttpClient "github.com/quorumcontrol/go-ipfs-http-client"
 )
 
 const IpldStorageAdapterName = "ipld"

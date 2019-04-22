@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/stretchr/testify/require"
 )
@@ -20,8 +21,9 @@ func TestServerStartup(t *testing.T) {
 	require.Nil(t, err)
 	defer os.RemoveAll(".tmp")
 
+	pubSubSystem := remote.NewSimulatedPubSub()
 	ng := types.NewNotaryGroup("ohhijusttesting")
-	cli := client.New(ng)
+	cli := client.New(ng, pubSubSystem)
 	ctx := context.Background()
 
 	grpcServer, err := ServeInsecure(path, cli, 0)

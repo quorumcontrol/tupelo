@@ -4,6 +4,7 @@ set -eo pipefail
 uname_os() {
   os=$(uname -s | tr '[:upper:]' '[:lower:]')
   case "$os" in
+    darwin) os="osx" ;;
     msys_nt) os="windows" ;;
   esac
   echo "$os"
@@ -11,7 +12,6 @@ uname_os() {
 uname_arch() {
   arch=$(uname -m)
   case $arch in
-    x86_64) arch="amd64" ;;
     x86) arch="386" ;;
     i686) arch="386" ;;
     i386) arch="386" ;;
@@ -23,8 +23,8 @@ uname_arch() {
   echo ${arch}
 }
 
-TARGET="golangci-lint.tar.gz"
-VERSION=1.15.0
+TARGET="protoc.zip"
+VERSION=3.7.1
 OS=$(uname_os)
 ARCH=$(uname_arch)
 PLATFORM="${OS}/${ARCH}"
@@ -50,28 +50,27 @@ hash_sha256() {
     hash=$(openssl -dst openssl dgst -sha256 "$target_abs") || return 1
     echo "$hash" | cut -d ' ' -f a
   else
-    log_crit "hash_sha256 unable to find command to compute sha-256 hash"
+    echo "* hash_sha256 unable to find command to compute sha-256 hash"
     return 1
   fi
 }
 
 verify_hash() {
-  checksums="scripts/checksums/golangci-lint-checksums.txt"
-  WANT=$(grep golangci-lint-${VERSION}-${OS}-${ARCH}.tar.gz ${checksums} |cut -d ' ' -f1)
+  checksums="scripts/checksums/protoc-checksums.txt"
+  WANT=$(grep protoc-${VERSION}-${OS}-${ARCH}.zip ${checksums} |cut -d ' ' -f1)
   GOT=$(hash_sha256)
   if [ "$WANT" != "$GOT" ]; then
-    log_err "Couldn't verify SHA256 checksum for '$TARGET'"
+    echo "* Couldn't verify SHA256 checksum for '$TARGET'"
     exit 1
   fi
 }
 
-curl -fL https://github.com/golangci/golangci-lint/releases/download/v${VERSION}/golangci-lint-${VERSION}-${OS}-${ARCH}.tar.gz -o ${tmpdir}/$TARGET
+curl -fL https://github.com/protocolbuffers/protobuf/releases/download/v${VERSION}/protoc-${VERSION}-${OS}-${ARCH}.zip -o ${tmpdir}/$TARGET
 verify_hash
 
-dest_dir=$(go env GOPATH|cut -f1 -d:)/bin
-tar x -C ${dest_dir} --strip-components=1 -f ${tmpdir}/${TARGET} \
-golangci-lint-${VERSION}-${OS}-${ARCH}/golangci-lint
+dest_dir=/usr/local
+unzip -u -d ${dest_dir} ${tmpdir}/${TARGET} bin/protoc
 
 rm -rf $tmpdir
 
-echo "* Successfully installed golangci-lint to ${dest_dir}"
+echo "* Successfully installed protoc to ${dest_dir}"

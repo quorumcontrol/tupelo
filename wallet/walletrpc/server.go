@@ -11,7 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
+	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/quorumcontrol/chaintree/chaintree"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	"github.com/quorumcontrol/tupelo/wallet"
@@ -335,6 +337,95 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 	}, nil
 }
 
+func buildTransactions(protoTransactions []*ProtoTransaction) ([]*chaintree.Transaction, error) {
+	chaintreeTxns := make([]*chaintree.Transaction, len(protoTransactions))
+	for i, protoTxn := range protoTransactions {
+		switch protoTxn.Type {
+		case ProtoTransaction_ESTABLISHTOKEN:
+			payload := protoTxn.GetEstablishTokenPayload()
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeEstablishToken,
+				Payload: consensus.EstablishTokenPayload{
+					Name: payload.Name,
+					MonetaryPolicy: consensus.TokenMonetaryPolicy{
+						Maximum: payload.MonetaryPolicy.Maximum,
+					},
+				},
+			}
+		case ProtoTransaction_MINTTOKEN:
+			payload := protoTxn.GetMintTokenPayload()
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeMintToken,
+				Payload: consensus.MintTokenPayload{
+					Name:   payload.Name,
+					Amount: payload.Amount,
+				},
+			}
+		case ProtoTransaction_SETDATA:
+			payload := protoTxn.GetSetDataPayload()
+
+			var decodedVal interface{}
+			err := cbornode.DecodeInto(payload.Value, &decodedVal)
+			if err != nil {
+				return nil, fmt.Errorf("error decoding value: %v", err)
+			}
+
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeSetData,
+				Payload: consensus.SetDataPayload{
+					Path:  payload.Path,
+					Value: decodedVal,
+				},
+			}
+		case ProtoTransaction_SETOWNERSHIP:
+			payload := protoTxn.GetSetOwnershipPayload()
+			chaintreeTxns[i] = &chaintree.Transaction{
+				Type: consensus.TransactionTypeSetOwnership,
+				Payload: consensus.SetOwnershipPayload{
+					Authentication: payload.Authentication,
+				},
+			}
+		default:
+			return nil, fmt.Errorf("unrecognized transaction type: %v", protoTxn.Type)
+		}
+	}
+
+	return chaintreeTxns, nil
+}
+
+func (s *server) PlayTransactions(ctx context.Context, req *PlayTransactionsRequest) (*PlayTransactionsResponse, error) {
+	creds, err := getWalletCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	transactions, err := buildTransactions(req.Transactions)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := session.PlayTransactions(req.ChainId, req.KeyAddr, transactions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PlayTransactionsResponse{
+		Tip: resp.Tip.String(),
+	}, nil
+}
+
 func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerResponse, error) {
 	creds, err := getWalletCredentials(ctx)
 	if err != nil {
@@ -397,24 +488,44 @@ func (s *server) Resolve(ctx context.Context, req *ResolveRequest) (*ResolveResp
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	return s.resolveAt(ctx, creds, req.ChainId, req.Path, nil)
+}
+
+func (s *server) ResolveAt(ctx context.Context, req *ResolveAtRequest) (*ResolveResponse,
+	error) {
+	creds, err := getWalletCredentials(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = session.Start(creds.passphrase)
+	t, err := cid.Decode(req.Tip)
+	if err != nil {
+		return nil, fmt.Errorf("A valid tip CID must be provided")
+	}
+	return s.resolveAt(ctx, creds, req.ChainId, req.Path, &t)
+}
+
+func (s *server) resolveAt(ctx context.Context, creds *walletCredentials, chainId string, path string,
+	tip *cid.Cid) (*ResolveResponse, error) {
+	session, err := NewSession(s.storagePath, creds.WalletName, s.Client)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.PassPhrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
 
 	defer session.Stop()
 
-	pathSegments, err := consensus.DecodePath(req.Path)
+	pathSegments, err := consensus.DecodePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("bad path: %v", err)
 	}
 
-	data, remainingSegments, err := session.Resolve(req.ChainId, pathSegments)
+	data, remainingSegments, err := session.resolveAt(chainId, pathSegments, tip)
 	if err != nil {
 		return nil, err
 	}
@@ -483,6 +594,62 @@ func (s *server) MintToken(ctx context.Context, req *MintTokenRequest) (*MintTok
 	}
 
 	return &MintTokenResponse{
+		Tip: tipCid.String(),
+	}, nil
+}
+
+func (s *server) SendToken(ctx context.Context, req *SendTokenRequest) (*SendTokenResponse, error) {
+	creds, err := getWalletCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	sendToken, err := session.SendToken(req.ChainId, req.KeyAddr, req.TokenName, req.DestinationChainId, req.Amount)
+	if err != nil {
+		return nil, err
+	}
+
+	return &SendTokenResponse{
+		SendToken: sendToken,
+	}, nil
+}
+
+func (s *server) ReceiveToken(ctx context.Context, req *ReceiveTokenRequest) (*ReceiveTokenResponse, error) {
+	creds, err := getWalletCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(creds.passphrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	tipCid, err := session.ReceiveToken(req.ChainId, req.KeyAddr, req.TokenPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReceiveTokenResponse{
 		Tip: tipCid.String(),
 	}, nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -21,6 +21,8 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
@@ -31,25 +33,33 @@ type stateTransaction struct {
 	TransactionID []byte
 	ConflictSetID string
 	Block         *chaintree.BlockWithHeaders
-	payload       []byte
 }
 
 type TransactionValidator struct {
 	middleware.LogAwareHolder
-	reader storage.Reader
+	reader           storage.Reader
+	signatureChecker *actor.PID
+	notaryGroup      *types.NotaryGroup
+}
+
+type TransactionValidatorConfig struct {
+	NotaryGroup       *types.NotaryGroup
+	SignatureChecker  *actor.PID
+	CurrentStateStore storage.Reader
 }
 
 type validationRequest struct {
-	key   []byte
-	value []byte
+	transaction *extmsgs.Transaction
 }
 
 const maxValidatorConcurrency = 10
 
-func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props {
+func NewTransactionValidatorProps(cfg *TransactionValidatorConfig) *actor.Props {
 	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
-			reader: currentStateStore,
+			reader:           cfg.CurrentStateStore,
+			signatureChecker: cfg.SignatureChecker,
+			notaryGroup:      cfg.NotaryGroup,
 		}
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
@@ -60,39 +70,32 @@ func NewTransactionValidatorProps(currentStateStore storage.Reader) *actor.Props
 func (tv *TransactionValidator) Receive(actorCtx actor.Context) {
 	switch msg := actorCtx.Message().(type) {
 	case *validationRequest:
-		tv.Log.Debugw("stateHandler initial", "key", msg.key)
+		tv.Log.Debugw("transactionValidator initial", "key", msg.transaction.ObjectID)
 		tv.handleRequest(actorCtx, msg)
 	}
 }
 
 func (tv *TransactionValidator) nextHeight(objectID []byte) uint64 {
-	return nextHeight(tv.reader, objectID)
+	return nextHeight(tv.Log, tv.reader, objectID)
 }
 
 func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *validationRequest) {
+	t := msg.transaction
+
 	wrapper := &messages.TransactionWrapper{
-		Key:       msg.key,
-		Value:     msg.value,
-		PreFlight: false,
-		Accepted:  false,
-		Stale:     false,
-		Metadata:  messages.MetadataMap{"seen": time.Now()},
+		Transaction: t,
+		PreFlight:   false,
+		Accepted:    false,
+		Stale:       false,
+		Metadata:    messages.MetadataMap{"seen": time.Now()},
 	}
 	parentSpan := wrapper.StartTrace("transaction")
 
 	sp := wrapper.NewSpan("validator")
 	defer sp.Finish()
 
-	var t extmsgs.Transaction
-	_, err := t.UnmarshalMsg(msg.value)
-	if err != nil {
-		tv.Log.Infow("error unmarshaling", "err", err)
-		actorCtx.Respond(wrapper)
-		return
-	}
 	wrapper.ConflictSetID = t.ConflictSetID()
-	wrapper.Transaction = &t
-	wrapper.TransactionID = msg.key
+	wrapper.TransactionID = t.ID()
 	parentSpan.SetTag("conflictSetID", string(wrapper.ConflictSetID))
 	parentSpan.SetTag("transactionID", string(wrapper.TransactionID))
 
@@ -129,12 +132,6 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 		}
 	}
 
-	if !bytes.Equal(crypto.Keccak256(msg.value), msg.key) {
-		tv.Log.Errorw("invalid transaction: key did not match value")
-		actorCtx.Respond(wrapper)
-		return
-	}
-
 	block := &chaintree.BlockWithHeaders{}
 	err = cbornode.DecodeInto(t.Payload, block)
 	if err != nil {
@@ -144,26 +141,25 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 	}
 
 	if block.Height != t.Height {
-		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Height, "transHeight", t.Height, "transaction", msg.key)
+		tv.Log.Errorw("invalid transaction block height != transaction height", "blockHeight", block.Height, "transHeight", t.Height, "transaction", wrapper.TransactionID)
 		actorCtx.Respond(wrapper)
 		return
 	}
 
 	st := &stateTransaction{
 		ObjectID:      t.ObjectID,
-		Transaction:   &t,
-		TransactionID: msg.key,
+		Transaction:   t,
+		TransactionID: wrapper.TransactionID,
 		CurrentState:  currTip,
 		ConflictSetID: wrapper.ConflictSetID,
 		Block:         block,
-		payload:       msg.value,
 	}
 
-	nextState, accepted, err := chainTreeStateHandler(st)
+	nextState, accepted, err := tv.chainTreeStateHandler(actorCtx, st)
 
 	expectedNewTip := bytes.Equal(nextState, t.NewTip)
 	if accepted && expectedNewTip {
-		tv.Log.Debugw("accepted", "key", msg.key)
+		tv.Log.Debugw("accepted", "key", wrapper.TransactionID)
 		wrapper.Accepted = true
 		sp.SetTag("accepted", true)
 		actorCtx.Respond(wrapper)
@@ -184,7 +180,7 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 	actorCtx.Respond(wrapper)
 }
 
-func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {
+func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {
 	var currentTip cid.Cid
 	if len(stateTrans.CurrentState) > 1 {
 		currentTip, err = cid.Cast(stateTrans.CurrentState)
@@ -230,10 +226,48 @@ func chainTreeStateHandler(stateTrans *stateTransaction) (nextState []byte, acce
 		return nil, false, err
 	}
 
+	sigVerifier := consensus.GenerateIsValidSignature(func(sig *extmsgs.Signature) (bool, error) {
+		signerArray, err := bitarray.Unmarshal(sig.Signers)
+		if err != nil {
+			return false, fmt.Errorf("error unmarshalling signers bitarray: %v", err)
+		}
+
+		var verKeys [][]byte
+
+		signers := tv.notaryGroup.AllSigners()
+		for i, signer := range signers {
+			isSet, err := signerArray.GetBit(uint64(i))
+			if err != nil {
+				return false, fmt.Errorf("error getting bit: %v", err)
+			}
+			if isSet {
+				verKeys = append(verKeys, signer.VerKey.Bytes())
+			}
+		}
+
+		resp, err := actorCtx.RequestFuture(tv.signatureChecker, &messages.SignatureVerification{
+			Message:   sig.GetSignable(),
+			Signature: sig.Signature,
+			VerKeys:   verKeys,
+		}, 2*time.Second).Result()
+		if err != nil {
+			return false, fmt.Errorf("error verifying signature: %v", err)
+		}
+
+		sigResult, ok := resp.(*messages.SignatureVerification)
+		if !ok {
+			return false, fmt.Errorf("error casting sig verify response; was a %T, expected a SignatureVerification", resp)
+		}
+
+		return sigResult.Verified, nil
+	})
+
 	chainTree, err := chaintree.NewChainTree(
 		tree,
 		[]chaintree.BlockValidatorFunc{
 			isOwner,
+			consensus.IsTokenRecipient,
+			sigVerifier,
 		},
 		consensus.DefaultTransactors,
 	)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
@@ -30,8 +31,11 @@ var shellCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
+		var pubSubSystem remote.PubSub
+
 		if localNetworkNodeCount > 0 && !remoteNetwork {
-			group = setupLocalNetwork(ctx, localNetworkNodeCount)
+			pubSubSystem = remote.NewSimulatedPubSub()
+			group = setupLocalNetwork(ctx, pubSubSystem, localNetworkNodeCount)
 		} else {
 			key, err = crypto.GenerateKey()
 			if err != nil {
@@ -50,6 +54,7 @@ var shellCmd = &cobra.Command{
 				panic(err)
 			}
 			gossip3remote.NewRouter(p2pHost)
+			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
 
 			group = setupNotaryGroup(nil, bootstrapPublicKeys)
 			group.SetupAllRemoteActors(&key.PublicKey)
@@ -59,7 +64,7 @@ var shellCmd = &cobra.Command{
 			panic(err)
 		}
 
-		client := gossip3client.New(group)
+		client := gossip3client.New(group, pubSubSystem)
 		walletshell.RunGossip(shellName, walletStorage, client)
 	},
 }

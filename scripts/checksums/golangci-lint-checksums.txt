@@ -1,0 +1,6 @@
+da6f2a181cc0de7744c1e009fb3802dda537105078dd25103beef79b28a36630  golangci-lint-1.15.0-linux-386.tar.gz
+3b48ec9b122defc8e54eff77e8268dec9620ea9f6c60eaa4113585473a40a9c8  golangci-lint-1.15.0-darwin-386.tar.gz
+083941efa692bfe3c29ba709964e9fe5896889316d51813e523157c96c3153e0  golangci-lint-1.15.0-darwin-amd64.tar.gz
+0a143e22e248fba1ed04338cbd3605444eee18ca6da7a433d8ef44ad60a2db9a  golangci-lint-1.15.0-windows-386.zip
+f37f4a15eb309578b0546703da5ea96bc5bd472f45f204338051aaca6fbbfc5b  golangci-lint-1.15.0-linux-amd64.tar.gz
+f047e2dc7ee3b88600c316f4445edf1fb89107449eeec61e96be79a8d84117a8  golangci-lint-1.15.0-windows-amd64.zip

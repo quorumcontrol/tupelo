@@ -14,7 +14,8 @@ GUARD = $(1)_GUARD_$(shell echo $($(1)) | $(MD5CMD) | cut -d ' ' -f 1)
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 VERSION_TXT = resources/templates/version.txt
 
-generated = gossip3/messages/internal_gen.go gossip3/messages/internal_gen_test.go
+generated = gossip3/messages/internal_gen.go gossip3/messages/internal_gen_test.go\
+  wallet/walletrpc/service.pb.go
 gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 packr = packrd/packed-packr.go resources/resources-packr.go
 
@@ -28,14 +29,21 @@ $(call GUARD,VERSION):
 	rm -rf VERSION_GUARD_*
 	touch $@
 
+$(FIRSTGOPATH)/bin/protoc-gen-go:
+	go get -u github.com/golang/protobuf/protoc-gen-go
+
+$(FIRSTGOPATH)/bin/msgp:
+	go get -u -t github.com/tinylib/msgp
+
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
 
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
-$(generated): gossip3/messages/internal.go
+$(generated): gossip3/messages/internal.go wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPATH)/bin/protoc-gen-go
 	cd gossip3/messages && go generate
+	cd wallet/walletrpc && go generate
 
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 	go mod vendor
@@ -53,6 +61,9 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
+ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
+	go test -mod=readonly ./... -tags=integration
+
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
@@ -67,4 +78,4 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all test docker-image clean install lint
+.PHONY: all test ci-test docker-image clean install lint

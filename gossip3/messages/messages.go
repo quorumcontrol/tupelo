@@ -83,16 +83,18 @@ type SignatureVerification struct {
 	Message   []byte
 	Signature []byte
 	VerKeys   [][]byte
+	Memo      interface{}
 }
 
 type CurrentStateWrapper struct {
-	Internal            bool
-	Verified            bool
-	CurrentState        *extmsgs.CurrentState
-	Metadata            MetadataMap
-	Key                 []byte
-	Value               []byte
-	CleanupTransactions []*TransactionWrapper
+	tracing.ContextHolder
+
+	Internal     bool
+	Verified     bool
+	CurrentState *extmsgs.CurrentState
+	Metadata     MetadataMap
+	Key          []byte
+	Value        []byte
 }
 
 type TransactionWrapper struct {
@@ -104,17 +106,7 @@ type TransactionWrapper struct {
 	PreFlight     bool
 	Accepted      bool
 	Stale         bool
-	Key           []byte
-	Value         []byte
 	Metadata      MetadataMap
-}
-
-type MemPoolCleanup struct {
-	Transactions [][]byte
-}
-
-type BulkRemove struct {
-	ObjectIDs [][]byte
 }
 
 type SendingDone struct{}
@@ -124,6 +116,7 @@ type ActivateSnoozingConflictSets struct {
 }
 
 type ValidateTransaction struct {
-	Key   []byte
-	Value []byte
+	Transaction *extmsgs.Transaction
 }
+
+type GetNumConflictSets struct{}
