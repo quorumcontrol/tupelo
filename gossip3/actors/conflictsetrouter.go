@@ -234,11 +234,10 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *Con
 }
 
 func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
-	conflictSetID := extmsgs.ConflictSetID(objectID, csr.nextHeight(objectID))
-
-	cs, ok := csr.conflictSets.Get([]byte(conflictSetIDToInternalID([]byte(conflictSetID))))
+	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, csr.nextHeight(objectID)))
+	cs, ok := csr.conflictSets.Get(nodeID)
 	if ok {
-		csr.Log.Debugw("activating snoozed", "cs", conflictSetIDToInternalID([]byte(conflictSetID)))
+		csr.Log.Debugw("activating snoozed", "cs", nodeID)
 		context.Send(csr.pool, &csWorkerRequest{
 			cs:  cs.(*ConflictSet),
 			msg: context.Message(),
