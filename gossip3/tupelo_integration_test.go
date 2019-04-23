@@ -12,7 +12,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -207,14 +206,14 @@ func TestLibP2PSigning(t *testing.T) {
 	pubSub := remote.NewNetworkPubSub(clientHost)
 
 	remote.NewRouter(clientHost)
-	client := client.New(systems[0], pubSub)
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
 
 	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
-		err := client.SendTransaction(&trans)
+		cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
@@ -225,23 +224,19 @@ func TestLibP2PSigning(t *testing.T) {
 	}
 	time.Sleep(200 * time.Millisecond) // give time for warmup
 
-	newTip, err := cid.Cast(trans.NewTip)
-	require.Nil(t, err)
+	cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+	cli.Listen()
+	defer cli.Stop()
 
-	fut := client.Subscribe(string(trans.ObjectID), newTip, 90*time.Second)
+	fut := cli.Subscribe(&trans, 90*time.Second)
 
-	err = client.SendTransaction(&trans)
+	err = cli.SendTransaction(&trans)
 	require.Nil(t, err)
-	start := time.Now()
 
 	resp, err := fut.Result()
 	require.Nil(t, err)
 	require.NotNil(t, resp)
 	require.IsType(t, &extmsgs.CurrentState{}, resp)
-	stop := time.Now()
 	sigResp := resp.(*extmsgs.CurrentState)
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
-
-	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
-	assert.True(t, stop.Sub(start) < 60*time.Second)
 }

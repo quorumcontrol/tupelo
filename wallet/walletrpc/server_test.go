@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/stretchr/testify/require"
@@ -23,9 +22,8 @@ func TestServerStartup(t *testing.T) {
 
 	pubSubSystem := remote.NewSimulatedPubSub()
 	ng := types.NewNotaryGroup("ohhijusttesting")
-	cli := client.New(ng, pubSubSystem)
 
-	grpcServer, err := ServeInsecure(path, cli, 0)
+	grpcServer, err := ServeInsecure(path, ng, pubSubSystem, 0)
 	require.Nil(t, err)
 	web, err := ServeWebInsecure(grpcServer)
 	require.Nil(t, err)
@@ -33,7 +31,7 @@ func TestServerStartup(t *testing.T) {
 	require.Nil(t, err)
 	grpcServer.Stop()
 
-	secGrpcServer, err := ServeTLS(path, cli, "testassets/cert.pem", "testassets/key.pem", 0)
+	secGrpcServer, err := ServeTLS(path, ng, pubSubSystem, "testassets/cert.pem", "testassets/key.pem", 0)
 	require.Nil(t, err)
 	secWeb, err := ServeWebTLS(secGrpcServer, "testassets/cert.pem", "testassets/key.pem")
 	require.Nil(t, err)

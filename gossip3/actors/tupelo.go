@@ -120,16 +120,8 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 				tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
 			} else {
 				tn.Log.Debugw("removing bad transaction", "msg", msg)
-				var errSource string
-				if msg.Transaction != nil && msg.Transaction.ObjectID != nil {
-					// need this to route the error back to the correct subscribers
-					errSource = string(msg.Transaction.ObjectID)
-				} else {
-					// ...but fallback on this rather than generating a nil deref error
-					errSource = string(msg.TransactionID)
-				}
 				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
-					Source: errSource,
+					Source: string(msg.TransactionID),
 					Code:   ErrBadTransaction,
 					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 				})

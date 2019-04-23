@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/client"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
@@ -21,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, *client.Client, error) {
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, remote.PubSub, error) {
 	simulatedPubSub := remote.NewSimulatedPubSub()
 
 	ng := types.NewNotaryGroup("testnotary")
@@ -46,7 +45,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		ng.AddSigner(signer)
 	}
 
-	return ng, client.New(ng, simulatedPubSub), nil
+	return ng, simulatedPubSub, nil
 }
 
 func TestCommits(t *testing.T) {
@@ -58,7 +57,7 @@ func TestCommits(t *testing.T) {
 	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
-	system, cli, err := newTupeloSystem(ctx, ts)
+	system, pubsub, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
 	syncers := system.AllSigners()
@@ -69,6 +68,7 @@ func TestCommits(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
+		cli := client.New(system, string(trans.ObjectID), pubsub)
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
@@ -80,9 +80,12 @@ func TestCommits(t *testing.T) {
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
 
-		newTip, _ := cid.Cast(trans.NewTip)
-		fut := cli.Subscribe(string(trans.ObjectID), newTip, 10*time.Second)
+		cli := client.New(system, string(trans.ObjectID), pubsub)
+		cli.Listen()
+		defer cli.Stop()
 
+		fut := cli.Subscribe(&trans, 10*time.Second)
+		
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 
