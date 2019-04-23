@@ -82,6 +82,7 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
+		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "objectID", msg.CurrentState.Signature.ObjectID)
 		// un-snooze waiting conflict sets
 		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
@@ -90,6 +91,18 @@ func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages
 			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
 			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
+			}
+
+			for _, transWrapper := range msg.FailedTransactions {
+				tn.Log.Debugw("publishing failed transaction", "tx", transWrapper.TransactionID)
+				err := tn.cfg.PubSubSystem.Broadcast(string(transWrapper.Transaction.ObjectID), &extmsgs.Error{
+					Source: string(transWrapper.TransactionID),
+					Code:   ErrBadTransaction,
+					Memo:   fmt.Sprintf("bad transaction"),
+				})
+				if err != nil {
+					tn.Log.Errorw("error publishing", "err", err)
+				}
 			}
 		}
 	} else {
@@ -118,6 +131,14 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		} else {
 			if msg.Stale {
 				tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
+				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
+					Source: string(msg.TransactionID),
+					Code:   ErrBadTransaction,
+					Memo:   "stale",
+				})
+				if err != nil {
+					tn.Log.Errorw("error publishing", "err", err)
+				}
 			} else {
 				tn.Log.Debugw("removing bad transaction", "msg", msg)
 				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{

@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -492,6 +493,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 			if cs.snoozedCommit != nil {
 				return fmt.Errorf("received new commit with one already snoozed")
 			}
+			csw.Log.Debugw("snoozing commit")
 			cs.snoozedCommit = currWrapper
 			return nil
 		}
@@ -500,6 +502,9 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 			transSpan := t.NewSpan("handleCurrentStateWrapper")
 			transSpan.SetTag("done", true)
 			transSpan.Finish()
+			if !bytes.Equal(t.Transaction.NewTip, currWrapper.CurrentState.Signature.NewTip) {
+				currWrapper.FailedTransactions = append(currWrapper.FailedTransactions, t)
+			}
 		}
 
 		cs.done = true
