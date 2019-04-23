@@ -51,7 +51,7 @@ tupelo: $(packr) $(generated) $(gosources) go.mod go.sum
 	go build ./...
 
 lint: $(FIRSTGOPATH)/bin/golangci-lint
-	$(FIRSTGOPATH)/bin/golangci-lint run
+	$(FIRSTGOPATH)/bin/golangci-lint run --build-tags integration
 
 $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
