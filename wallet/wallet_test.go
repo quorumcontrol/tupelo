@@ -15,7 +15,6 @@ import (
 	ipfsCore "github.com/ipfs/go-ipfs/core"
 	ipfsCoreHttp "github.com/ipfs/go-ipfs/core/corehttp"
 	ipfsMock "github.com/ipfs/go-ipfs/core/mock"
-	ipfsPluginLoader "github.com/ipfs/go-ipfs/plugin/loader"
 	ipfsFsRepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	ma "github.com/multiformats/go-multiaddr"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/ipfs"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
@@ -109,11 +109,7 @@ func TestIpldWallet(t *testing.T) {
 		},
 	}
 
-	plugins, err := ipfsPluginLoader.NewPluginLoader("")
-	require.Nil(t, err)
-	err = plugins.Initialize()
-	require.Nil(t, err)
-	err = plugins.Inject()
+	err = ipfs.InjectPlugins()
 	require.Nil(t, err)
 
 	conf, err := ipfsConfig.Init(os.Stdout, 2048)
