@@ -5,23 +5,26 @@ import (
 	"testing"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/Workiva/go-datastructures/bitarray"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCommitValidator(t *testing.T) {
 	numMembers := 3
+	ts := testnotarygroup.NewTestSet(t, numMembers)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ts := testnotarygroup.NewTestSet(t, numMembers)
+	notaryGroup, _, err := newTupeloSystem(ctx, ts)
+	require.Nil(t, err)
 
-	t.Run("with everything valid", func(t *testing.T) {
-		notaryGroup, _, err := newTupeloSystem(ctx, ts)
-		require.Nil(t, err)
-
+	t.Run("passes with everything valid", func(t *testing.T) {
 		// stub out actual signature verification
 		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
 		defer alwaysVerifier.Stop()
@@ -42,4 +45,93 @@ func TestCommitValidator(t *testing.T) {
 		require.True(t, validator.validate(ctx, "", currentState))
 	})
 
+	t.Run("fails with invalid signatures", func(t *testing.T) {
+		// stub out actual signature verification
+		neverVerifier := actor.EmptyRootContext.SpawnPrefix(NewNeverVerifierProps(), "alwaysVerifier")
+		defer neverVerifier.Stop()
+
+		validator := newCommitValidator(notaryGroup, neverVerifier)
+
+		arry := bitarray.NewSparseBitArray()
+		arry.SetBit(0)
+		arry.SetBit(1)
+		marshaledArray, err := bitarray.Marshal(arry)
+		require.Nil(t, err)
+		currentState := &extmsgs.CurrentState{
+			Signature: &extmsgs.Signature{
+				Signers: marshaledArray,
+			},
+		}
+
+		require.False(t, validator.validate(ctx, "", currentState))
+	})
+
+	t.Run("fails with not enough signatures", func(t *testing.T) {
+		// stub out actual signature verification
+		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
+		defer alwaysVerifier.Stop()
+
+		validator := newCommitValidator(notaryGroup, alwaysVerifier)
+
+		arry := bitarray.NewSparseBitArray()
+		arry.SetBit(0)
+		marshaledArray, err := bitarray.Marshal(arry)
+		require.Nil(t, err)
+		currentState := &extmsgs.CurrentState{
+			Signature: &extmsgs.Signature{
+				Signers: marshaledArray,
+			},
+		}
+
+		require.False(t, validator.validate(ctx, "", currentState))
+	})
+
+	t.Run("fails the second time through", func(t *testing.T) {
+		// stub out actual signature verification
+		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
+		defer alwaysVerifier.Stop()
+
+		validator := newCommitValidator(notaryGroup, alwaysVerifier)
+
+		arry := bitarray.NewSparseBitArray()
+		arry.SetBit(0)
+		arry.SetBit(1)
+		marshaledArray, err := bitarray.Marshal(arry)
+		require.Nil(t, err)
+		currentState := &extmsgs.CurrentState{
+			Signature: &extmsgs.Signature{
+				ObjectID: []byte("object"),
+				NewTip:   []byte("newtip"),
+				Signers:  marshaledArray,
+			},
+		}
+
+		// first time through it's all good
+		require.True(t, validator.validate(ctx, "", currentState))
+
+		// second time fails because we've already seen the commit
+		require.False(t, validator.validate(ctx, "", currentState))
+	})
+
+}
+
+type NeverVerifier struct {
+	middleware.LogAwareHolder
+}
+
+func NewNeverVerifierProps() *actor.Props {
+	return actor.PropsFromProducer(func() actor.Actor {
+		return new(NeverVerifier)
+	}).WithReceiverMiddleware(
+		middleware.LoggingMiddleware,
+		plugin.Use(&middleware.LogPlugin{}),
+	)
+}
+
+func (nv *NeverVerifier) Receive(context actor.Context) {
+	switch msg := context.Message().(type) {
+	case *messages.SignatureVerification:
+		msg.Verified = false
+		context.Respond(msg)
+	}
 }
