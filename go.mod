@@ -33,7 +33,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/quorumcontrol/chaintree v0.0.0-20190419151602-218126bd680e
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-beb25ee192f817b255e1776857d1cd652128fe25
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-a9dde90e4820c3bcc133be167c4f4a50d253f4b9
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
