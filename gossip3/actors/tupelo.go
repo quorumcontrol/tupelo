@@ -76,6 +76,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 
 func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
+		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.MustMarshal())
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
@@ -83,11 +84,9 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "objectID", msg.CurrentState.Signature.ObjectID)
 		// un-snooze waiting conflict sets
 		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
-		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
+
 		// if we are the ones creating this current state then broadcast
 		if msg.Internal {
-			// TODO: publish on the commit topic
-
 			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
 			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
