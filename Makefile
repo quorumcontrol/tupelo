@@ -31,16 +31,13 @@ $(call GUARD,VERSION):
 $(FIRSTGOPATH)/bin/protoc-gen-go:
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
-$(FIRSTGOPATH)/bin/msgp:
-	go get -u -t github.com/tinylib/msgp
-
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
 
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
-$(generated): wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPATH)/bin/protoc-gen-go
+$(generated): wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/protoc-gen-go
 	cd wallet/walletrpc && go generate
 
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
