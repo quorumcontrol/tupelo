@@ -26,7 +26,6 @@ import (
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -130,22 +129,16 @@ func setupLocalSigner(ctx context.Context, pubSubSystem remote.PubSub, group *go
 
 	signer := gossip3types.NewLocalSigner(&ecdsaKey.PublicKey, blsKey)
 
-	// commitPath := signerCommitPath(storagePath, signer)
 	currentPath := signerCurrentPath(storagePath, signer)
 
-	// commitStore, err := storage.NewBadgerStorage(commitPath)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("error setting up badger storage: %v", err))
-	// }
 	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		panic(fmt.Sprintf("error setting up badger storage: %v", err))
 	}
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:        signer,
-		NotaryGroup: group,
-		// CommitStore:       commitStore,
+		Self:              signer,
+		NotaryGroup:       group,
 		CurrentStateStore: currentStore,
 		PubSubSystem:      pubSubSystem,
 	}), syncerActorName(signer))
@@ -175,10 +168,6 @@ func setupLocalNetwork(ctx context.Context, pubSubSystem remote.PubSub, nodeCoun
 	for _, keys := range privateKeys {
 		log.Info("setting up gossip node")
 		setupLocalSigner(ctx, pubSubSystem, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
-	}
-
-	for _, signer := range group.AllSigners() {
-		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 	}
 
 	return group

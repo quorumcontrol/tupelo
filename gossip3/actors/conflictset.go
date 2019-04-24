@@ -147,11 +147,6 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 		if err := csw.handleCurrentStateWrapper(cs, context, msg); err != nil {
 			csw.Log.Errorw("error handling current state", "err", err)
 		}
-	// case *extmsgs.CurrentState:
-	// 	csw.Log.Errorw("current state")
-	// 	if err := csw.handleCurrentState(cs, context, msg); err != nil {
-	// 		panic(err)
-	// 	}
 	case *checkStateMsg:
 		csw.checkState(cs, context, msg)
 	case *messages.ActivateSnoozingConflictSets:
@@ -189,43 +184,6 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, m
 		})
 	}
 }
-
-// func (csw *ConflictSetWorker) handleCurrentState(cs *ConflictSet, context actor.Context, msg *extmsgs.CurrentState) error {
-// 	sp := cs.NewSpan("handleCurrentState")
-// 	defer sp.Finish()
-
-// 	csw.Log.Debugw("handling currentState", "height", msg.Signature.Height, "nextHeight", msg.nextHeight,
-// 		"objectID", msg.objectID, "cs.active", cs.active)
-
-// 	var currState extmsgs.CurrentState
-// 	if _, err := currState.UnmarshalMsg(msg.store.Value); err != nil {
-// 		return fmt.Errorf("error unmarshaling: %v", err)
-// 	}
-
-// 	csw.Log.Debugw("unmarshaled current state from commit notification successfully", "height",
-// 		currState.Signature.Height)
-// 	if currState.Signature.Height != msg.height {
-// 		return fmt.Errorf("current state height != commit height")
-// 	}
-
-// 	wrapper := &messages.CurrentStateWrapper{
-// 		CurrentState: &currState,
-// 		Internal:     false,
-// 		Key:          msg.store.Key,
-// 		Value:        msg.store.Value,
-// 		Metadata:     messages.MetadataMap{"seen": time.Now()},
-// 	}
-
-// 	setupCurrStateCtx(wrapper, cs)
-
-// 	if msg.height == msg.nextHeight {
-// 		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
-// 		sp.SetTag("activating", true)
-// 		cs.active = true
-// 	}
-
-// 	return csw.requestSignatureVerification(cs, context, wrapper)
-// }
 
 func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context actor.Context, msg *messages.TransactionWrapper) {
 	sp := cs.NewSpan("handleNewTransaction")

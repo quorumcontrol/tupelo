@@ -37,7 +37,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo-go-client/tracing"
 	gossip3actors "github.com/quorumcontrol/tupelo/gossip3/actors"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -73,7 +72,6 @@ var testnodeCmd = &cobra.Command{
 		if enableElasticTracing {
 			tracing.StartElastic()
 		}
-		actor.EmptyRootContext.Send(signer.Actor, &messages.StartGossip{})
 		stopOnSignal(signer)
 	},
 }
@@ -124,13 +122,8 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	log.Info("starting up a test node")
 
 	storagePath := configDir(namespace)
-
-	// commitPath := signerCommitPath(storagePath, localSigner)
 	currentPath := signerCurrentPath(storagePath, localSigner)
-	// badgerCommit, err := storage.NewBadgerStorage(commitPath)
-	// if err != nil {
-	// 	panic(fmt.Sprintf("error creating storage: %v", err))
-	// }
+
 	badgerCurrent, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		panic(fmt.Sprintf("error creating storage: %v", err))

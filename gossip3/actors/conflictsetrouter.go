@@ -38,13 +38,6 @@ type ConflictSetRouterConfig struct {
 	CurrentStateStore  storage.Reader
 }
 
-// type commitNotification struct {
-// 	store      *extmsgs.Store
-// 	objectID   []byte
-// 	height     uint64
-// 	nextHeight uint64
-// }
-
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 	cache, err := lru.New(recentlyDoneConflictCacheSize)
 	if err != nil {

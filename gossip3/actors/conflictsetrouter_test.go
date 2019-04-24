@@ -283,16 +283,6 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	conflictSetRouter1 := csInterface1.(*actor.PID)
 
 	rootContext.Send(conflictSetRouter1, currentStateWrapper.CurrentState)
-	// &commitNotification{
-	// 	objectID: trans.ObjectID,
-	// 	store: &extmsgs.Store{
-	// 		Key:        currentStateWrapper.CurrentState.CommittedKey(),
-	// 		Value:      currentStateWrapper.Value,
-	// 		SkipNotify: currentStateWrapper.Internal,
-	// 	},
-	// 	height:     currentStateWrapper.CurrentState.Signature.Height,
-	// 	nextHeight: 0,
-	// })
 
 	msg, err = fut1.Result()
 	require.Nil(t, err)
@@ -491,15 +481,6 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 
 	t.Logf("sending commit notification to conflict set router #1")
 	ctx.Send(conflictSetRouter0, currentStateWrapper1.CurrentState)
-	// 	&commitNotification{
-	// 	objectID: trans3.ObjectID,
-	// 	store: &extmsgs.Store{
-	// 		Key:        []byte(extmsgs.ConflictSetID(trans3.ObjectID, trans3.Height)),
-	// 		Value:      currentStateWrapper1.Value,
-	// 		SkipNotify: currentStateWrapper1.Internal,
-	// 	},
-	// 	height: trans3.Height,
-	// })
 
 	t.Log("waiting for current state wrapper #3 from parent actor #1")
 	currentStateWrapper2 := <-cswChan0

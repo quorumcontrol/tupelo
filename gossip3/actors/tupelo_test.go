@@ -14,7 +14,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,9 +27,8 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
-			Self:        signer,
-			NotaryGroup: ng,
-			// CommitStore:       storage.NewMemStorage(),
+			Self:              signer,
+			NotaryGroup:       ng,
 			CurrentStateStore: storage.NewMemStorage(),
 			PubSubSystem:      simulatedPubSub,
 		}), "tupelo-"+signer.ID)
@@ -64,17 +62,11 @@ func TestCommits(t *testing.T) {
 	require.Len(t, system.Signers, numMembers)
 	t.Logf("syncer 0 id: %s", syncers[0].ID)
 
-	rootContext := actor.EmptyRootContext
-
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
 		cli := client.New(system, string(trans.ObjectID), pubsub)
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
-	}
-
-	for _, s := range syncers {
-		rootContext.Send(s.Actor, &messages.StartGossip{})
 	}
 
 	t.Run("commits a good transaction", func(t *testing.T) {
