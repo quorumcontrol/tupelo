@@ -21,18 +21,21 @@ import (
 	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
 
-	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
 type RPCSession struct {
-	client    *gossip3client.Client
-	wallet    *wallet.FileWallet
-	isStarted bool
+	pubsub      remote.PubSub
+	notaryGroup *types.NotaryGroup
+	wallet      *wallet.FileWallet
+	isStarted   bool
 }
 
 type ExistingChainError struct {
@@ -63,15 +66,16 @@ func (e *NilTipError) Error() string {
 	return fmt.Sprintf("Chain tree with id %v is not known to the notary group %v", e.chainId, e.notaryGroup)
 }
 
-func NewSession(storagePath string, walletName string, gossipClient *gossip3client.Client) (*RPCSession, error) {
+func NewSession(storagePath string, walletName string, notaryGroup *types.NotaryGroup, pubsub remote.PubSub) (*RPCSession, error) {
 	path := walletPath(storagePath, walletName)
 
 	fileWallet := wallet.NewFileWallet(path)
 
 	return &RPCSession{
-		client:    gossipClient,
-		wallet:    fileWallet,
-		isStarted: false,
+		pubsub:      pubsub,
+		notaryGroup: notaryGroup,
+		wallet:      fileWallet,
+		isStarted:   false,
 	}, nil
 }
 
@@ -389,7 +393,9 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 		return nil, StoppedError
 	}
 
-	tipResp, err := rpcs.client.TipRequest(id)
+	client := client.New(rpcs.notaryGroup, id, rpcs.pubsub)
+
+	tipResp, err := client.TipRequest()
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +403,7 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 	if len(tipResp.Signature.NewTip) == 0 {
 		return nil, &NilTipError{
 			chainId:     id,
-			notaryGroup: rpcs.client.Group,
+			notaryGroup: rpcs.notaryGroup,
 		}
 	}
 
@@ -414,6 +420,10 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 		return nil, StoppedError
 	}
 
+	cli := client.New(rpcs.notaryGroup, chainId, rpcs.pubsub)
+	cli.Listen()
+	defer cli.Stop()
+
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
 		return nil, err
@@ -429,7 +439,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 		remoteTip = chain.Tip()
 	}
 
-	resp, err := rpcs.client.PlayTransactions(chain, key, &remoteTip, transactions)
+	resp, err := cli.PlayTransactions(chain, key, &remoteTip, transactions)
 	if err != nil {
 		return nil, err
 	}

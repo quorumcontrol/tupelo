@@ -91,7 +91,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
 		csr.forwardOrIgnore(context, context.Message(), msg.Signature.ObjectID, msg.Signature.Height)
 	case *extmsgs.Signature:
-		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID)
+		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID())
 		csr.forwardOrIgnore(context, context.Message(), msg.ObjectID, msg.Height)
 	case *commitNotification:
 		csr.Log.Debugw("received commit notification, computing next transaction height")
@@ -110,6 +110,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 			context.Forward(parent)
 		}
 	case *messages.ActivateSnoozingConflictSets:
+		csr.Log.Debugw("csr received activate snoozed")
 		csr.activateSnoozingConflictSets(context, msg.ObjectID)
 	case *messages.ValidateTransaction:
 		if parent := context.Parent(); parent != nil {
@@ -234,16 +235,17 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *Con
 }
 
 func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
-	conflictSetID := extmsgs.ConflictSetID(objectID, csr.nextHeight(objectID))
-
-	cs, ok := csr.conflictSets.Get([]byte(conflictSetIDToInternalID([]byte(conflictSetID))))
+	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, csr.nextHeight(objectID)))
+	cs, ok := csr.conflictSets.Get(nodeID)
 	if ok {
-		csr.Log.Debugw("activating snoozed", "cs", conflictSetIDToInternalID([]byte(conflictSetID)))
+		csr.Log.Debugw("activating snoozed", "cs", nodeID)
 		context.Send(csr.pool, &csWorkerRequest{
 			cs:  cs.(*ConflictSet),
 			msg: context.Message(),
 		})
+		return
 	}
+	csr.Log.Debugw("no conflict sets to desnooze", "objectID", objectID, "height", nextHeight)
 }
 
 func conflictSetIDToInternalID(id []byte) string {
