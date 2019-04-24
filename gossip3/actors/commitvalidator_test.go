@@ -32,8 +32,11 @@ func TestCommitValidator(t *testing.T) {
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 
 		arry := bitarray.NewSparseBitArray()
-		arry.SetBit(0)
-		arry.SetBit(1)
+		err := arry.SetBit(0)
+		require.Nil(t, err)
+		err = arry.SetBit(1)
+		require.Nil(t, err)
+
 		marshaledArray, err := bitarray.Marshal(arry)
 		require.Nil(t, err)
 		currentState := &extmsgs.CurrentState{
@@ -53,8 +56,11 @@ func TestCommitValidator(t *testing.T) {
 		validator := newCommitValidator(notaryGroup, neverVerifier)
 
 		arry := bitarray.NewSparseBitArray()
-		arry.SetBit(0)
-		arry.SetBit(1)
+		err := arry.SetBit(0)
+		require.Nil(t, err)
+		err = arry.SetBit(1)
+		require.Nil(t, err)
+
 		marshaledArray, err := bitarray.Marshal(arry)
 		require.Nil(t, err)
 		currentState := &extmsgs.CurrentState{
@@ -74,7 +80,9 @@ func TestCommitValidator(t *testing.T) {
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 
 		arry := bitarray.NewSparseBitArray()
-		arry.SetBit(0)
+		err := arry.SetBit(0)
+		require.Nil(t, err)
+
 		marshaledArray, err := bitarray.Marshal(arry)
 		require.Nil(t, err)
 		currentState := &extmsgs.CurrentState{
@@ -94,8 +102,12 @@ func TestCommitValidator(t *testing.T) {
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 
 		arry := bitarray.NewSparseBitArray()
-		arry.SetBit(0)
-		arry.SetBit(1)
+
+		err := arry.SetBit(0)
+		require.Nil(t, err)
+		err = arry.SetBit(1)
+		require.Nil(t, err)
+
 		marshaledArray, err := bitarray.Marshal(arry)
 		require.Nil(t, err)
 		currentState := &extmsgs.CurrentState{

@@ -103,14 +103,6 @@ func syncerActorName(signer *gossip3types.Signer) string {
 	return "tupelo-" + signer.ID
 }
 
-func signerCommitPath(storagePath string, signer *gossip3types.Signer) (path string) {
-	path = filepath.Join(storagePath, signer.ID+"-commit")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		panic(err)
-	}
-	return
-}
-
 func signerCurrentPath(storagePath string, signer *gossip3types.Signer) (path string) {
 	path = filepath.Join(storagePath, signer.ID+"-current")
 	if err := os.MkdirAll(path, 0755); err != nil {

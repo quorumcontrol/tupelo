@@ -18,7 +18,6 @@ import (
 
 const commitPubSubTopic = "tupelo-commits"
 
-const committedKind = "committed"
 const ErrBadTransaction = 1
 
 // TupeloNode is the main logic of the entire system,
@@ -199,7 +198,10 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	}
 
 	topicValidator := newCommitValidator(tn.cfg.NotaryGroup, sigChecker)
-	tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(500*time.Millisecond), pubsub.WithValidatorConcurrency(verifierConcurrency*2))
+	err = tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(500*time.Millisecond), pubsub.WithValidatorConcurrency(verifierConcurrency*2))
+	if err != nil {
+		panic(fmt.Sprintf("error registering topic validator: %v", err))
+	}
 
 	_, err = context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
 	if err != nil {
