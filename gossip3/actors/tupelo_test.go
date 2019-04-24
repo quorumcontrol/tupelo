@@ -2,6 +2,7 @@ package actors
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -71,6 +72,9 @@ func TestCommits(t *testing.T) {
 
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
+		t.Logf("trans id: %s, objectID: %s, base64 obj: %s", base64.StdEncoding.EncodeToString(trans.ID()), string(trans.ObjectID), base64.StdEncoding.EncodeToString(trans.ObjectID))
+
+		middleware.SetLogLevel("debug")
 
 		cli := client.New(system, string(trans.ObjectID), pubsub)
 		cli.Listen()
@@ -85,6 +89,7 @@ func TestCommits(t *testing.T) {
 
 		require.Nil(t, err)
 		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.ObjectID, trans.ObjectID)
 	})
 
 }

@@ -74,6 +74,14 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 }
 
 func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
+	if !msg.Verified && msg.Internal {
+		// then we can broadcast to the commit topic, if it's valid it'll come right back to us.
+
+		if err := tn.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
+			tn.Log.Errorw("error publishing", "err", err)
+		}
+		return
+	}
 	if msg.Verified {
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.MustMarshal())
@@ -88,9 +96,6 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 		if msg.Internal {
 			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
 			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
-				tn.Log.Errorw("error publishing", "err", err)
-			}
-			if err := tn.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
 			}
 
