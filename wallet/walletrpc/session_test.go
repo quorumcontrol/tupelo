@@ -12,7 +12,6 @@ import (
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -31,8 +30,7 @@ func TestImportExport(t *testing.T) {
 
 	pubSubSystem := remote.NewSimulatedPubSub()
 
-	client := client.New(ng, pubSubSystem)
-	sess, err := NewSession(path, "test-only", client)
+	sess, err := NewSession(path, "test-only", ng, pubSubSystem)
 	require.Nil(t, err)
 
 	err = sess.CreateWallet("test")
@@ -60,7 +58,7 @@ func TestImportExport(t *testing.T) {
 	assert.Equal(t, chain.MustId(), imported.MustId())
 
 	// Test importing to different wallet
-	sessNew, err := NewSession(path, "test-only-new", client)
+	sessNew, err := NewSession(path, "test-only-new", ng, pubSubSystem)
 	require.Nil(t, err)
 
 	err = sessNew.CreateWallet("test-new")
@@ -101,8 +99,7 @@ func TestSendToken(t *testing.T) {
 	defer syncer.Poison()
 	ng.AddSigner(signer)
 
-	tupeloClient := client.New(ng, pubSubSystem)
-	sess, err := NewSession(path, "send-token-test", tupeloClient)
+	sess, err := NewSession(path, "send-token-test", ng, pubSubSystem)
 	require.Nil(t, err)
 
 	err = sess.CreateWallet("test")

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -64,8 +63,7 @@ var shellCmd = &cobra.Command{
 			panic(err)
 		}
 
-		client := gossip3client.New(group, pubSubSystem)
-		walletshell.RunGossip(shellName, walletStorage, client)
+		walletshell.RunGossip(shellName, walletStorage, group, pubSubSystem)
 	},
 }
 

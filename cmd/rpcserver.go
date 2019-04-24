@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -259,19 +258,17 @@ var rpcServerCmd = &cobra.Command{
 		}
 		walletStorage := walletPath()
 
-		client := gossip3client.New(group, pubSubSystem)
-
 		var grpcServer *grpc.Server
 
 		if tls {
 			panicWithoutTLSOpts()
-			server, err := walletrpc.ServeTLS(walletStorage, client, certFile, keyFile, defaultPort)
+			server, err := walletrpc.ServeTLS(walletStorage, group, pubSubSystem, certFile, keyFile, defaultPort)
 			if err != nil {
 				panic(err)
 			}
 			grpcServer = server
 		} else {
-			server, err := walletrpc.ServeInsecure(walletStorage, client, defaultPort)
+			server, err := walletrpc.ServeInsecure(walletStorage, group, pubSubSystem, defaultPort)
 			if err != nil {
 				panic(err)
 			}

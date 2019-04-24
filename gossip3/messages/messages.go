@@ -95,6 +95,8 @@ type CurrentStateWrapper struct {
 	Metadata     MetadataMap
 	Key          []byte
 	Value        []byte
+
+	FailedTransactions []*TransactionWrapper
 }
 
 type TransactionWrapper struct {
