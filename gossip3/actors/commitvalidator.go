@@ -16,10 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// I think if we had a validator that a) made sure the only publisher was the notary group, b) the commit is valid (sigs and stuff) and c) wasn't a repeat commit that had already been seen that we could move the incoming commit validation work to the gossipsub
-// and then in the app layer we could just treat commit messages as "good"
-
-// the commitValidator is a pubsub validator that makes sure the signatures are correct
+// the commitValidator is a pubsub validator that makes sure that
+// a currentState message on this topic is valid
 type commitValidator struct {
 	notaryGroup      *types.NotaryGroup
 	signatureChecker *actor.PID
