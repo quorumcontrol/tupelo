@@ -53,7 +53,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	sig := currState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
-		cv.log.Errorw("error unmarshaling signer bit array")
+		cv.log.Errorw("error unmarshaling signer bit array", "err", err)
 		return false
 	}
 	var verKeys [][]byte
@@ -62,7 +62,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	for i, signer := range signers {
 		isSet, err := signerArray.GetBit(uint64(i))
 		if err != nil {
-			// return fmt.Errorf("error getting bit: %v", err)
+			cv.log.Errorw("error getting bit", "err", err)
 			return false
 		}
 		if isSet {
@@ -71,7 +71,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	}
 
 	if uint64(len(verKeys)) < cv.notaryGroup.QuorumCount() {
-		cv.log.Infow("too few signatures on commit message")
+		cv.log.Infow("too few signatures on commit message", "lenVerKeys", len(verKeys), "quorumAt", cv.notaryGroup.QuorumCount())
 		return false
 	}
 
