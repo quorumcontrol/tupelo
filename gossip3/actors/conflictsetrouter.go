@@ -90,7 +90,6 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *extmsgs.CurrentState:
 		wrapper := &messages.CurrentStateWrapper{
 			CurrentState: msg,
-			Internal:     false,
 			Verified:     true,
 			Metadata:     messages.MetadataMap{"seen": time.Now()},
 			NextHeight:   csr.nextHeight(msg.Signature.ObjectID),
@@ -233,7 +232,8 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *Con
 }
 
 func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
-	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, csr.nextHeight(objectID)))
+	nextHeight := csr.nextHeight(objectID)
+	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, nextHeight))
 	cs, ok := csr.conflictSets.Get(nodeID)
 	if ok {
 		csr.Log.Debugw("activating snoozed", "cs", nodeID)
