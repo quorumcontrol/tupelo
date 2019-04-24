@@ -1,151 +1,151 @@
 package actors
 
-import (
-	"bytes"
-	"math/rand"
-	"strconv"
-	"testing"
-	"time"
+// import (
+// 	"bytes"
+// 	"math/rand"
+// 	"strconv"
+// 	"testing"
+// 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/storage"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-)
+// 	"github.com/AsynkronIT/protoactor-go/actor"
+// 	"github.com/ethereum/go-ethereum/crypto"
+// 	"github.com/quorumcontrol/storage"
+// 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+// 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+// 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+// 	"github.com/stretchr/testify/assert"
+// 	"github.com/stretchr/testify/require"
+// )
 
-type fakeSystem struct {
-	actors []*actor.PID
-}
+// type fakeSystem struct {
+// 	actors []*actor.PID
+// }
 
-func (fs *fakeSystem) GetRandomSyncer() *actor.PID {
-	if len(fs.actors) == 0 {
-		return nil
-	}
+// func (fs *fakeSystem) GetRandomSyncer() *actor.PID {
+// 	if len(fs.actors) == 0 {
+// 		return nil
+// 	}
 
-	return fs.actors[rand.Intn(len(fs.actors))]
-}
+// 	return fs.actors[rand.Intn(len(fs.actors))]
+// }
 
-type fakeValidator struct {
-	subscriptions []*actor.PID
-}
+// type fakeValidator struct {
+// 	subscriptions []*actor.PID
+// }
 
-func (fv *fakeValidator) Receive(context actor.Context) {
-	switch msg := context.Message().(type) {
-	case *messages.SubscribeValidatorWorking:
-		fv.subscriptions = append(fv.subscriptions, msg.Actor)
-	}
-}
+// func (fv *fakeValidator) Receive(context actor.Context) {
+// 	switch msg := context.Message().(type) {
+// 	case *messages.SubscribeValidatorWorking:
+// 		fv.subscriptions = append(fv.subscriptions, msg.Actor)
+// 	}
+// }
 
-func TestGossiper(t *testing.T) {
-	var pusherMsgs []interface{}
-	// var currentPusher *actor.PID
-	fakePusher := func(context actor.Context) {
-		pusherMsgs = append(pusherMsgs, context.Message())
-		// currentPusher = context.Self()
-	}
+// func TestGossiper(t *testing.T) {
+// 	var pusherMsgs []interface{}
+// 	// var currentPusher *actor.PID
+// 	fakePusher := func(context actor.Context) {
+// 		pusherMsgs = append(pusherMsgs, context.Message())
+// 		// currentPusher = context.Self()
+// 	}
 
-	rootContext := actor.EmptyRootContext
+// 	rootContext := actor.EmptyRootContext
 
-	pusherProps := actor.PropsFromFunc(fakePusher)
+// 	pusherProps := actor.PropsFromFunc(fakePusher)
 
-	validator := &fakeValidator{}
-	storage := rootContext.Spawn(actor.PropsFromFunc(validator.Receive))
-	defer storage.Poison()
+// 	validator := &fakeValidator{}
+// 	storage := rootContext.Spawn(actor.PropsFromFunc(validator.Receive))
+// 	defer storage.Poison()
 
-	system := new(fakeSystem)
+// 	system := new(fakeSystem)
 
-	gossiper := rootContext.Spawn(NewGossiperProps("test", storage, system, pusherProps))
-	defer gossiper.Poison()
+// 	gossiper := rootContext.Spawn(NewGossiperProps("test", storage, system, pusherProps))
+// 	defer gossiper.Poison()
 
-	rootContext.Send(gossiper, &messages.StartGossip{})
-	time.Sleep(100 * time.Millisecond)
-	assert.Len(t, pusherMsgs, 2)
-	assert.IsType(t, pusherMsgs[0], &actor.Started{})
-	assert.Equal(t, pusherMsgs[1].(*messages.DoPush).System, system)
+// 	rootContext.Send(gossiper, &messages.StartGossip{})
+// 	time.Sleep(100 * time.Millisecond)
+// 	assert.Len(t, pusherMsgs, 2)
+// 	assert.IsType(t, pusherMsgs[0], &actor.Started{})
+// 	assert.Equal(t, pusherMsgs[1].(*messages.DoPush).System, system)
 
-	// doing another push should have no affect
-	middleware.Log.Infow("do one gossip")
-	rootContext.Send(gossiper, &messages.DoOneGossip{})
+// 	// doing another push should have no affect
+// 	middleware.Log.Infow("do one gossip")
+// 	rootContext.Send(gossiper, &messages.DoOneGossip{})
 
-	assert.Len(t, pusherMsgs, 2)
-}
+// 	assert.Len(t, pusherMsgs, 2)
+// }
 
-func TestFastGossip(t *testing.T) {
-	system := new(fakeSystem)
+// func TestFastGossip(t *testing.T) {
+// 	system := new(fakeSystem)
 
-	rootContext := actor.EmptyRootContext
+// 	rootContext := actor.EmptyRootContext
 
-	numNodes := 5
-	nodes := make([]*actor.PID, numNodes)
-	stores := make([]*actor.PID, numNodes)
-	for i := 0; i < numNodes; i++ {
-		storage := rootContext.Spawn(NewStorageProps(storage.NewMemStorage()))
-		stores[i] = storage
-		defer storage.Poison()
-		pusherProps := NewPushSyncerProps("test", storage)
-		gossiper := rootContext.SpawnPrefix(NewGossiperProps("test", storage, system, pusherProps), "g")
-		defer gossiper.Poison()
-		nodes[i] = gossiper
-	}
-	system.actors = nodes
+// 	numNodes := 5
+// 	nodes := make([]*actor.PID, numNodes)
+// 	stores := make([]*actor.PID, numNodes)
+// 	for i := 0; i < numNodes; i++ {
+// 		storage := rootContext.Spawn(NewStorageProps(storage.NewMemStorage()))
+// 		stores[i] = storage
+// 		defer storage.Poison()
+// 		pusherProps := NewPushSyncerProps("test", storage)
+// 		gossiper := rootContext.SpawnPrefix(NewGossiperProps("test", storage, system, pusherProps), "g")
+// 		defer gossiper.Poison()
+// 		nodes[i] = gossiper
+// 	}
+// 	system.actors = nodes
 
-	// run 1000 transactions in before the one we check
-	// just to make sure it doesn't clog up the system
-	for i := 0; i < 1000; i++ {
-		value := []byte(strconv.Itoa(i))
-		key := crypto.Keccak256(value)
-		rootContext.Send(stores[rand.Intn(len(stores))], &extmsgs.Store{
-			Key:   key,
-			Value: value,
-		})
-	}
-	for _, node := range nodes {
-		rootContext.Send(node, &messages.StartGossip{})
-	}
+// 	// run 1000 transactions in before the one we check
+// 	// just to make sure it doesn't clog up the system
+// 	for i := 0; i < 1000; i++ {
+// 		value := []byte(strconv.Itoa(i))
+// 		key := crypto.Keccak256(value)
+// 		rootContext.Send(stores[rand.Intn(len(stores))], &extmsgs.Store{
+// 			Key:   key,
+// 			Value: value,
+// 		})
+// 	}
+// 	for _, node := range nodes {
+// 		rootContext.Send(node, &messages.StartGossip{})
+// 	}
 
-	value := []byte("hi")
-	key := crypto.Keccak256(value)
+// 	value := []byte("hi")
+// 	key := crypto.Keccak256(value)
 
-	var actorsToKill []*actor.PID
-	subscribe := func(key []byte, store *actor.PID) *actor.Future {
-		fut := actor.NewFuture(1 * time.Second)
-		subActor := func(context actor.Context) {
-			switch msg := context.Message().(type) {
-			case *extmsgs.Store:
-				if bytes.Equal(msg.Key, key) {
-					context.Send(fut.PID(), msg)
-				}
-			}
-		}
-		act := rootContext.Spawn(actor.PropsFromFunc(subActor))
-		rootContext.Send(store, &messages.Subscribe{Subscriber: act})
+// 	var actorsToKill []*actor.PID
+// 	subscribe := func(key []byte, store *actor.PID) *actor.Future {
+// 		fut := actor.NewFuture(1 * time.Second)
+// 		subActor := func(context actor.Context) {
+// 			switch msg := context.Message().(type) {
+// 			case *extmsgs.Store:
+// 				if bytes.Equal(msg.Key, key) {
+// 					context.Send(fut.PID(), msg)
+// 				}
+// 			}
+// 		}
+// 		act := rootContext.Spawn(actor.PropsFromFunc(subActor))
+// 		rootContext.Send(store, &messages.Subscribe{Subscriber: act})
 
-		actorsToKill = append(actorsToKill, act)
-		return fut
-	}
+// 		actorsToKill = append(actorsToKill, act)
+// 		return fut
+// 	}
 
-	futures := make([]*actor.Future, len(stores)-1)
-	for i := 1; i < len(stores); i++ {
-		futures[i-1] = subscribe(key, stores[i])
-	}
-	defer func() {
-		for _, act := range actorsToKill {
-			act.Poison()
-		}
-	}()
+// 	futures := make([]*actor.Future, len(stores)-1)
+// 	for i := 1; i < len(stores); i++ {
+// 		futures[i-1] = subscribe(key, stores[i])
+// 	}
+// 	defer func() {
+// 		for _, act := range actorsToKill {
+// 			act.Poison()
+// 		}
+// 	}()
 
-	rootContext.Send(stores[0], &extmsgs.Store{
-		Key:   key,
-		Value: value,
-	})
+// 	rootContext.Send(stores[0], &extmsgs.Store{
+// 		Key:   key,
+// 		Value: value,
+// 	})
 
-	for _, future := range futures {
-		res, err := future.Result()
-		require.Nil(t, err)
-		assert.Equal(t, key, res.(*extmsgs.Store).Key)
-	}
-}
+// 	for _, future := range futures {
+// 		res, err := future.Result()
+// 		require.Nil(t, err)
+// 		assert.Equal(t, key, res.(*extmsgs.Store).Key)
+// 	}
+// }

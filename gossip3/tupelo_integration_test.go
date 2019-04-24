@@ -105,10 +105,10 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 		return nil, nil, err
 	}
 
-	commitStore, err := storage.NewBadgerStorage(commitPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error badgering: %v", err)
-	}
+	// commitStore, err := storage.NewBadgerStorage(commitPath)
+	// if err != nil {
+	// 	return nil, nil, fmt.Errorf("error badgering: %v", err)
+	// }
 	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
@@ -126,9 +126,9 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	remote.NewRouter(node)
 
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              localSigner,
-		NotaryGroup:       ng,
-		CommitStore:       commitStore,
+		Self:        localSigner,
+		NotaryGroup: ng,
+		// CommitStore:       commitStore,
 		CurrentStateStore: currentStore,
 		PubSubSystem:      remote.NewNetworkPubSub(node),
 	}), "tupelo-"+localSigner.ID)

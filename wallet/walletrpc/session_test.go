@@ -88,9 +88,9 @@ func TestSendToken(t *testing.T) {
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              signer,
-		NotaryGroup:       ng,
-		CommitStore:       storage.NewMemStorage(),
+		Self:        signer,
+		NotaryGroup: ng,
+		// CommitStore:       storage.NewMemStorage(),
 		CurrentStateStore: storage.NewMemStorage(),
 		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)

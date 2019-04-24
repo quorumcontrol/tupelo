@@ -1,6 +1,8 @@
 package messages
 
 import (
+	"fmt"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
@@ -63,11 +65,11 @@ type RoundTransition struct {
 
 type GetThreadsafeReader struct{}
 
-type NewValidCurrentState struct {
-	CurrentState *extmsgs.CurrentState
-	Key          []byte
-	Value        []byte
-}
+// type NewValidCurrentState struct {
+// 	CurrentState *extmsgs.CurrentState
+// 	Key          []byte
+// 	Value        []byte
+// }
 
 type SignatureWrapper struct {
 	Internal         bool
@@ -93,10 +95,19 @@ type CurrentStateWrapper struct {
 	Verified     bool
 	CurrentState *extmsgs.CurrentState
 	Metadata     MetadataMap
-	Key          []byte
-	Value        []byte
+	// Key          []byte
+	// Value        []byte
+	NextHeight uint64
 
 	FailedTransactions []*TransactionWrapper
+}
+
+func (csw *CurrentStateWrapper) MustMarshal() []byte {
+	bits, err := csw.CurrentState.MarshalMsg(nil)
+	if err != nil {
+		panic(fmt.Errorf("error marshaling (should not happen): %v", err))
+	}
+	return bits
 }
 
 type TransactionWrapper struct {

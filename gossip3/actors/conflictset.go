@@ -147,12 +147,11 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 		if err := csw.handleCurrentStateWrapper(cs, context, msg); err != nil {
 			csw.Log.Errorw("error handling current state", "err", err)
 		}
-	case *extmsgs.CurrentState:
-		csw.Log.Errorw("something called this")
-	case *commitNotification:
-		if err := csw.handleCommit(cs, context, msg); err != nil {
-			panic(err)
-		}
+	// case *extmsgs.CurrentState:
+	// 	csw.Log.Errorw("current state")
+	// 	if err := csw.handleCurrentState(cs, context, msg); err != nil {
+	// 		panic(err)
+	// 	}
 	case *checkStateMsg:
 		csw.checkState(cs, context, msg)
 	case *messages.ActivateSnoozingConflictSets:
@@ -191,42 +190,42 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, m
 	}
 }
 
-func (csw *ConflictSetWorker) handleCommit(cs *ConflictSet, context actor.Context, msg *commitNotification) error {
-	sp := cs.NewSpan("handleCommit")
-	defer sp.Finish()
+// func (csw *ConflictSetWorker) handleCurrentState(cs *ConflictSet, context actor.Context, msg *extmsgs.CurrentState) error {
+// 	sp := cs.NewSpan("handleCurrentState")
+// 	defer sp.Finish()
 
-	csw.Log.Debugw("handling commit", "height", msg.height, "nextHeight", msg.nextHeight,
-		"objectID", msg.objectID, "cs.active", cs.active)
+// 	csw.Log.Debugw("handling currentState", "height", msg.Signature.Height, "nextHeight", msg.nextHeight,
+// 		"objectID", msg.objectID, "cs.active", cs.active)
 
-	var currState extmsgs.CurrentState
-	if _, err := currState.UnmarshalMsg(msg.store.Value); err != nil {
-		return fmt.Errorf("error unmarshaling: %v", err)
-	}
+// 	var currState extmsgs.CurrentState
+// 	if _, err := currState.UnmarshalMsg(msg.store.Value); err != nil {
+// 		return fmt.Errorf("error unmarshaling: %v", err)
+// 	}
 
-	csw.Log.Debugw("unmarshaled current state from commit notification successfully", "height",
-		currState.Signature.Height)
-	if currState.Signature.Height != msg.height {
-		return fmt.Errorf("current state height != commit height")
-	}
+// 	csw.Log.Debugw("unmarshaled current state from commit notification successfully", "height",
+// 		currState.Signature.Height)
+// 	if currState.Signature.Height != msg.height {
+// 		return fmt.Errorf("current state height != commit height")
+// 	}
 
-	wrapper := &messages.CurrentStateWrapper{
-		CurrentState: &currState,
-		Internal:     false,
-		Key:          msg.store.Key,
-		Value:        msg.store.Value,
-		Metadata:     messages.MetadataMap{"seen": time.Now()},
-	}
+// 	wrapper := &messages.CurrentStateWrapper{
+// 		CurrentState: &currState,
+// 		Internal:     false,
+// 		Key:          msg.store.Key,
+// 		Value:        msg.store.Value,
+// 		Metadata:     messages.MetadataMap{"seen": time.Now()},
+// 	}
 
-	setupCurrStateCtx(wrapper, cs)
+// 	setupCurrStateCtx(wrapper, cs)
 
-	if msg.height == msg.nextHeight {
-		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
-		sp.SetTag("activating", true)
-		cs.active = true
-	}
+// 	if msg.height == msg.nextHeight {
+// 		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
+// 		sp.SetTag("activating", true)
+// 		cs.active = true
+// 	}
 
-	return csw.requestSignatureVerification(cs, context, wrapper)
-}
+// 	return csw.requestSignatureVerification(cs, context, wrapper)
+// }
 
 func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context actor.Context, msg *messages.TransactionWrapper) {
 	sp := cs.NewSpan("handleNewTransaction")
@@ -427,16 +426,9 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 		},
 	}
 
-	marshaledState, err := currState.MarshalMsg(nil)
-	if err != nil {
-		return fmt.Errorf("error marshaling: %v", err)
-	}
-
 	currStateWrapper := &messages.CurrentStateWrapper{
 		Internal:     true,
 		CurrentState: currState,
-		Key:          currState.CommittedKey(),
-		Value:        marshaledState,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
 
@@ -480,11 +472,18 @@ func (csw *ConflictSetWorker) requestSignatureVerification(cs *ConflictSet, cont
 }
 
 func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
+	sp := cs.NewSpan("handleCurrentStateWrapper")
+	defer sp.Finish()
+
+	if !cs.active && (currWrapper.CurrentState.Signature.Height == currWrapper.NextHeight) {
+		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
+		sp.SetTag("activating", true)
+		cs.active = true
+	}
+
 	currWrapperSpan := currWrapper.NewSpan("handleCurrentStateWrapper")
 	defer currWrapper.StopTrace()
 	defer currWrapperSpan.Finish()
-	sp := cs.NewSpan("handleCurrentStateWrapper")
-	defer sp.Finish()
 
 	csw.Log.Debugw("handleCurrentStateWrapper", "internal", currWrapper.Internal, "verified", currWrapper.Verified)
 

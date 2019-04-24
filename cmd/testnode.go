@@ -125,12 +125,12 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 
 	storagePath := configDir(namespace)
 
-	commitPath := signerCommitPath(storagePath, localSigner)
+	// commitPath := signerCommitPath(storagePath, localSigner)
 	currentPath := signerCurrentPath(storagePath, localSigner)
-	badgerCommit, err := storage.NewBadgerStorage(commitPath)
-	if err != nil {
-		panic(fmt.Sprintf("error creating storage: %v", err))
-	}
+	// badgerCommit, err := storage.NewBadgerStorage(commitPath)
+	// if err != nil {
+	// 	panic(fmt.Sprintf("error creating storage: %v", err))
+	// }
 	badgerCurrent, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		panic(fmt.Sprintf("error creating storage: %v", err))
@@ -155,9 +155,9 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 	gossip3remote.NewRouter(p2pHost)
 
 	act, err := actor.SpawnNamed(gossip3actors.NewTupeloNodeProps(&gossip3actors.TupeloConfig{
-		Self:              localSigner,
-		NotaryGroup:       group,
-		CommitStore:       badgerCommit,
+		Self:        localSigner,
+		NotaryGroup: group,
+		// CommitStore:       badgerCommit,
 		CurrentStateStore: badgerCurrent,
 		PubSubSystem:      remote.NewNetworkPubSub(p2pHost),
 	}), syncerActorName(localSigner))

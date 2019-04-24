@@ -28,9 +28,9 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
-			Self:              signer,
-			NotaryGroup:       ng,
-			CommitStore:       storage.NewMemStorage(),
+			Self:        signer,
+			NotaryGroup: ng,
+			// CommitStore:       storage.NewMemStorage(),
 			CurrentStateStore: storage.NewMemStorage(),
 			PubSubSystem:      simulatedPubSub,
 		}), "tupelo-"+signer.ID)
@@ -85,7 +85,7 @@ func TestCommits(t *testing.T) {
 		defer cli.Stop()
 
 		fut := cli.Subscribe(&trans, 10*time.Second)
-		
+
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 
