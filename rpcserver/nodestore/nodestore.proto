@@ -1,0 +1,95 @@
+// RUN `go generate` in this directory when updating the service.proto. Requires the protoc command to be in your path.
+syntax = "proto3";
+package nodestore;
+
+option go_package = "nodestore";
+
+message Cid {
+  bytes bytes = 1;
+}
+
+message Node {
+  bytes bytes = 1;
+}
+
+message Session {
+  string id = 1;
+}
+
+message Config {
+  oneof config {
+    ConfigForBadger badger = 1;
+    ConfigForIpld ipld = 2;
+    ConfigForMemory memory = 3;
+  }
+}
+
+message ConfigForBadger {
+  string path = 1;
+}
+
+message ConfigForIpld {
+  string path = 1;
+  string address = 2;
+  bool offline = 3;
+}
+
+message ConfigForMemory {
+  string namespace = 1;
+}
+
+message GetRequest {
+  Session session = 1;
+  Cid cid = 2;
+}
+
+message GetResponse {
+  Node node = 1;
+}
+
+message PutRequest {
+  Session session = 1;
+  Node node = 2;
+}
+
+message PutResponse {
+  Cid cid = 1;
+}
+
+message DeleteRequest {
+  Session session = 1;
+  Cid cid = 2;
+}
+
+message ConfirmationResponse {
+  bool success = 1;
+}
+
+message CloseRequest {
+  Session session = 1;
+}
+
+// message OpenRequest {
+// Config config = 1;
+// }
+
+message OpenRequest {
+  oneof config {
+    ConfigForBadger badger = 1;
+    ConfigForIpld ipld = 2;
+    ConfigForMemory memory = 3;
+  }
+}
+
+message CloseAllRequest {
+}
+
+service NodestoreService {
+  rpc Open (OpenRequest) returns (Session);
+  rpc Close (CloseRequest) returns (ConfirmationResponse);
+  rpc CloseAll (CloseAllRequest) returns (ConfirmationResponse);
+
+  rpc Get (GetRequest) returns (GetResponse);
+  rpc Put (PutRequest) returns (PutResponse);
+  rpc Delete (DeleteRequest) returns (ConfirmationResponse);
+}
