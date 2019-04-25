@@ -74,8 +74,6 @@ func TestCommits(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
 		t.Logf("trans id: %s, objectID: %s, base64 obj: %s", base64.StdEncoding.EncodeToString(trans.ID()), string(trans.ObjectID), base64.StdEncoding.EncodeToString(trans.ObjectID))
 
-		middleware.SetLogLevel("debug")
-
 		cli := client.New(system, string(trans.ObjectID), pubsub)
 		cli.Listen()
 		defer cli.Stop()
