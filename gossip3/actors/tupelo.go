@@ -247,7 +247,6 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		NotaryGroup:        tn.notaryGroup,
 		Signer:             tn.self,
 		SignatureGenerator: sigGenerator,
-		SignatureChecker:   sigChecker,
 		SignatureSender:    sender,
 		CurrentStateStore:  tn.cfg.CurrentStateStore,
 	}

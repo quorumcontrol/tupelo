@@ -33,7 +33,6 @@ type ConflictSetRouterConfig struct {
 	NotaryGroup        *types.NotaryGroup
 	Signer             *types.Signer
 	SignatureGenerator *actor.PID
-	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	CurrentStateStore  storage.Reader
 }
@@ -68,7 +67,6 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 			ConflictSetRouter:  context.Self(),
 			NotaryGroup:        cfg.NotaryGroup,
 			Signer:             cfg.Signer,
-			SignatureChecker:   cfg.SignatureChecker,
 			SignatureGenerator: cfg.SignatureGenerator,
 			SignatureSender:    cfg.SignatureSender,
 		}), "csrPool")

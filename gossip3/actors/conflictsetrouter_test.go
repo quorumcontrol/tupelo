@@ -47,7 +47,6 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
 		Signer:             signer,
-		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
@@ -84,18 +83,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
-	assert.True(t, msg.(*messages.CurrentStateWrapper).Verified)
-
-	// test that it cleans up the actor:
-	_, ok := actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
-	assert.False(t, ok)
-
-	// test that after done it won't create a new actor
-	rootContext.Send(conflictSetRouter, transWrapper)
-	time.Sleep(50 * time.Millisecond)
-
-	_, ok = actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
-	assert.False(t, ok)
+	assert.True(t, msg.(*messages.CurrentStateWrapper).Internal)
 }
 
 func TestHandlesDeadlocks(t *testing.T) {
@@ -124,7 +112,6 @@ func TestHandlesDeadlocks(t *testing.T) {
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
 		Signer:             signer,
-		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
@@ -188,7 +175,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	msg, err := fut.Result()
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
-	assert.True(t, wrap.Verified)
+	assert.True(t, wrap.Internal)
 	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 
@@ -218,7 +205,6 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
 		Signer:             signer,
-		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
@@ -345,7 +331,7 @@ func NewNullActorProps() *actor.Props {
 }
 
 func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Reader,
-	ng *types.NotaryGroup, checker, sender *actor.PID, sigGenerators []*actor.PID) (
+	ng *types.NotaryGroup, sender *actor.PID, sigGenerators []*actor.PID) (
 	chan *messages.CurrentStateWrapper, *actor.PID, *actor.PID) {
 	ctx := actor.EmptyRootContext
 
@@ -353,7 +339,6 @@ func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Read
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
 		Signer:             signer,
-		SignatureChecker:   checker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGenerators[0],
 		CurrentStateStore:  currentStateStore,
@@ -363,6 +348,9 @@ func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Read
 	csrChan := make(chan *actor.PID)
 	parentName := fmt.Sprintf("%sParent%d", prefix, i)
 	t.Logf("starting conflict set router parent %s", parentName)
+
+	var conflictSetRouter *actor.PID
+
 	parent, err := ctx.SpawnNamed(actor.PropsFromFunc(func(actorCtx actor.Context) {
 		switch msg := actorCtx.Message().(type) {
 		case *actor.Started:
@@ -372,11 +360,16 @@ func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Read
 			require.Nil(t, err)
 			csrChan <- cs
 		case *messages.CurrentStateWrapper:
+			// fake this being sent out to broadcast and coming back in
+			if msg.Internal && !msg.Verified {
+				actorCtx.Send(conflictSetRouter, msg.CurrentState)
+				return
+			}
 			cswChan <- msg
 		}
 	}), parentName)
 	require.Nil(t, err)
-	conflictSetRouter := <-csrChan
+	conflictSetRouter = <-csrChan
 
 	return cswChan, conflictSetRouter, parent
 }
@@ -395,6 +388,7 @@ func signTransaction(t *testing.T, transWrapper *messages.TransactionWrapper,
 // Test that ConflictSetRouter cleans up stale conflict sets once it receives a commit
 // notification.
 func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
+	middleware.SetLogLevel("debug")
 	ctx := actor.EmptyRootContext
 	numSigners := 3
 	ts := testnotarygroup.NewTestSet(t, numSigners)
@@ -409,21 +403,17 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 		defer sg.Poison()
 	}
 
-	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
-	defer alwaysChecker.Poison()
-
 	sender := actor.Spawn(NewNullActorProps())
 	defer sender.Poison()
 
 	currentStateStore := storage.NewMemStorage()
 
 	cswChan0, conflictSetRouter0, parent0 := spawnCSR(t, "testCUSCSOC", 0, currentStateStore, ng,
-		alwaysChecker,
 		sender, sigGeneratorActors)
 	defer parent0.Poison()
 
 	cswChan1, conflictSetRouter1, parent1 := spawnCSR(t, "testCUSCSOC", 1, currentStateStore, ng,
-		alwaysChecker, sender, sigGeneratorActors)
+		sender, sigGeneratorActors)
 	defer parent1.Poison()
 
 	trans0 := testhelpers.NewValidTransaction(t)
