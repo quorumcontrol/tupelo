@@ -47,15 +47,15 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 
 	// a broadcast will have seen this, so the next
 	// verification needs to succeed too
-	val, ok := cv.seen.Get(cacheKey(currState))
-	if ok {
-		if val.(int) == 1 {
-			cv.seen.Add(cacheKey(currState), 2)
-			return true
-		}
-		cv.log.Infow("stopping propogation of already-seen message")
-		return false
-	}
+	// val, ok := cv.seen.Get(cacheKey(currState))
+	// if ok {
+	// 	if val.(int) == 1 {
+	// 		cv.seen.Add(cacheKey(currState), 2)
+	// 		return true
+	// 	}
+	// 	cv.log.Infow("stopping propogation of already-seen message")
+	// 	return false
+	// }
 
 	// if cv.seen.Contains(cacheKey(currState)) {
 	// 	cv.log.Infow("stopping propogation of already-seen message")
