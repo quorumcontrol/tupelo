@@ -397,43 +397,7 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 	setupCurrStateCtx(currStateWrapper, cs)
 	context.Send(csw.router, currStateWrapper)
 	return nil
-
-	// don't use message passing, because we can skip a lot of processing if we're done right here
-	// return csw.requestSignatureVerification(cs, context, currStateWrapper)
 }
-
-// func (csw *ConflictSetWorker) requestSignatureVerification(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-// 	sp := cs.NewSpan("cs-requestSignatureVerification")
-// 	defer sp.Finish()
-
-// 	sig := currWrapper.CurrentState.Signature
-// 	signerArray, err := bitarray.Unmarshal(sig.Signers)
-// 	if err != nil {
-// 		return fmt.Errorf("error unmarshaling: %v", err)
-// 	}
-// 	var verKeys [][]byte
-
-// 	signers := csw.notaryGroup.AllSigners()
-// 	for i, signer := range signers {
-// 		isSet, err := signerArray.GetBit(uint64(i))
-// 		if err != nil {
-// 			return fmt.Errorf("error getting bit: %v", err)
-// 		}
-// 		if isSet {
-// 			verKeys = append(verKeys, signer.VerKey.Bytes())
-// 		}
-// 	}
-
-// 	csw.Log.Debugw("checking signature", "numVerKeys", len(verKeys))
-// 	context.RequestWithCustomSender(csw.signatureChecker, &messages.SignatureVerification{
-// 		Message:   sig.GetSignable(),
-// 		Signature: sig.Signature,
-// 		VerKeys:   verKeys,
-// 		Memo:      currWrapper,
-// 	}, csw.router)
-
-// 	return nil
-// }
 
 func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
 	sp := cs.NewSpan("handleCurrentStateWrapper")
