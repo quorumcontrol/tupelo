@@ -29,6 +29,7 @@ type TupeloNode struct {
 	notaryGroup       *types.NotaryGroup
 	conflictSetRouter *actor.PID
 	validatorPool     *actor.PID
+	signatureChecker  *actor.PID
 	cfg               *TupeloConfig
 }
 
@@ -60,12 +61,8 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleGetTip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentStateWrapper(context, msg)
-	case *extmsgs.CurrentState:
-		context.Forward(tn.conflictSetRouter)
 	case *extmsgs.Signature:
 		context.Forward(tn.conflictSetRouter)
-	case *extmsgs.Transaction:
-		tn.handleNewTransaction(context)
 	case *messages.ValidateTransaction:
 		tn.handleNewTransaction(context)
 	case *messages.TransactionWrapper:
@@ -109,8 +106,33 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 	}
 }
 
+// this is its own actor
+func (tn *TupeloNode) handleNewCurrenState(context actor.Context) {
+	switch context.Message().(type) {
+	case *actor.Started:
+		topicValidator := newCommitValidator(tn.cfg.NotaryGroup, tn.signatureChecker)
+		err := tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(500*time.Millisecond), pubsub.WithValidatorConcurrency(verifierConcurrency*2))
+		if err != nil {
+			panic(fmt.Sprintf("error registering topic validator: %v", err))
+		}
+
+		_, err = context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
+		if err != nil {
+			panic(fmt.Sprintf("error spawning commit receiver: %v", err))
+		}
+	case *extmsgs.CurrentState:
+		context.Forward(tn.conflictSetRouter)
+	}
+}
+
+// This is its own actor
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		_, err := context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(client.TransactionBroadcastTopic), "broadcast-subscriber")
+		if err != nil {
+			panic(fmt.Sprintf("error spawning broadcast receiver: %v", err))
+		}
 	case *extmsgs.Transaction:
 		// broadcaster has sent us a fresh transaction
 		tn.validateTransaction(context, &messages.ValidateTransaction{
@@ -191,22 +213,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
-
-	_, err = context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(client.TransactionBroadcastTopic), "broadcast-subscriber")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning broadcast receiver: %v", err))
-	}
-
-	topicValidator := newCommitValidator(tn.cfg.NotaryGroup, sigChecker)
-	err = tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(500*time.Millisecond), pubsub.WithValidatorConcurrency(verifierConcurrency*2))
-	if err != nil {
-		panic(fmt.Sprintf("error registering topic validator: %v", err))
-	}
-
-	_, err = context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning commit receiver: %v", err))
-	}
+	tn.signatureChecker = sigChecker
 
 	tvConfig := &TransactionValidatorConfig{
 		NotaryGroup:       tn.notaryGroup,
@@ -217,6 +224,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
+	tn.validatorPool = validatorPool
 
 	csrConfig := &ConflictSetRouterConfig{
 		NotaryGroup:        tn.notaryGroup,
@@ -230,7 +238,15 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
-
 	tn.conflictSetRouter = router
-	tn.validatorPool = validatorPool
+
+	_, err = context.SpawnNamed(actor.PropsFromFunc(tn.handleNewTransaction), "transaction-handler")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+
+	_, err = context.SpawnNamed(actor.PropsFromFunc(tn.handleNewCurrenState), "currentstate-handler")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
 }
