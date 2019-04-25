@@ -64,6 +64,11 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 			conflictSetRouter = cs
 			context.Send(isReadyFuture.PID(), true)
 		case *messages.CurrentStateWrapper:
+			// fake how tupelo would send the conflict set back
+			if msg.Internal && !msg.Verified {
+				context.Send(conflictSetRouter, msg.CurrentState)
+				return
+			}
 			context.Send(fut.PID(), msg)
 		}
 	}
@@ -83,7 +88,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
-	assert.True(t, msg.(*messages.CurrentStateWrapper).Internal)
+	assert.True(t, msg.(*messages.CurrentStateWrapper).Verified)
 }
 
 func TestHandlesDeadlocks(t *testing.T) {
@@ -120,6 +125,8 @@ func TestHandlesDeadlocks(t *testing.T) {
 	fut := actor.NewFuture(10 * time.Second)
 
 	isReadyFuture := actor.NewFuture(5 * time.Second)
+
+	var conflictSetRouter *actor.PID
 	parentFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *actor.Started:
@@ -127,6 +134,11 @@ func TestHandlesDeadlocks(t *testing.T) {
 			require.Nil(t, err)
 			context.Send(isReadyFuture.PID(), cs)
 		case *messages.CurrentStateWrapper:
+			// fake how tupelo would send the conflict set back
+			if msg.Internal && !msg.Verified {
+				context.Send(conflictSetRouter, msg.CurrentState)
+				return
+			}
 			context.Send(fut.PID(), msg)
 		}
 	}
@@ -142,7 +154,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 
 	csInterface, err := isReadyFuture.Result()
 	require.Nil(t, err)
-	conflictSetRouter := csInterface.(*actor.PID)
+	conflictSetRouter = csInterface.(*actor.PID)
 
 	trans := make([]*messages.TransactionWrapper, len(sigGeneratorActors))
 	var conflictSetID string
@@ -175,7 +187,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	msg, err := fut.Result()
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
-	assert.True(t, wrap.Internal)
+	assert.True(t, wrap.Verified)
 	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 

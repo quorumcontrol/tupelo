@@ -124,7 +124,7 @@ func TestCommitValidator(t *testing.T) {
 		// second time through it's all good
 		require.True(t, validator.validate(ctx, "", currentState))
 
-		// second time fails because we've already seen the commit
+		// third time fails because we've already seen the commit
 		require.False(t, validator.validate(ctx, "", currentState))
 	})
 

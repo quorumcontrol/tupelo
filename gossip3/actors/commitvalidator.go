@@ -57,11 +57,6 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 		return false
 	}
 
-	// if cv.seen.Contains(cacheKey(currState)) {
-	// 	cv.log.Infow("stopping propogation of already-seen message")
-	// 	return false
-	// }
-
 	sig := currState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
