@@ -103,7 +103,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	}
 
 	if res.(*messages.SignatureVerification).Verified {
-		cv.seen.Add(cacheKey(currState), 1)
+		// cv.seen.Add(cacheKey(currState), 1)
 		return true
 	}
 
