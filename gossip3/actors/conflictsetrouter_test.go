@@ -400,7 +400,6 @@ func signTransaction(t *testing.T, transWrapper *messages.TransactionWrapper,
 // Test that ConflictSetRouter cleans up stale conflict sets once it receives a commit
 // notification.
 func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
-	middleware.SetLogLevel("debug")
 	ctx := actor.EmptyRootContext
 	numSigners := 3
 	ts := testnotarygroup.NewTestSet(t, numSigners)
