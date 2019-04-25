@@ -94,7 +94,7 @@ func TestCommitValidator(t *testing.T) {
 		require.False(t, validator.validate(ctx, "", currentState))
 	})
 
-	t.Run("fails the second time through", func(t *testing.T) {
+	t.Run("fails the third time through", func(t *testing.T) {
 		// stub out actual signature verification
 		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
 		defer alwaysVerifier.Stop()
@@ -119,6 +119,9 @@ func TestCommitValidator(t *testing.T) {
 		}
 
 		// first time through it's all good
+		require.True(t, validator.validate(ctx, "", currentState))
+
+		// second time through it's all good
 		require.True(t, validator.validate(ctx, "", currentState))
 
 		// second time fails because we've already seen the commit
