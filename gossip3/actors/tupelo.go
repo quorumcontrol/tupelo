@@ -118,7 +118,7 @@ func (tn *TupeloNode) handleCurrentState(context actor.Context) {
 	switch context.Message().(type) {
 	case *actor.Started:
 		topicValidator := newCommitValidator(tn.cfg.NotaryGroup, tn.signatureChecker)
-		err := tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(500*time.Millisecond))
+		err := tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
 		if err != nil {
 			panic(fmt.Sprintf("error registering topic validator: %v", err))
 		}

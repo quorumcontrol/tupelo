@@ -98,7 +98,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 
 	res, err := fut.Result()
 	if err != nil {
-		cv.log.Errorw("error getting signature verification")
+		cv.log.Errorw("error getting signature verification", "err", err)
 		return false
 	}
 
