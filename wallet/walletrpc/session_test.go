@@ -90,7 +90,6 @@ func TestSendToken(t *testing.T) {
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       ng,
-		CommitStore:       storage.NewMemStorage(),
 		CurrentStateStore: storage.NewMemStorage(),
 		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)

@@ -26,18 +26,18 @@ require (
 	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
 	github.com/ipfs/go-log v0.0.1
 	github.com/jakehl/goid v1.1.0
+	github.com/libp2p/go-libp2p-peer v0.1.0
+	github.com/libp2p/go-libp2p-pubsub v0.0.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/quorumcontrol/chaintree v0.0.0-20190419151602-218126bd680e
-	github.com/quorumcontrol/differencedigest v0.0.3
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-dc824da44df8cf4c17351012d9aa860c86074358
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-6e54ed89bb49259be966a7794ba9c4d4471e4e53
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
-	github.com/tinylib/msgp v1.1.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.9.1
 	golang.org/x/net v0.0.0-20190415214537-1da14a5a36f2

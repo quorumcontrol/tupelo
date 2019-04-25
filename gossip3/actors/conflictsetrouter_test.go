@@ -282,16 +282,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	require.Nil(t, err)
 	conflictSetRouter1 := csInterface1.(*actor.PID)
 
-	rootContext.Send(conflictSetRouter1, &commitNotification{
-		objectID: trans.ObjectID,
-		store: &extmsgs.Store{
-			Key:        currentStateWrapper.CurrentState.CommittedKey(),
-			Value:      currentStateWrapper.Value,
-			SkipNotify: currentStateWrapper.Internal,
-		},
-		height:     currentStateWrapper.CurrentState.Signature.Height,
-		nextHeight: 0,
-	})
+	rootContext.Send(conflictSetRouter1, currentStateWrapper.CurrentState)
 
 	msg, err = fut1.Result()
 	require.Nil(t, err)
@@ -452,7 +443,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 
 	// Store current state in store so that second CSR knows the current state height
 	t.Logf("storing current state in store, objectID: %s", trans0.ObjectID)
-	err = currentStateStore.Set(trans0.ObjectID, currentStateWrapper0.Value)
+	err = currentStateStore.Set(trans0.ObjectID, currentStateWrapper0.MustMarshal())
 	require.Nil(t, err)
 
 	// Send a transaction to first CSR, to get stale on receipt of the commit notification
@@ -489,15 +480,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	require.Equal(t, trans0.ObjectID, currentStateWrapper1.CurrentState.Signature.ObjectID)
 
 	t.Logf("sending commit notification to conflict set router #1")
-	ctx.Send(conflictSetRouter0, &commitNotification{
-		objectID: trans3.ObjectID,
-		store: &extmsgs.Store{
-			Key:        []byte(extmsgs.ConflictSetID(trans3.ObjectID, trans3.Height)),
-			Value:      currentStateWrapper1.Value,
-			SkipNotify: currentStateWrapper1.Internal,
-		},
-		height: trans3.Height,
-	})
+	ctx.Send(conflictSetRouter0, currentStateWrapper1.CurrentState)
 
 	t.Log("waiting for current state wrapper #3 from parent actor #1")
 	currentStateWrapper2 := <-cswChan0

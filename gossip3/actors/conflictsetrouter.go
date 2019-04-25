@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -35,13 +36,6 @@ type ConflictSetRouterConfig struct {
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	CurrentStateStore  storage.Reader
-}
-
-type commitNotification struct {
-	store      *extmsgs.Store
-	objectID   []byte
-	height     uint64
-	nextHeight uint64
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -85,20 +79,24 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()
-		csr.forwardOrIgnore(context, context.Message(), msg.Transaction.ObjectID,
+		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectID,
 			msg.Transaction.Height)
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
-		csr.forwardOrIgnore(context, context.Message(), msg.Signature.ObjectID, msg.Signature.Height)
+		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectID, msg.Signature.Height)
 	case *extmsgs.Signature:
 		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID())
-		csr.forwardOrIgnore(context, context.Message(), msg.ObjectID, msg.Height)
-	case *commitNotification:
-		csr.Log.Debugw("received commit notification, computing next transaction height")
-		msg.nextHeight = csr.nextHeight(msg.objectID)
-		csr.Log.Debugw("forwarding commit notification to conflict set", "objectID", msg.objectID,
-			"height", msg.height, "nextHeight", msg.nextHeight)
-		csr.forwardOrIgnore(context, context.Message(), msg.objectID, msg.height)
+		csr.forwardOrIgnore(context, msg, msg.ObjectID, msg.Height)
+	case *extmsgs.CurrentState:
+		wrapper := &messages.CurrentStateWrapper{
+			CurrentState: msg,
+			Internal:     false,
+			Verified:     true,
+			Metadata:     messages.MetadataMap{"seen": time.Now()},
+			NextHeight:   csr.nextHeight(msg.Signature.ObjectID),
+		}
+
+		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectID, msg.Signature.Height)
 	case *messages.CurrentStateWrapper:
 		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
 			"height", msg.CurrentState.Signature.Height)

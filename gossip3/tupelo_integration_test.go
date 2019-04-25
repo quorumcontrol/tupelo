@@ -26,7 +26,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -105,10 +104,6 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 		return nil, nil, err
 	}
 
-	commitStore, err := storage.NewBadgerStorage(commitPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error badgering: %v", err)
-	}
 	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
@@ -128,7 +123,6 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              localSigner,
 		NotaryGroup:       ng,
-		CommitStore:       commitStore,
 		CurrentStateStore: currentStore,
 		PubSubSystem:      remote.NewNetworkPubSub(node),
 	}), "tupelo-"+localSigner.ID)
@@ -218,11 +212,6 @@ func TestLibP2PSigning(t *testing.T) {
 	}
 
 	trans := newValidTransaction(t)
-
-	for _, s := range localSyncers {
-		actor.EmptyRootContext.Send(s, &messages.StartGossip{})
-	}
-	time.Sleep(200 * time.Millisecond) // give time for warmup
 
 	cli := client.New(systems[0], string(trans.ObjectID), pubSub)
 	cli.Listen()
