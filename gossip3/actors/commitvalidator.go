@@ -109,5 +109,5 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 }
 
 func cacheKey(currState *extmsgs.CurrentState) string {
-	return string(append(append(currState.Signature.ObjectID, currState.Signature.NewTip...), currState.Signature.Signature...))
+	return string(currState.Signature.Signature)
 }
