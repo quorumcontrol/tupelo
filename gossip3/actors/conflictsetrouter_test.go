@@ -13,6 +13,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -51,6 +52,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	var conflictSetRouter *actor.PID
@@ -85,17 +87,6 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	msg, err := fut.Result()
 	require.Nil(t, err)
 	assert.True(t, msg.(*messages.CurrentStateWrapper).Verified)
-
-	// test that it cleans up the actor:
-	_, ok := actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
-	assert.False(t, ok)
-
-	// test that after done it won't create a new actor
-	rootContext.Send(conflictSetRouter, transWrapper)
-	time.Sleep(50 * time.Millisecond)
-
-	_, ok = actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
-	assert.False(t, ok)
 }
 
 func TestHandlesDeadlocks(t *testing.T) {
@@ -128,11 +119,14 @@ func TestHandlesDeadlocks(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	fut := actor.NewFuture(10 * time.Second)
 
 	isReadyFuture := actor.NewFuture(5 * time.Second)
+
+	var conflictSetRouter *actor.PID
 	parentFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *actor.Started:
@@ -155,7 +149,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 
 	csInterface, err := isReadyFuture.Result()
 	require.Nil(t, err)
-	conflictSetRouter := csInterface.(*actor.PID)
+	conflictSetRouter = csInterface.(*actor.PID)
 
 	trans := make([]*messages.TransactionWrapper, len(sigGeneratorActors))
 	var conflictSetID string
@@ -222,6 +216,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	fut0 := actor.NewFuture(10 * time.Second)
@@ -357,6 +352,7 @@ func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Read
 		SignatureSender:    sender,
 		SignatureGenerator: sigGenerators[0],
 		CurrentStateStore:  currentStateStore,
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	cswChan := make(chan *messages.CurrentStateWrapper)

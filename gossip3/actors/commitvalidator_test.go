@@ -93,38 +93,6 @@ func TestCommitValidator(t *testing.T) {
 
 		require.False(t, validator.validate(ctx, "", currentState))
 	})
-
-	t.Run("fails the second time through", func(t *testing.T) {
-		// stub out actual signature verification
-		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
-		defer alwaysVerifier.Stop()
-
-		validator := newCommitValidator(notaryGroup, alwaysVerifier)
-
-		arry := bitarray.NewSparseBitArray()
-
-		err := arry.SetBit(0)
-		require.Nil(t, err)
-		err = arry.SetBit(1)
-		require.Nil(t, err)
-
-		marshaledArray, err := bitarray.Marshal(arry)
-		require.Nil(t, err)
-		currentState := &extmsgs.CurrentState{
-			Signature: &extmsgs.Signature{
-				ObjectID: []byte("object"),
-				NewTip:   []byte("newtip"),
-				Signers:  marshaledArray,
-			},
-		}
-
-		// first time through it's all good
-		require.True(t, validator.validate(ctx, "", currentState))
-
-		// second time fails because we've already seen the commit
-		require.False(t, validator.validate(ctx, "", currentState))
-	})
-
 }
 
 type NeverVerifier struct {
