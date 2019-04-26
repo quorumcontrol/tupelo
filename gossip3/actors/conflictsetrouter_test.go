@@ -67,11 +67,6 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 			conflictSetRouter = cs
 			context.Send(isReadyFuture.PID(), true)
 		case *messages.CurrentStateWrapper:
-			// fake how tupelo would send the conflict set back
-			if msg.Internal && !msg.Verified {
-				context.Send(conflictSetRouter, msg.CurrentState)
-				return
-			}
 			context.Send(fut.PID(), msg)
 		}
 	}
@@ -139,11 +134,6 @@ func TestHandlesDeadlocks(t *testing.T) {
 			require.Nil(t, err)
 			context.Send(isReadyFuture.PID(), cs)
 		case *messages.CurrentStateWrapper:
-			// fake how tupelo would send the conflict set back
-			if msg.Internal && !msg.Verified {
-				context.Send(conflictSetRouter, msg.CurrentState)
-				return
-			}
 			context.Send(fut.PID(), msg)
 		}
 	}
