@@ -96,20 +96,7 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 	}
 	storedTree := dag.NewDag(tipCid, adapter.Store())
 
-	nodes, err := storedTree.Nodes()
-	if err != nil {
-		return nil, fmt.Errorf("error fetching stored nodes: %v", err)
-	}
-
-	memoryStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
-	memoryTree := dag.NewDag(tipCid, memoryStore)
-	if err = memoryTree.AddNodes(nodes...); err != nil {
-		log.Printf("failed to add IPLD nodes to DAG: %s", err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to add IPLD nodes to DAG: %s", err)
-	}
-
-	tree, err := chaintree.NewChainTree(memoryTree, nil, consensus.DefaultTransactors)
+	tree, err := chaintree.NewChainTree(storedTree, nil, consensus.DefaultTransactors)
 	if err != nil {
 		return nil, fmt.Errorf("error creating tree: %v", err)
 	}
@@ -184,6 +171,15 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 			// TODO: Enable
 			// return fmt.Errorf("failed to store cbor node: %s", err)
 		}
+	}
+
+	return w.SaveChainMetadata(signedChain)
+}
+
+func (w *Wallet) SaveChainMetadata(signedChain *consensus.SignedChainTree) error {
+	chainId, err := signedChain.Id()
+	if err != nil {
+		return fmt.Errorf("error getting signedChain id: %v", err)
 	}
 
 	sw := &safewrap.SafeWrap{}

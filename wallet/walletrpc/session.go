@@ -454,7 +454,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 		return nil, err
 	}
 
-	err = rpcs.wallet.SaveChain(chain)
+	err = rpcs.wallet.SaveChainMetadata(chain)
 	if err != nil {
 		return nil, fmt.Errorf("error saving chain: %v", err)
 	}
