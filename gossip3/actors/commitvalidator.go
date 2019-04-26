@@ -45,8 +45,8 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 		return false
 	}
 
-	// a broadcast will have seen this, so the next
-	// verification needs to succeed too
+	// if we've seen this currentState before, we can just
+	// return what we've already seen.
 	val, ok := cv.seen.Get(cacheKey(currState))
 	if ok {
 		return val.(bool)
