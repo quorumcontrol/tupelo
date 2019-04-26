@@ -82,10 +82,9 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		}
 
 		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(&ConflictSetConfig{
-			ConflictSetRouter: context.Self(),
-			NotaryGroup:       cfg.NotaryGroup,
-			Signer:            cfg.Signer,
-			// SignatureChecker:   cfg.SignatureChecker,
+			ConflictSetRouter:  context.Self(),
+			NotaryGroup:        cfg.NotaryGroup,
+			Signer:             cfg.Signer,
 			SignatureGenerator: cfg.SignatureGenerator,
 			SignatureSender:    cfg.SignatureSender,
 			CommitValidator:    csr.commitValidator,
@@ -108,21 +107,21 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *extmsgs.CurrentState:
 		wrapper := &messages.CurrentStateWrapper{
 			CurrentState: msg,
-			Verified:     true,
+			Verified:     true, // because it came in through a validated pubsub channel
 			Metadata:     messages.MetadataMap{"seen": time.Now()},
 			NextHeight:   csr.nextHeight(msg.Signature.ObjectID),
 		}
 
 		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectID, msg.Signature.Height)
 	case *messages.CurrentStateWrapper:
+		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
+			"height", msg.CurrentState.Signature.Height)
+
 		if msg.Internal {
 			if err := csr.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
 				csr.Log.Errorw("error publishing", "err", err)
 			}
 		}
-
-		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
-			"height", msg.CurrentState.Signature.Height)
 
 		csr.cleanupConflictSets(msg)
 		if parent := context.Parent(); parent != nil {

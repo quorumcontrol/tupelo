@@ -60,7 +60,6 @@ type ConflictSetConfig struct {
 	NotaryGroup        *types.NotaryGroup
 	Signer             *types.Signer
 	SignatureGenerator *actor.PID
-	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	ConflictSetRouter  *actor.PID
 	CommitValidator    *commitValidator
@@ -87,7 +86,6 @@ func NewConflictSetWorkerPool(cfg *ConflictSetConfig) *actor.Props {
 			notaryGroup:        cfg.NotaryGroup,
 			signer:             cfg.Signer,
 			signatureGenerator: cfg.SignatureGenerator,
-			signatureChecker:   cfg.SignatureChecker,
 			signatureSender:    cfg.SignatureSender,
 			commitValidator:    cfg.CommitValidator,
 		}
@@ -396,7 +394,7 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 	}
 	if currStateWrapper.Verified {
 		setupCurrStateCtx(currStateWrapper, cs)
-		csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
+			csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
 		return nil
 	}
 	csw.Log.Errorw("invalid current state wrapper created internally!")
