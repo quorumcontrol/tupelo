@@ -49,18 +49,14 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	// verification needs to succeed too
 	val, ok := cv.seen.Get(cacheKey(currState))
 	if ok {
-		if val.(int) == 1 {
-			cv.seen.Add(cacheKey(currState), 2)
-			return true
-		}
-		cv.log.Infow("stopping propogation of already-seen message")
-		return false
+		return val.(bool)
 	}
 
 	sig := currState.Signature
 	signerArray, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
 		cv.log.Errorw("error unmarshaling signer bit array", "err", err)
+		cv.seen.Add(cacheKey(currState), false)
 		return false
 	}
 	var verKeys [][]byte
@@ -70,6 +66,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 		isSet, err := signerArray.GetBit(uint64(i))
 		if err != nil {
 			cv.log.Errorw("error getting bit", "err", err)
+			cv.seen.Add(cacheKey(currState), false)
 			return false
 		}
 		if isSet {
@@ -79,6 +76,7 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 
 	if uint64(len(verKeys)) < cv.notaryGroup.QuorumCount() {
 		cv.log.Infow("too few signatures on commit message", "lenVerKeys", len(verKeys), "quorumAt", cv.notaryGroup.QuorumCount())
+		cv.seen.Add(cacheKey(currState), false)
 		return false
 	}
 
@@ -94,19 +92,22 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	res, err := fut.Result()
 	if err != nil {
 		cv.log.Errorw("error getting signature verification", "err", err)
+		// specifically do not cache this particular false because it could
+		// be a timeout.
 		return false
 	}
 
 	if res.(*messages.SignatureVerification).Verified {
-		cv.seen.Add(cacheKey(currState), 1)
+		cv.seen.Add(cacheKey(currState), true)
 		return true
 	}
 
 	cv.log.Infow("unknown failure fallthrough")
 
+	cv.seen.Add(cacheKey(currState), false)
 	return false
 }
 
 func cacheKey(currState *extmsgs.CurrentState) string {
-	return string(append(currState.Signature.ObjectID, currState.Signature.NewTip...))
+	return string(append(append(currState.Signature.ObjectID, currState.Signature.NewTip...), currState.Signature.Signature...))
 }
