@@ -2,11 +2,9 @@ package actors
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/client"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
@@ -73,14 +71,6 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 }
 
 func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
-	if !msg.Verified && msg.Internal {
-		// then we can broadcast to the commit topic, if it's valid it'll come right back to us.
-
-		if err := tn.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
-			tn.Log.Errorw("error publishing", "err", err)
-		}
-		return
-	}
 	if msg.Verified {
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
 		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.MustMarshal())
@@ -113,24 +103,24 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 	}
 }
 
-// this function is its own actor
-func (tn *TupeloNode) handleCurrentState(context actor.Context) {
-	switch context.Message().(type) {
-	case *actor.Started:
-		topicValidator := newCommitValidator(tn.cfg.NotaryGroup, tn.signatureChecker)
-		err := tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
-		if err != nil {
-			panic(fmt.Sprintf("error registering topic validator: %v", err))
-		}
+// // this function is its own actor
+// func (tn *TupeloNode) handleCurrentState(context actor.Context) {
+// 	switch context.Message().(type) {
+// 	case *actor.Started:
+// 		topicValidator := newCommitValidator(tn.cfg.NotaryGroup, tn.signatureChecker)
+// 		err := tn.cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
+// 		if err != nil {
+// 			panic(fmt.Sprintf("error registering topic validator: %v", err))
+// 		}
 
-		_, err = context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
-		if err != nil {
-			panic(fmt.Sprintf("error spawning commit receiver: %v", err))
-		}
-	case *extmsgs.CurrentState:
-		context.Forward(tn.conflictSetRouter)
-	}
-}
+// 		_, err = context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
+// 		if err != nil {
+// 			panic(fmt.Sprintf("error spawning commit receiver: %v", err))
+// 		}
+// 	case *extmsgs.CurrentState:
+// 		context.Forward(tn.conflictSetRouter)
+// 	}
+// }
 
 // this function is its own actor
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
@@ -227,10 +217,10 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning transaction handler"))
 	}
 
-	_, err = context.SpawnNamed(actor.PropsFromFunc(tn.handleCurrentState), "currentstate-handler")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning transaction handler"))
-	}
+	// _, err = context.SpawnNamed(actor.PropsFromFunc(tn.handleCurrentState), "currentstate-handler")
+	// if err != nil {
+	// 	panic(fmt.Sprintf("error spawning transaction handler"))
+	// }
 
 	tvConfig := &TransactionValidatorConfig{
 		NotaryGroup:       tn.notaryGroup,
@@ -250,6 +240,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		SignatureChecker:   sigChecker,
 		SignatureSender:    sender,
 		CurrentStateStore:  tn.cfg.CurrentStateStore,
+		PubSubSystem:       tn.cfg.PubSubSystem,
 	}
 	router, err := context.SpawnNamed(NewConflictSetRouterProps(csrConfig), "conflictSetRouter")
 	if err != nil {

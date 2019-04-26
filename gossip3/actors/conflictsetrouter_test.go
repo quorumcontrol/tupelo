@@ -13,6 +13,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -51,6 +52,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	var conflictSetRouter *actor.PID
@@ -122,6 +124,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	fut := actor.NewFuture(10 * time.Second)
@@ -223,6 +226,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	fut0 := actor.NewFuture(10 * time.Second)
@@ -358,6 +362,7 @@ func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Read
 		SignatureSender:    sender,
 		SignatureGenerator: sigGenerators[0],
 		CurrentStateStore:  currentStateStore,
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	cswChan := make(chan *messages.CurrentStateWrapper)

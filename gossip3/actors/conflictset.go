@@ -63,6 +63,7 @@ type ConflictSetConfig struct {
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	ConflictSetRouter  *actor.PID
+	CommitValidator    *commitValidator
 }
 
 func NewConflictSet(id string) *ConflictSet {
@@ -88,6 +89,7 @@ func NewConflictSetWorkerPool(cfg *ConflictSetConfig) *actor.Props {
 			signatureGenerator: cfg.SignatureGenerator,
 			signatureChecker:   cfg.SignatureChecker,
 			signatureSender:    cfg.SignatureSender,
+			commitValidator:    cfg.CommitValidator,
 		}
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
@@ -105,6 +107,7 @@ type ConflictSetWorker struct {
 	signatureChecker   *actor.PID
 	signatureSender    *actor.PID
 	signer             *types.Signer
+	commitValidator    *commitValidator
 }
 
 func NewConflictSetWorkerProps(csr *actor.PID) *actor.Props {
@@ -342,7 +345,7 @@ func (cs *ConflictSet) nextView(newWinner *messages.TransactionWrapper) {
 	cs.signerSigs = transSigs
 }
 
-func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, context actor.Context, trans *messages.TransactionWrapper) error {
+func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actorContext actor.Context, trans *messages.TransactionWrapper) error {
 	sp := cs.NewSpan("createCurrentStateFromTrans")
 	defer sp.Finish()
 	transSpan := trans.NewSpan("createCurrentState")
@@ -387,53 +390,19 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, conte
 
 	currStateWrapper := &messages.CurrentStateWrapper{
 		Internal:     true,
-		Verified:     false,
+		Verified:     csw.commitValidator.validate(context.Background(), "", currState),
 		CurrentState: currState,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
+	if currStateWrapper.Verified {
+		setupCurrStateCtx(currStateWrapper, cs)
+		csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
+		return nil
+	}
+	csw.Log.Errorw("invalid current state wrapper created internally!")
 
-	cs.rewardsCommittee = true
-
-	setupCurrStateCtx(currStateWrapper, cs)
-	context.Send(csw.router, currStateWrapper)
 	return nil
-
-	// don't use message passing, because we can skip a lot of processing if we're done right here
-	// return csw.requestSignatureVerification(cs, context, currStateWrapper)
 }
-
-// func (csw *ConflictSetWorker) requestSignatureVerification(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
-// 	sp := cs.NewSpan("cs-requestSignatureVerification")
-// 	defer sp.Finish()
-
-// 	sig := currWrapper.CurrentState.Signature
-// 	signerArray, err := bitarray.Unmarshal(sig.Signers)
-// 	if err != nil {
-// 		return fmt.Errorf("error unmarshaling: %v", err)
-// 	}
-// 	var verKeys [][]byte
-
-// 	signers := csw.notaryGroup.AllSigners()
-// 	for i, signer := range signers {
-// 		isSet, err := signerArray.GetBit(uint64(i))
-// 		if err != nil {
-// 			return fmt.Errorf("error getting bit: %v", err)
-// 		}
-// 		if isSet {
-// 			verKeys = append(verKeys, signer.VerKey.Bytes())
-// 		}
-// 	}
-
-// 	csw.Log.Debugw("checking signature", "numVerKeys", len(verKeys))
-// 	context.RequestWithCustomSender(csw.signatureChecker, &messages.SignatureVerification{
-// 		Message:   sig.GetSignable(),
-// 		Signature: sig.Signature,
-// 		VerKeys:   verKeys,
-// 		Memo:      currWrapper,
-// 	}, csw.router)
-
-// 	return nil
-// }
 
 func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
 	sp := cs.NewSpan("handleCurrentStateWrapper")
@@ -473,10 +442,6 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 		cs.done = true
 		sp.SetTag("done", true)
 		csw.Log.Debugw("conflict set is done")
-
-		if cs.rewardsCommittee {
-			currWrapper.Internal = true
-		}
 
 		context.Send(csw.router, currWrapper)
 		return nil
