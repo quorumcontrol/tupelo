@@ -45,10 +45,16 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 		return false
 	}
 
-	// if we've already done the work, we don't need to duplicate this.
+	// a broadcast will have seen this, so the next
+	// verification needs to succeed too
 	val, ok := cv.seen.Get(cacheKey(currState))
 	if ok {
-		return val.(bool)
+		if val.(int) == 1 {
+			cv.seen.Add(cacheKey(currState), 2)
+			return true
+		}
+		cv.log.Infow("stopping propogation of already-seen message")
+		return false
 	}
 
 	sig := currState.Signature
@@ -73,7 +79,6 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 
 	if uint64(len(verKeys)) < cv.notaryGroup.QuorumCount() {
 		cv.log.Infow("too few signatures on commit message", "lenVerKeys", len(verKeys), "quorumAt", cv.notaryGroup.QuorumCount())
-		cv.seen.Add(cacheKey(currState), false)
 		return false
 	}
 
@@ -89,17 +94,15 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	res, err := fut.Result()
 	if err != nil {
 		cv.log.Errorw("error getting signature verification", "err", err)
-		cv.seen.Add(cacheKey(currState), false)
 		return false
 	}
 
 	if res.(*messages.SignatureVerification).Verified {
-		cv.seen.Add(cacheKey(currState), true)
+		cv.seen.Add(cacheKey(currState), 1)
 		return true
 	}
 
 	cv.log.Infow("unknown failure fallthrough")
-	cv.seen.Add(cacheKey(currState), false)
 
 	return false
 }
