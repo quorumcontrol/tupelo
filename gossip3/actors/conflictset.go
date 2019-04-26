@@ -44,16 +44,15 @@ type ConflictSet struct {
 
 	ID string
 
-	done             bool
-	signatures       signaturesByTransaction
-	signerSigs       signaturesBySigner
-	didSign          bool
-	transactions     transactionMap
-	snoozedCommit    *messages.CurrentStateWrapper
-	view             uint64
-	updates          uint64
-	active           bool
-	rewardsCommittee bool
+	done          bool
+	signatures    signaturesByTransaction
+	signerSigs    signaturesBySigner
+	didSign       bool
+	transactions  transactionMap
+	snoozedCommit *messages.CurrentStateWrapper
+	view          uint64
+	updates       uint64
+	active        bool
 }
 
 type ConflictSetConfig struct {
@@ -102,7 +101,6 @@ type ConflictSetWorker struct {
 	router             *actor.PID
 	notaryGroup        *types.NotaryGroup
 	signatureGenerator *actor.PID
-	signatureChecker   *actor.PID
 	signatureSender    *actor.PID
 	signer             *types.Signer
 	commitValidator    *commitValidator
@@ -394,8 +392,7 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 	}
 	if currStateWrapper.Verified {
 		setupCurrStateCtx(currStateWrapper, cs)
-			csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
-		return nil
+		return csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
 	}
 	csw.Log.Errorw("invalid current state wrapper created internally!")
 
