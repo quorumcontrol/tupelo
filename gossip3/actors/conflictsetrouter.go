@@ -254,18 +254,19 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *Con
 }
 
 func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
-	nextHeight := csr.nextHeight(objectID)
-	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, nextHeight))
-	cs, ok := csr.conflictSets.Get(nodeID)
-	if ok {
-		csr.Log.Debugw("activating snoozed", "cs", nodeID)
-		context.Send(csr.pool, &csWorkerRequest{
-			cs:  cs.(*ConflictSet),
-			msg: context.Message(),
-		})
+	nh := csr.nextHeight(objectID)
+	nodeID := fmt.Sprintf("%s/%d", objectID, nh)
+	cs, ok := csr.conflictSets.Get([]byte(nodeID))
+	if !ok {
+		csr.Log.Debugw("no conflict sets to desnooze", "objectID", objectID, "height", nh)
 		return
 	}
-	csr.Log.Debugw("no conflict sets to desnooze", "objectID", objectID, "height", nextHeight)
+
+	csr.Log.Debugw("activating snoozed", "cs", nodeID)
+	context.Send(csr.pool, &csWorkerRequest{
+		cs:  cs.(*ConflictSet),
+		msg: context.Message(),
+	})
 }
 
 func conflictSetIDToInternalID(id []byte) string {
