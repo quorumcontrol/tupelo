@@ -115,7 +115,12 @@ func serializeNodes(nodes []*cbornode.Node) [][]byte {
 }
 
 func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, error) {
-	signers := bitarray.NewBitArray(uint64(len(encodedSig.Signers)), encodedSig.Signers...)
+	signers := bitarray.NewBitArray(uint64(len(encodedSig.Signers)))
+	for i, didSign := range encodedSig.Signers {
+		if didSign {
+			signers.SetBit(uint64(i))
+		}
+	}
 	marshalledSigners, err := bitarray.Marshal(signers)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling signers array: %v", err)
@@ -130,6 +135,7 @@ func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, err
 		Type:        encodedSig.Type,
 		Signers:     marshalledSigners,
 		Signature:   encodedSig.Signature,
+		Height:      encodedSig.Height,
 	}, nil
 }
 
@@ -172,6 +178,7 @@ func serializeSignature(sig extmsgs.Signature) (*SerializableSignature, error) {
 		Signers:     signersBools,
 		Signature:   sig.Signature,
 		Type:        sig.Type,
+		Height:      sig.Height,
 	}, nil
 }
 

@@ -11,7 +11,9 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 
+	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -144,4 +146,32 @@ func TestSendToken(t *testing.T) {
 	assert.NotEmpty(t, unmarshalledSendTokens.Leaves)
 	assert.NotNil(t, unmarshalledSendTokens.Tip)
 	assert.NotNil(t, unmarshalledSendTokens.Signature)
+}
+
+func TestSerializeDeserializeSignature(t *testing.T) {
+	signers := bitarray.NewBitArray(3)
+	signers.SetBit(0)
+	signers.SetBit(2)
+	marshalledSigners, err := bitarray.Marshal(signers)
+	require.Nil(t, err)
+
+	intSig := extmsgs.Signature{
+		TransactionID: nil,
+		ObjectID:      []byte("objectid"),
+		PreviousTip:   []byte("previousTip"),
+		NewTip:        []byte("newtip"),
+		View:          1,
+		Cycle:         2,
+		Height:        3,
+		Type:          "test",
+		Signers:       marshalledSigners,
+		Signature:     []byte("signature"),
+	}
+
+	encoded, err := serializeSignature(intSig)
+	require.Nil(t, err)
+	decoded, err := decodeSignature(encoded)
+	require.Nil(t, err)
+
+	require.Equal(t, intSig, *decoded)
 }
