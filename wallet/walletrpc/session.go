@@ -118,7 +118,9 @@ func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, err
 	signers := bitarray.NewBitArray(uint64(len(encodedSig.Signers)))
 	for i, didSign := range encodedSig.Signers {
 		if didSign {
-			signers.SetBit(uint64(i))
+			if err := signers.SetBit(uint64(i)); err != nil {
+				return nil, fmt.Errorf("error setting bit: %v", err)
+			}
 		}
 	}
 	marshalledSigners, err := bitarray.Marshal(signers)

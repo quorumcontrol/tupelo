@@ -150,8 +150,11 @@ func TestSendToken(t *testing.T) {
 
 func TestSerializeDeserializeSignature(t *testing.T) {
 	signers := bitarray.NewBitArray(3)
-	signers.SetBit(0)
-	signers.SetBit(2)
+	err := signers.SetBit(0)
+	require.Nil(t, err)
+	err = signers.SetBit(2)
+	require.Nil(t, err)
+
 	marshalledSigners, err := bitarray.Marshal(signers)
 	require.Nil(t, err)
 
