@@ -69,10 +69,6 @@ message CloseRequest {
   Session session = 1;
 }
 
-// message OpenRequest {
-// Config config = 1;
-// }
-
 message OpenRequest {
   oneof config {
     ConfigForBadger badger = 1;
