@@ -151,7 +151,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 }
 
 func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.ValidateTransaction) {
-	tn.Log.Debugw("validating transaction", "msg", msg)
+	tn.Log.Debugw("validating transaction", "transactionID", msg.Transaction.ID())
 	context.Request(tn.validatorPool, &validationRequest{
 		transaction: msg.Transaction,
 	})
