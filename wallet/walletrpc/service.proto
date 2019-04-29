@@ -60,6 +60,7 @@ message SerializableSignature {
   bytes new_tip = 6;
   uint64 view = 7;
   uint64 cycle = 8;
+  uint64 height = 9;
 }
 
 message SerializableChainTree {
