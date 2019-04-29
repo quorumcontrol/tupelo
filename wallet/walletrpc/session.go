@@ -402,6 +402,8 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 	}
 
 	client := client.New(rpcs.notaryGroup, id, rpcs.pubsub)
+	client.Listen()
+	defer client.Stop()
 
 	tipResp, err := client.TipRequest()
 	if err != nil {

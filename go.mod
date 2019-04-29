@@ -32,16 +32,20 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/quorumcontrol/chaintree v0.0.0-20190426130059-dda329e6bd87
+	github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-5c8acffc6111b9b0b713e0bc801b29cf6f82a1a2
+	github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-17afb89fe62f559ec7a15b2283c0345f6080685d
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.9.1
-	golang.org/x/net v0.0.0-20190415214537-1da14a5a36f2
+	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734 // indirect
+	golang.org/x/net v0.0.0-20190424112056-4829fb13d2c6
+	golang.org/x/sys v0.0.0-20190426135247-a129542de9ae // indirect
+	golang.org/x/text v0.3.2 // indirect
+	golang.org/x/tools v0.0.0-20190425222832-ad9eeb80039a // indirect
 	google.golang.org/genproto v0.0.0-20190418145605-e7d98fc518a7
 	google.golang.org/grpc v1.20.0
 )
