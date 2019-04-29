@@ -7,6 +7,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -146,6 +147,60 @@ func TestSendToken(t *testing.T) {
 	assert.NotEmpty(t, unmarshalledSendTokens.Leaves)
 	assert.NotNil(t, unmarshalledSendTokens.Tip)
 	assert.NotNil(t, unmarshalledSendTokens.Signature)
+}
+
+func TestGetTip(t *testing.T) {
+	path := ".tmp/get-tip-test"
+	err := os.RemoveAll(path)
+	require.Nil(t, err)
+	err = os.MkdirAll(path, 0755)
+	require.Nil(t, err)
+	defer os.RemoveAll(path)
+
+	ng := types.NewNotaryGroup("get-tip-test")
+	ts := testnotarygroup.NewTestSet(t, 1)
+	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	pubSubSystem := remote.NewSimulatedPubSub()
+
+	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+		Self:              signer,
+		NotaryGroup:       ng,
+		CurrentStateStore: storage.NewMemStorage(),
+		PubSubSystem:      pubSubSystem,
+	}), "tupelo-"+signer.ID)
+	require.Nil(t, err)
+	signer.Actor = syncer
+	defer syncer.Poison()
+	ng.AddSigner(signer)
+
+	sess, err := NewSession(path, "get-tip-test", ng, pubSubSystem)
+	require.Nil(t, err)
+
+	err = sess.CreateWallet("test")
+	require.Nil(t, err)
+
+	err = sess.Start("test")
+	require.Nil(t, err)
+
+	defer sess.Stop()
+
+	key, err := sess.GenerateKey()
+	require.Nil(t, err)
+
+	addr := crypto.PubkeyToAddress(key.PublicKey).String()
+
+	chain, err := sess.CreateChain(addr, &adapters.Config{Adapter: "mock"})
+	require.Nil(t, err)
+
+	sw := &safewrap.SafeWrap{}
+
+	newTip, err := sess.SetData(chain.MustId(), addr, "test", sw.WrapObject("worked").RawData())
+	require.Nil(t, err)
+
+	getTipResp, err := sess.GetTip(chain.MustId())
+	require.Nil(t, err)
+
+	require.Equal(t, newTip, getTipResp)
 }
 
 func TestSerializeDeserializeSignature(t *testing.T) {
