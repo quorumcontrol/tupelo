@@ -10,8 +10,9 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 
@@ -34,7 +35,7 @@ func confirmPassword(c *ishell.Context) (string, error) {
 	return "", errors.New("can't confirm password")
 }
 
-func RunGossip(name string, storagePath string, client *gossip3client.Client) {
+func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, pubsub remote.PubSub) {
 	// by default, new shell includes 'exit', 'help' and 'clear' commands.
 	shell := ishell.New()
 
@@ -42,7 +43,7 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	shell.Printf("Loading shell for wallet: %v\n", name)
 
 	// load the session
-	session, err := walletrpc.NewSession(storagePath, name, client)
+	session, err := walletrpc.NewSession(storagePath, name, notaryGroup, pubsub)
 	if err != nil {
 		shell.Printf("error loading shell: %v\n", err)
 		return
@@ -331,10 +332,10 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	establishTokenUsage := "usage: establish-token chain-id key-id token-name max-tokens"
 	shell.AddCmd(&ishell.Cmd{
 		Name: "establish-token",
-		Help: "establish new token. 0 for max-tokens means unlimited. "+establishTokenUsage,
+		Help: "establish new token. 0 for max-tokens means unlimited. " + establishTokenUsage,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) < 4 {
-				c.Println("not enough arguments to establish-token. "+establishTokenUsage)
+				c.Println("not enough arguments to establish-token. " + establishTokenUsage)
 				return
 			}
 			maxTokens, err := strconv.ParseUint(c.Args[3], 10, 64)
@@ -355,10 +356,10 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	mintTokenUsage := "usage: mint-token chain-id key-id token-name amount"
 	shell.AddCmd(&ishell.Cmd{
 		Name: "mint-token",
-		Help: "mint token(s). must be established first (see establish-token). "+mintTokenUsage,
+		Help: "mint token(s). must be established first (see establish-token). " + mintTokenUsage,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) < 4 {
-				c.Println("not enough arguments to mint-token. "+mintTokenUsage)
+				c.Println("not enough arguments to mint-token. " + mintTokenUsage)
 				return
 			}
 			amount, err := strconv.ParseUint(c.Args[3], 10, 64)
@@ -379,10 +380,10 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	sendTokenUsage := "usage: send-token chain-id key-id token-name destination-chain-id amount"
 	shell.AddCmd(&ishell.Cmd{
 		Name: "send-token",
-		Help: "send token(s) to another chaintree. "+sendTokenUsage,
+		Help: "send token(s) to another chaintree. " + sendTokenUsage,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) < 5 {
-				c.Println("not enough arguments to send-token. "+sendTokenUsage)
+				c.Println("not enough arguments to send-token. " + sendTokenUsage)
 				return
 			}
 			amount, err := strconv.ParseUint(c.Args[4], 10, 64)
@@ -395,7 +396,7 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 				c.Printf("error generating send token payload: %v\n", err)
 				return
 			}
-			
+
 			c.Printf("token: %s\n", token)
 		},
 	})
@@ -403,10 +404,10 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	receiveTokenUsage := "usage: receive-token chain-id key-id token-payload"
 	shell.AddCmd(&ishell.Cmd{
 		Name: "receive-token",
-		Help: "receives token(s) sent to a local chaintree. "+receiveTokenUsage,
+		Help: "receives token(s) sent to a local chaintree. " + receiveTokenUsage,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) < 3 {
-				c.Println("not enough arguments to receive-token. "+receiveTokenUsage)
+				c.Println("not enough arguments to receive-token. " + receiveTokenUsage)
 				return
 			}
 			tip, err := session.ReceiveToken(c.Args[0], c.Args[1], c.Args[2])
@@ -422,10 +423,10 @@ func RunGossip(name string, storagePath string, client *gossip3client.Client) {
 	listTokensUsage := "usage: list-tokens chain-id key-id"
 	shell.AddCmd(&ishell.Cmd{
 		Name: "list-tokens",
-		Help: "lists all tokens and their balances. "+listTokensUsage,
+		Help: "lists all tokens and their balances. " + listTokensUsage,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) < 2 {
-				c.Println("not enough arguments to list-tokens. "+listTokensUsage)
+				c.Println("not enough arguments to list-tokens. " + listTokensUsage)
 				return
 			}
 			tokens, err := session.ListTokens(c.Args[0], c.Args[1])

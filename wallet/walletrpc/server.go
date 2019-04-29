@@ -14,8 +14,9 @@ import (
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
-	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -34,7 +35,8 @@ const (
 )
 
 type server struct {
-	client      *gossip3client.Client
+	NotaryGroup *types.NotaryGroup
+	PubSub      remote.PubSub
 	storagePath string
 }
 
@@ -71,7 +73,7 @@ func (s *server) Register(ctx context.Context, req *RegisterWalletRequest) (*Reg
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +99,7 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +128,7 @@ func (s *server) ListKeys(ctx context.Context, req *ListKeysRequest) (*ListKeysR
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +184,7 @@ func (s *server) CreateChainTree(ctx context.Context, req *GenerateChainRequest)
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +222,7 @@ func (s *server) ExportChainTree(ctx context.Context, req *ExportChainRequest) (
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +250,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +289,7 @@ func (s *server) ListChainIds(ctx context.Context, req *ListChainIdsRequest) (*L
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +317,7 @@ func (s *server) GetTip(ctx context.Context, req *GetTipRequest) (*GetTipRespons
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -399,7 +401,7 @@ func (s *server) PlayTransactions(ctx context.Context, req *PlayTransactionsRequ
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -432,7 +434,7 @@ func (s *server) SetOwner(ctx context.Context, req *SetOwnerRequest) (*SetOwnerR
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +462,7 @@ func (s *server) SetData(ctx context.Context, req *SetDataRequest) (*SetDataResp
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -507,8 +509,7 @@ func (s *server) ResolveAt(ctx context.Context, req *ResolveAtRequest) (*Resolve
 
 func (s *server) resolveAt(ctx context.Context, creds *walletCredentials, chainId string, path string,
 	tip *cid.Cid) (*ResolveResponse, error) {
-	session, err := NewSession(s.storagePath, creds.WalletName, s.Client)
-
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -548,7 +549,7 @@ func (s *server) EstablishToken(ctx context.Context, req *EstablishTokenRequest)
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -572,6 +573,11 @@ func (s *server) EstablishToken(ctx context.Context, req *EstablishTokenRequest)
 
 func (s *server) MintToken(ctx context.Context, req *MintTokenRequest) (*MintTokenResponse, error) {
 	creds, err := getWalletCredentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -604,6 +610,11 @@ func (s *server) SendToken(ctx context.Context, req *SendTokenRequest) (*SendTok
 		return nil, err
 	}
 
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
+	if err != nil {
+		return nil, err
+	}
+
 	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
 	if err != nil {
 		return nil, err
@@ -632,7 +643,7 @@ func (s *server) ReceiveToken(ctx context.Context, req *ReceiveTokenRequest) (*R
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -654,7 +665,7 @@ func (s *server) ReceiveToken(ctx context.Context, req *ReceiveTokenRequest) (*R
 	}, nil
 }
 
-func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3client.Client, port int) (*grpc.Server, error) {
+func startServer(grpcServer *grpc.Server, storagePath string, notaryGroup *types.NotaryGroup, pubsub remote.PubSub, port int) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
 	// By providing port 0 to net.Listen, we get a randomized one
@@ -676,7 +687,8 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 	}
 
 	s := &server{
-		client:      client,
+		NotaryGroup: notaryGroup,
+		PubSub:      pubsub,
 		storagePath: storagePath,
 	}
 
@@ -695,9 +707,9 @@ func startServer(grpcServer *grpc.Server, storagePath string, client *gossip3cli
 
 // Start gRPC unsecured server.
 // Passing 0 for port means to pick any available port.
-func ServeInsecure(storagePath string, client *gossip3client.Client, port int) (
+func ServeInsecure(storagePath string, notaryGroup *types.NotaryGroup, pubsub remote.PubSub, port int) (
 	*grpc.Server, error) {
-	grpcServer, err := startServer(grpc.NewServer(), storagePath, client, port)
+	grpcServer, err := startServer(grpc.NewServer(), storagePath, notaryGroup, pubsub, port)
 	if err != nil {
 		return nil, fmt.Errorf("error starting: %v", err)
 	}
@@ -706,7 +718,7 @@ func ServeInsecure(storagePath string, client *gossip3client.Client, port int) (
 
 // Start gRPC server secured with TLS.
 // Passing 0 for port means to pick any available port.
-func ServeTLS(storagePath string, client *gossip3client.Client, certFile string, keyFile string,
+func ServeTLS(storagePath string, notaryGroup *types.NotaryGroup, pubsub remote.PubSub, certFile string, keyFile string,
 	port int) (*grpc.Server, error) {
 	creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
 	if err != nil {
@@ -717,7 +729,7 @@ func ServeTLS(storagePath string, client *gossip3client.Client, certFile string,
 	credsOption := grpc.Creds(creds)
 	grpcServer := grpc.NewServer(credsOption)
 
-	return startServer(grpcServer, storagePath, client, port)
+	return startServer(grpcServer, storagePath, notaryGroup, pubsub, port)
 }
 
 func ServeWebInsecure(ctx context.Context, grpcServer *grpc.Server) (*http.Server, error) {

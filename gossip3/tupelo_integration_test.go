@@ -12,7 +12,6 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	cid "github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -27,7 +26,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,7 +78,8 @@ func newValidTransaction(t *testing.T) extmsgs.Transaction {
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	require.Nil(t, err)
 
-	testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(blockWithHeaders)
+	require.Nil(t, err)
 	nodes := dagToByteNodes(t, emptyTree)
 	return extmsgs.Transaction{
 		State:       nodes,
@@ -97,13 +96,14 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal].ToEcdsaPub(), testSet.SignKeys[indexOfLocal])
 	commitPath := testCommitPath + "/" + localSigner.ID
 	currentPath := testCurrentPath + "/" + localSigner.ID
-	os.MkdirAll(commitPath, 0755)
-	os.MkdirAll(currentPath, 0755)
-
-	commitStore, err := storage.NewBadgerStorage(commitPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error badgering: %v", err)
+	if err := os.MkdirAll(commitPath, 0755); err != nil {
+		return nil, nil, err
 	}
+
+	if err := os.MkdirAll(currentPath, 0755); err != nil {
+		return nil, nil, err
+	}
+
 	currentStore, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
@@ -115,13 +115,14 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating p2p node")
 	}
-	node.Bootstrap(bootAddrs)
+	if _, err = node.Bootstrap(bootAddrs); err != nil {
+		return nil, nil, err
+	}
 	remote.NewRouter(node)
 
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              localSigner,
 		NotaryGroup:       ng,
-		CommitStore:       commitStore,
 		CurrentStateStore: currentStore,
 		PubSubSystem:      remote.NewNetworkPubSub(node),
 	}), "tupelo-"+localSigner.ID)
@@ -153,7 +154,8 @@ func TestLibP2PSigning(t *testing.T) {
 		testCurrentPath,
 	}
 	for _, path := range paths {
-		os.MkdirAll(path, 0755)
+		err := os.MkdirAll(path, 0755)
+		require.Nil(t, err)
 	}
 	defer os.RemoveAll(testRootPath)
 
@@ -171,8 +173,8 @@ func TestLibP2PSigning(t *testing.T) {
 	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
 
-	localSyncers := make([]*actor.PID, numMembers, numMembers)
-	systems := make([]*types.NotaryGroup, numMembers, numMembers)
+	localSyncers := make([]*actor.PID, numMembers)
+	systems := make([]*types.NotaryGroup, numMembers)
 	for i := 0; i < numMembers; i++ {
 		local, ng, err := newSystemWithRemotes(ctx, bootstrap, i, ts)
 		require.Nil(t, err)
@@ -182,54 +184,48 @@ func TestLibP2PSigning(t *testing.T) {
 		require.Len(t, signers, numMembers)
 	}
 
-	libp2plogging.SetLogLevel("swarm2", "ERROR")
+	err := libp2plogging.SetLogLevel("swarm2", "ERROR")
+	require.Nil(t, err)
 	time.Sleep(100 * time.Millisecond) // give time for bootstrap
 
 	clientKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
 	clientHost, err := p2p.NewLibP2PHost(ctx, clientKey, 0)
 	require.Nil(t, err)
-	clientHost.Bootstrap(bootAddrs)
+	_, err = clientHost.Bootstrap(bootAddrs)
+	require.Nil(t, err)
 	err = clientHost.WaitForBootstrap(2, 1*time.Second)
 	require.Nil(t, err)
 
 	pubSub := remote.NewNetworkPubSub(clientHost)
 
 	remote.NewRouter(clientHost)
-	client := client.New(systems[0], pubSub)
 
 	wg := sync.WaitGroup{}
 	wg.Add(numMembers)
 
 	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
-		err := client.SendTransaction(&trans)
+		cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
 	trans := newValidTransaction(t)
 
-	for _, s := range localSyncers {
-		s.Tell(&messages.StartGossip{})
-	}
-	time.Sleep(200 * time.Millisecond) // give time for warmup
+	cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+	cli.Listen()
+	defer cli.Stop()
 
-	newTip, err := cid.Cast(trans.NewTip)
+	fut := cli.Subscribe(&trans, 90*time.Second)
+
+	err = cli.SendTransaction(&trans)
 	require.Nil(t, err)
-
-	fut := client.Subscribe(string(trans.ObjectID), newTip, 90*time.Second)
-
-	client.SendTransaction(&trans)
-	start := time.Now()
 
 	resp, err := fut.Result()
 	require.Nil(t, err)
 	require.NotNil(t, resp)
 	require.IsType(t, &extmsgs.CurrentState{}, resp)
-	stop := time.Now()
 	sigResp := resp.(*extmsgs.CurrentState)
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
-
-	t.Logf("Confirmation took %f seconds\n", stop.Sub(start).Seconds())
-	assert.True(t, stop.Sub(start) < 60*time.Second)
 }

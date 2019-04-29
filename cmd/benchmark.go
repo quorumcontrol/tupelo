@@ -9,15 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-cid"
 	opentracing "github.com/opentracing/opentracing-go"
-	gossip3client "github.com/quorumcontrol/tupelo-go-client/client"
+	"github.com/quorumcontrol/tupelo-go-client/client"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-client/p2p"
 	"github.com/quorumcontrol/tupelo-go-client/tracing"
@@ -47,7 +46,9 @@ var tracingTagName string
 
 var activeCounter = 0
 
-func measureTransaction(subscriptionFuture *actor.Future, group *gossip3types.NotaryGroup, trans messages.Transaction) {
+func measureTransaction(cli *client.Client, trans messages.Transaction) {
+	subscriptionFuture := cli.Subscribe(&trans, 30*time.Second)
+	defer cli.Stop()
 
 	startTime := time.Now()
 	did := string(trans.ObjectID)
@@ -94,22 +95,16 @@ func measureTransaction(subscriptionFuture *actor.Future, group *gossip3types.No
 	activeCounter--
 }
 
-func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGroup, shouldMeasure bool) {
+func sendTransaction(notaryGroup *types.NotaryGroup, pubsub remote.PubSub, shouldMeasure bool) {
 	fakeT := &testing.T{}
 	trans := gossip3testhelpers.NewValidTransaction(fakeT)
-
+	cli := client.New(notaryGroup, string(trans.ObjectID), pubsub)
 	if shouldMeasure {
-		newTip, err := cid.Cast(trans.NewTip)
-		if err != nil {
-			results.Errors = append(results.Errors, fmt.Errorf("error casting new tip to CID: %v", err).Error())
-		}
-		did := string(trans.ObjectID)
-
-		subscriptionFuture := client.Subscribe(did, newTip, 30*time.Second)
-		go measureTransaction(subscriptionFuture, group, trans)
+		cli.Listen()
+		go measureTransaction(cli, trans)
 	}
 
-	err := client.SendTransaction(&trans)
+	err := cli.SendTransaction(&trans)
 	if err != nil {
 		panic(fmt.Sprintf("Couldn't add transaction, %v", err))
 	}
@@ -117,24 +112,24 @@ func sendTransaction(client *gossip3client.Client, group *gossip3types.NotaryGro
 	activeCounter++
 }
 
-func performTpsBenchmark(client *gossip3client.Client, group *gossip3types.NotaryGroup) {
+func performTpsBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
 	for benchmarkIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-			go sendTransaction(client, group, true)
+			go sendTransaction(group, pubsub, true)
 		}
 		benchmarkIterations--
 		time.Sleep(1 * time.Second)
 	}
 }
 
-func performTpsNoAckBenchmark(client *gossip3client.Client, group *gossip3types.NotaryGroup) {
+func performTpsNoAckBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
 	for benchmarkIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
 			// measure only the final iteration
 			if benchmarkIterations <= 1 {
-				go sendTransaction(client, group, true)
+				go sendTransaction(group, pubsub, true)
 			} else {
-				go sendTransaction(client, group, false)
+				go sendTransaction(group, pubsub, false)
 			}
 		}
 		benchmarkIterations--
@@ -142,10 +137,10 @@ func performTpsNoAckBenchmark(client *gossip3client.Client, group *gossip3types.
 	}
 }
 
-func performLoadBenchmark(client *gossip3client.Client, group *gossip3types.NotaryGroup) {
+func performLoadBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
 	for benchmarkIterations > 0 {
 		if activeCounter < benchmarkConcurrency {
-			sendTransaction(client, group, true)
+			sendTransaction(group, pubsub, true)
 			benchmarkIterations--
 		}
 		time.Sleep(30 * time.Millisecond)
@@ -194,8 +189,6 @@ var benchmark = &cobra.Command{
 
 		pubSubSystem := remote.NewNetworkPubSub(p2pHost)
 
-		client := gossip3client.New(group, pubSubSystem)
-
 		if err = p2pHost.WaitForBootstrap(1+len(group.Signers)/2, 15*time.Second); err != nil {
 			panic(err)
 		}
@@ -213,11 +206,11 @@ var benchmark = &cobra.Command{
 
 		switch benchmarkStrategy {
 		case "tps":
-			go performTpsBenchmark(client, group)
+			go performTpsBenchmark(group, pubSubSystem)
 		case "tps-no-ack":
-			go performTpsNoAckBenchmark(client, group)
+			go performTpsNoAckBenchmark(group, pubSubSystem)
 		case "load":
-			go performLoadBenchmark(client, group)
+			go performLoadBenchmark(group, pubSubSystem)
 		default:
 			panic(fmt.Sprintf("Unknown benchmark strategy: %v", benchmarkStrategy))
 		}

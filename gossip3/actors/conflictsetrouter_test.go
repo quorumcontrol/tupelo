@@ -13,6 +13,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -51,6 +52,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	var conflictSetRouter *actor.PID
@@ -85,17 +87,6 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	msg, err := fut.Result()
 	require.Nil(t, err)
 	assert.True(t, msg.(*messages.CurrentStateWrapper).Verified)
-
-	// test that it cleans up the actor:
-	_, ok := actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
-	assert.False(t, ok)
-
-	// test that after done it won't create a new actor
-	rootContext.Send(conflictSetRouter, transWrapper)
-	time.Sleep(50 * time.Millisecond)
-
-	_, ok = actor.ProcessRegistry.GetLocal(conflictSetRouter.GetId() + "/" + string(conflictSetIDToInternalID([]byte(transWrapper.ConflictSetID))))
-	assert.False(t, ok)
 }
 
 func TestHandlesDeadlocks(t *testing.T) {
@@ -128,11 +119,14 @@ func TestHandlesDeadlocks(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	fut := actor.NewFuture(10 * time.Second)
 
 	isReadyFuture := actor.NewFuture(5 * time.Second)
+
+	var conflictSetRouter *actor.PID
 	parentFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
 		case *actor.Started:
@@ -155,7 +149,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 
 	csInterface, err := isReadyFuture.Result()
 	require.Nil(t, err)
-	conflictSetRouter := csInterface.(*actor.PID)
+	conflictSetRouter = csInterface.(*actor.PID)
 
 	trans := make([]*messages.TransactionWrapper, len(sigGeneratorActors))
 	var conflictSetID string
@@ -222,6 +216,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
 		CurrentStateStore:  storage.NewMemStorage(),
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	fut0 := actor.NewFuture(10 * time.Second)
@@ -282,16 +277,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	require.Nil(t, err)
 	conflictSetRouter1 := csInterface1.(*actor.PID)
 
-	rootContext.Send(conflictSetRouter1, &commitNotification{
-		objectID: trans.ObjectID,
-		store: &extmsgs.Store{
-			Key:        currentStateWrapper.CurrentState.CommittedKey(),
-			Value:      currentStateWrapper.Value,
-			SkipNotify: currentStateWrapper.Internal,
-		},
-		height:     currentStateWrapper.CurrentState.Signature.Height,
-		nextHeight: 0,
-	})
+	rootContext.Send(conflictSetRouter1, currentStateWrapper.CurrentState)
 
 	msg, err = fut1.Result()
 	require.Nil(t, err)
@@ -366,6 +352,7 @@ func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Read
 		SignatureSender:    sender,
 		SignatureGenerator: sigGenerators[0],
 		CurrentStateStore:  currentStateStore,
+		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
 	cswChan := make(chan *messages.CurrentStateWrapper)
@@ -452,7 +439,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 
 	// Store current state in store so that second CSR knows the current state height
 	t.Logf("storing current state in store, objectID: %s", trans0.ObjectID)
-	err = currentStateStore.Set(trans0.ObjectID, currentStateWrapper0.Value)
+	err = currentStateStore.Set(trans0.ObjectID, currentStateWrapper0.MustMarshal())
 	require.Nil(t, err)
 
 	// Send a transaction to first CSR, to get stale on receipt of the commit notification
@@ -489,15 +476,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	require.Equal(t, trans0.ObjectID, currentStateWrapper1.CurrentState.Signature.ObjectID)
 
 	t.Logf("sending commit notification to conflict set router #1")
-	ctx.Send(conflictSetRouter0, &commitNotification{
-		objectID: trans3.ObjectID,
-		store: &extmsgs.Store{
-			Key:        []byte(extmsgs.ConflictSetID(trans3.ObjectID, trans3.Height)),
-			Value:      currentStateWrapper1.Value,
-			SkipNotify: currentStateWrapper1.Internal,
-		},
-		height: trans3.Height,
-	})
+	ctx.Send(conflictSetRouter0, currentStateWrapper1.CurrentState)
 
 	t.Log("waiting for current state wrapper #3 from parent actor #1")
 	currentStateWrapper2 := <-cswChan0

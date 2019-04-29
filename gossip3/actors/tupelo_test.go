@@ -2,12 +2,12 @@ package actors
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-client/client"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
@@ -15,13 +15,12 @@ import (
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, *client.Client, error) {
+func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, remote.PubSub, error) {
 	simulatedPubSub := remote.NewSimulatedPubSub()
 
 	ng := types.NewNotaryGroup("testnotary")
@@ -31,7 +30,6 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       ng,
-			CommitStore:       storage.NewMemStorage(),
 			CurrentStateStore: storage.NewMemStorage(),
 			PubSubSystem:      simulatedPubSub,
 		}), "tupelo-"+signer.ID)
@@ -46,7 +44,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		ng.AddSigner(signer)
 	}
 
-	return ng, client.New(ng, simulatedPubSub), nil
+	return ng, simulatedPubSub, nil
 }
 
 func TestCommits(t *testing.T) {
@@ -58,30 +56,29 @@ func TestCommits(t *testing.T) {
 	}()
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 
-	system, cli, err := newTupeloSystem(ctx, ts)
+	system, pubsub, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 
 	syncers := system.AllSigners()
 	require.Len(t, system.Signers, numMembers)
 	t.Logf("syncer 0 id: %s", syncers[0].ID)
 
-	rootContext := actor.EmptyRootContext
-
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
+		cli := client.New(system, string(trans.ObjectID), pubsub)
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
-	for _, s := range syncers {
-		rootContext.Send(s.Actor, &messages.StartGossip{})
-	}
-
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
+		t.Logf("trans id: %s, objectID: %s, base64 obj: %s", base64.StdEncoding.EncodeToString(trans.ID()), string(trans.ObjectID), base64.StdEncoding.EncodeToString(trans.ObjectID))
 
-		newTip, _ := cid.Cast(trans.NewTip)
-		fut := cli.Subscribe(string(trans.ObjectID), newTip, 10*time.Second)
+		cli := client.New(system, string(trans.ObjectID), pubsub)
+		cli.Listen()
+		defer cli.Stop()
+
+		fut := cli.Subscribe(&trans, 10*time.Second)
 
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
@@ -90,6 +87,7 @@ func TestCommits(t *testing.T) {
 
 		require.Nil(t, err)
 		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.ObjectID, trans.ObjectID)
 	})
 
 }

@@ -14,7 +14,8 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
-const committedKind = "committed"
+const commitPubSubTopic = "tupelo-commits"
+
 const ErrBadTransaction = 1
 
 // TupeloNode is the main logic of the entire system,
@@ -24,17 +25,15 @@ type TupeloNode struct {
 
 	self              *types.Signer
 	notaryGroup       *types.NotaryGroup
-	committedGossiper *actor.PID
 	conflictSetRouter *actor.PID
-	committedStore    *actor.PID
 	validatorPool     *actor.PID
+	signatureChecker  *actor.PID
 	cfg               *TupeloConfig
 }
 
 type TupeloConfig struct {
 	Self              *types.Signer
 	NotaryGroup       *types.NotaryGroup
-	CommitStore       storage.Storage
 	CurrentStateStore storage.Storage
 	PubSubSystem      remote.PubSub
 }
@@ -58,12 +57,8 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleStarted(context)
 	case *extmsgs.GetTip:
 		tn.handleGetTip(context, msg)
-	case *messages.GetSyncer:
-		tn.handleGetSyncer(context, msg)
-	case *messages.StartGossip:
-		tn.handleStartGossip(context, msg)
 	case *messages.CurrentStateWrapper:
-		tn.handleNewCurrentState(context, msg)
+		tn.handleNewCurrentStateWrapper(context, msg)
 	case *extmsgs.Signature:
 		context.Forward(tn.conflictSetRouter)
 	case *extmsgs.Transaction:
@@ -75,34 +70,47 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 	}
 }
 
-func (tn *TupeloNode) handleNewCurrentState(context actor.Context, msg *messages.CurrentStateWrapper) {
+func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
-		context.Send(tn.committedStore, &extmsgs.Store{Key: msg.CurrentState.CommittedKey(), Value: msg.Value, SkipNotify: msg.Internal})
-		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.Value)
+		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
+		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.MustMarshal())
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
+		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "objectID", msg.CurrentState.Signature.ObjectID)
 		// un-snooze waiting conflict sets
 		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
-		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
+
 		// if we are the ones creating this current state then broadcast
 		if msg.Internal {
 			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
 			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
 			}
-		}
-	} else {
-		tn.Log.Debugw("removing bad current state", "key", msg.Key)
-		err := tn.cfg.CurrentStateStore.Delete(msg.Key)
-		if err != nil {
-			panic(fmt.Errorf("error deleting bad current state: %v", err))
+
+			for _, transWrapper := range msg.FailedTransactions {
+				tn.Log.Debugw("publishing failed transaction", "tx", transWrapper.TransactionID)
+				err := tn.cfg.PubSubSystem.Broadcast(string(transWrapper.Transaction.ObjectID), &extmsgs.Error{
+					Source: string(transWrapper.TransactionID),
+					Code:   ErrBadTransaction,
+					Memo:   fmt.Sprintf("bad transaction"),
+				})
+				if err != nil {
+					tn.Log.Errorw("error publishing", "err", err)
+				}
+			}
 		}
 	}
 }
 
+// this function is its own actor
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *actor.Started:
+		_, err := context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(client.TransactionBroadcastTopic), "broadcast-subscriber")
+		if err != nil {
+			panic(fmt.Sprintf("error spawning broadcast receiver: %v", err))
+		}
 	case *extmsgs.Transaction:
 		// broadcaster has sent us a fresh transaction
 		tn.validateTransaction(context, &messages.ValidateTransaction{
@@ -118,18 +126,18 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		} else {
 			if msg.Stale {
 				tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
+				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
+					Source: string(msg.TransactionID),
+					Code:   ErrBadTransaction,
+					Memo:   "stale",
+				})
+				if err != nil {
+					tn.Log.Errorw("error publishing", "err", err)
+				}
 			} else {
 				tn.Log.Debugw("removing bad transaction", "msg", msg)
-				var errSource string
-				if msg.Transaction != nil && msg.Transaction.ObjectID != nil {
-					// need this to route the error back to the correct subscribers
-					errSource = string(msg.Transaction.ObjectID)
-				} else {
-					// ...but fallback on this rather than generating a nil deref error
-					errSource = string(msg.TransactionID)
-				}
 				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
-					Source: errSource,
+					Source: string(msg.TransactionID),
 					Code:   ErrBadTransaction,
 					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
 				})
@@ -147,31 +155,6 @@ func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.V
 	context.Request(tn.validatorPool, &validationRequest{
 		transaction: msg.Transaction,
 	})
-}
-
-// this function is its own actor
-func (tn *TupeloNode) handleNewCommit(context actor.Context) {
-	switch msg := context.Message().(type) {
-	case *extmsgs.Store:
-		tn.Log.Debugw("new commit")
-		var currState extmsgs.CurrentState
-		_, err := currState.UnmarshalMsg(msg.Value)
-		if err != nil {
-			panic(fmt.Errorf("error unmarshaling: %v", err))
-		}
-		context.Send(tn.conflictSetRouter, &commitNotification{
-			store:    msg,
-			objectID: currState.Signature.ObjectID,
-			height:   currState.Signature.Height,
-		})
-	}
-}
-
-func (tn *TupeloNode) handleStartGossip(context actor.Context, msg *messages.StartGossip) {
-	newMsg := &messages.StartGossip{
-		System: tn.notaryGroup,
-	}
-	context.Send(tn.committedGossiper, newMsg)
 }
 
 func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
@@ -193,39 +176,7 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 	context.Respond(&currState)
 }
 
-func (tn *TupeloNode) handleGetSyncer(context actor.Context, msg *messages.GetSyncer) {
-	switch msg.Kind {
-	case committedKind:
-		context.Forward(tn.committedGossiper)
-	default:
-		panic("unknown gossiper")
-	}
-}
-
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	_, err := context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(client.TransactionBroadcastTopic), "broadcast-subscriber")
-	if err != nil {
-		panic(fmt.Sprintf("err spawning broadcast receiver: %v", err))
-	}
-
-	committedStore, err := context.SpawnNamed(NewStorageProps(tn.cfg.CommitStore), "committedstore")
-	if err != nil {
-		panic(fmt.Sprintf("err: %v", err))
-	}
-
-	commitSubscriber, err := context.SpawnNamed(actor.PropsFromFunc(tn.handleNewCommit), "commitSubscriber")
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
-
-	context.Send(committedStore, &messages.Subscribe{Subscriber: commitSubscriber})
-
-	committedProps := NewPushSyncerProps(committedKind, committedStore)
-	committedGossiper, err := context.SpawnNamed(NewGossiperProps(committedKind, committedStore, tn.notaryGroup, committedProps), committedKind)
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
-
 	sender, err := context.SpawnNamed(NewSignatureSenderProps(), "signatureSender")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -240,6 +191,12 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
+	tn.signatureChecker = sigChecker
+
+	_, err = context.SpawnNamed(actor.PropsFromFunc(tn.handleNewTransaction), "transaction-handler")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning transaction handler"))
+	}
 
 	tvConfig := &TransactionValidatorConfig{
 		NotaryGroup:       tn.notaryGroup,
@@ -250,6 +207,7 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
+	tn.validatorPool = validatorPool
 
 	csrConfig := &ConflictSetRouterConfig{
 		NotaryGroup:        tn.notaryGroup,
@@ -258,14 +216,11 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		SignatureChecker:   sigChecker,
 		SignatureSender:    sender,
 		CurrentStateStore:  tn.cfg.CurrentStateStore,
+		PubSubSystem:       tn.cfg.PubSubSystem,
 	}
 	router, err := context.SpawnNamed(NewConflictSetRouterProps(csrConfig), "conflictSetRouter")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
-
 	tn.conflictSetRouter = router
-	tn.committedGossiper = committedGossiper
-	tn.committedStore = committedStore
-	tn.validatorPool = validatorPool
 }

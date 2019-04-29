@@ -3,15 +3,14 @@ package adapters
 import (
 	"context"
 	"fmt"
-	"log"
 
 	ipfsHttpClient "github.com/ipfs/go-ipfs-http-client"
 	"github.com/ipfs/go-ipfs/core"
 	"github.com/ipfs/go-ipfs/core/coreapi"
-	"github.com/ipfs/go-ipfs/plugin/loader"
 	"github.com/ipfs/go-ipfs/repo/fsrepo"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/tupelo/ipfs"
 )
 
 const IpldStorageAdapterName = "ipld"
@@ -76,19 +75,8 @@ func NewIpldNodeStorage(config map[string]interface{}) (*IpldStorageAdapter, err
 		return nil, fmt.Errorf("IPFS daemon has lock on %v, please stop it before running tupelo", repoRoot)
 	}
 
-	plugins, err := loader.NewPluginLoader("")
-	if err != nil {
-		return nil, fmt.Errorf("Could not initialize ipfs plugin loader")
-	}
-	if err = plugins.Initialize(); err != nil {
-		log.Printf("failed to initialize ipfs plugins: %s", err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to initialize ipfs plugins: %s", err)
-	}
-	if err = plugins.Inject(); err != nil {
-		log.Printf("failed to inject ipfs plugins: %s", err)
-		// TODO: Enable
-		// return nil, fmt.Errorf("failed to inject ipfs plugins: %s", err)
+	if err = ipfs.InjectPlugins(); err != nil {
+		return nil, err
 	}
 
 	repo, err := fsrepo.Open(repoRoot)

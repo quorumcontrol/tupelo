@@ -11,8 +11,9 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 
+	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo-go-client/client"
+	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -31,8 +32,7 @@ func TestImportExport(t *testing.T) {
 
 	pubSubSystem := remote.NewSimulatedPubSub()
 
-	client := client.New(ng, pubSubSystem)
-	sess, err := NewSession(path, "test-only", client)
+	sess, err := NewSession(path, "test-only", ng, pubSubSystem)
 	require.Nil(t, err)
 
 	err = sess.CreateWallet("test")
@@ -60,7 +60,7 @@ func TestImportExport(t *testing.T) {
 	assert.Equal(t, chain.MustId(), imported.MustId())
 
 	// Test importing to different wallet
-	sessNew, err := NewSession(path, "test-only-new", client)
+	sessNew, err := NewSession(path, "test-only-new", ng, pubSubSystem)
 	require.Nil(t, err)
 
 	err = sessNew.CreateWallet("test-new")
@@ -92,7 +92,6 @@ func TestSendToken(t *testing.T) {
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       ng,
-		CommitStore:       storage.NewMemStorage(),
 		CurrentStateStore: storage.NewMemStorage(),
 		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)
@@ -101,8 +100,7 @@ func TestSendToken(t *testing.T) {
 	defer syncer.Poison()
 	ng.AddSigner(signer)
 
-	tupeloClient := client.New(ng, pubSubSystem)
-	sess, err := NewSession(path, "send-token-test", tupeloClient)
+	sess, err := NewSession(path, "send-token-test", ng, pubSubSystem)
 	require.Nil(t, err)
 
 	err = sess.CreateWallet("test")
@@ -148,4 +146,35 @@ func TestSendToken(t *testing.T) {
 	assert.NotEmpty(t, unmarshalledSendTokens.Leaves)
 	assert.NotNil(t, unmarshalledSendTokens.Tip)
 	assert.NotNil(t, unmarshalledSendTokens.Signature)
+}
+
+func TestSerializeDeserializeSignature(t *testing.T) {
+	signers := bitarray.NewBitArray(3)
+	err := signers.SetBit(0)
+	require.Nil(t, err)
+	err = signers.SetBit(2)
+	require.Nil(t, err)
+
+	marshalledSigners, err := bitarray.Marshal(signers)
+	require.Nil(t, err)
+
+	intSig := extmsgs.Signature{
+		TransactionID: nil,
+		ObjectID:      []byte("objectid"),
+		PreviousTip:   []byte("previousTip"),
+		NewTip:        []byte("newtip"),
+		View:          1,
+		Cycle:         2,
+		Height:        3,
+		Type:          "test",
+		Signers:       marshalledSigners,
+		Signature:     []byte("signature"),
+	}
+
+	encoded, err := serializeSignature(intSig)
+	require.Nil(t, err)
+	decoded, err := decodeSignature(encoded)
+	require.Nil(t, err)
+
+	require.Equal(t, intSig, *decoded)
 }

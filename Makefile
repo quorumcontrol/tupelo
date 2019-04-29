@@ -14,8 +14,7 @@ GUARD = $(1)_GUARD_$(shell echo $($(1)) | $(MD5CMD) | cut -d ' ' -f 1)
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 VERSION_TXT = resources/templates/version.txt
 
-generated = gossip3/messages/internal_gen.go gossip3/messages/internal_gen_test.go\
-  wallet/walletrpc/service.pb.go
+generated = wallet/walletrpc/service.pb.go
 gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 packr = packrd/packed-packr.go resources/resources-packr.go
 
@@ -41,8 +40,7 @@ $(FIRSTGOPATH)/bin/packr2:
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
-$(generated): gossip3/messages/internal.go wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPATH)/bin/protoc-gen-go
-	cd gossip3/messages && go generate
+$(generated): wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPATH)/bin/protoc-gen-go
 	cd wallet/walletrpc && go generate
 
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
@@ -53,7 +51,7 @@ tupelo: $(packr) $(generated) $(gosources) go.mod go.sum
 	go build ./...
 
 lint: $(FIRSTGOPATH)/bin/golangci-lint
-	$(FIRSTGOPATH)/bin/golangci-lint run
+	$(FIRSTGOPATH)/bin/golangci-lint run --build-tags integration
 
 $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
@@ -78,4 +76,8 @@ clean:
 	go clean
 	rm -rf vendor
 
-.PHONY: all test ci-test docker-image clean install lint
+github-prepare:
+	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
+	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
+
+.PHONY: all test ci-test docker-image clean install lint github-prepare
