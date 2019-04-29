@@ -195,10 +195,8 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, fmt.Errorf("error casting CID: %v", err)
 	}
 
-	if currentTip.Defined() {
-		if !currentTip.Equals(transPreviousTip) {
-			return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
-		}
+	if currentTip.Defined() && !currentTip.Equals(transPreviousTip) {
+		return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 	}
 
 	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
