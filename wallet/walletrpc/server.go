@@ -99,7 +99,7 @@ func (s *server) GenerateKey(ctx context.Context, req *GenerateKeyRequest) (*Gen
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.PubSub)
+	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
 	if err != nil {
 		return nil, err
 	}
@@ -514,7 +514,7 @@ func (s *server) resolveAt(ctx context.Context, creds *walletCredentials, chainI
 		return nil, err
 	}
 
-	err = session.Start(creds.PassPhrase)
+	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
 	}
@@ -582,11 +582,6 @@ func (s *server) MintToken(ctx context.Context, req *MintTokenRequest) (*MintTok
 		return nil, err
 	}
 
-	session, err := NewSession(s.storagePath, creds.wallet, s.client)
-	if err != nil {
-		return nil, err
-	}
-
 	err = session.Start(creds.passphrase)
 	if err != nil {
 		return nil, fmt.Errorf("error starting session: %v", err)
@@ -611,11 +606,6 @@ func (s *server) SendToken(ctx context.Context, req *SendTokenRequest) (*SendTok
 	}
 
 	session, err := NewSession(s.storagePath, creds.wallet, s.NotaryGroup, s.PubSub)
-	if err != nil {
-		return nil, err
-	}
-
-	session, err := NewSession(s.storagePath, creds.wallet, s.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -732,13 +722,11 @@ func ServeTLS(storagePath string, notaryGroup *types.NotaryGroup, pubsub remote.
 	return startServer(grpcServer, storagePath, notaryGroup, pubsub, port)
 }
 
-func ServeWebInsecure(ctx context.Context, grpcServer *grpc.Server) (*http.Server, error) {
-	opts := []grpc.DialOption{grpc.WithInsecure()}
-	s, err := createGrpcWeb(ctx, grpcServer, defaultWebPort, opts)
+func ServeWebInsecure(grpcServer *grpc.Server) (*http.Server, error) {
+	s, err := createGrpcWeb(grpcServer, defaultWebPort)
 	if err != nil {
 		return nil, fmt.Errorf("error creating GRPC server: %v", err)
 	}
-
 	go func() {
 		fmt.Println("grpc-web listening on port", defaultWebPort)
 		err := s.ListenAndServe()
@@ -746,19 +734,11 @@ func ServeWebInsecure(ctx context.Context, grpcServer *grpc.Server) (*http.Serve
 			log.Printf("error listening: %v", err)
 		}
 	}()
-
 	return s, nil
 }
 
-func ServeWebTLS(ctx context.Context, grpcServer *grpc.Server, certFile string, keyFile string) (*http.Server, error) {
-	creds, err := credentials.NewClientTLSFromFile(certFile, grpcHost())
-	if err != nil {
-		return nil, fmt.Errorf("error loading TLS credentials: %v", err)
-	}
-
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(creds)}
-
-	s, err := createGrpcWeb(ctx, grpcServer, defaultWebPort, opts)
+func ServeWebTLS(grpcServer *grpc.Server, certFile string, keyFile string) (*http.Server, error) {
+	s, err := createGrpcWeb(grpcServer, defaultWebPort)
 	if err != nil {
 		return nil, fmt.Errorf("error creating GRPC server: %v", err)
 	}
@@ -772,33 +752,26 @@ func ServeWebTLS(ctx context.Context, grpcServer *grpc.Server, certFile string, 
 	return s, nil
 }
 
-func createGrpcWeb(ctx context.Context, grpcServer *grpc.Server, port string, opts []grpc.DialOption) (*http.Server, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	httpHandler, err := httpProxyHandler(ctx, port, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	webWrappedGrpc := grpcweb.WrapServer(grpcServer)
-
+func createGrpcWeb(grpcServer *grpc.Server, port string) (*http.Server, error) {
+	wrappedGrpc := grpcweb.WrapServer(grpcServer)
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		if webWrappedGrpc.IsGrpcWebRequest(req) {
-			webWrappedGrpc.ServeHTTP(resp, req)
+		if wrappedGrpc.IsGrpcWebRequest(req) {
+			wrappedGrpc.ServeHTTP(resp, req)
 			return
-		} else if req.Method == "OPTIONS" {
+		}
+
+		if req.Method == "OPTIONS" {
 			headers := resp.Header()
 			headers.Add("Access-Control-Allow-Origin", "*")
 			headers.Add("Access-Control-Allow-Headers", "*")
-			headers.Add("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS")
+			headers.Add("Access-Control-Allow-Methods", "GET, POST,OPTIONS")
 			resp.WriteHeader(http.StatusOK)
 		} else {
-			httpHandler.ServeHTTP(resp, req)
-			return
+			//TODO: this is a good place to stick in the UI
+			log.Printf("unkown route: %v", req)
 		}
-	})
 
+	})
 	s := &http.Server{
 		Addr:    port,
 		Handler: handler,

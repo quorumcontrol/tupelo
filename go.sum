@@ -660,12 +660,16 @@ github.com/prometheus/procfs v0.0.0-20190416084830-8368d24ba045 h1:Raos9GP+3BlCB
 github.com/prometheus/procfs v0.0.0-20190416084830-8368d24ba045/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3 h1:v5w6BysQ2oMqVAOrO2Jgt9jw6H1fI+LusufKaJBzgXM=
 github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3/go.mod h1:gb3U31nAvHizf2p4TVR33bqI/Hao966IKB6fx48Uw9s=
+github.com/quorumcontrol/chaintree v0.0.0-20190426130059-dda329e6bd87 h1:eOAer/43LDMMOHSi91ps6v0BQjD2ZcpxdUw8T4M/ZZU=
+github.com/quorumcontrol/chaintree v0.0.0-20190426130059-dda329e6bd87/go.mod h1:gb3U31nAvHizf2p4TVR33bqI/Hao966IKB6fx48Uw9s=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF7FTLpcl171qo5MFvbKjrLEsLtcKF72uQpefiPM=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1/go.mod h1:7JSFW45PpKoXFaUpaJ8YtCNIwQWut0+Huo9ugBnKVe4=
 github.com/quorumcontrol/storage v1.1.2 h1:F6qRGnWx2GzO5fitMh8axvT9NjHUHnGp3n2MYwnjKP4=
 github.com/quorumcontrol/storage v1.1.2/go.mod h1:QGtqgqqMaULflN8Jcctj3zdzMFoyE/RxP0uTd15EKtY=
 github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-17afb89fe62f559ec7a15b2283c0345f6080685d h1:aGAX+gSxA7gbdoXeCCl2ef+4XAjwhFzbNAEF4WBIQYg=
 github.com/quorumcontrol/tupelo-go-client v0.1.2-0.20190419170055-17afb89fe62f559ec7a15b2283c0345f6080685d/go.mod h1:uclhABtqlprocMWgqfuPayqFZO58b+QYGxc1TXMCjPM=
+github.com/quorumcontrol/tupelo-go-client v0.2.0 h1:LhmnWrbFEFzjbGOgNjry5IfDTtklMMCe7y1ieOG5bWo=
+github.com/quorumcontrol/tupelo-go-client v0.2.0/go.mod h1:uclhABtqlprocMWgqfuPayqFZO58b+QYGxc1TXMCjPM=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=

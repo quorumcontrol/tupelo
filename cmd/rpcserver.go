@@ -235,13 +235,13 @@ var rpcServerCmd = &cobra.Command{
 
 		if tls {
 			panicWithoutTLSOpts()
-			server, err := walletrpc.ServeTLS(walletStorage, group, pubSubSystem, certFile, keyFile, defaultPort)
+			server, err := walletrpc.ServeTLS(walletStorage, group, pubSubSystem, certFile, keyFile, defaultRpcPort)
 			if err != nil {
 				panic(err)
 			}
 			grpcServer = server
 		} else {
-			server, err := walletrpc.ServeInsecure(walletStorage, group, pubSubSystem, defaultPort)
+			server, err := walletrpc.ServeInsecure(walletStorage, group, pubSubSystem, defaultRpcPort)
 			if err != nil {
 				panic(err)
 			}
@@ -250,12 +250,12 @@ var rpcServerCmd = &cobra.Command{
 
 		if rpcServeWebGrpc {
 			if tls {
-				_, err := walletrpc.ServeWebTLS(ctx, grpcServer, certFile, keyFile)
+				_, err := walletrpc.ServeWebTLS(grpcServer, certFile, keyFile)
 				if err != nil {
 					panic(err)
 				}
 			} else {
-				_, err := walletrpc.ServeWebInsecure(ctx, grpcServer)
+				_, err := walletrpc.ServeWebInsecure(grpcServer)
 				if err != nil {
 					panic(err)
 				}
