@@ -122,6 +122,10 @@ func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 	return fw.wallet.SaveChain(signedChain)
 }
 
+func (fw *FileWallet) SaveChainMetadata(signedChain *consensus.SignedChainTree) error {
+	return fw.wallet.SaveChainMetadata(signedChain)
+}
+
 func (fw *FileWallet) GetChainIds() ([]string, error) {
 	return fw.wallet.GetChainIds()
 }
