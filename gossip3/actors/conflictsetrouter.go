@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	iradix "github.com/hashicorp/go-immutable-radix"
 	lru "github.com/hashicorp/golang-lru"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/quorumcontrol/storage"
 	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"go.uber.org/zap"
@@ -22,10 +25,11 @@ const recentlyDoneConflictCacheSize = 100000
 
 type ConflictSetRouter struct {
 	middleware.LogAwareHolder
-	recentlyDone *lru.Cache
-	conflictSets *iradix.Tree
-	cfg          *ConflictSetRouterConfig
-	pool         *actor.PID
+	recentlyDone    *lru.Cache
+	conflictSets    *iradix.Tree
+	cfg             *ConflictSetRouterConfig
+	pool            *actor.PID
+	commitValidator *commitValidator
 }
 
 type ConflictSetRouterConfig struct {
@@ -35,13 +39,7 @@ type ConflictSetRouterConfig struct {
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
 	CurrentStateStore  storage.Reader
-}
-
-type commitNotification struct {
-	store      *extmsgs.Store
-	objectID   []byte
-	height     uint64
-	nextHeight uint64
+	PubSubSystem       remote.PubSub
 }
 
 func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
@@ -70,13 +68,26 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *actor.Started:
 		csr.Log.Debugw("spawning", "self", context.Self().String())
 		cfg := csr.cfg
+
+		topicValidator := newCommitValidator(cfg.NotaryGroup, cfg.SignatureChecker)
+		err := cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
+		if err != nil {
+			panic(fmt.Sprintf("error registering topic validator: %v", err))
+		}
+		csr.commitValidator = topicValidator
+
+		_, err = context.SpawnNamed(cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
+		if err != nil {
+			panic(fmt.Sprintf("error spawning commit receiver: %v", err))
+		}
+
 		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(&ConflictSetConfig{
 			ConflictSetRouter:  context.Self(),
 			NotaryGroup:        cfg.NotaryGroup,
 			Signer:             cfg.Signer,
-			SignatureChecker:   cfg.SignatureChecker,
 			SignatureGenerator: cfg.SignatureGenerator,
 			SignatureSender:    cfg.SignatureSender,
+			CommitValidator:    csr.commitValidator,
 		}), "csrPool")
 		if err != nil {
 			panic(fmt.Errorf("error spawning csrPool: %v", err))
@@ -85,26 +96,34 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()
-		csr.forwardOrIgnore(context, context.Message(), msg.Transaction.ObjectID,
+		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectID,
 			msg.Transaction.Height)
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
-		csr.forwardOrIgnore(context, context.Message(), msg.Signature.ObjectID, msg.Signature.Height)
+		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectID, msg.Signature.Height)
 	case *extmsgs.Signature:
 		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID())
-		csr.forwardOrIgnore(context, context.Message(), msg.ObjectID, msg.Height)
-	case *commitNotification:
-		csr.Log.Debugw("received commit notification, computing next transaction height")
-		msg.nextHeight = csr.nextHeight(msg.objectID)
-		csr.Log.Debugw("forwarding commit notification to conflict set", "objectID", msg.objectID,
-			"height", msg.height, "nextHeight", msg.nextHeight)
-		csr.forwardOrIgnore(context, context.Message(), msg.objectID, msg.height)
+		csr.forwardOrIgnore(context, msg, msg.ObjectID, msg.Height)
+	case *extmsgs.CurrentState:
+		wrapper := &messages.CurrentStateWrapper{
+			CurrentState: msg,
+			Verified:     true, // because it came in through a validated pubsub channel
+			Metadata:     messages.MetadataMap{"seen": time.Now()},
+			NextHeight:   csr.nextHeight(msg.Signature.ObjectID),
+		}
+
+		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectID, msg.Signature.Height)
 	case *messages.CurrentStateWrapper:
 		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
 			"height", msg.CurrentState.Signature.Height)
-		if msg.Verified {
-			csr.cleanupConflictSets(msg)
+
+		if msg.Internal {
+			if err := csr.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
+				csr.Log.Errorw("error publishing", "err", err)
+			}
 		}
+
+		csr.cleanupConflictSets(msg)
 		if parent := context.Parent(); parent != nil {
 			csr.Log.Debugw("forwarding current state wrapper message to parent")
 			context.Forward(parent)
@@ -235,17 +254,19 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *Con
 }
 
 func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
-	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, csr.nextHeight(objectID)))
-	cs, ok := csr.conflictSets.Get(nodeID)
-	if ok {
-		csr.Log.Debugw("activating snoozed", "cs", nodeID)
-		context.Send(csr.pool, &csWorkerRequest{
-			cs:  cs.(*ConflictSet),
-			msg: context.Message(),
-		})
+	nh := csr.nextHeight(objectID)
+	nodeID := fmt.Sprintf("%s/%d", objectID, nh)
+	cs, ok := csr.conflictSets.Get([]byte(nodeID))
+	if !ok {
+		csr.Log.Debugw("no conflict sets to desnooze", "objectID", objectID, "height", nh)
 		return
 	}
-	csr.Log.Debugw("no conflict sets to desnooze", "objectID", objectID, "height", nextHeight)
+
+	csr.Log.Debugw("activating snoozed", "cs", nodeID)
+	context.Send(csr.pool, &csWorkerRequest{
+		cs:  cs.(*ConflictSet),
+		msg: context.Message(),
+	})
 }
 
 func conflictSetIDToInternalID(id []byte) string {
