@@ -669,6 +669,7 @@ github.com/quorumcontrol/tupelo-go-client v0.2.0 h1:LhmnWrbFEFzjbGOgNjry5IfDTtkl
 github.com/quorumcontrol/tupelo-go-client v0.2.0/go.mod h1:uclhABtqlprocMWgqfuPayqFZO58b+QYGxc1TXMCjPM=
 github.com/quorumcontrol/tupelo-go-client v0.2.1-0.20190429222405-79e4695834aa h1:7b+IvWUXRKkPwcitpyYZUU9KNIv1xbcxNxjJUIKY744=
 github.com/quorumcontrol/tupelo-go-client v0.2.1-0.20190429222405-79e4695834aa/go.mod h1:uclhABtqlprocMWgqfuPayqFZO58b+QYGxc1TXMCjPM=
+github.com/quorumcontrol/tupelo-go-sdk v0.2.1-0.20190501190508-8376db7b3d81/go.mod h1:Z4iAjDM7bHR/y6b++GxVaWXRCuSZGLABUCBV2OacrG8=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=

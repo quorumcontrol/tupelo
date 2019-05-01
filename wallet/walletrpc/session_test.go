@@ -14,9 +14,9 @@ import (
 
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -9,9 +9,9 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	lru "github.com/hashicorp/golang-lru"
 	peer "github.com/libp2p/go-libp2p-peer"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"go.uber.org/zap"
 )
