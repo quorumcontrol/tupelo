@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	gossip3remote "github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
-	"github.com/quorumcontrol/tupelo-go-client/p2p"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	gossip3remote "github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	gossip3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo/wallet/walletshell"
 	"github.com/spf13/cobra"
 )

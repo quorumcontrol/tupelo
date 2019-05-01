@@ -3,9 +3,9 @@ package messages
 import (
 	"fmt"
 
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
-	"github.com/quorumcontrol/tupelo-go-client/tracing"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 )
 
 type MetadataMap map[string]interface{}

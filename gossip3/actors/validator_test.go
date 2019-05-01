@@ -10,9 +10,9 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/require"
 )

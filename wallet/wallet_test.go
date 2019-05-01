@@ -25,8 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/ipfs"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
