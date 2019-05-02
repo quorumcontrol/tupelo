@@ -3,7 +3,6 @@
 package gossip3
 
 import (
-	"reflect"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -11,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -232,125 +232,48 @@ func TestLibP2PSigning(t *testing.T) {
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
 }
 
-func sendTransaction(cli *client.Client, group *types.NotaryGroup,
-	treeKey *ecdsa.PrivateKey, treeDID string, tree *chaintree.ChainTree, emptyTip cid.Cid,
-	height uint64) error {
-	trans, err := newValidSuccessiveTransaction(treeKey, treeDID, tree, emptyTip, height)
-	if err != nil {
-		return err
+func sendTransaction(cli *client.Client, treeKey *ecdsa.PrivateKey,
+	signedTree *consensus.SignedChainTree, height uint64) error {
+	var remoteTip cid.Cid
+	if !signedTree.IsGenesis() {
+		remoteTip = signedTree.Tip()
 	}
-	newTip, err := cid.Cast(trans.NewTip)
-	if err != nil {
-		return err
-	}
-	prevTip, err := cid.Cast(trans.PreviousTip)
-	if err != nil {
-		return err
-	}
-
-	fut := cli.Subscribe(trans, 90*time.Second)
-
-	middleware.Log.Debugw("sending transaction for confirmation by signers", "height", height,
-		"tip", newTip, "prevTip", prevTip)
-	if err = cli.SendTransaction(trans); err != nil {
-		return err
-	}
-
+	middleware.Log.Infow("playing transaction...", "height", height, "isGenesis",
+		signedTree.IsGenesis())
 	start := time.Now()
-	middleware.Log.Debugw("waiting for response on transaction subscription")
-	resp, err := fut.Result()
+	value := time.Now().Format(time.RFC3339)
+	resp, err := cli.PlayTransactions(signedTree, treeKey, &remoteTip, []*chaintree.Transaction{
+		{
+			Type: "SET_DATA",
+			Payload: map[string]string{
+				"path":  "testTime",
+				"value": value,
+			},
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("received error from transaction subscription: %s", err)
+		middleware.Log.Infow("playing transaction failed", "height", height)
+		return err
 	}
 	if resp == nil {
-		return fmt.Errorf("received nil response from transaction subscription")
-	}
-	curState, ok := resp.(*extmsgs.CurrentState)
-	if !ok {
-		err, ok := resp.(*extmsgs.Error)
-		if ok {
-			return fmt.Errorf("got an error from transaction subscription: %v", err)
-		}
-		return fmt.Errorf(
-			"got something else than CurrentState message from transaction subscription: %s",
-		 	reflect.TypeOf(resp))
+		return fmt.Errorf("received nil response from playing transaction")
 	}
 
-	if !reflect.DeepEqual(curState.Signature.NewTip, trans.NewTip) {
-		return fmt.Errorf("current state tip doesn't correspond to the transaction we sent")
+	treeTip := signedTree.Tip()
+	if !treeTip.Defined() {
+		return fmt.Errorf("tree tip not defined")
+	}
+	if !reflect.DeepEqual(resp.Tip, &treeTip) {
+		return fmt.Errorf("resp.Tip not equal to tree tip")
+	}
+	if resp.ChainId != signedTree.MustId() {
+		return fmt.Errorf("resp.ChainId not equal to tree ID")
 	}
 
 	stop := time.Now()
-	middleware.Log.Infow("received confirmation of transaction from signer subscription\n",
-		"timeTaken", stop.Sub(start).Seconds())
+	middleware.Log.Infow("finished playing transaction", "timeTaken", stop.Sub(start).Seconds())
 
 	return nil
-}
-
-func newValidSuccessiveTransaction(treeKey *ecdsa.PrivateKey, treeDID string,
-	tree *chaintree.ChainTree, emptyTip cid.Cid, height uint64) (*extmsgs.Transaction, error) {
-	sw := safewrap.SafeWrap{}
-
-	value := time.Now().Format(time.RFC3339)
-	var prevTipP *cid.Cid
-	var prevTipB []byte
-	if tree.Dag.Tip != emptyTip {
-		prevTipP = &tree.Dag.Tip
-		prevTipB = tree.Dag.Tip.Bytes()
-	} else {
-		prevTipB = emptyTip.Bytes()
-	}
-	middleware.Log.Debugw("creating new transaction", "path", "testTime", "value",
-		value, "treeDID", treeDID)
-
-	unsignedBlock := &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			Height:      height,
-			PreviousTip: prevTipP,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "testTime",
-						"value": value,
-					},
-				},
-			},
-		},
-	}
-
-	middleware.Log.Debugw("signing block")
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
-	if err != nil {
-		return nil, err
-	}
-
-	middleware.Log.Debugw("telling tree to process block")
-	valid, err := tree.ProcessBlock(blockWithHeaders)
-	if err != nil {
-		return nil, err
-	}
-	if !valid {
-		return nil, fmt.Errorf("invalid result from block processing")
-	}
-
-	cborNodes, err := tree.Dag.Nodes()
-	if err != nil {
-		return nil, err
-	}
-	nodes := make([][]byte, len(cborNodes))
-	for i, node := range cborNodes {
-		nodes[i] = node.RawData()
-	}
-
-	return &extmsgs.Transaction{
-		Height:      height,
-		State:       nodes,
-		PreviousTip: prevTipB,
-		NewTip:      tree.Dag.Tip.Bytes(),
-		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-		ObjectID:    []byte(treeDID),
-	}, nil
 }
 
 func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(), error)  {
@@ -428,16 +351,19 @@ func TestSuccessiveTransactionsSingleTree(t *testing.T) {
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
-	emptyTip := emptyTree.Tip
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
+	signedTree := &consensus.SignedChainTree{
+		ChainTree:  testTree,
+		Signatures: consensus.SignatureMap{},
+	}
 
 	cli := client.New(group, treeDID, pubSub)
 	cli.Listen()
 	defer cli.Stop()
 
 	for h := uint64(0); h < 30; h++ {
-		err = sendTransaction(cli, group, treeKey, treeDID, testTree, emptyTip, h)
+		err = sendTransaction(cli, treeKey, signedTree, h)
 		require.Nil(t, err)
 
 		// TODO: currently if any syncer gets a transaction it perceives as "invalid" it will send
