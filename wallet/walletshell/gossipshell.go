@@ -197,7 +197,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				return
 			}
 
-			chain, err := session.ImportChain(c.Args[0], nil)
+			chain, err := session.ImportChain(c.Args[0], true, nil)
 			if err != nil {
 				c.Printf("error importing chain tree: %v\n", err)
 				return
