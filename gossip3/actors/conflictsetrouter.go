@@ -94,6 +94,8 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 			panic(fmt.Errorf("error spawning csrPool: %v", err))
 		}
 		csr.pool = pool
+	case *actor.Stopping:
+		csr.cfg.PubSubSystem.UnregisterTopicValidator(commitPubSubTopic)
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()

@@ -182,8 +182,6 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
-	fmt.Printf("New signer is   %v\n", context.Self())
-
 	sender, err := context.SpawnNamed(NewSignatureSenderProps(), "signatureSender")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -245,10 +243,9 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		var otherSigner *actor.PID
 
 		for otherSigner == nil {
-			aSigner := tn.cfg.NotaryGroup.GetRandomSyncer()
-			if aSigner != context.Self() {
-				otherSigner = aSigner
-				fmt.Printf("Other signer is %v\n", otherSigner)
+			aSigner := tn.cfg.NotaryGroup.GetRandomSigner()
+			if aSigner.ID != tn.self.ID {
+				otherSigner = aSigner.Actor
 			}
 		}
 
