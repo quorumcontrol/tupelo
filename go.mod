@@ -3,7 +3,7 @@ module github.com/quorumcontrol/tupelo
 go 1.12
 
 require (
-	github.com/AsynkronIT/protoactor-go v0.0.0-20190318154652-aa1aa20c2fa0
+	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
 	github.com/Workiva/go-datastructures v1.0.50
 	github.com/abiosoft/ishell v2.0.0+incompatible
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
