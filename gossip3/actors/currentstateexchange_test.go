@@ -29,17 +29,19 @@ func TestCurrentStateExchange(t *testing.T) {
 	pubsub := remote.NewSimulatedPubSub()
 	signers := make([]*types.Signer, notaryGroupSize)
 
+	rootContext := actor.EmptyRootContext
+
 	notaryGroup := types.NewNotaryGroup("testnotary")
 	defer func() {
 		for _, signer := range notaryGroup.AllSigners() {
-			signer.Actor.Poison()
+			rootContext.Poison(signer.Actor)
 		}
 	}()
 
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
-		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
+		syncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       notaryGroup,
 			CurrentStateStore: storage.NewMemStorage(),
@@ -90,10 +92,10 @@ func TestCurrentStateExchange(t *testing.T) {
 
 	// Now stop signer0 and replace with new signer0 with empty CurrentStateStore
 	signer := signers[0]
-	err := signer.Actor.PoisonFuture().Wait()
+	err := rootContext.PoisonFuture(signer.Actor).Wait()
 	require.Nil(t, err)
 
-	newSyncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
+	newSyncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       notaryGroup,
 		CurrentStateStore: storage.NewMemStorage(),

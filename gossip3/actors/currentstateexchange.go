@@ -81,14 +81,20 @@ func (e *CurrentStateExchange) gzipExport() []byte {
 
 	e.Log.Debugw("gzipExport started")
 
-	e.cfg.CurrentStateStore.ForEach([]byte{}, func(key, value []byte) error {
+	err := e.cfg.CurrentStateStore.ForEach([]byte{}, func(key, value []byte) error {
 		wroteCount++
 		prefix := make([]byte, 4)
 		binary.BigEndian.PutUint32(prefix, uint32(len(value)))
-		w.Write(prefix)
-		w.Write(value)
-		return nil
+		_, err := w.Write(prefix)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(value)
+		return err
 	})
+	if err != nil {
+		panic(fmt.Sprintf("Error creating gzip export %v", err))
+	}
 	w.Close()
 
 	if wroteCount == 0 {
