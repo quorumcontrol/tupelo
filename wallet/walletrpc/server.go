@@ -207,7 +207,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *ImportChainRequest) (
 		return nil, err
 	}
 
-	chain, err := session.ImportChain(req.ChainTree, storageAdapterConfig)
+	chain, err := session.ImportChain(req.ChainTree, !req.GetSkipValidation(), storageAdapterConfig)
 
 	if err != nil {
 		return nil, err
