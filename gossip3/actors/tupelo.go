@@ -23,13 +23,13 @@ const ErrBadTransaction = 1
 type TupeloNode struct {
 	middleware.LogAwareHolder
 
-	self              *types.Signer
-	notaryGroup       *types.NotaryGroup
-	conflictSetRouter *actor.PID
-	validatorPool     *actor.PID
-	signatureChecker  *actor.PID
-	fullExchangeActor *actor.PID
-	cfg               *TupeloConfig
+	self                      *types.Signer
+	notaryGroup               *types.NotaryGroup
+	conflictSetRouter         *actor.PID
+	validatorPool             *actor.PID
+	signatureChecker          *actor.PID
+	currentStateExchangeActor *actor.PID
+	cfg                       *TupeloConfig
 }
 
 type TupeloConfig struct {
@@ -68,10 +68,10 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleNewTransaction(context)
 	case *messages.TransactionWrapper:
 		tn.handleNewTransaction(context)
-	case *messages.RequestFullExchange:
-		context.Forward(tn.fullExchangeActor)
-	case *messages.ReceiveFullExchange:
-		context.Forward(tn.fullExchangeActor)
+	case *messages.RequestCurrentStateSnapshot:
+		context.Forward(tn.currentStateExchangeActor)
+	case *messages.ReceiveCurrentStateSnapshot:
+		context.Forward(tn.currentStateExchangeActor)
 	}
 }
 
@@ -229,15 +229,15 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 	}
 	tn.conflictSetRouter = router
 
-	fullExchangeConfig := &FullExchangeConfig{
+	currentStateExchangeConfig := &CurrentStateExchangeConfig{
 		ConflictSetRouter: router,
 		CurrentStateStore: tn.cfg.CurrentStateStore,
 	}
-	fullExchangeActor, err := context.SpawnNamed(NewFullExchangeProps(fullExchangeConfig), "fullExchange")
+	currentStateExchangeActor, err := context.SpawnNamed(NewCurrentStateExchangeProps(currentStateExchangeConfig), "currentStateExchange")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
-	tn.fullExchangeActor = fullExchangeActor
+	tn.currentStateExchangeActor = currentStateExchangeActor
 
 	if tn.cfg.NotaryGroup.Size() > 1 {
 		var otherSigner *actor.PID
@@ -249,8 +249,8 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 			}
 		}
 
-		context.Send(otherSigner, &messages.RequestFullExchange{
-			Destination: extmsgs.ToActorPid(tn.fullExchangeActor),
+		context.Send(otherSigner, &messages.RequestCurrentStateSnapshot{
+			Destination: extmsgs.ToActorPid(tn.currentStateExchangeActor),
 		})
 	}
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFullExchange(t *testing.T) {
+func TestCurrentStateExchange(t *testing.T) {
 	notaryGroupSize := 2
 	testSet := testnotarygroup.NewTestSet(t, notaryGroupSize)
 	pubsub := remote.NewSimulatedPubSub()

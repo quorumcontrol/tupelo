@@ -9,8 +9,8 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-func TestMarshalUnmarshalReceiveFullExchange(t *testing.T) {
-	v := ReceiveFullExchange{}
+func TestMarshalUnmarshalReceiveCurrentStateSnapshot(t *testing.T) {
+	v := ReceiveCurrentStateSnapshot{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -32,8 +32,8 @@ func TestMarshalUnmarshalReceiveFullExchange(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgReceiveFullExchange(b *testing.B) {
-	v := ReceiveFullExchange{}
+func BenchmarkMarshalMsgReceiveCurrentStateSnapshot(b *testing.B) {
+	v := ReceiveCurrentStateSnapshot{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -41,8 +41,8 @@ func BenchmarkMarshalMsgReceiveFullExchange(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgReceiveFullExchange(b *testing.B) {
-	v := ReceiveFullExchange{}
+func BenchmarkAppendMsgReceiveCurrentStateSnapshot(b *testing.B) {
+	v := ReceiveCurrentStateSnapshot{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -53,8 +53,8 @@ func BenchmarkAppendMsgReceiveFullExchange(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalReceiveFullExchange(b *testing.B) {
-	v := ReceiveFullExchange{}
+func BenchmarkUnmarshalReceiveCurrentStateSnapshot(b *testing.B) {
+	v := ReceiveCurrentStateSnapshot{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -67,8 +67,8 @@ func BenchmarkUnmarshalReceiveFullExchange(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeReceiveFullExchange(t *testing.T) {
-	v := ReceiveFullExchange{}
+func TestEncodeDecodeReceiveCurrentStateSnapshot(t *testing.T) {
+	v := ReceiveCurrentStateSnapshot{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -77,7 +77,7 @@ func TestEncodeDecodeReceiveFullExchange(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := ReceiveFullExchange{}
+	vn := ReceiveCurrentStateSnapshot{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -91,8 +91,8 @@ func TestEncodeDecodeReceiveFullExchange(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeReceiveFullExchange(b *testing.B) {
-	v := ReceiveFullExchange{}
+func BenchmarkEncodeReceiveCurrentStateSnapshot(b *testing.B) {
+	v := ReceiveCurrentStateSnapshot{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -105,8 +105,8 @@ func BenchmarkEncodeReceiveFullExchange(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeReceiveFullExchange(b *testing.B) {
-	v := ReceiveFullExchange{}
+func BenchmarkDecodeReceiveCurrentStateSnapshot(b *testing.B) {
+	v := ReceiveCurrentStateSnapshot{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -122,8 +122,8 @@ func BenchmarkDecodeReceiveFullExchange(b *testing.B) {
 	}
 }
 
-func TestMarshalUnmarshalRequestFullExchange(t *testing.T) {
-	v := RequestFullExchange{}
+func TestMarshalUnmarshalRequestCurrentStateSnapshot(t *testing.T) {
+	v := RequestCurrentStateSnapshot{}
 	bts, err := v.MarshalMsg(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -145,8 +145,8 @@ func TestMarshalUnmarshalRequestFullExchange(t *testing.T) {
 	}
 }
 
-func BenchmarkMarshalMsgRequestFullExchange(b *testing.B) {
-	v := RequestFullExchange{}
+func BenchmarkMarshalMsgRequestCurrentStateSnapshot(b *testing.B) {
+	v := RequestCurrentStateSnapshot{}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -154,8 +154,8 @@ func BenchmarkMarshalMsgRequestFullExchange(b *testing.B) {
 	}
 }
 
-func BenchmarkAppendMsgRequestFullExchange(b *testing.B) {
-	v := RequestFullExchange{}
+func BenchmarkAppendMsgRequestCurrentStateSnapshot(b *testing.B) {
+	v := RequestCurrentStateSnapshot{}
 	bts := make([]byte, 0, v.Msgsize())
 	bts, _ = v.MarshalMsg(bts[0:0])
 	b.SetBytes(int64(len(bts)))
@@ -166,8 +166,8 @@ func BenchmarkAppendMsgRequestFullExchange(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarshalRequestFullExchange(b *testing.B) {
-	v := RequestFullExchange{}
+func BenchmarkUnmarshalRequestCurrentStateSnapshot(b *testing.B) {
+	v := RequestCurrentStateSnapshot{}
 	bts, _ := v.MarshalMsg(nil)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(bts)))
@@ -180,8 +180,8 @@ func BenchmarkUnmarshalRequestFullExchange(b *testing.B) {
 	}
 }
 
-func TestEncodeDecodeRequestFullExchange(t *testing.T) {
-	v := RequestFullExchange{}
+func TestEncodeDecodeRequestCurrentStateSnapshot(t *testing.T) {
+	v := RequestCurrentStateSnapshot{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 
@@ -190,7 +190,7 @@ func TestEncodeDecodeRequestFullExchange(t *testing.T) {
 		t.Logf("WARNING: Msgsize() for %v is inaccurate", v)
 	}
 
-	vn := RequestFullExchange{}
+	vn := RequestCurrentStateSnapshot{}
 	err := msgp.Decode(&buf, &vn)
 	if err != nil {
 		t.Error(err)
@@ -204,8 +204,8 @@ func TestEncodeDecodeRequestFullExchange(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeRequestFullExchange(b *testing.B) {
-	v := RequestFullExchange{}
+func BenchmarkEncodeRequestCurrentStateSnapshot(b *testing.B) {
+	v := RequestCurrentStateSnapshot{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))
@@ -218,8 +218,8 @@ func BenchmarkEncodeRequestFullExchange(b *testing.B) {
 	en.Flush()
 }
 
-func BenchmarkDecodeRequestFullExchange(b *testing.B) {
-	v := RequestFullExchange{}
+func BenchmarkDecodeRequestCurrentStateSnapshot(b *testing.B) {
+	v := RequestCurrentStateSnapshot{}
 	var buf bytes.Buffer
 	msgp.Encode(&buf, &v)
 	b.SetBytes(int64(buf.Len()))

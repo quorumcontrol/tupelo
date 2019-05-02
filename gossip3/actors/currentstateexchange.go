@@ -16,22 +16,22 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
-const FULL_EXCHANGE_DEFAULT_TIMEOUT = 300 * time.Second
+const CURRENT_STATE_EXCHANGE_TIMEOUT = 300 * time.Second
 
-// FullExchange sends all keys in storage to another gossiper
-type FullExchange struct {
+// CurrentStateExchange sends all CurrentStates from one signer to another
+type CurrentStateExchange struct {
 	middleware.LogAwareHolder
-	cfg *FullExchangeConfig
+	cfg *CurrentStateExchangeConfig
 }
 
-type FullExchangeConfig struct {
+type CurrentStateExchangeConfig struct {
 	ConflictSetRouter *actor.PID
 	CurrentStateStore storage.Storage
 }
 
-func NewFullExchangeProps(config *FullExchangeConfig) *actor.Props {
+func NewCurrentStateExchangeProps(config *CurrentStateExchangeConfig) *actor.Props {
 	return actor.PropsFromProducer(func() actor.Actor {
-		return &FullExchange{
+		return &CurrentStateExchange{
 			cfg: config,
 		}
 	}).WithReceiverMiddleware(
@@ -40,41 +40,41 @@ func NewFullExchangeProps(config *FullExchangeConfig) *actor.Props {
 	)
 }
 
-func (e *FullExchange) Receive(context actor.Context) {
+func (e *CurrentStateExchange) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
-	case *messages.RequestFullExchange:
-		e.handleRequestFullExchange(context, msg)
-	case *messages.ReceiveFullExchange:
-		e.handleReceiveFullExchange(context, msg)
+	case *messages.RequestCurrentStateSnapshot:
+		e.handleRequestCurrentStateSnapshot(context, msg)
+	case *messages.ReceiveCurrentStateSnapshot:
+		e.handleReceiveCurrentStateSnapshot(context, msg)
 	}
 }
 
-func (e *FullExchange) handleRequestFullExchange(context actor.Context, msg *messages.RequestFullExchange) {
+func (e *CurrentStateExchange) handleRequestCurrentStateSnapshot(context actor.Context, msg *messages.RequestCurrentStateSnapshot) {
 	gzippedBytes := e.gzipExport()
 
 	if len(gzippedBytes) == 0 {
 		return
 	}
 
-	payload := &messages.ReceiveFullExchange{
+	payload := &messages.ReceiveCurrentStateSnapshot{
 		Payload: gzippedBytes,
 	}
 
-	_, err := context.RequestFuture(extmsgs.FromActorPid(msg.Destination), payload, FULL_EXCHANGE_DEFAULT_TIMEOUT).Result()
+	_, err := context.RequestFuture(extmsgs.FromActorPid(msg.Destination), payload, CURRENT_STATE_EXCHANGE_TIMEOUT).Result()
 	if err != nil {
 		panic(fmt.Sprintf("exchange with %v failed: %v", msg.Destination, err))
 	}
 }
 
-func (e *FullExchange) handleReceiveFullExchange(context actor.Context, msg *messages.ReceiveFullExchange) {
+func (e *CurrentStateExchange) handleReceiveCurrentStateSnapshot(context actor.Context, msg *messages.ReceiveCurrentStateSnapshot) {
 	var responseBytes []byte
 	e.gzipImport(context, msg.Payload)
-	context.Respond(&messages.ReceiveFullExchange{
+	context.Respond(&messages.ReceiveCurrentStateSnapshot{
 		Payload: responseBytes,
 	})
 }
 
-func (e *FullExchange) gzipExport() []byte {
+func (e *CurrentStateExchange) gzipExport() []byte {
 	buf := new(bytes.Buffer)
 	w := gzip.NewWriter(buf)
 	wroteCount := 0
@@ -100,7 +100,7 @@ func (e *FullExchange) gzipExport() []byte {
 	return buf.Bytes()
 }
 
-func (e *FullExchange) gzipImport(context actor.Context, payload []byte) {
+func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte) {
 	buf := bytes.NewBuffer(payload)
 	reader, err := gzip.NewReader(buf)
 	if err != nil {
@@ -140,5 +140,5 @@ func (e *FullExchange) gzipImport(context actor.Context, payload []byte) {
 		bytesLeft = buf.Len() > 0
 	}
 
-	e.Log.Debugw("gzipImport from %v processed %d states", context.Sender(), wroteCount)
+	e.Log.Debugw("gzipImport from %v processed %d keys", context.Sender(), wroteCount)
 }

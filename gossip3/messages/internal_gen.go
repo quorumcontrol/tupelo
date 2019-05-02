@@ -8,7 +8,7 @@ import (
 )
 
 // DecodeMsg implements msgp.Decodable
-func (z *ReceiveFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *ReceiveCurrentStateSnapshot) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -31,12 +31,6 @@ func (z *ReceiveFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
 				err = msgp.WrapError(err, "Payload")
 				return
 			}
-		case "RequestExchangeBack":
-			z.RequestExchangeBack, err = dc.ReadBool()
-			if err != nil {
-				err = msgp.WrapError(err, "RequestExchangeBack")
-				return
-			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -49,10 +43,10 @@ func (z *ReceiveFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *ReceiveFullExchange) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
+func (z *ReceiveCurrentStateSnapshot) EncodeMsg(en *msgp.Writer) (err error) {
+	// map header, size 1
 	// write "Payload"
-	err = en.Append(0x82, 0xa7, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64)
+	err = en.Append(0x81, 0xa7, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64)
 	if err != nil {
 		return
 	}
@@ -61,34 +55,21 @@ func (z *ReceiveFullExchange) EncodeMsg(en *msgp.Writer) (err error) {
 		err = msgp.WrapError(err, "Payload")
 		return
 	}
-	// write "RequestExchangeBack"
-	err = en.Append(0xb3, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x42, 0x61, 0x63, 0x6b)
-	if err != nil {
-		return
-	}
-	err = en.WriteBool(z.RequestExchangeBack)
-	if err != nil {
-		err = msgp.WrapError(err, "RequestExchangeBack")
-		return
-	}
 	return
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z *ReceiveFullExchange) MarshalMsg(b []byte) (o []byte, err error) {
+func (z *ReceiveCurrentStateSnapshot) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
+	// map header, size 1
 	// string "Payload"
-	o = append(o, 0x82, 0xa7, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64)
+	o = append(o, 0x81, 0xa7, 0x50, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64)
 	o = msgp.AppendBytes(o, z.Payload)
-	// string "RequestExchangeBack"
-	o = append(o, 0xb3, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x42, 0x61, 0x63, 0x6b)
-	o = msgp.AppendBool(o, z.RequestExchangeBack)
 	return
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *ReceiveFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *ReceiveCurrentStateSnapshot) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -111,12 +92,6 @@ func (z *ReceiveFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				err = msgp.WrapError(err, "Payload")
 				return
 			}
-		case "RequestExchangeBack":
-			z.RequestExchangeBack, bts, err = msgp.ReadBoolBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "RequestExchangeBack")
-				return
-			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -130,13 +105,13 @@ func (z *ReceiveFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *ReceiveFullExchange) Msgsize() (s int) {
-	s = 1 + 8 + msgp.BytesPrefixSize + len(z.Payload) + 20 + msgp.BoolSize
+func (z *ReceiveCurrentStateSnapshot) Msgsize() (s int) {
+	s = 1 + 8 + msgp.BytesPrefixSize + len(z.Payload)
 	return
 }
 
 // DecodeMsg implements msgp.Decodable
-func (z *RequestFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
+func (z *RequestCurrentStateSnapshot) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -183,7 +158,7 @@ func (z *RequestFullExchange) DecodeMsg(dc *msgp.Reader) (err error) {
 }
 
 // EncodeMsg implements msgp.Encodable
-func (z *RequestFullExchange) EncodeMsg(en *msgp.Writer) (err error) {
+func (z *RequestCurrentStateSnapshot) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 1
 	// write "Destination"
 	err = en.Append(0x81, 0xab, 0x44, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x61, 0x74, 0x69, 0x6f, 0x6e)
@@ -206,7 +181,7 @@ func (z *RequestFullExchange) EncodeMsg(en *msgp.Writer) (err error) {
 }
 
 // MarshalMsg implements msgp.Marshaler
-func (z *RequestFullExchange) MarshalMsg(b []byte) (o []byte, err error) {
+func (z *RequestCurrentStateSnapshot) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 1
 	// string "Destination"
@@ -224,7 +199,7 @@ func (z *RequestFullExchange) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (z *RequestFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
+func (z *RequestCurrentStateSnapshot) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
 	var zb0001 uint32
@@ -271,7 +246,7 @@ func (z *RequestFullExchange) UnmarshalMsg(bts []byte) (o []byte, err error) {
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
-func (z *RequestFullExchange) Msgsize() (s int) {
+func (z *RequestCurrentStateSnapshot) Msgsize() (s int) {
 	s = 1 + 12
 	if z.Destination == nil {
 		s += msgp.NilSize

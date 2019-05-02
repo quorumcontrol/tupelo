@@ -7,23 +7,22 @@ import (
 )
 
 func init() {
-	extmsgs.RegisterMessage(&RequestFullExchange{})
-	extmsgs.RegisterMessage(&ReceiveFullExchange{})
+	extmsgs.RegisterMessage(&RequestCurrentStateSnapshot{})
+	extmsgs.RegisterMessage(&ReceiveCurrentStateSnapshot{})
 }
 
-type RequestFullExchange struct {
+type RequestCurrentStateSnapshot struct {
 	Destination *extmsgs.ActorPID
 }
 
-func (RequestFullExchange) TypeCode() int8 {
+func (RequestCurrentStateSnapshot) TypeCode() int8 {
 	return -101
 }
 
-type ReceiveFullExchange struct {
-	Payload             []byte
-	RequestExchangeBack bool
+type ReceiveCurrentStateSnapshot struct {
+	Payload []byte
 }
 
-func (ReceiveFullExchange) TypeCode() int8 {
+func (ReceiveCurrentStateSnapshot) TypeCode() int8 {
 	return -102
 }
