@@ -14,9 +14,9 @@ import (
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/messages/services"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"golang.org/x/net/context"
@@ -208,7 +208,7 @@ func (s *server) ImportChainTree(ctx context.Context, req *services.ImportChainR
 		return nil, err
 	}
 
-	chain, err := session.ImportChain(req.ChainTree, storageAdapterConfig)
+	chain, err := session.ImportChain(req.ChainTree, !req.GetSkipValidation(), storageAdapterConfig)
 
 	if err != nil {
 		return nil, err

@@ -10,9 +10,9 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 )
 
@@ -197,7 +197,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				return
 			}
 
-			chain, err := session.ImportChain(c.Args[0], nil)
+			chain, err := session.ImportChain(c.Args[0], true, nil)
 			if err != nil {
 				c.Printf("error importing chain tree: %v\n", err)
 				return

@@ -21,12 +21,13 @@ import (
 	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
 
-	"github.com/quorumcontrol/tupelo-go-client/client"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
-	gossip3types "github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/bls"
+	"github.com/quorumcontrol/tupelo-go-sdk/client"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	gossip3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
@@ -154,6 +155,29 @@ func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.
 	}
 
 	return signatures, nil
+}
+
+func (rpcs *RPCSession) verifySignatures(sigs consensus.SignatureMap) (bool, error) {
+	var verKeys [][]byte
+
+	sigForNotaryGroup := sigs[rpcs.notaryGroup.ID]
+	signerArray, err := bitarray.Unmarshal(sigForNotaryGroup.Signers)
+	if err != nil {
+		return false, fmt.Errorf("error decoding signatures: %v", err)
+	}
+
+	signers := rpcs.notaryGroup.AllSigners()
+	for i, signer := range signers {
+		isSet, err := signerArray.GetBit(uint64(i))
+		if err != nil {
+			return false, fmt.Errorf("error converting signatures: %v", err)
+		}
+		if isSet {
+			verKeys = append(verKeys, signer.VerKey.Bytes())
+		}
+	}
+
+	return bls.VerifyMultiSig(sigForNotaryGroup.Signature, sigForNotaryGroup.GetSignable(), verKeys)
 }
 
 func serializeSignature(sig extmsgs.Signature) (*SerializableSignature, error) {
@@ -315,7 +339,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 	return base64.StdEncoding.EncodeToString(serializedChain), nil
 }
 
-func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig *adapters.Config) (*consensus.SignedChainTree, error) {
+func (rpcs *RPCSession) ImportChain(serializedChain string, shouldValidate bool, storageAdapterConfig *adapters.Config) (*consensus.SignedChainTree, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -353,6 +377,16 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, storageAdapterConfig
 	sigs, err := decodeSignatures(unmarshalledChain.Signatures)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding signatures: %v", err)
+	}
+
+	if shouldValidate {
+		isValid, err := rpcs.verifySignatures(sigs)
+		if err != nil {
+			return nil, fmt.Errorf("error verifying signatures: %v", err)
+		}
+		if !isValid {
+			return nil, fmt.Errorf("signatures for ChainTree are invalid for notary group %v", rpcs.notaryGroup.ID)
+		}
 	}
 
 	signedChainTree := &consensus.SignedChainTree{
@@ -455,7 +489,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 		return nil, err
 	}
 
-	err = rpcs.wallet.SaveChain(chain)
+	err = rpcs.wallet.SaveChainMetadata(chain)
 	if err != nil {
 		return nil, fmt.Errorf("error saving chain: %v", err)
 	}

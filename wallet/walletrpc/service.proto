@@ -120,6 +120,7 @@ message ImportChainRequest {
   // index 2 is a deleted key, intentionally omitted
   string chain_tree = 3;
   StorageAdapterConfig storage_adapter = 4;
+  bool skip_validation = 5;
 }
 
 message ImportChainResponse {

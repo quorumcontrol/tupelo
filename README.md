@@ -2,22 +2,9 @@
 
 ## Dependencies
 
-* [dep](https://github.com/golang/dep) installed (go dependency tool).
-
-## Contributing
-
-Grab the go dependencies:
-
-```
-dep ensure
-```
-
-If you change a protobuf code:
-
-cd into the directory and
-```
-go generate
-```
+* Go >= 1.12
+* Docker
+* GNU Make
 
 ## Version
 The version of Tupelo is controlled via the `$VERSION` variable to the Makefile 
@@ -35,11 +22,7 @@ which will also install it if necessary.
 
 ## Testing
 
-Integration tests are not run by default, add the "integration" tag to run
-these. Also add the path containing the libindy-crypto library as an ldflag so
-the linker can find it:
-
-`go test -tags=integration -ldflags="-r /path/to/libindy-crypto/release" ./...`
+`make test` will run all unit tests and some internal integration tests.
 
 ## Concepts
 Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state. 

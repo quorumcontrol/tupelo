@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-client/consensus"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
@@ -120,6 +120,10 @@ func (fw *FileWallet) ConfigureChainStorage(chainId string, storageConfig *adapt
 
 func (fw *FileWallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 	return fw.wallet.SaveChain(signedChain)
+}
+
+func (fw *FileWallet) SaveChainMetadata(signedChain *consensus.SignedChainTree) error {
+	return fw.wallet.SaveChainMetadata(signedChain)
 }
 
 func (fw *FileWallet) GetChainIds() ([]string, error) {

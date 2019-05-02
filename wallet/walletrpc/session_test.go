@@ -14,9 +14,9 @@ import (
 
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
-	extmsgs "github.com/quorumcontrol/tupelo-go-client/gossip3/messages"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-client/gossip3/types"
+	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,8 +30,20 @@ func TestImportExport(t *testing.T) {
 	require.Nil(t, err)
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
-
+	ts := testnotarygroup.NewTestSet(t, 1)
+	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
+
+	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+		Self:              signer,
+		NotaryGroup:       ng,
+		CurrentStateStore: storage.NewMemStorage(),
+		PubSubSystem:      pubSubSystem,
+	}), "tupelo-"+signer.ID)
+	require.Nil(t, err)
+	signer.Actor = syncer
+	defer syncer.Poison()
+	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "test-only", ng, pubSubSystem)
 	require.Nil(t, err)
@@ -52,10 +64,14 @@ func TestImportExport(t *testing.T) {
 	chain, err := sess.CreateChain(addr, &adapters.Config{Adapter: "mock"})
 	require.Nil(t, err)
 
+	sw := &safewrap.SafeWrap{}
+	_, err = sess.SetData(chain.MustId(), addr, "test", sw.WrapObject("worked").RawData())
+	require.Nil(t, err)
+
 	export, err := sess.ExportChain(chain.MustId())
 	require.Nil(t, err)
 
-	imported, err := sess.ImportChain(export, &adapters.Config{Adapter: "mock"})
+	imported, err := sess.ImportChain(export, true, &adapters.Config{Adapter: "mock"})
 	require.Nil(t, err)
 
 	assert.Equal(t, chain.MustId(), imported.MustId())
@@ -72,10 +88,30 @@ func TestImportExport(t *testing.T) {
 
 	defer sessNew.Stop()
 
-	importedNew, err := sessNew.ImportChain(export, &adapters.Config{Adapter: "mock"})
+	importedNew, err := sessNew.ImportChain(export, true, &adapters.Config{Adapter: "mock"})
 	require.Nil(t, err)
 
 	assert.Equal(t, chain.MustId(), importedNew.MustId())
+
+	// Test importing to a wallet with a different notary group
+	otherNg := types.NewNotaryGroup("importtest-other")
+	sessOther, err := NewSession(path, "other-import-export", otherNg, pubSubSystem)
+	require.Nil(t, err)
+
+	err = sessOther.CreateWallet("test-other")
+	require.Nil(t, err)
+
+	err = sessOther.Start("test-other")
+	require.Nil(t, err)
+
+	defer sessOther.Stop()
+
+	_, err = sessOther.ImportChain(export, true, &adapters.Config{Adapter: "mock"})
+	require.NotNil(t, err)
+
+	importedUnverified, err := sessOther.ImportChain(export, false, &adapters.Config{Adapter: "mock"})
+	require.Nil(t, err)
+	assert.Equal(t, chain.MustId(), importedUnverified.MustId())
 }
 
 func TestSendToken(t *testing.T) {
