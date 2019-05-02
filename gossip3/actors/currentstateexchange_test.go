@@ -56,6 +56,7 @@ func TestCurrentStateExchange(t *testing.T) {
 	chains := make([]*consensus.SignedChainTree, numOfTrees)
 	tips := make([]*cid.Cid, numOfTrees)
 
+	// First sign some chaintrees on the notary group to fill up current state
 	for i := 0; i < numOfTrees; i++ {
 		key, err := crypto.GenerateKey()
 		keys[i] = key
@@ -87,6 +88,7 @@ func TestCurrentStateExchange(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
+	// Now stop signer0 and replace with new signer0 with empty CurrentStateStore
 	signer := signers[0]
 	err := signer.Actor.PoisonFuture().Wait()
 	require.Nil(t, err)
@@ -102,6 +104,8 @@ func TestCurrentStateExchange(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
+	// Check that notary group can sign transactions on top of existing state
+	// Given the notary group size is 2, this proves that signer0 has pulled in CurrentState
 	for i := 0; i < numOfTrees; i++ {
 		key := keys[i]
 		chain := chains[i]
