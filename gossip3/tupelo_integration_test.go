@@ -132,7 +132,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	localSigner.Actor = syncer
 	go func() {
 		<-ctx.Done()
-		syncer.Stop()
+		actor.EmptyRootContext.Stop(syncer)
 	}()
 	ng.AddSigner(localSigner)
 

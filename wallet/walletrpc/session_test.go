@@ -42,7 +42,7 @@ func TestImportExport(t *testing.T) {
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
-	defer syncer.Poison()
+	defer actor.EmptyRootContext.Poison(syncer)
 	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "test-only", ng, pubSubSystem)
@@ -134,7 +134,7 @@ func TestSendToken(t *testing.T) {
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
-	defer syncer.Poison()
+	defer actor.EmptyRootContext.Poison(syncer)
 	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "send-token-test", ng, pubSubSystem)
@@ -206,7 +206,7 @@ func TestGetTip(t *testing.T) {
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
-	defer syncer.Poison()
+	defer actor.EmptyRootContext.Poison(syncer)
 	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "get-tip-test", ng, pubSubSystem)
