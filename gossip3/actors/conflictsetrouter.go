@@ -1,6 +1,7 @@
 package actors
 
 import (
+	goContext "context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -114,19 +115,16 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 
 		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectID, msg.Signature.Height)
 	case *messages.CurrentStateWrapper:
-		csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
-			"height", msg.CurrentState.Signature.Height)
-
-		if msg.Internal {
-			if err := csr.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
-				csr.Log.Errorw("error publishing", "err", err)
-			}
+		csr.handleCurrentStateWrapper(context, msg)
+	case *messages.ImportCurrentState:
+		currStateWrapper := &messages.CurrentStateWrapper{
+			Internal:     false,
+			Verified:     csr.commitValidator.validate(goContext.Background(), "", msg.CurrentState),
+			CurrentState: msg.CurrentState,
+			Metadata:     messages.MetadataMap{"seen": time.Now()},
 		}
-
-		csr.cleanupConflictSets(msg)
-		if parent := context.Parent(); parent != nil {
-			csr.Log.Debugw("forwarding current state wrapper message to parent")
-			context.Forward(parent)
+		if currStateWrapper.Verified {
+			csr.handleCurrentStateWrapper(context, currStateWrapper)
 		}
 	case *messages.ActivateSnoozingConflictSets:
 		csr.Log.Debugw("csr received activate snoozed")
@@ -141,6 +139,23 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		}
 	case messages.GetNumConflictSets:
 		context.Respond(csr.conflictSets.Len())
+	}
+}
+
+func (csr *ConflictSetRouter) handleCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
+	csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
+		"height", msg.CurrentState.Signature.Height)
+
+	if msg.Internal {
+		if err := csr.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
+			csr.Log.Errorw("error publishing", "err", err)
+		}
+	}
+
+	csr.cleanupConflictSets(msg)
+	if parent := context.Parent(); parent != nil {
+		csr.Log.Debugw("forwarding current state wrapper message to parent")
+		context.Send(parent, msg)
 	}
 }
 

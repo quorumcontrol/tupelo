@@ -28,6 +28,7 @@ type TupeloNode struct {
 	conflictSetRouter *actor.PID
 	validatorPool     *actor.PID
 	signatureChecker  *actor.PID
+	fullExchangeActor *actor.PID
 	cfg               *TupeloConfig
 }
 
@@ -67,6 +68,10 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleNewTransaction(context)
 	case *messages.TransactionWrapper:
 		tn.handleNewTransaction(context)
+	case *messages.RequestFullExchange:
+		context.Forward(tn.fullExchangeActor)
+	case *messages.ReceiveFullExchange:
+		context.Forward(tn.fullExchangeActor)
 	}
 }
 
@@ -177,6 +182,8 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {
+	fmt.Printf("New signer is   %v\n", context.Self())
+
 	sender, err := context.SpawnNamed(NewSignatureSenderProps(), "signatureSender")
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -223,4 +230,30 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 	tn.conflictSetRouter = router
+
+	fullExchangeConfig := &FullExchangeConfig{
+		ConflictSetRouter: router,
+		CurrentStateStore: tn.cfg.CurrentStateStore,
+	}
+	fullExchangeActor, err := context.SpawnNamed(NewFullExchangeProps(fullExchangeConfig), "fullExchange")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+	tn.fullExchangeActor = fullExchangeActor
+
+	if tn.cfg.NotaryGroup.Size() > 1 {
+		var otherSigner *actor.PID
+
+		for otherSigner == nil {
+			aSigner := tn.cfg.NotaryGroup.GetRandomSyncer()
+			if aSigner != context.Self() {
+				otherSigner = aSigner
+				fmt.Printf("Other signer is %v\n", otherSigner)
+			}
+		}
+
+		context.Send(otherSigner, &messages.RequestFullExchange{
+			Destination: extmsgs.ToActorPid(tn.fullExchangeActor),
+		})
+	}
 }
