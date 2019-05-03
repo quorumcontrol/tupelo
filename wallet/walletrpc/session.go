@@ -777,7 +777,15 @@ func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
 		return 0, err
 	}
 
-	ledger := consensus.NewTreeLedger(chain.ChainTree.Dag, token)
+	tree, err := chain.ChainTree.Tree()
+	if err != nil {
+		return 0, err
+	}
+	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, token, false)
+	if err != nil {
+		return 0, err
+	}
+	ledger := consensus.NewTreeLedger(tree, canonicalTokenName.String())
 	bal, err := ledger.Balance()
 	if err != nil {
 		return 0, fmt.Errorf("error getting token %s balance: %s", token, err)

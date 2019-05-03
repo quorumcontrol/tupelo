@@ -280,7 +280,7 @@ func testGetTokenBalance(t *testing.T, sess *RPCSession, chain *consensus.Signed
 func testGetNonExistentTokenBalance(t *testing.T, sess *RPCSession,
 	chain *consensus.SignedChainTree) {
 	bal, err := sess.GetTokenBalance(chain.MustId(), "non-existent-token")
-	require.Nil(t, err)
+	require.NotNil(t, err)
 	require.Equal(t, uint64(0), bal)
 }
 
