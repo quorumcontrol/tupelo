@@ -794,7 +794,7 @@ func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
 	return bal, nil
 }
 
-func (rpcs *RPCSession) ListTokens(chainId, keyAddr string) (string, error) {
+func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
 	tokensPath, err := consensus.DecodePath("tree/_tupelo/tokens")
 	if err != nil {
 		return "", err
