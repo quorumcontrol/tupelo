@@ -558,6 +558,10 @@ func (s *server) GetTokenBalance(ctx context.Context, req *GetTokenBalanceReques
 		return nil, err
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	return &GetTokenBalanceResponse{
 		Amount: amount,
 	}, nil
