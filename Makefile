@@ -59,8 +59,11 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
+SOURCE_MOUNT ?= -v ${CURDIR}:/src
+
 integration-test: test .tupelo-integration.yml
-	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${CURDIR}:/src quorumcontrol/tupelo-integration-runner
+	docker pull quorumcontrol/tupelo-integration-runner || true
+	docker run -v /var/run/docker.sock:/var/run/docker.sock $(SOURCE_MOUNT) quorumcontrol/tupelo-integration-runner
 
 ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test -mod=readonly ./... -tags=integration
