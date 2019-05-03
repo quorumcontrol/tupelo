@@ -13,8 +13,9 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/require"
+
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 func TestValidator(t *testing.T) {
@@ -58,7 +59,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
 	}
-	validator := actor.Spawn(NewTransactionValidatorProps(cfg))
+	validator := actor.EmptyRootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer actor.EmptyRootContext.Poison(validator)
 
 	treeKey, err := crypto.GenerateKey()
@@ -77,7 +78,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: consensus.TransactionTypeMintToken,
+					Type:    consensus.TransactionTypeMintToken,
 					Payload: &consensus.MintTokenPayload{
 						Name:   tokenName,
 						Amount: 4999,
@@ -101,6 +102,11 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	})
 	require.Nil(t, err)
 
+	balancePath := append(tokenPath, "balance")
+
+	evilTree, err = evilTree.Set(balancePath, uint64(0))
+	require.Nil(t, err)
+
 	testTree, err := chaintree.NewChainTree(evilTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
@@ -108,7 +114,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	require.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(blockWithHeaders)
-	require.Equal(t, true, valid)
+	require.True(t, valid)
 	require.Nil(t, err)
 	nodes := dagToByteNodes(t, evilTree)
 
