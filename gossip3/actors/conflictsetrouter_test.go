@@ -35,15 +35,15 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
-		defer sg.Poison()
+		defer rootContext.Poison(sg)
 	}
 	signer := ng.AllSigners()[0]
 
 	alwaysChecker := rootContext.Spawn(NewAlwaysVerifierProps())
-	defer alwaysChecker.Poison()
+	defer rootContext.Poison(alwaysChecker)
 
 	sender := rootContext.Spawn(NewNullActorProps())
-	defer sender.Poison()
+	defer rootContext.Poison(sender)
 
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
@@ -72,7 +72,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 	}
 
 	parent := rootContext.Spawn(actor.PropsFromFunc(parentFunc))
-	defer parent.Poison()
+	defer rootContext.Poison(parent)
 
 	trans := testhelpers.NewValidTransaction(t)
 	transWrapper := fakeValidateTransaction(t, &trans)
@@ -102,15 +102,15 @@ func TestHandlesDeadlocks(t *testing.T) {
 		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
-		defer sg.Poison()
+		defer rootContext.Poison(sg)
 	}
 	signer := ng.AllSigners()[0]
 
 	alwaysChecker := rootContext.Spawn(NewAlwaysVerifierProps())
-	defer alwaysChecker.Poison()
+	defer rootContext.Poison(alwaysChecker)
 
 	sender := rootContext.Spawn(NewNullActorProps())
-	defer sender.Poison()
+	defer rootContext.Poison(sender)
 
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
@@ -140,7 +140,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 
 	parent, err := rootContext.SpawnNamed(actor.PropsFromFunc(parentFunc), "THDParent")
 	require.Nil(t, err)
-	defer parent.Poison()
+	defer rootContext.Poison(parent)
 
 	keyBytes, err := hexutil.Decode("0xf9c0b741e7c065ea4fe4fde335c4ee575141db93236e3d86bb1c9ae6ccddf6f1")
 	require.Nil(t, err)
@@ -199,15 +199,15 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		sg, err := rootContext.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
-		defer sg.Poison()
+		defer rootContext.Poison(sg)
 	}
 	signer := ng.AllSigners()[0]
 
 	alwaysChecker := rootContext.Spawn(NewAlwaysVerifierProps())
-	defer alwaysChecker.Poison()
+	defer rootContext.Poison(alwaysChecker)
 
 	sender := rootContext.Spawn(NewNullActorProps())
-	defer sender.Poison()
+	defer rootContext.Poison(sender)
 
 	cfg := &ConflictSetRouterConfig{
 		NotaryGroup:        ng,
@@ -235,7 +235,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 
 	parent0, err := rootContext.SpawnNamed(actor.PropsFromFunc(parentFunc0), "THCBTParent0")
 	require.Nil(t, err)
-	defer parent0.Poison()
+	defer rootContext.Poison(parent0)
 
 	csInterface0, err := isReadyFuture0.Result()
 	require.Nil(t, err)
@@ -271,7 +271,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 
 	parent1, err := rootContext.SpawnNamed(actor.PropsFromFunc(parentFunc1), "THCBTParent1")
 	require.Nil(t, err)
-	defer parent1.Poison()
+	defer rootContext.Poison(parent1)
 
 	csInterface1, err := isReadyFuture1.Result()
 	require.Nil(t, err)
@@ -402,25 +402,25 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 		sg, err := actor.SpawnNamed(NewSignatureGeneratorProps(signer, ng), "sigGenerator-"+signer.ID)
 		require.Nil(t, err)
 		sigGeneratorActors[i] = sg
-		defer sg.Poison()
+		defer ctx.Poison(sg)
 	}
 
 	alwaysChecker := actor.Spawn(NewAlwaysVerifierProps())
-	defer alwaysChecker.Poison()
+	defer ctx.Poison(alwaysChecker)
 
 	sender := actor.Spawn(NewNullActorProps())
-	defer sender.Poison()
+	defer ctx.Poison(sender)
 
 	currentStateStore := storage.NewMemStorage()
 
 	cswChan0, conflictSetRouter0, parent0 := spawnCSR(t, "testCUSCSOC", 0, currentStateStore, ng,
 		alwaysChecker,
 		sender, sigGeneratorActors)
-	defer parent0.Poison()
+	defer ctx.Poison(parent0)
 
 	cswChan1, conflictSetRouter1, parent1 := spawnCSR(t, "testCUSCSOC", 1, currentStateStore, ng,
 		alwaysChecker, sender, sigGeneratorActors)
-	defer parent1.Poison()
+	defer ctx.Poison(parent1)
 
 	trans0 := testhelpers.NewValidTransaction(t)
 	trans0.Height = 1

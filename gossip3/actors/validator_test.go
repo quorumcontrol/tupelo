@@ -24,7 +24,7 @@ func TestValidator(t *testing.T) {
 		CurrentStateStore: currentState,
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer rootContext.Poison(validator)
 
 	fut := actor.NewFuture(1 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
@@ -39,7 +39,7 @@ func TestValidator(t *testing.T) {
 	}
 
 	sender := rootContext.Spawn(actor.PropsFromFunc(validatorSenderFunc))
-	defer sender.Poison()
+	defer rootContext.Poison(sender)
 
 	trans := testhelpers.NewValidTransaction(t)
 
@@ -59,7 +59,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 		CurrentStateStore: currentState,
 	}
 	validator := actor.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer actor.EmptyRootContext.Poison(validator)
 
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -140,7 +140,7 @@ func BenchmarkValidator(b *testing.B) {
 		CurrentStateStore: currentState,
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer actor.EmptyRootContext.Poison(validator)
 
 	trans := testhelpers.NewValidTransaction(b)
 

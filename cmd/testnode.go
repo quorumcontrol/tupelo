@@ -170,7 +170,10 @@ func stopOnSignal(signers ...*gossip3types.Signer) {
 		fmt.Println(sig)
 		for _, signer := range signers {
 			log.Info("gracefully stopping signer")
-			signer.Actor.GracefulPoison()
+			err := actor.EmptyRootContext.PoisonFuture(signer.Actor).Wait()
+			if err != nil {
+				log.Error(fmt.Sprintf("signer failed to stop gracefully: %v", err))
+			}
 		}
 		done <- true
 	}()
