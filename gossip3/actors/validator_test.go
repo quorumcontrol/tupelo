@@ -114,8 +114,8 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	require.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(blockWithHeaders)
-	require.True(t, valid)
 	require.Nil(t, err)
+	require.True(t, valid)
 	nodes := dagToByteNodes(t, evilTree)
 
 	bits := sw.WrapObject(blockWithHeaders).RawData()
