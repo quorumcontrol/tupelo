@@ -32,7 +32,7 @@ $(FIRSTGOPATH)/bin/protoc-gen-go:
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
 $(FIRSTGOPATH)/bin/msgp:
-	go get -u -t github.com/tinylib/msgp
+	go get -u github.com/tinylib/msgp
 
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
