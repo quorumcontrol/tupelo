@@ -540,6 +540,29 @@ func (s *server) ReceiveToken(ctx context.Context, req *ReceiveTokenRequest) (*R
 	}, nil
 }
 
+func (s *server) GetTokenBalance(ctx context.Context, req *GetTokenBalanceRequest) (*GetTokenBalanceResponse, error) {
+	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.PubSub)
+	if err != nil {
+		return nil, err
+	}
+
+	err = session.Start(req.Creds.PassPhrase)
+	if err != nil {
+		return nil, fmt.Errorf("error starting session: %v", err)
+	}
+
+	defer session.Stop()
+
+	amount, err := session.GetTokenBalance(req.ChainId, req.TokenName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GetTokenBalanceResponse{
+		Amount: amount,
+	}, nil
+}
+
 func startServer(grpcServer *grpc.Server, storagePath string, notaryGroup *types.NotaryGroup, pubsub remote.PubSub, port int) (*grpc.Server, error) {
 	fmt.Println("Starting Tupelo RPC server")
 
