@@ -59,8 +59,13 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
+integration-test: test .tupelo-integration.yml
+	docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${CURDIR}:/src quorumcontrol/tupelo-integration-runner
+
 ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test -mod=readonly ./... -tags=integration
+
+ci-integration-test: ci-test integration-test
 
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
@@ -80,4 +85,4 @@ github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
 	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
 
-.PHONY: all test ci-test docker-image clean install lint github-prepare
+.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare

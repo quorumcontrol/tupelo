@@ -1,0 +1,8 @@
+tupelos:
+  local:
+    build: .
+
+testers:
+  js-sdk:
+    image: quorumcontrol/tupelo-js-sdk:latest
+    command: ["npx", "mocha", "--exit"]
