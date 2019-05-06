@@ -4,14 +4,17 @@ package gossip3
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"sync"
 	"testing"
 	"time"
+	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -137,10 +140,9 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	ng.AddSigner(localSigner)
 
 	for i, verKey := range testSet.VerKeys {
-		var signer *types.Signer
 		if i != indexOfLocal {
 			// this is a remote signer
-			signer = types.NewRemoteSigner(testSet.PubKeys[i].ToEcdsaPub(), verKey)
+			signer := types.NewRemoteSigner(testSet.PubKeys[i].ToEcdsaPub(), verKey)
 			signer.Actor = actor.NewPID(signer.ActorAddress(localSigner.DstKey), "tupelo-"+signer.ID)
 			ng.AddSigner(signer)
 		}
@@ -228,4 +230,146 @@ func TestLibP2PSigning(t *testing.T) {
 	require.IsType(t, &extmsgs.CurrentState{}, resp)
 	sigResp := resp.(*extmsgs.CurrentState)
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
+}
+
+func sendTransaction(cli *client.Client, treeKey *ecdsa.PrivateKey,
+	signedTree *consensus.SignedChainTree, height uint64) error {
+	var remoteTip cid.Cid
+	if !signedTree.IsGenesis() {
+		remoteTip = signedTree.Tip()
+	}
+	middleware.Log.Infow("playing transaction...", "height", height, "isGenesis",
+		signedTree.IsGenesis())
+	start := time.Now()
+	value := time.Now().Format(time.RFC3339)
+	resp, err := cli.PlayTransactions(signedTree, treeKey, &remoteTip, []*chaintree.Transaction{
+		{
+			Type: "SET_DATA",
+			Payload: map[string]string{
+				"path":  "testTime",
+				"value": value,
+			},
+		},
+	})
+	if err != nil {
+		middleware.Log.Infow("playing transaction failed", "height", height)
+		return err
+	}
+	if resp == nil {
+		return fmt.Errorf("received nil response from playing transaction")
+	}
+
+	treeTip := signedTree.Tip()
+	if !treeTip.Defined() {
+		return fmt.Errorf("tree tip not defined")
+	}
+	if !reflect.DeepEqual(resp.Tip, &treeTip) {
+		return fmt.Errorf("resp.Tip not equal to tree tip")
+	}
+	if resp.ChainId != signedTree.MustId() {
+		return fmt.Errorf("resp.ChainId not equal to tree ID")
+	}
+
+	stop := time.Now()
+	middleware.Log.Infow("finished playing transaction", "timeTaken", stop.Sub(start).Seconds())
+
+	return nil
+}
+
+func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(), error)  {
+	cleanupFuncs := []func(){}
+	cleanUp := func() {
+		middleware.Log.Infow("---- tests over ----")
+		os.RemoveAll(testRootPath)
+
+		for _, f := range cleanupFuncs {
+			f()
+		}
+	}
+	
+	if err := os.MkdirAll(testCurrentPath, 0755); err != nil {
+		return nil, nil, cleanUp, err
+	}
+
+	remote.Start()
+	cleanupFuncs = append(cleanupFuncs, remote.Stop)
+
+	numMembers := 3
+	ctx, cancel := context.WithCancel(context.Background())
+	cleanupFuncs = append(cleanupFuncs, cancel)
+	ts := testnotarygroup.NewTestSet(t, numMembers)
+
+	bootstrap := testnotarygroup.NewBootstrapHost(ctx, t)
+	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrap)
+
+	localSyncers := make([]*actor.PID, numMembers)
+	systems := make([]*types.NotaryGroup, numMembers)
+	for i := 0; i < numMembers; i++ {
+		local, ng, err := newSystemWithRemotes(ctx, bootstrap, i, ts)
+		if err != nil {
+			return nil, nil, cleanUp, err
+		}
+		systems[i] = ng
+		localSyncers[i] = local.Actor
+		signers := ng.AllSigners()
+		if len(signers) != numMembers {
+			panic("number of signers != numMembers")
+		}
+	}
+
+	clientKey, err := crypto.GenerateKey()
+	if err != nil {
+		return nil, nil, cleanUp, err
+	}
+	clientHost, err := p2p.NewLibP2PHost(ctx, clientKey, 0)
+	if err != nil {
+		return nil, nil, cleanUp, err
+	}
+	_, err = clientHost.Bootstrap(bootAddrs)
+	if err != nil {
+		return nil, nil, cleanUp, err
+	}
+	err = clientHost.WaitForBootstrap(2, 1*time.Second)
+	if err != nil {
+		return nil, nil, cleanUp, err
+	}
+
+	remote.NewRouter(clientHost)
+	pubSub := remote.NewNetworkPubSub(clientHost)
+
+	return pubSub, systems[0], cleanUp, nil
+}
+
+// Test successive transactions on a single chaintree.
+func TestSuccessiveTransactionsSingleTree(t *testing.T) {
+	pubSub, group, cleanUp, err := setUpSystem(t)
+	defer cleanUp()
+	require.Nil(t, err)
+
+	treeKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	require.Nil(t, err)
+	signedTree := &consensus.SignedChainTree{
+		ChainTree:  testTree,
+		Signatures: consensus.SignatureMap{},
+	}
+
+	cli := client.New(group, treeDID, pubSub)
+	cli.Listen()
+	defer cli.Stop()
+
+	for h := uint64(0); h < 30; h++ {
+		err = sendTransaction(cli, treeKey, signedTree, h)
+		require.Nil(t, err)
+
+		// TODO: currently if any syncer gets a transaction it perceives as "invalid" it will send
+		// it back an error even if the system is doing ok. Once the errors are limited to the
+		// rewards committee we can (hopefully) remove this sleep.
+		middleware.Log.Infow("sleeping before sending next transaction")
+		time.Sleep(10 * time.Millisecond)
+	}
 }
