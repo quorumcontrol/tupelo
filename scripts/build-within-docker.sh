@@ -12,7 +12,7 @@ fi
 go mod download
 make lint
 if [[ "${CI}" == "true" ]]; then
-  make ci-test
+  make ci-integration-test
 else
   make test
 fi
