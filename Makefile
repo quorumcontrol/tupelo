@@ -69,7 +69,7 @@ $(FIRSTGOPATH)/bin/modvendor:
 	go get -u github.com/goware/modvendor
 
 install: $(packr) $(generated) $(gosources) go.mod go.sum
-	go install -a -gcflags=-trimpath=$(GOPATH) -asmflags=-trimpath=$(GOPATH)
+	go install -a -gcflags=-trimpath=$(CURDIR) -asmflags=-trimpath=$(CURDIR)
 
 clean:
 	$(FIRSTGOPATH)/bin/packr2 clean
