@@ -17,7 +17,7 @@ func TestVerification(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
 	rootContext := actor.EmptyRootContext
 	ss := rootContext.Spawn(NewSignatureVerifier())
-	defer ss.Poison()
+	defer rootContext.Poison(ss)
 
 	msg := crypto.Keccak256([]byte("hi"))
 	sig, err := ts.SignKeys[0].Sign(msg)
@@ -42,7 +42,7 @@ func BenchmarkVerification(b *testing.B) {
 	ts := testnotarygroup.NewTestSet(b, 1)
 	rootContext := actor.EmptyRootContext
 	ss := rootContext.Spawn(NewSignatureVerifier())
-	defer ss.Stop()
+	defer rootContext.Stop(ss)
 
 	futures := make([]*actor.Future, b.N)
 

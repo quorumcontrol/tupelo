@@ -141,7 +141,7 @@ func setupLocalSigner(ctx context.Context, pubSubSystem remote.PubSub, group *go
 
 	go func() {
 		<-ctx.Done()
-		syncer.Poison()
+		actor.EmptyRootContext.Poison(syncer)
 	}()
 
 	group.AddSigner(signer)

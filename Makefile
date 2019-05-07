@@ -48,7 +48,7 @@ vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 	modvendor -copy="**/*.c **/*.h"
 
 tupelo: $(packr) $(generated) $(gosources) go.mod go.sum
-	go build ./...
+	go build
 
 lint: $(FIRSTGOPATH)/bin/golangci-lint
 	$(FIRSTGOPATH)/bin/golangci-lint run --build-tags integration

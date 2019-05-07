@@ -17,7 +17,7 @@ func TestSendSigs(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
 	rootContext := actor.EmptyRootContext
 	ss := rootContext.Spawn(NewSignatureSenderProps())
-	defer ss.Poison()
+	defer rootContext.Poison(ss)
 
 	fut := actor.NewFuture(5 * time.Second)
 	subscriberFunc := func(context actor.Context) {
@@ -28,7 +28,7 @@ func TestSendSigs(t *testing.T) {
 	}
 
 	subscriber := rootContext.Spawn(actor.PropsFromFunc(subscriberFunc))
-	defer subscriber.Poison()
+	defer rootContext.Poison(subscriber)
 
 	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
 	signer.Actor = subscriber

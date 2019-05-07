@@ -13,8 +13,9 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/stretchr/testify/require"
+
+	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
 
 func TestValidator(t *testing.T) {
@@ -24,7 +25,7 @@ func TestValidator(t *testing.T) {
 		CurrentStateStore: currentState,
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer rootContext.Poison(validator)
 
 	fut := actor.NewFuture(1 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
@@ -39,7 +40,7 @@ func TestValidator(t *testing.T) {
 	}
 
 	sender := rootContext.Spawn(actor.PropsFromFunc(validatorSenderFunc))
-	defer sender.Poison()
+	defer rootContext.Poison(sender)
 
 	trans := testhelpers.NewValidTransaction(t)
 
@@ -58,8 +59,8 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
 	}
-	validator := actor.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	validator := actor.EmptyRootContext.Spawn(NewTransactionValidatorProps(cfg))
+	defer actor.EmptyRootContext.Poison(validator)
 
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -77,7 +78,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 			Height:      0,
 			Transactions: []*chaintree.Transaction{
 				{
-					Type: consensus.TransactionTypeMintToken,
+					Type:    consensus.TransactionTypeMintToken,
 					Payload: &consensus.MintTokenPayload{
 						Name:   tokenName,
 						Amount: 4999,
@@ -101,6 +102,11 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	})
 	require.Nil(t, err)
 
+	balancePath := append(tokenPath, "balance")
+
+	evilTree, err = evilTree.Set(balancePath, uint64(0))
+	require.Nil(t, err)
+
 	testTree, err := chaintree.NewChainTree(evilTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
@@ -108,8 +114,8 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	require.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(blockWithHeaders)
-	require.Equal(t, true, valid)
 	require.Nil(t, err)
+	require.True(t, valid)
 	nodes := dagToByteNodes(t, evilTree)
 
 	bits := sw.WrapObject(blockWithHeaders).RawData()
@@ -140,7 +146,7 @@ func BenchmarkValidator(b *testing.B) {
 		CurrentStateStore: currentState,
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer actor.EmptyRootContext.Poison(validator)
 
 	trans := testhelpers.NewValidTransaction(b)
 

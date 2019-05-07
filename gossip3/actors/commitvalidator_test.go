@@ -27,7 +27,7 @@ func TestCommitValidator(t *testing.T) {
 	t.Run("passes with everything valid", func(t *testing.T) {
 		// stub out actual signature verification
 		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
-		defer alwaysVerifier.Stop()
+		defer actor.EmptyRootContext.Stop(alwaysVerifier)
 
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 
@@ -51,7 +51,7 @@ func TestCommitValidator(t *testing.T) {
 	t.Run("fails with invalid signatures", func(t *testing.T) {
 		// stub out actual signature verification
 		neverVerifier := actor.EmptyRootContext.SpawnPrefix(NewNeverVerifierProps(), "alwaysVerifier")
-		defer neverVerifier.Stop()
+		defer actor.EmptyRootContext.Stop(neverVerifier)
 
 		validator := newCommitValidator(notaryGroup, neverVerifier)
 
@@ -75,7 +75,7 @@ func TestCommitValidator(t *testing.T) {
 	t.Run("fails with not enough signatures", func(t *testing.T) {
 		// stub out actual signature verification
 		alwaysVerifier := actor.EmptyRootContext.SpawnPrefix(NewAlwaysVerifierProps(), "alwaysVerifier")
-		defer alwaysVerifier.Stop()
+		defer actor.EmptyRootContext.Stop(alwaysVerifier)
 
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 

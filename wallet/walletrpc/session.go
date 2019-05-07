@@ -761,7 +761,35 @@ func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid
 	return resp.Tip, nil
 }
 
-func (rpcs *RPCSession) ListTokens(chainId, keyAddr string) (string, error) {
+// GetTokenBalance gets the balance for a certain token in the tree.
+func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
+	if rpcs.IsStopped() {
+		return 0, StoppedError
+	}
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return 0, err
+	}
+
+	tree, err := chain.ChainTree.Tree()
+	if err != nil {
+		return 0, err
+	}
+	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, token, false)
+	if err != nil {
+		return 0, err
+	}
+	ledger := consensus.NewTreeLedger(tree, canonicalTokenName.String())
+	bal, err := ledger.Balance()
+	if err != nil {
+		return 0, fmt.Errorf("error getting token %s balance: %s", token, err)
+	}
+
+	return bal, nil
+}
+
+func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
 	tokensPath, err := consensus.DecodePath("tree/_tupelo/tokens")
 	if err != nil {
 		return "", err

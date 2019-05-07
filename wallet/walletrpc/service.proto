@@ -267,6 +267,14 @@ message PlayTransactionsResponse {
   string tip = 1;
 }
 
+message GetTokenBalanceRequest {
+  Credentials creds = 1;
+  string chain_id = 2;
+  string token_name = 3;
+}
+
+message GetTokenBalanceResponse { uint64 amount = 1; }
+
 service WalletRPCService {
   rpc Register (RegisterWalletRequest) returns (RegisterWalletResponse);
   rpc GenerateKey (GenerateKeyRequest) returns (GenerateKeyResponse);
@@ -285,4 +293,5 @@ service WalletRPCService {
   rpc MintToken (MintTokenRequest) returns (MintTokenResponse);
   rpc SendToken (SendTokenRequest) returns (SendTokenResponse);
   rpc ReceiveToken (ReceiveTokenRequest) returns (ReceiveTokenResponse);
+  rpc GetTokenBalance(GetTokenBalanceRequest) returns (GetTokenBalanceResponse);
 }

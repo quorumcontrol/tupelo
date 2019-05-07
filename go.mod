@@ -9,7 +9,7 @@ replace github.com/quorumcontrol/chaintree => ../chaintree
 replace github.com/quorumcontrol/tupelo-go-client => ../tupelo-go-client
 
 require (
-	github.com/AsynkronIT/protoactor-go v0.0.0-20190318154652-aa1aa20c2fa0
+	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
 	github.com/Workiva/go-datastructures v1.0.50
 	github.com/abiosoft/ishell v2.0.0+incompatible
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
@@ -40,7 +40,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3
 	github.com/quorumcontrol/messages v0.0.0-20190329073357-72154292315e
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.2.1-0.20190501192947-fe26b89becfba2b5fcd7e9d6f856c11ac7b7c7ab
+	github.com/quorumcontrol/tupelo-go-sdk v0.2.1-0.20190503150547-49d54068a17c
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1

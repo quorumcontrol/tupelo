@@ -39,7 +39,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		signer.Actor = syncer
 		go func() {
 			<-ctx.Done()
-			syncer.Poison()
+			actor.EmptyRootContext.Poison(syncer)
 		}()
 		ng.AddSigner(signer)
 	}

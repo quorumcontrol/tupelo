@@ -14,6 +14,7 @@ import (
 
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -42,7 +43,7 @@ func TestImportExport(t *testing.T) {
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
-	defer syncer.Poison()
+	defer actor.EmptyRootContext.Poison(syncer)
 	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "test-only", ng, pubSubSystem)
@@ -134,7 +135,7 @@ func TestSendToken(t *testing.T) {
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
-	defer syncer.Poison()
+	defer actor.EmptyRootContext.Poison(syncer)
 	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "send-token-test", ng, pubSubSystem)
@@ -206,7 +207,7 @@ func TestGetTip(t *testing.T) {
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
 	signer.Actor = syncer
-	defer syncer.Poison()
+	defer actor.EmptyRootContext.Poison(syncer)
 	ng.AddSigner(signer)
 
 	sess, err := NewSession(path, "get-tip-test", ng, pubSubSystem)
@@ -268,4 +269,78 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, intSig, *decoded)
+}
+
+func testGetTokenBalance(t *testing.T, sess *RPCSession, chain *consensus.SignedChainTree) {
+	bal, err := sess.GetTokenBalance(chain.MustId(), "test-token")
+	require.Nil(t, err)
+	require.Equal(t, uint64(10), bal)
+}
+
+func testGetNonExistentTokenBalance(t *testing.T, sess *RPCSession,
+	chain *consensus.SignedChainTree) {
+	bal, err := sess.GetTokenBalance(chain.MustId(), "non-existent-token")
+	require.NotNil(t, err)
+	require.Equal(t, uint64(0), bal)
+}
+
+func TestTokens(t *testing.T) {
+	testCases := []struct {
+		name   string
+		testFn func(*testing.T, *RPCSession, *consensus.SignedChainTree)
+	}{
+		{"get existing token balance", testGetTokenBalance},
+		{"get non-existent token balance", testGetNonExistentTokenBalance},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := ".tmp/test-tokens"
+			err := os.RemoveAll(path)
+			require.Nil(t, err)
+			err = os.MkdirAll(path, 0755)
+			require.Nil(t, err)
+			defer os.RemoveAll(path)
+
+			ng := types.NewNotaryGroup("test-tokens")
+			ts := testnotarygroup.NewTestSet(t, 1)
+			signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+			pubSubSystem := remote.NewSimulatedPubSub()
+
+			syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+				Self:              signer,
+				NotaryGroup:       ng,
+				CurrentStateStore: storage.NewMemStorage(),
+				PubSubSystem:      pubSubSystem,
+			}), "tupelo-"+signer.ID)
+			require.Nil(t, err)
+			signer.Actor = syncer
+			defer actor.EmptyRootContext.Poison(syncer)
+			ng.AddSigner(signer)
+
+			sess, err := NewSession(path, "test-tokens", ng, pubSubSystem)
+			require.Nil(t, err)
+
+			err = sess.CreateWallet("test")
+			require.Nil(t, err)
+
+			err = sess.Start("test")
+			require.Nil(t, err)
+
+			defer sess.Stop()
+
+			key, err := sess.GenerateKey()
+			require.Nil(t, err)
+			addr := crypto.PubkeyToAddress(key.PublicKey).String()
+			chain, err := sess.CreateChain(addr, &adapters.Config{Adapter: "mock"})
+			require.Nil(t, err)
+
+			_, err = sess.EstablishToken(chain.MustId(), addr, "test-token", 1000000)
+			require.Nil(t, err)
+
+			_, err = sess.MintToken(chain.MustId(), addr, "test-token", 10)
+			require.Nil(t, err)
+
+			tc.testFn(t, sess, chain)
+		})
+	}
 }

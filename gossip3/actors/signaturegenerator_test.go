@@ -28,10 +28,10 @@ func TestSignatureGenerator(t *testing.T) {
 		NotaryGroup:       ng,
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer rootContext.Poison(validator)
 
 	sigGenerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
-	defer sigGenerator.Poison()
+	defer rootContext.Poison(sigGenerator)
 
 	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
@@ -48,7 +48,7 @@ func TestSignatureGenerator(t *testing.T) {
 	}
 
 	sender := rootContext.Spawn(actor.PropsFromFunc(validatorSenderFunc))
-	defer sender.Poison()
+	defer rootContext.Poison(sender)
 
 	trans := testhelpers.NewValidTransaction(t)
 
@@ -77,10 +77,10 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 		NotaryGroup:       ng,
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
-	defer validator.Poison()
+	defer rootContext.Poison(validator)
 
-	sigGnerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
-	defer sigGnerator.Poison()
+	sigGenerator := rootContext.Spawn(NewSignatureGeneratorProps(signer, ng))
+	defer rootContext.Poison(sigGenerator)
 
 	trans := testhelpers.NewValidTransaction(b)
 
@@ -92,7 +92,7 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	second := 1 * time.Second
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, err := rootContext.RequestFuture(sigGnerator, transWrapper, second).Result()
+		_, err := rootContext.RequestFuture(sigGenerator, transWrapper, second).Result()
 		require.Nil(b, err)
 	}
 }

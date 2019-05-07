@@ -420,16 +420,35 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 		},
 	})
 
-	listTokensUsage := "usage: list-tokens chain-id key-id"
+	getTokenBalanceUsage := "usage: get-token-balance chain-id token-name"
+	shell.AddCmd(&ishell.Cmd{
+		Name: "get-token-balance",
+		Help: "get the balance for a token in a chain tree. " + getTokenBalanceUsage,
+		Func: func(c *ishell.Context) {
+			if len(c.Args) < 2 {
+				c.Println("not enough arguments to get-token-balance. " + getTokenBalanceUsage)
+				return
+			}
+			bal, err := session.GetTokenBalance(c.Args[0], c.Args[1])
+			if err != nil {
+				c.Printf("error getting token balance: %s\n", err)
+				return
+			}
+
+			c.Printf("balance: %d\n", bal)
+		},
+	})
+
+	listTokensUsage := "usage: list-tokens chain-id"
 	shell.AddCmd(&ishell.Cmd{
 		Name: "list-tokens",
 		Help: "lists all tokens and their balances. " + listTokensUsage,
 		Func: func(c *ishell.Context) {
-			if len(c.Args) < 2 {
+			if len(c.Args) < 1 {
 				c.Println("not enough arguments to list-tokens. " + listTokensUsage)
 				return
 			}
-			tokens, err := session.ListTokens(c.Args[0], c.Args[1])
+			tokens, err := session.ListTokens(c.Args[0])
 			if err != nil {
 				c.Printf("error listing tokens: %v\n", err)
 				return
