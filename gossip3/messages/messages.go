@@ -73,3 +73,14 @@ type ValidateTransaction struct {
 }
 
 type GetNumConflictSets struct{}
+
+type GzipExport struct {
+}
+
+type GzipImport struct {
+	Payload []byte
+}
+
+type ImportCurrentState struct {
+	CurrentState *extmsgs.CurrentState
+}
