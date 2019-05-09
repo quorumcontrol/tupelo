@@ -12,7 +12,6 @@ func init() {
 }
 
 type RequestCurrentStateSnapshot struct {
-	Destination *extmsgs.ActorPID
 }
 
 func (RequestCurrentStateSnapshot) TypeCode() int8 {
