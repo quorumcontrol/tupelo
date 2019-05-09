@@ -42,14 +42,20 @@ func NewCurrentStateExchangeProps(config *CurrentStateExchangeConfig) *actor.Pro
 
 func (e *CurrentStateExchange) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
+	case *messages.DoCurrentStateExchange:
+		context.Request(msg.Destination, &messages.RequestCurrentStateSnapshot{})
 	case *messages.RequestCurrentStateSnapshot:
 		e.handleRequestCurrentStateSnapshot(context, msg)
 	case *messages.ReceiveCurrentStateSnapshot:
-		e.handleReceiveCurrentStateSnapshot(context, msg)
+		e.gzipImport(context, msg.Payload)
 	}
 }
 
 func (e *CurrentStateExchange) handleRequestCurrentStateSnapshot(context actor.Context, msg *messages.RequestCurrentStateSnapshot) {
+	if context.Sender() == nil {
+		panic("RequestCurrentStateSnapshot requires a Sender")
+	}
+
 	gzippedBytes := e.gzipExport()
 
 	if len(gzippedBytes) == 0 {
@@ -60,18 +66,7 @@ func (e *CurrentStateExchange) handleRequestCurrentStateSnapshot(context actor.C
 		Payload: gzippedBytes,
 	}
 
-	_, err := context.RequestFuture(extmsgs.FromActorPid(msg.Destination), payload, CURRENT_STATE_EXCHANGE_TIMEOUT).Result()
-	if err != nil {
-		panic(fmt.Sprintf("exchange with %v failed: %v", msg.Destination, err))
-	}
-}
-
-func (e *CurrentStateExchange) handleReceiveCurrentStateSnapshot(context actor.Context, msg *messages.ReceiveCurrentStateSnapshot) {
-	var responseBytes []byte
-	e.gzipImport(context, msg.Payload)
-	context.Respond(&messages.ReceiveCurrentStateSnapshot{
-		Payload: responseBytes,
-	})
+	context.Request(context.Sender(), payload)
 }
 
 func (e *CurrentStateExchange) gzipExport() []byte {
@@ -114,7 +109,7 @@ func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte)
 	}
 	defer reader.Close()
 
-	e.Log.Debugw("gzipImport from %v started", context.Sender())
+	e.Log.Debugf("gzipImport from %v started", context.Sender())
 
 	bytesLeft := true
 
@@ -146,5 +141,5 @@ func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte)
 		bytesLeft = buf.Len() > 0
 	}
 
-	e.Log.Debugw("gzipImport from %v processed %d keys", context.Sender(), wroteCount)
+	e.Log.Debugf("gzipImport from %v processed %d keys", context.Sender(), wroteCount)
 }

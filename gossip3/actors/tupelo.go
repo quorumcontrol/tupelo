@@ -70,8 +70,6 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleNewTransaction(context)
 	case *messages.RequestCurrentStateSnapshot:
 		context.Forward(tn.currentStateExchangeActor)
-	case *messages.ReceiveCurrentStateSnapshot:
-		context.Forward(tn.currentStateExchangeActor)
 	}
 }
 
@@ -249,8 +247,6 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 			}
 		}
 
-		context.Send(otherSigner, &messages.RequestCurrentStateSnapshot{
-			Destination: extmsgs.ToActorPid(tn.currentStateExchangeActor),
-		})
+		context.Send(tn.currentStateExchangeActor, &messages.DoCurrentStateExchange{Destination: otherSigner})
 	}
 }
