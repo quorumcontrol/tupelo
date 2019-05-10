@@ -23,12 +23,13 @@ const ErrBadTransaction = 1
 type TupeloNode struct {
 	middleware.LogAwareHolder
 
-	self              *types.Signer
-	notaryGroup       *types.NotaryGroup
-	conflictSetRouter *actor.PID
-	validatorPool     *actor.PID
-	signatureChecker  *actor.PID
-	cfg               *TupeloConfig
+	self                      *types.Signer
+	notaryGroup               *types.NotaryGroup
+	conflictSetRouter         *actor.PID
+	validatorPool             *actor.PID
+	signatureChecker          *actor.PID
+	currentStateExchangeActor *actor.PID
+	cfg                       *TupeloConfig
 }
 
 type TupeloConfig struct {
@@ -67,6 +68,8 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleNewTransaction(context)
 	case *messages.TransactionWrapper:
 		tn.handleNewTransaction(context)
+	case *messages.RequestCurrentStateSnapshot:
+		context.Forward(tn.currentStateExchangeActor)
 	}
 }
 
@@ -223,4 +226,27 @@ func (tn *TupeloNode) handleStarted(context actor.Context) {
 		panic(fmt.Sprintf("error spawning: %v", err))
 	}
 	tn.conflictSetRouter = router
+
+	currentStateExchangeConfig := &CurrentStateExchangeConfig{
+		ConflictSetRouter: router,
+		CurrentStateStore: tn.cfg.CurrentStateStore,
+	}
+	currentStateExchangeActor, err := context.SpawnNamed(NewCurrentStateExchangeProps(currentStateExchangeConfig), "currentStateExchange")
+	if err != nil {
+		panic(fmt.Sprintf("error spawning: %v", err))
+	}
+	tn.currentStateExchangeActor = currentStateExchangeActor
+
+	if tn.cfg.NotaryGroup.Size() > 1 {
+		var otherSigner *actor.PID
+
+		for otherSigner == nil {
+			aSigner := tn.cfg.NotaryGroup.GetRandomSigner()
+			if aSigner.ID != tn.self.ID {
+				otherSigner = aSigner.Actor
+			}
+		}
+
+		context.Send(tn.currentStateExchangeActor, &messages.DoCurrentStateExchange{Destination: otherSigner})
+	}
 }

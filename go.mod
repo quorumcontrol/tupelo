@@ -6,7 +6,7 @@ replace github.com/quorumcontrol/messages => ../messages/build/go
 
 replace github.com/quorumcontrol/chaintree => ../chaintree
 
-replace github.com/quorumcontrol/tupelo-go-client => ../tupelo-go-client
+replace github.com/quorumcontrol/tupelo-go-sdk => ../tupelo-go-sdk
 
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
@@ -40,11 +40,12 @@ require (
 	github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3
 	github.com/quorumcontrol/messages v0.0.0-20190329073357-72154292315e
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.2.1-0.20190503150547-49d54068a17c
+	github.com/quorumcontrol/tupelo-go-sdk v0.2.2
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
+	github.com/tinylib/msgp v1.1.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734 // indirect

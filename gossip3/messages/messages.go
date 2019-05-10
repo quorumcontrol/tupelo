@@ -3,6 +3,7 @@ package messages
 import (
 	"fmt"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
@@ -73,3 +74,18 @@ type ValidateTransaction struct {
 }
 
 type GetNumConflictSets struct{}
+
+type GzipExport struct {
+}
+
+type GzipImport struct {
+	Payload []byte
+}
+
+type ImportCurrentState struct {
+	CurrentState *extmsgs.CurrentState
+}
+
+type DoCurrentStateExchange struct {
+	Destination *actor.PID
+}

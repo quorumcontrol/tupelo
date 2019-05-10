@@ -32,7 +32,7 @@ $(FIRSTGOPATH)/bin/protoc-gen-go:
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
 $(FIRSTGOPATH)/bin/msgp:
-	go get -u -t github.com/tinylib/msgp
+	go get -u github.com/tinylib/msgp
 
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
@@ -59,8 +59,16 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test ./... -tags=integration
 
+SOURCE_MOUNT ?= -v ${CURDIR}:/src
+
+integration-test: test .tupelo-integration.yml
+	docker pull quorumcontrol/tupelo-integration-runner || true
+	docker run -v /var/run/docker.sock:/var/run/docker.sock $(SOURCE_MOUNT) quorumcontrol/tupelo-integration-runner
+
 ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
 	go test -mod=readonly ./... -tags=integration
+
+ci-integration-test: ci-test integration-test
 
 docker-image: vendor $(packr) $(generated) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
@@ -69,7 +77,7 @@ $(FIRSTGOPATH)/bin/modvendor:
 	go get -u github.com/goware/modvendor
 
 install: $(packr) $(generated) $(gosources) go.mod go.sum
-	go install -a -gcflags=-trimpath=$(GOPATH) -asmflags=-trimpath=$(GOPATH)
+	go install -a -gcflags=-trimpath=$(CURDIR) -asmflags=-trimpath=$(CURDIR)
 
 clean:
 	$(FIRSTGOPATH)/bin/packr2 clean
@@ -80,4 +88,4 @@ github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
 	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
 
-.PHONY: all test ci-test docker-image clean install lint github-prepare
+.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare
