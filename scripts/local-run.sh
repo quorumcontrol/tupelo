@@ -27,6 +27,6 @@ done
 
 sleep 60
 
-go run main.go benchmark -k $keys_dir -c 2 -i 60 -s tps -t 91
+go run main.go benchmark -k $keys_dir -c 2 -i 60 -s tps -t 5
 
 wait
