@@ -13,6 +13,7 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
+	gossip3middleware "github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	gossip3testhelpers "github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -25,29 +26,41 @@ import (
 )
 
 type ResultSet struct {
-	Successes       int
-	Failures        int
 	Durations       []int
 	Errors          []string
+	Total           int
+	Measured        int
+	Successes       int
+	Failures        int
 	AverageDuration int
 	MinDuration     int
 	MaxDuration     int
 	P95Duration     int
 }
 
+type Result struct {
+	Duration    int
+	Error       string
+	Transaction *messages.Transaction
+}
+
 var results ResultSet
 var benchmarkConcurrency int
-var benchmarkIterations int
 var benchmarkTimeout int
+var benchmarkDuration int
 var benchmarkStrategy string
-var benchmarkSignersFanoutNumber int
 var benchmarkStartDelay int
 var tracingTagName string
 
-var activeCounter = 0
+var sentCh chan *messages.Transaction
+var resultsCh chan *Result
 
-func measureTransaction(cli *client.Client, trans messages.Transaction) {
-	subscriptionFuture := cli.Subscribe(&trans, 30*time.Second)
+func measureTransaction(cli *client.Client, trans *messages.Transaction) {
+	result := &Result{
+		Transaction: trans,
+	}
+
+	subscriptionFuture := cli.Subscribe(trans, time.Duration(benchmarkTimeout)*time.Second)
 	defer cli.Stop()
 
 	startTime := time.Now()
@@ -71,28 +84,24 @@ func measureTransaction(cli *client.Client, trans messages.Transaction) {
 		switch msg := resp.(type) {
 		case *messages.CurrentState:
 			elapsed := time.Since(startTime)
-			duration := int(elapsed / time.Millisecond)
-			results.Durations = append(results.Durations, duration)
-			results.Successes = results.Successes + 1
+			result.Duration = int(elapsed / time.Millisecond)
 		case *messages.Error:
-			errMsg = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
+			result.Error = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
 		case nil:
-			errMsg = fmt.Sprintf("%s - nil response from channel", did)
+			result.Error = fmt.Sprintf("%s - nil response from channel", did)
 		default:
-			errMsg = fmt.Sprintf("%s - unkown error: %v", did, resp)
+			result.Error = fmt.Sprintf("%s - unkown error: %v", did, resp)
 		}
 	} else {
-		errMsg = fmt.Sprintf("%s - timeout", did)
+		result.Error = fmt.Sprintf("%s - timeout", did)
 	}
 
-	if errMsg != "" {
+	if result.Error != "" {
 		sp.SetTag("error", true)
 		sp.SetTag("errormessage", errMsg)
-		results.Errors = append(results.Errors, errMsg)
-		results.Failures = results.Failures + 1
 	}
 
-	activeCounter--
+	resultsCh <- result
 }
 
 func sendTransaction(notaryGroup *types.NotaryGroup, pubsub remote.PubSub, shouldMeasure bool) {
@@ -101,49 +110,43 @@ func sendTransaction(notaryGroup *types.NotaryGroup, pubsub remote.PubSub, shoul
 	cli := client.New(notaryGroup, string(trans.ObjectID), pubsub)
 	if shouldMeasure {
 		cli.Listen()
-		go measureTransaction(cli, trans)
+		go measureTransaction(cli, &trans)
 	}
 
 	err := cli.SendTransaction(&trans)
+
 	if err != nil {
 		panic(fmt.Sprintf("Couldn't add transaction, %v", err))
 	}
-
-	activeCounter++
+	sentCh <- &trans
 }
 
 func performTpsBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
-	for benchmarkIterations > 0 {
+	remainingIterations := benchmarkDuration
+
+	for remainingIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
 			go sendTransaction(group, pubsub, true)
 		}
-		benchmarkIterations--
+		remainingIterations--
 		time.Sleep(1 * time.Second)
 	}
 }
 
 func performTpsNoAckBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
-	for benchmarkIterations > 0 {
+	remainingIterations := benchmarkDuration
+
+	for remainingIterations > 0 {
 		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
 			// measure only the final iteration
-			if benchmarkIterations <= 1 {
+			if remainingIterations <= 1 {
 				go sendTransaction(group, pubsub, true)
 			} else {
 				go sendTransaction(group, pubsub, false)
 			}
 		}
-		benchmarkIterations--
+		remainingIterations--
 		time.Sleep(1 * time.Second)
-	}
-}
-
-func performLoadBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
-	for benchmarkIterations > 0 {
-		if activeCounter < benchmarkConcurrency {
-			sendTransaction(group, pubsub, true)
-			benchmarkIterations--
-		}
-		time.Sleep(30 * time.Millisecond)
 	}
 }
 
@@ -153,6 +156,8 @@ var benchmark = &cobra.Command{
 	Short:  "runs a set of operations against a network at specified concurrency",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		log := gossip3middleware.Log
+
 		gossip3remote.Start()
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -193,44 +198,53 @@ var benchmark = &cobra.Command{
 			panic(err)
 		}
 
+		if benchmarkStartDelay > 0 {
+			log.Infof("[benchmark] delaying benchmark kickoff for %d seconds...", benchmarkStartDelay)
+			time.Sleep(time.Duration(benchmarkStartDelay) * time.Second)
+		}
+
+		expectedTotal := benchmarkDuration * benchmarkConcurrency
+
+		sentCh = make(chan *messages.Transaction, expectedTotal)
+		defer close(sentCh)
+
+		resultsCh = make(chan *Result, expectedTotal)
+		defer close(resultsCh)
+
 		results = ResultSet{}
 
-		doneCh := make(chan bool, 1)
-		defer close(doneCh)
+		var expectedMeasured int
 
-		if benchmarkStartDelay > 0 {
-			fmt.Printf("Delaying benchmark kickoff for %d seconds...\n", benchmarkStartDelay)
-			time.Sleep(time.Duration(benchmarkStartDelay) * time.Second)
-			fmt.Println("Running benchmark")
-		}
+		log.Infof("[benchmark] running benchmark")
 
 		switch benchmarkStrategy {
 		case "tps":
+			expectedMeasured = benchmarkDuration * benchmarkConcurrency
 			go performTpsBenchmark(group, pubSubSystem)
 		case "tps-no-ack":
+			expectedMeasured = benchmarkConcurrency
 			go performTpsNoAckBenchmark(group, pubSubSystem)
-		case "load":
-			go performLoadBenchmark(group, pubSubSystem)
 		default:
 			panic(fmt.Sprintf("Unknown benchmark strategy: %v", benchmarkStrategy))
 		}
 
-		// Wait to call done until all transactions have finished
-		go func() {
-			for benchmarkIterations > 0 || activeCounter > 0 {
-				time.Sleep(1 * time.Second)
-			}
-			doneCh <- true
-		}()
-
-		if benchmarkTimeout > 0 {
+		for results.Measured < expectedMeasured {
 			select {
-			case <-doneCh:
-			case <-time.After(time.Duration(benchmarkTimeout) * time.Second):
-				results.Errors = append(results.Errors, "WARNING: timeout was triggered")
+			case s := <-sentCh:
+				log.Infof("[benchmark] request chainID=%s", s.ObjectID)
+				results.Total = results.Total + 1
+			case r := <-resultsCh:
+				log.Infof("[benchmark] results chainID=%s duration=%dms err=%s", r.Transaction.ObjectID, r.Duration, r.Error)
+				results.Measured = results.Measured + 1
+
+				if r.Error != "" {
+					results.Errors = append(results.Errors, r.Error)
+					results.Failures = results.Failures + 1
+				} else {
+					results.Durations = append(results.Durations, r.Duration)
+					results.Successes = results.Successes + 1
+				}
 			}
-		} else {
-			<-doneCh
 		}
 
 		sum := 0
@@ -259,11 +273,10 @@ var benchmark = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(benchmark)
 	benchmark.Flags().IntVarP(&benchmarkConcurrency, "concurrency", "c", 1, "how many transactions to execute at once")
-	benchmark.Flags().IntVarP(&benchmarkIterations, "iterations", "i", 10, "how many transactions to execute total")
-	benchmark.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 0, "seconds to wait before timing out")
-	benchmark.Flags().IntVarP(&benchmarkSignersFanoutNumber, "fanout", "f", 1, "how many signers to fanout to on sending a transaction")
+	benchmark.Flags().IntVarP(&benchmarkDuration, "iterations", "i", 10, "how many seconds to run benchmark for")
+	benchmark.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 0, "seconds per transaction to wait before timing out")
 	benchmark.Flags().IntVarP(&benchmarkStartDelay, "start-delay", "d", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stablize first")
-	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "whether to use tps, or concurrent load: 'tps' sends 'concurrency' # every second for # of 'iterations'. 'load' sends simultaneous transactions up to 'concurrency' #, until # of 'iterations' is reached")
+	benchmark.Flags().StringVarP(&benchmarkStrategy, "strategy", "s", "", "(tps|tps-no-ack) - tps will measure every transaction, tps-no-ack will only measure the last round of transactions")
 	benchmark.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
 	benchmark.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
 	benchmark.Flags().StringVar(&tracingTagName, "tracing-name", "", "adds tag to tracing for lookup")
