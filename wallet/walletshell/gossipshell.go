@@ -10,6 +10,9 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/jakehl/goid"
+	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -158,14 +161,24 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				return
 			}
 
+			chainId := c.Args[0]
+			keyAddr := c.Args[1]
+
 			newOwnerKeys := strings.Split(c.Args[2], ",")
-			tip, err := session.SetOwner(c.Args[0], c.Args[1], newOwnerKeys)
+
+			txn, err := chaintree.NewSetOwnershipTransaction(newOwnerKeys)
 			if err != nil {
 				c.Printf("error setting owners: %v\n", err)
 				return
 			}
 
-			c.Printf("new tip: %v\n", tip)
+			resp, err := session.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
+			if err != nil {
+				c.Printf("error setting owners: %v\n", err)
+				return
+			}
+
+			c.Printf("new tip: %v\n", resp.Tip)
 		},
 	})
 
@@ -268,19 +281,29 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				return
 			}
 
+			chainId := c.Args[0]
+			keyAddr := c.Args[1]
+
+			path := c.Args[2]
 			data, err := cbornode.DumpObject(c.Args[3])
 			if err != nil {
 				c.Printf("error encoding input: %v\n", err)
 				return
 			}
 
-			tip, err := session.SetData(c.Args[0], c.Args[1], c.Args[2], data)
+			txn, err := chaintree.NewSetDataTransaction(path, data)
+			if err != nil {
+				c.Printf("error creating transaction: %v\n", err)
+				return
+			}
+
+			resp, err := session.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
 			if err != nil {
 				c.Printf("error setting data: %v\n", err)
 				return
 			}
 
-			c.Printf("new tip: %v\n", tip)
+			c.Printf("new tip: %v\n", resp.Tip)
 		},
 	})
 
@@ -338,18 +361,29 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				c.Println("not enough arguments to establish-token. " + establishTokenUsage)
 				return
 			}
+			chainId := c.Args[0]
+			keyAddr := c.Args[1]
+			tokenName := c.Args[2]
+
 			maxTokens, err := strconv.ParseUint(c.Args[3], 10, 64)
 			if err != nil {
 				c.Printf("error parsing max-tokens \"%s\": %v\n", maxTokens, err)
 				return
 			}
-			tip, err := session.EstablishToken(c.Args[0], c.Args[1], c.Args[2], maxTokens)
+
+			txn, err := chaintree.NewEstablishTokenTransaction(tokenName, maxTokens)
+			if err != nil {
+				c.Printf("error creating transaction: %v\n", err)
+				return
+			}
+
+			resp, err := session.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
 			if err != nil {
 				c.Printf("error establishing token: %v\n", err)
 				return
 			}
 
-			c.Printf("new tip: %v\n", tip)
+			c.Printf("new tip: %v\n", resp.Tip)
 		},
 	})
 
@@ -362,18 +396,30 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				c.Println("not enough arguments to mint-token. " + mintTokenUsage)
 				return
 			}
+
+			chainId := c.Args[0]
+			keyAddr := c.Args[1]
+			tokenName := c.Args[2]
+
 			amount, err := strconv.ParseUint(c.Args[3], 10, 64)
 			if err != nil {
 				c.Printf("error parsing amount \"%s\": %v\n", amount, err)
 				return
 			}
-			tip, err := session.MintToken(c.Args[0], c.Args[1], c.Args[2], amount)
+
+			txn, err := chaintree.NewMintTokenTransaction(tokenName, amount)
 			if err != nil {
-				c.Printf("error minting token: %v\n", err)
+				c.Printf("error creating transaction: %v\n", err)
 				return
 			}
 
-			c.Printf("new tip: %v\n", tip)
+			resp, err := session.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
+			if err != nil {
+				c.Printf("error minting tokens: %v\n", err)
+				return
+			}
+
+			c.Printf("new tip: %v\n", resp.Tip)
 		},
 	})
 
@@ -386,14 +432,30 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				c.Println("not enough arguments to send-token. " + sendTokenUsage)
 				return
 			}
+
+			chainId := c.Args[0]
+			keyAddr := c.Args[1]
+			tokenName := c.Args[2]
+			destination := c.Args[3]
+
 			amount, err := strconv.ParseUint(c.Args[4], 10, 64)
 			if err != nil {
 				c.Printf("error parsing amount \"%s\": %v\n", amount, err)
 				return
 			}
-			token, err := session.SendToken(c.Args[0], c.Args[1], c.Args[2], c.Args[3], amount)
+
+			transactionId := goid.NewV4UUID()
+
+			payload := &transactions.SendTokenPayload{
+				Id:          transactionId.String(),
+				Name:        tokenName,
+				Amount:      amount,
+				Destination: destination,
+			}
+
+			token, err := session.SendToken(chainId, keyAddr, payload)
 			if err != nil {
-				c.Printf("error generating send token payload: %v\n", err)
+				c.Printf("error sending token: %v\n", err)
 				return
 			}
 

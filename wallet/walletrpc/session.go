@@ -657,12 +657,12 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr string, payload *transactions
 	return base64.StdEncoding.EncodeToString(serializedPayload), nil
 }
 
-func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid, error) {
+func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, encodedPayload string) (*cid.Cid, error) {
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
 
-	serializedPayload, err := base64.StdEncoding.DecodeString(payload)
+	serializedPayload, err := base64.StdEncoding.DecodeString(encodedPayload)
 	if err != nil {
 		return nil, err
 	}
