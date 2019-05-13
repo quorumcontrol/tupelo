@@ -21,6 +21,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -229,18 +230,12 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	assert.Equal(t, len(signedNodes), len(savedNodes))
 
+	txn, err := chaintree.NewSetDataTransaction("something", "hi")
+	assert.Nil(t, err)
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: nil,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: consensus.TransactionTypeSetData,
-					Payload: &consensus.SetDataPayload{
-						Path:  "something",
-						Value: "hi",
-					},
-				},
-			},
+			PreviousTip:  nil,
+			Transactions: []*transactions.Transaction{txn},
 		},
 	}
 

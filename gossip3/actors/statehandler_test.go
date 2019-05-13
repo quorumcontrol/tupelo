@@ -11,6 +11,7 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -36,18 +37,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 
+	txn, err := chaintree.NewSetDataTransaction("down/in/the/thing", "hi")
+	assert.Nil(t, err)
+
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: nil,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "down/in/the/thing",
-						"value": "hi",
-					},
-				},
-			},
+			PreviousTip:  nil,
+			Transactions: []*transactions.Transaction{txn},
 		},
 	}
 
@@ -100,19 +96,14 @@ func TestChainTreeStateHandler(t *testing.T) {
 	transHeight++
 
 	// playing a new transaction should work when there are no auths
+	txn2, err := chaintree.NewSetDataTransaction("down/in/the/thing", "hi")
+	assert.Nil(t, err)
+
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: &testTree.Dag.Tip,
-			Height:      transHeight,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "down/in/the/thing",
-						"value": "hi",
-					},
-				},
-			},
+			PreviousTip:  &testTree.Dag.Tip,
+			Height:       transHeight,
+			Transactions: []*transactions.Transaction{txn2},
 		},
 	}
 
@@ -152,20 +143,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	transHeight++
 
+	setOwnerTxn, err := chaintree.NewSetOwnershipTransaction([]string{newOwnerAddr})
+	assert.Nil(t, err)
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: &testTree.Dag.Tip,
-			Height:      transHeight,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_OWNERSHIP",
-					Payload: map[string]interface{}{
-						"authentication": []string{
-							newOwnerAddr,
-						},
-					},
-				},
-			},
+			PreviousTip:  &testTree.Dag.Tip,
+			Height:       transHeight,
+			Transactions: []*transactions.Transaction{setOwnerTxn},
 		},
 	}
 
@@ -200,20 +184,14 @@ func TestChainTreeStateHandler(t *testing.T) {
 	transHeight++
 
 	// now that the owners are changed, we shouldn't be able to sign with the TreeKey
+	setDataTxn2, err := chaintree.NewSetDataTransaction("another/path", "test")
+	assert.Nil(t, err)
 
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: &testTree.Dag.Tip,
-			Height:      transHeight,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]interface{}{
-						"path":  "another/path",
-						"value": "test",
-					},
-				},
-			},
+			PreviousTip:  &testTree.Dag.Tip,
+			Height:       transHeight,
+			Transactions: []*transactions.Transaction{setDataTxn2},
 		},
 	}
 
@@ -295,21 +273,14 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	tokenName := "testtoken"
 	tokenFullName := consensus.TokenName{ChainTreeDID: treeDID, LocalName: tokenName}
 
+	establishTxn, err := chaintree.NewEstablishTokenTransaction(tokenName, 8675309)
+	assert.Nil(t, err)
+
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: nil,
-			Height:      0,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "ESTABLISH_TOKEN",
-					Payload: map[string]interface{}{
-						"name": tokenName,
-						"monetaryPolicy": map[string]interface{}{
-							"maximum": 8675309,
-						},
-					},
-				},
-			},
+			PreviousTip:  nil,
+			Height:       0,
+			Transactions: []*transactions.Transaction{establishTxn},
 		},
 	}
 
@@ -349,19 +320,14 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 	// Can mint from established token
 	for testIndex, testAmount := range []uint64{1, 30, 8000000} {
+		mintTxn, err := chaintree.NewMintTokenTransaction(tokenName, testAmount)
+		assert.Nil(t, err)
+
 		unsignedBlock = &chaintree.BlockWithHeaders{
 			Block: chaintree.Block{
-				PreviousTip: &testTree.Dag.Tip,
-				Height:      uint64(testIndex) + 1,
-				Transactions: []*chaintree.Transaction{
-					{
-						Type: "MINT_TOKEN",
-						Payload: map[string]interface{}{
-							"name":   tokenName,
-							"amount": testAmount,
-						},
-					},
-				},
+				PreviousTip:  &testTree.Dag.Tip,
+				Height:       uint64(testIndex) + 1,
+				Transactions: []*transactions.Transaction{mintTxn},
 			},
 		}
 
@@ -392,18 +358,13 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	}
 
 	// Can't mint more than the monetary policy maximum
+	newMintTxn, err := chaintree.NewMintTokenTransaction(tokenName, 675309)
+	assert.Nil(t, err)
+
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: &testTree.Dag.Tip,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "MINT_TOKEN",
-					Payload: map[string]interface{}{
-						"name":   tokenName,
-						"amount": 675309,
-					},
-				},
-			},
+			PreviousTip:  &testTree.Dag.Tip,
+			Transactions: []*transactions.Transaction{newMintTxn},
 		},
 	}
 
@@ -421,37 +382,36 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
+
+	// TODO: remove commented test block. This test block is commented
+	// because it is possibly no longer necessary. Attempting to create a
+	// transaction with a negative amount results in a type error
 
 	// Can't mint a negative amount
-	unsignedBlock = &chaintree.BlockWithHeaders{
-		Block: chaintree.Block{
-			PreviousTip: &testTree.Dag.Tip,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "MINT_TOKEN",
-					Payload: map[string]interface{}{
-						"name":   tokenName,
-						"amount": -42,
-					},
-				},
-			},
-		},
-	}
+	// negMintTxn, err := chaintree.NewMintTokenTransaction(tokenName, -42)
+	// assert.Nil(t, err)
 
-	nodes = dagToByteNodes(t, testTree.Dag)
+	// unsignedBlock = &chaintree.BlockWithHeaders{
+	//	Block: chaintree.Block{
+	//		PreviousTip:  &testTree.Dag.Tip,
+	//		Transactions: []*transactions.Transaction{newMintTxn},
+	//	},
+	// }
 
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
-	assert.Nil(t, err)
+	// nodes = dagToByteNodes(t, testTree.Dag)
 
-	trans = &messages.Transaction{
-		State:       nodes,
-		PreviousTip: testTree.Dag.Tip.Bytes(),
-		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-	}
+	// blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	// assert.Nil(t, err)
 
-	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
-	assert.NotNil(t, err)
-	assert.False(t, isAccepted)
+	// trans = &messages.Transaction{
+	//	State:       nodes,
+	//	PreviousTip: testTree.Dag.Tip.Bytes(),
+	//	Payload:     sw.WrapObject(blockWithHeaders).RawData(),
+	// }
+
+	// _, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
+	// assert.NotNil(t, err)
+	// assert.False(t, isAccepted)
 }
 
 func TestSigner_NextBlockValidation(t *testing.T) {
@@ -465,18 +425,11 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	savedcid := emptyTree.Tip
 
+	setDataTxn, err := chaintree.NewSetDataTransaction("transaction1", "foo")
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: nil,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "transaction1",
-						"value": "foo",
-					},
-				},
-			},
+			PreviousTip:  nil,
+			Transactions: []*transactions.Transaction{setDataTxn},
 		},
 	}
 
@@ -504,19 +457,15 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
 	tip, _ := cid.Cast(newState)
+
+	setDataTxn2, err := chaintree.NewSetDataTransaction("transaction2", "bar")
+	assert.Nil(t, err)
+
 	unsignedBlock2 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: &tip,
-			Height:      1,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "transaction2",
-						"value": "bar",
-					},
-				},
-			},
+			PreviousTip:  &tip,
+			Height:       1,
+			Transactions: []*transactions.Transaction{setDataTxn2},
 		},
 	}
 
@@ -543,19 +492,14 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	// test that a nil PreviousTip fails
 	nodes3 := dagToByteNodes(t, testTree.Dag)
 
+	setDataTxn3, err := chaintree.NewSetDataTransaction("transaction1", "foo")
+	assert.Nil(t, err)
+
 	unsignedBlock3 := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
-			PreviousTip: nil,
-			Height:      3,
-			Transactions: []*chaintree.Transaction{
-				{
-					Type: "SET_DATA",
-					Payload: map[string]string{
-						"path":  "transaction1",
-						"value": "foo",
-					},
-				},
-			},
+			PreviousTip:  nil,
+			Height:       3,
+			Transactions: []*transactions.Transaction{setDataTxn3},
 		},
 	}
 

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	"crypto/ecdsa"
@@ -73,14 +74,12 @@ func TestCurrentStateExchange(t *testing.T) {
 		var remoteTip *cid.Cid
 
 		for ti := 0; ti < 3; ti++ {
-			resp, err := cli.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{{
-				Type: consensus.TransactionTypeSetData,
-				Payload: &consensus.SetDataPayload{
-					Path:  fmt.Sprintf("path/key-%d", ti),
-					Value: "test",
-				},
-			}})
+			txn, err := chaintree.NewSetDataTransaction(fmt.Sprintf("path/key-%d", ti), "test")
 			require.Nil(t, err)
+
+			resp, err := cli.PlayTransactions(chain, key, remoteTip, []*transactions.Transaction{txn})
+			require.Nil(t, err)
+
 			remoteTip = resp.Tip
 		}
 
@@ -116,13 +115,10 @@ func TestCurrentStateExchange(t *testing.T) {
 		cli := client.New(notaryGroup, chain.MustId(), pubsub)
 		cli.Listen()
 
-		_, err := cli.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{{
-			Type: consensus.TransactionTypeSetData,
-			Payload: &consensus.SetDataPayload{
-				Path:  "path/after-sync",
-				Value: "test",
-			},
-		}})
+		txn, err := chaintree.NewSetDataTransaction("path/after-sync", "test")
+		require.Nil(t, err)
+
+		_, err = cli.PlayTransactions(chain, key, remoteTip, []*transactions.Transaction{txn})
 		require.Nil(t, err)
 		cli.Stop()
 	}
