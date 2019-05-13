@@ -11,13 +11,15 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/jakehl/goid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/services"
+	"github.com/quorumcontrol/messages/signatures"
 	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
 
@@ -116,22 +118,22 @@ func serializeNodes(nodes []*cbornode.Node) [][]byte {
 	return bytes
 }
 
-func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.SignatureMap, error) {
-	signatures := make(consensus.SignatureMap)
+func decodeSignatures(encodedSigs map[string]*signatures.Signature) (consensus.SignatureMap, error) {
+	sigs := make(consensus.SignatureMap)
 
 	for k, encodedSig := range encodedSigs {
 		decodedSig, err := conversion.ToExternalSignature(encodedSig)
 		if err != nil {
 			return nil, fmt.Errorf("error decoding signature: %v", err)
 		}
-		signatures[k] = *decodedSig
+		sigs[k] = *decodedSig
 	}
 
-	return signatures, nil
+	return sigs, nil
 }
 
-func serializeSignatures(sigs consensus.SignatureMap) (map[string]*SerializableSignature, error) {
-	serializedSigs := make(map[string]*SerializableSignature)
+func serializeSignatures(sigs consensus.SignatureMap) (map[string]*signatures.Signature, error) {
+	serializedSigs := make(map[string]*signatures.Signature)
 	for k, sig := range sigs {
 		serialized, err := conversion.ToInternalSignature(sig)
 		if err != nil {
@@ -269,7 +271,7 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 		return "", err
 	}
 
-	serializableChain := SerializableChainTree{
+	serializableChain := services.SerializableChainTree{
 		Dag:        dagBytes,
 		Signatures: serializedSigs,
 		Tip:        chain.ChainTree.Dag.Tip.String(),
@@ -293,7 +295,7 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, shouldValidate bool,
 		return nil, fmt.Errorf("error decoding chain: %v", err)
 	}
 
-	unmarshalledChain := &SerializableChainTree{}
+	unmarshalledChain := &services.SerializableChainTree{}
 	err = proto.Unmarshal(decodedChain, unmarshalledChain)
 	if err != nil {
 		return nil, err
@@ -404,84 +406,6 @@ func (rpcs *RPCSession) GetTip(id string) (*cid.Cid, error) {
 	return &tip, nil
 }
 
-func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions []*transactions.Transaction) (*consensus.AddBlockResponse, error) {
-	if rpcs.IsStopped() {
-		return nil, StoppedError
-	}
-
-	cli := client.New(rpcs.notaryGroup, chainId, rpcs.pubsub)
-	cli.Listen()
-	defer cli.Stop()
-
-	chain, err := rpcs.GetChain(chainId)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := rpcs.getKey(keyAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	var remoteTip cid.Cid
-	if !chain.IsGenesis() {
-		remoteTip = chain.Tip()
-	}
-
-	resp, err := cli.PlayTransactions(chain, key, &remoteTip, transactions)
-	if err != nil {
-		return nil, err
-	}
-
-	err = rpcs.wallet.SaveChainMetadata(chain)
-	if err != nil {
-		return nil, fmt.Errorf("error saving chain: %v", err)
-	}
-
-	return resp.Tip, nil
-}
-
-func (rpcs *RPCSession) SetOwner(chainId, keyAddr string, newOwnerKeyAddrs []string) (*cid.Cid, error) {
-	if rpcs.IsStopped() {
-		return nil, StoppedError
-	}
-
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
-		{
-			Type: consensus.TransactionTypeSetOwnership,
-			Payload: transactions.SetOwnershipPayload{
-				Authentication: newOwnerKeyAddrs,
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Tip, nil
-}
-
-func (rpcs *RPCSession) SetData(chainId, keyAddr, path string, value []byte) (*cid.Cid, error) {
-	if rpcs.IsStopped() {
-		return nil, StoppedError
-	}
-
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
-		{
-			Type: consensus.TransactionTypeSetData,
-			Payload: transactions.SetDataPayload{
-				Path:  path,
-				Value: value,
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Tip, nil
-}
-
 func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []string, error) {
 	return rpcs.resolveAt(chainId, path, nil)
 }
@@ -502,235 +426,6 @@ func (rpcs *RPCSession) resolveAt(chainId string, path []string, tip *cid.Cid) (
 	}
 
 	return chain.ChainTree.Dag.ResolveAt(*tip, path)
-}
-
-func (rpcs *RPCSession) EstablishToken(chainId, keyAddr, tokenName string, amount uint64) (*cid.Cid, error) {
-	if rpcs.IsStopped() {
-		return nil, StoppedError
-	}
-
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
-		{
-			Type: consensus.TransactionTypeEstablishToken,
-			Payload: transactions.EstablishToken{
-				Name:           tokenName,
-				MonetaryPolicy: &transactions.TokenMonetaryPolicy{Maximum: amount},
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Tip, nil
-}
-
-func (rpcs *RPCSession) MintToken(chainId, keyAddr, tokenName string, amount uint64) (*cid.Cid, error) {
-	if rpcs.IsStopped() {
-		return nil, StoppedError
-	}
-
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
-		{
-			Type: consensus.TransactionTypeMintToken,
-			Payload: transactions.MintTokenPayload{
-				Name:   tokenName,
-				Amount: amount,
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Tip, nil
-}
-
-func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) ([]*cbornode.Node, error) {
-	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
-	if codedErr != nil {
-		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
-	}
-
-	tokenPath, err := consensus.TokenPath(tokenName)
-	if err != nil {
-		return nil, err
-	}
-	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
-	tokenPath = append(tokenPath, consensus.TokenSendLabel)
-
-	tokenSendNodes, codedErr := chain.ChainTree.Dag.NodesForPath(tokenPath)
-	if codedErr != nil {
-		return nil, codedErr
-	}
-
-	tokenSendNodes = append(tokenSendNodes, sendTokenNode)
-
-	return tokenSendNodes, nil
-}
-
-func (rpcs *RPCSession) SendToken(chainId, keyAddr, tokenName, destinationChainId string, amount uint64) (string, error) {
-	if rpcs.IsStopped() {
-		return "", StoppedError
-	}
-
-	transactionId := goid.NewV4UUID()
-
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
-		{
-			Type: consensus.TransactionTypeSendToken,
-			Payload: consensus.SendTokenPayload{
-				Id:          transactionId.String(),
-				Name:        tokenName,
-				Amount:      amount,
-				Destination: destinationChainId,
-			},
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-
-	chain, err := rpcs.GetChain(chainId)
-	if err != nil {
-		return "", err
-	}
-
-	tree, err := chain.ChainTree.Tree()
-	if err != nil {
-		return "", err
-	}
-
-	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, tokenName, false)
-	if err != nil {
-		return "", err
-	}
-
-	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, canonicalTokenName.String(), consensus.TokenSendLabel)
-	if err != nil {
-		return "", err
-	}
-
-	tokenSendTx := cid.Undef
-	for _, sendTxCid := range tokenSends {
-		sendTxNode, err := chain.ChainTree.Dag.Get(sendTxCid)
-		if err != nil {
-			return "", err
-		}
-
-		sendTxNodeObj, err := nodestore.CborNodeToObj(sendTxNode)
-		if err != nil {
-			return "", err
-		}
-
-		sendTxNodeMap := sendTxNodeObj.(map[string]interface{})
-		if sendTxNodeMap["id"] == transactionId.String() {
-			tokenSendTx = sendTxCid
-			break
-		}
-	}
-
-	if !tokenSendTx.Defined() {
-		return "", fmt.Errorf("send token transaction not found for ID: %s", transactionId.String())
-	}
-
-	tokenNodes, err := allSendTokenNodes(chain, canonicalTokenName.String(), tokenSendTx)
-	if err != nil {
-		return "", err
-	}
-
-	tip := *resp.Tip
-
-	serialized, err := serializeSignature(resp.Signature)
-	if err != nil {
-		return "", err
-	}
-
-	payload := &TokenPayload{
-		TransactionId: transactionId.String(),
-		Tip:           tip.String(),
-		Signature:     serialized,
-		Leaves:        serializeNodes(tokenNodes),
-	}
-
-	serializedPayload, err := proto.Marshal(payload)
-	if err != nil {
-		return "", err
-	}
-
-	return base64.StdEncoding.EncodeToString(serializedPayload), nil
-}
-
-func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid, error) {
-	if rpcs.IsStopped() {
-		return nil, StoppedError
-	}
-
-	serializedPayload, err := base64.StdEncoding.DecodeString(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	tokenPayload := &TokenPayload{}
-	err = proto.Unmarshal(serializedPayload, tokenPayload)
-	if err != nil {
-		return nil, err
-	}
-
-	tip, err := cid.Decode(tokenPayload.Tip)
-	if err != nil {
-		return nil, err
-	}
-
-	decodedSig, err := decodeSignature(tokenPayload.Signature)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*chaintree.Transaction{
-		{
-			Type: consensus.TransactionTypeReceiveToken,
-			Payload: consensus.ReceiveTokenPayload{
-				SendTokenTransactionId: tokenPayload.TransactionId,
-				Tip:       tip.Bytes(),
-				Signature: *decodedSig,
-				Leaves:    tokenPayload.Leaves,
-			},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Tip, nil
-}
-
-// GetTokenBalance gets the balance for a certain token in the tree.
-func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
-	if rpcs.IsStopped() {
-		return 0, StoppedError
-	}
-
-	chain, err := rpcs.GetChain(chainId)
-	if err != nil {
-		return 0, err
-	}
-
-	tree, err := chain.ChainTree.Tree()
-	if err != nil {
-		return 0, err
-	}
-	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, token, false)
-	if err != nil {
-		return 0, err
-	}
-	ledger := consensus.NewTreeLedger(tree, canonicalTokenName.String())
-	bal, err := ledger.Balance()
-	if err != nil {
-		return 0, fmt.Errorf("error getting token %s balance: %s", token, err)
-	}
-
-	return bal, nil
 }
 
 func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
@@ -782,4 +477,228 @@ func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
 	}
 
 	return tokensList, nil
+}
+
+// GetTokenBalance gets the balance for a certain token in the tree.
+func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
+	if rpcs.IsStopped() {
+		return 0, StoppedError
+	}
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return 0, err
+	}
+
+	tree, err := chain.ChainTree.Tree()
+	if err != nil {
+		return 0, err
+	}
+	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, token, false)
+	if err != nil {
+		return 0, err
+	}
+	ledger := consensus.NewTreeLedger(tree, canonicalTokenName.String())
+	bal, err := ledger.Balance()
+	if err != nil {
+		return 0, fmt.Errorf("error getting token %s balance: %s", token, err)
+	}
+
+	return bal, nil
+}
+
+func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions []*transactions.Transaction) (*consensus.AddBlockResponse, error) {
+	if rpcs.IsStopped() {
+		return nil, StoppedError
+	}
+
+	cli := client.New(rpcs.notaryGroup, chainId, rpcs.pubsub)
+	cli.Listen()
+	defer cli.Stop()
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := rpcs.getKey(keyAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	var remoteTip cid.Cid
+	if !chain.IsGenesis() {
+		remoteTip = chain.Tip()
+	}
+
+	resp, err := cli.PlayTransactions(chain, key, &remoteTip, transactions)
+	if err != nil {
+		return nil, err
+	}
+
+	err = rpcs.wallet.SaveChainMetadata(chain)
+	if err != nil {
+		return nil, fmt.Errorf("error saving chain: %v", err)
+	}
+
+	return resp, nil
+}
+
+func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) ([]*cbornode.Node, error) {
+	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
+	if codedErr != nil {
+		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
+	}
+
+	tokenPath, err := consensus.TokenPath(tokenName)
+	if err != nil {
+		return nil, err
+	}
+	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
+	tokenPath = append(tokenPath, consensus.TokenSendLabel)
+
+	tokenSendNodes, codedErr := chain.ChainTree.Dag.NodesForPath(tokenPath)
+	if codedErr != nil {
+		return nil, codedErr
+	}
+
+	tokenSendNodes = append(tokenSendNodes, sendTokenNode)
+
+	return tokenSendNodes, nil
+}
+
+func (rpcs *RPCSession) SendToken(chainId, keyAddr string, payload *transactions.SendTokenPayload) (string, error) {
+	if rpcs.IsStopped() {
+		return "", StoppedError
+	}
+
+	wrappedPayload, err := ptypes.MarshalAny(payload)
+	if err != nil {
+		return "", fmt.Errorf("error wrapping SendToken payload: %v", err)
+	}
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{
+		{
+			Type:    transactions.Transaction_SENDTOKEN,
+			Payload: wrappedPayload,
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	chain, err := rpcs.GetChain(chainId)
+	if err != nil {
+		return "", err
+	}
+
+	tree, err := chain.ChainTree.Tree()
+	if err != nil {
+		return "", err
+	}
+
+	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, payload.Name, false)
+	if err != nil {
+		return "", err
+	}
+
+	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, canonicalTokenName.String(), consensus.TokenSendLabel)
+	if err != nil {
+		return "", err
+	}
+
+	tokenSendTx := cid.Undef
+	for _, sendTxCid := range tokenSends {
+		sendTxNode, err := chain.ChainTree.Dag.Get(sendTxCid)
+		if err != nil {
+			return "", err
+		}
+
+		sendTxNodeObj, err := nodestore.CborNodeToObj(sendTxNode)
+		if err != nil {
+			return "", err
+		}
+
+		sendTxNodeMap := sendTxNodeObj.(map[string]interface{})
+		if sendTxNodeMap["id"] == payload.Id {
+			tokenSendTx = sendTxCid
+			break
+		}
+	}
+
+	if !tokenSendTx.Defined() {
+		return "", fmt.Errorf("send token transaction not found for ID: %s", payload.Id)
+	}
+
+	tokenNodes, err := allSendTokenNodes(chain, canonicalTokenName.String(), tokenSendTx)
+	if err != nil {
+		return "", err
+	}
+
+	tip := *resp.Tip
+
+	serialized, err := conversion.ToInternalSignature(resp.Signature)
+	if err != nil {
+		return "", err
+	}
+
+	tokenPayload := &transactions.TokenPayload{
+		TransactionId: payload.Id,
+		Tip:           tip.String(),
+		Signature:     serialized,
+		Leaves:        serializeNodes(tokenNodes),
+	}
+
+	serializedPayload, err := proto.Marshal(tokenPayload)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(serializedPayload), nil
+}
+
+func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, payload string) (*cid.Cid, error) {
+	if rpcs.IsStopped() {
+		return nil, StoppedError
+	}
+
+	serializedPayload, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenPayload := &transactions.TokenPayload{}
+	err = proto.Unmarshal(serializedPayload, tokenPayload)
+	if err != nil {
+		return nil, err
+	}
+
+	tip, err := cid.Decode(tokenPayload.Tip)
+	if err != nil {
+		return nil, err
+	}
+
+	receivePayload := transactions.ReceiveTokenPayload{
+		SendTokenTransactionId: tokenPayload.TransactionId,
+		Tip:       tip.Bytes(),
+		Signature: tokenPayload.Signature,
+		Leaves:    tokenPayload.Leaves,
+	}
+
+	wrappedPayload, err := ptypes.MarshalAny(&receivePayload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{
+		{
+			Type:    transactions.Transaction_RECEIVETOKEN,
+			Payload: wrappedPayload,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Tip, nil
 }
