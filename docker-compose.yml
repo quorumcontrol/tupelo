@@ -4,7 +4,7 @@ services:
     build: .
     command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-error}"]
     volumes:
-      - ./configs/localdocker:/configs      
+      - ./configs/localdocker:/configs
     networks:
       default:
         ipv4_address: 172.16.238.10
@@ -36,8 +36,9 @@ services:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["rpc-server","-r", "-l", "0", "--config", "/configs/rpcserver/config.toml",
+    command: ["rpc-server", "-r", "--config", "/configs/rpcserver/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-error}"]
+    container_name: "rpc-server"
     ports:
       - "50051:50051"
 
