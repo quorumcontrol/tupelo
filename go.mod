@@ -11,7 +11,6 @@ require (
 	github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1 // indirect
 	github.com/ethereum/go-ethereum v1.8.25
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
-	github.com/gobuffalo/depgen v0.1.1 // indirect
 	github.com/gobuffalo/genny v0.1.1 // indirect
 	github.com/gobuffalo/gogen v0.1.1 // indirect
 	github.com/gobuffalo/packr/v2 v2.2.0
@@ -30,7 +29,7 @@ require (
 	github.com/jakehl/goid v1.1.0
 	github.com/karrick/godirwalk v1.10.3 // indirect
 	github.com/libp2p/go-libp2p-peer v0.1.0
-	github.com/libp2p/go-libp2p-pubsub v0.0.1
+	github.com/libp2p/go-libp2p-pubsub v0.0.3
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
@@ -51,3 +50,5 @@ require (
 	golang.org/x/tools v0.0.0-20190513233021-7d589f28aaf4 // indirect
 	google.golang.org/grpc v1.20.0
 )
+
+replace github.com/libp2p/go-libp2p-pubsub v0.0.3 => github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba
