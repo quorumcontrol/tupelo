@@ -121,32 +121,15 @@ func sendTransaction(notaryGroup *types.NotaryGroup, pubsub remote.PubSub, shoul
 	sentCh <- &trans
 }
 
-func performTpsBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
-	remainingIterations := benchmarkDuration
+func performTpsBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub, measureAtNumRemaining int) {
+	total := benchmarkDuration * benchmarkConcurrency
+	delayBetween := time.Duration(float64(time.Second) / float64(benchmarkConcurrency))
 
-	for remainingIterations > 0 {
-		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-			go sendTransaction(group, pubsub, true)
-		}
-		remainingIterations--
-		time.Sleep(1 * time.Second)
-	}
-}
-
-func performTpsNoAckBenchmark(group *gossip3types.NotaryGroup, pubsub remote.PubSub) {
-	remainingIterations := benchmarkDuration
-
-	for remainingIterations > 0 {
-		for i2 := 1; i2 <= benchmarkConcurrency; i2++ {
-			// measure only the final iteration
-			if remainingIterations <= 1 {
-				go sendTransaction(group, pubsub, true)
-			} else {
-				go sendTransaction(group, pubsub, false)
-			}
-		}
-		remainingIterations--
-		time.Sleep(1 * time.Second)
+	ticker := time.NewTicker(delayBetween)
+	defer ticker.Stop()
+	for i := total; i > 0; i-- {
+		go sendTransaction(group, pubsub, i <= measureAtNumRemaining)
+		<-ticker.C
 	}
 }
 
@@ -220,10 +203,10 @@ var benchmark = &cobra.Command{
 		switch benchmarkStrategy {
 		case "tps":
 			expectedMeasured = benchmarkDuration * benchmarkConcurrency
-			go performTpsBenchmark(group, pubSubSystem)
+			go performTpsBenchmark(group, pubSubSystem, expectedMeasured)
 		case "tps-no-ack":
 			expectedMeasured = benchmarkConcurrency
-			go performTpsNoAckBenchmark(group, pubSubSystem)
+			go performTpsBenchmark(group, pubSubSystem, expectedMeasured)
 		default:
 			panic(fmt.Sprintf("Unknown benchmark strategy: %v", benchmarkStrategy))
 		}
