@@ -44,7 +44,9 @@ $(generated): wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPA
 	cd wallet/walletrpc && go generate
 	cd gossip3/messages && go generate
 
+# TODO: remove mkdir -p for go-libp2p-pubsub once fork is no longer needed
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
+	mkdir -p $(FIRSTGOPATH)/pkg/mod/github.com/libp2p/go-libp2p-pubsub@v0.0.3
 	go mod vendor
 	modvendor -copy="**/*.c **/*.h"
 
