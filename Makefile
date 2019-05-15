@@ -14,7 +14,7 @@ GUARD = $(1)_GUARD_$(shell echo $($(1)) | $(MD5CMD) | cut -d ' ' -f 1)
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 VERSION_TXT = resources/templates/version.txt
 
-generated = wallet/walletrpc/service.pb.go
+generated = wallet/walletrpc/service.pb.go gossip3/messages/internal_gen.go gossip3/messages/internal_gen_test.go 
 gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 packr = packrd/packed-packr.go resources/resources-packr.go
 
@@ -42,6 +42,7 @@ $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 
 $(generated): wallet/walletrpc/service.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPATH)/bin/protoc-gen-go
 	cd wallet/walletrpc && go generate
+	cd gossip3/messages && go generate
 
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 	go mod vendor
