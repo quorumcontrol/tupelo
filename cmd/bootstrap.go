@@ -30,13 +30,12 @@ var bootstrapNodeCmd = &cobra.Command{
 		if err != nil {
 			panic(fmt.Errorf("Could not start bootstrap node, %v", err))
 		}
+		anAddr := host.Addresses()[0].String()
+		keySlice := strings.Split(anAddr, "/")
+		key := keySlice[len(keySlice)-1]
 
 		bootstrapWithoutSelf := []string{}
 		for _, nodeAddr := range p2p.BootstrapNodes() {
-			anAddr := host.Addresses()[0].String()
-			keySlice := strings.Split(anAddr, "/")
-			key := keySlice[len(keySlice)-1]
-
 			if !strings.Contains(nodeAddr, key) {
 				bootstrapWithoutSelf = append(bootstrapWithoutSelf, nodeAddr)
 			}
