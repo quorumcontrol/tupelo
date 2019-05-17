@@ -1,6 +1,7 @@
 tupelos:
   local:
     build: .
+    command: ["rpc-server", "-l", "3"]
 
 testers:
   js-sdk-latest:
