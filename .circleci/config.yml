@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.12.4
+      - image: circleci/golang:1.12.5
     environment:
       SOURCE_MOUNT: --volumes-from=source
     steps:
@@ -15,9 +15,9 @@ jobs:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
       - run: |
-          docker create -v /src --name source alpine /bin/true
+          docker create -v /src/tupelo --name source alpine /bin/true
           make vendor
-          docker cp . source:/src
+          docker cp . source:/src/tupelo
       - run: ./scripts/build-within-docker.sh
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
