@@ -60,7 +60,7 @@ $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
 
 test: $(packr) $(generated) $(gosources) go.mod go.sum
-	go test ./... -tags=integration
+	gotestsum -- -tags=integration ./...
 
 SOURCE_MOUNT ?= -v ${CURDIR}:/src
 
@@ -69,7 +69,8 @@ integration-test: test .tupelo-integration.yml
 	docker run -v /var/run/docker.sock:/var/run/docker.sock $(SOURCE_MOUNT) quorumcontrol/tupelo-integration-runner
 
 ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
-	go test -mod=readonly ./... -tags=integration
+	mkdir -p test_results/tests
+	gotestsum --junitfile=test_results/tests/results.xml -- -mod=readonly -tags=integration ./...
 
 ci-integration-test: ci-test integration-test
 
