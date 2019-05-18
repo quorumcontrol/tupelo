@@ -698,6 +698,8 @@ github.com/quorumcontrol/storage v1.1.2 h1:F6qRGnWx2GzO5fitMh8axvT9NjHUHnGp3n2MY
 github.com/quorumcontrol/storage v1.1.2/go.mod h1:QGtqgqqMaULflN8Jcctj3zdzMFoyE/RxP0uTd15EKtY=
 github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190514103400-444f1691a874475ef66c36b2e6b53ccc4794ea0d h1:yf0/imR1xQd8IHFPst/OWnJ5126YV1ReUyHb/IRJcYY=
 github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190514103400-444f1691a874475ef66c36b2e6b53ccc4794ea0d/go.mod h1:Jhh3gFTnaE4/Nv4IMASMdSOGDyncFQYKLr2htL4Lisk=
+github.com/quorumcontrol/tupelo-go-sdk v0.2.3 h1:MD0FPg8bW2rEUm2vyfz5qgMQB6svpmfqK5jYk3jZX90=
+github.com/quorumcontrol/tupelo-go-sdk v0.2.3/go.mod h1:R5xfoICBGVB1/U+gcG5UL5l52ntVV6ZS2Txx9oI77ME=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
