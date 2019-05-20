@@ -29,6 +29,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	logging "github.com/ipfs/go-log"
+	"github.com/libp2p/go-libp2p"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
@@ -108,6 +110,18 @@ func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3
 	return group
 }
 
+func p2pNodeWithOpts(ctx context.Context, ecdsaKey *ecdsa.PrivateKey, port int, addlOpts ...p2p.Option) (p2p.Node, error) {
+	opts := []p2p.Option{
+		p2p.WithKey(ecdsaKey),
+		p2p.WithDiscoveryNamespaces("tupelo-transaction-gossipers"),
+		p2p.WithListenIP("0.0.0.0", port),
+	}
+	if hostIP, ok := os.LookupEnv("TUPELO_PUBLIC_IP"); ok {
+		opts = append(opts, p2p.WithExternalIP(hostIP, port))
+	}
+	return p2p.NewHostFromOptions(ctx, append(opts, addlOpts...)...)
+}
+
 func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, namespace string, port int) *gossip3types.Signer {
 	gossip3remote.Start()
 
@@ -129,15 +143,24 @@ func setupGossipNode(ctx context.Context, ecdsaKeyHex string, blsKeyHex string, 
 		panic(fmt.Sprintf("error creating storage: %v", err))
 	}
 
-	p2pHost, err := p2p.NewLibP2PHost(ctx, ecdsaKey, port)
+	group := setupNotaryGroup(localSigner, bootstrapPublicKeys)
+
+	cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
+	for _, s := range group.Signers {
+		id, err := p2p.PeerFromEcdsaKey(s.DstKey)
+		if err != nil {
+			panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+		}
+		cm.Protect(id, "signer")
+	}
+
+	p2pHost, err := p2pNodeWithOpts(ctx, ecdsaKey, port, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
 	if err != nil {
 		panic("error setting up p2p host")
 	}
 	if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
 		panic(fmt.Sprintf("failed to bootstrap: %s", err))
 	}
-
-	group := setupNotaryGroup(localSigner, bootstrapPublicKeys)
 
 	// wait until we connect to half the network
 	err = p2pHost.WaitForBootstrap(1+len(group.Signers)/2, 60*time.Second)

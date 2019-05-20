@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/libp2p/go-libp2p"
+	circuit "github.com/libp2p/go-libp2p-circuit"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/spf13/cobra"
 )
@@ -26,10 +30,20 @@ var bootstrapNodeCmd = &cobra.Command{
 		}
 
 		ctx := context.Background()
-		host, err := p2p.NewRelayLibP2PHost(ctx, ecdsaKey, bootstrapNodePort)
+
+		cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
+
+		host, err := p2pNodeWithOpts(
+			ctx,
+			ecdsaKey,
+			bootstrapNodePort,
+			p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
+			p2p.WithRelayOpts(circuit.OptHop),
+		)
 		if err != nil {
 			panic(fmt.Errorf("Could not start bootstrap node, %v", err))
 		}
+
 		anAddr := host.Addresses()[0].String()
 		keySlice := strings.Split(anAddr, "/")
 		key := keySlice[len(keySlice)-1]
