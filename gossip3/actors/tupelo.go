@@ -134,7 +134,8 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 	tn.Log.Debugw("handleGetTip", "tip", msg.ObjectID)
 	currStateBits, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
 	if err != nil {
-		panic(fmt.Errorf("error getting tip: %v", err))
+		tn.Log.Errorw("error getting tip", "err", err)
+		return
 	}
 
 	var currState extmsgs.CurrentState
@@ -142,7 +143,8 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
 	if len(currStateBits) > 0 {
 		_, err = currState.UnmarshalMsg(currStateBits)
 		if err != nil {
-			panic(fmt.Errorf("error unmarshaling CurrentState: %v", err))
+			tn.Log.Errorw("error unmarshaling CurrentState", "err", err)
+			return
 		}
 	}
 
