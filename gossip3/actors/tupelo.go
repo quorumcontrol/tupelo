@@ -90,18 +90,6 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
 			}
-
-			for _, transWrapper := range msg.FailedTransactions {
-				tn.Log.Debugw("publishing failed transaction", "tx", transWrapper.TransactionID)
-				err := tn.cfg.PubSubSystem.Broadcast(string(transWrapper.Transaction.ObjectID), &extmsgs.Error{
-					Source: string(transWrapper.TransactionID),
-					Code:   ErrBadTransaction,
-					Memo:   fmt.Sprintf("bad transaction"),
-				})
-				if err != nil {
-					tn.Log.Errorw("error publishing", "err", err)
-				}
-			}
 		}
 	}
 }
@@ -127,27 +115,9 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		if msg.PreFlight || msg.Accepted {
 			context.Send(tn.conflictSetRouter, msg)
 		} else {
-			if msg.Stale {
-				tn.Log.Debugw("ignoring and cleaning up stale transaction", "msg", msg)
-				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
-					Source: string(msg.TransactionID),
-					Code:   ErrBadTransaction,
-					Memo:   "stale",
-				})
-				if err != nil {
-					tn.Log.Errorw("error publishing", "err", err)
-				}
-			} else {
-				tn.Log.Debugw("removing bad transaction", "msg", msg)
-				err := tn.cfg.PubSubSystem.Broadcast(string(msg.Transaction.ObjectID), &extmsgs.Error{
-					Source: string(msg.TransactionID),
-					Code:   ErrBadTransaction,
-					Memo:   fmt.Sprintf("bad transaction: %v", msg.Metadata["error"]),
-				})
-				if err != nil {
-					tn.Log.Errorw("error publishing", "err", err)
-				}
-			}
+			sp := msg.NewSpan("tupelo-invalid")
+			sp.SetTag("error", true)
+			sp.Finish()
 			msg.StopTrace()
 		}
 	}

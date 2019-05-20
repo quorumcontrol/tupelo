@@ -41,8 +41,6 @@ type CurrentStateWrapper struct {
 	CurrentState *extmsgs.CurrentState
 	Metadata     MetadataMap
 	NextHeight   uint64
-
-	FailedTransactions []*TransactionWrapper
 }
 
 func (csw *CurrentStateWrapper) MustMarshal() []byte {
