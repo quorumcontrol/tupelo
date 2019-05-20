@@ -40,6 +40,8 @@ github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmV
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
 github.com/armon/go-radix v1.0.0 h1:F4z6KzEeeQIMeLFa97iZU6vupzoecKdU5TX24SNppXI=
 github.com/armon/go-radix v1.0.0/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
+github.com/avast/retry-go v2.3.0+incompatible h1:GdXHi3qw0JvbR1Wg1Hr/kx0b6lS36xfypCP4VpZARm4=
+github.com/avast/retry-go v2.3.0+incompatible/go.mod h1:XtSnn+n/sHqQIpZ10K1qAevBhOOCWBLXXy3hyiqqBrY=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0 h1:HWo1m869IqiPhD389kmkxeTalrjNbbJTC8LXupb+sl0=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
@@ -690,6 +692,8 @@ github.com/prometheus/procfs v0.0.0-20190416084830-8368d24ba045 h1:Raos9GP+3BlCB
 github.com/prometheus/procfs v0.0.0-20190416084830-8368d24ba045/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3 h1:v5w6BysQ2oMqVAOrO2Jgt9jw6H1fI+LusufKaJBzgXM=
 github.com/quorumcontrol/chaintree v0.0.0-20190426130059-9145fcfcdb66e952d8c7da1fc27d23169710c8d3/go.mod h1:gb3U31nAvHizf2p4TVR33bqI/Hao966IKB6fx48Uw9s=
+github.com/quorumcontrol/chaintree v0.0.0-20190515172607-6a3407e067bd h1:DU9UrPfSVCDxMnYSPYyjjc9M+w1mJ/GHuGy0RdRm+UY=
+github.com/quorumcontrol/chaintree v0.0.0-20190515172607-6a3407e067bd/go.mod h1:gb3U31nAvHizf2p4TVR33bqI/Hao966IKB6fx48Uw9s=
 github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba h1:yyXbqfe6eR+DKlS8VTtpMEBCCPvVxdtYIF06hMojPA4=
 github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba/go.mod h1:fYKlZBOF2yrJzYlgeEVFSbYWfbS+E8Zix6gMZ0A6WgE=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF7FTLpcl171qo5MFvbKjrLEsLtcKF72uQpefiPM=
@@ -700,6 +704,8 @@ github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190514103400-444f1691a874475ef66
 github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190514103400-444f1691a874475ef66c36b2e6b53ccc4794ea0d/go.mod h1:Jhh3gFTnaE4/Nv4IMASMdSOGDyncFQYKLr2htL4Lisk=
 github.com/quorumcontrol/tupelo-go-sdk v0.2.3 h1:MD0FPg8bW2rEUm2vyfz5qgMQB6svpmfqK5jYk3jZX90=
 github.com/quorumcontrol/tupelo-go-sdk v0.2.3/go.mod h1:R5xfoICBGVB1/U+gcG5UL5l52ntVV6ZS2Txx9oI77ME=
+github.com/quorumcontrol/tupelo-go-sdk v0.2.4-0.20190520083019-d7b9666e1432 h1:Bv9HvlC8N4lB/G5OkP1VUYAFefcra2PxYkXhz6Yw9Cw=
+github.com/quorumcontrol/tupelo-go-sdk v0.2.4-0.20190520083019-d7b9666e1432/go.mod h1:zws0UOMCRdQwV0VarkUwnvl9WTpG611e2YY462I4h7A=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
