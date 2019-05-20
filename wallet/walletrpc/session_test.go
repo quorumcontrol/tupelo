@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -15,6 +16,7 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/tupelo-go-sdk/conversion"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -175,7 +177,7 @@ func TestSendToken(t *testing.T) {
 	require.Nil(t, err)
 	decodedSendTokens, err := base64.StdEncoding.DecodeString(sendTokens)
 	require.Nil(t, err)
-	unmarshalledSendTokens := &TokenPayload{}
+	unmarshalledSendTokens := &transactions.TokenPayload{}
 	err = proto.Unmarshal(decodedSendTokens, unmarshalledSendTokens)
 	require.Nil(t, err)
 
@@ -263,9 +265,9 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 		Signature:     []byte("signature"),
 	}
 
-	encoded, err := serializeSignature(intSig)
+	encoded, err := conversion.ToInternalSignature(intSig)
 	require.Nil(t, err)
-	decoded, err := decodeSignature(encoded)
+	decoded, err := conversion.ToExternalSignature(encoded)
 	require.Nil(t, err)
 
 	require.Equal(t, intSig, *decoded)

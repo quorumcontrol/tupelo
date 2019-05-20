@@ -10,7 +10,6 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/jakehl/goid"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/messages/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
@@ -444,16 +443,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				return
 			}
 
-			transactionId := goid.NewV4UUID()
-
-			payload := &transactions.SendTokenPayload{
-				Id:          transactionId.String(),
-				Name:        tokenName,
-				Amount:      amount,
-				Destination: destination,
-			}
-
-			token, err := session.SendToken(chainId, keyAddr, payload)
+			token, err := session.SendToken(chainId, keyAddr, tokenName, destination, amount)
 			if err != nil {
 				c.Printf("error sending token: %v\n", err)
 				return

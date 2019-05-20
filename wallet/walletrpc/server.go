@@ -484,7 +484,7 @@ func (s *server) SendToken(ctx context.Context, req *services.SendTokenRequest) 
 
 	defer session.Stop()
 
-	sendToken, err := session.SendToken(req.ChainId, req.KeyAddr, req.Payload)
+	sendToken, err := session.SendToken(req.ChainId, req.KeyAddr, req.TokenName, req.DestinationChainId, req.Amount)
 	if err != nil {
 		return nil, fmt.Errorf("error exporting token transfer payload: %v", err)
 	}

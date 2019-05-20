@@ -8,6 +8,8 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/jakehl/goid"
+
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
@@ -544,6 +546,48 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 	return resp, nil
 }
 
+func (rpcs *RPCSession) SetData(chainId, keyAddr, path string, data []byte) (string, error) {
+	txn, err := chaintree.NewSetDataBytesTransaction(path, data)
+	if err != nil {
+		return "", fmt.Errorf("error building SetData transaction: %v", err)
+	}
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
+	if err != nil {
+		return "", fmt.Errorf("error submitting SetData transaction: %v", err)
+	}
+
+	return resp.Tip.String(), nil
+}
+
+func (rpcs *RPCSession) EstablishToken(chainId, keyAddr, name string, maxTokens uint64) (string, error) {
+	txn, err := chaintree.NewEstablishTokenTransaction(name, maxTokens)
+	if err != nil {
+		return "", fmt.Errorf("error building EstablishToken transaction: %v", err)
+	}
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
+	if err != nil {
+		return "", fmt.Errorf("error submitting EstablishToken transaction: %v", err)
+	}
+
+	return resp.Tip.String(), nil
+}
+
+func (rpcs *RPCSession) MintToken(chainId, keyAddr, name string, amount uint64) (string, error) {
+	txn, err := chaintree.NewMintTokenTransaction(name, amount)
+	if err != nil {
+		return "", fmt.Errorf("error building MintToken transaction: %v", err)
+	}
+
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
+	if err != nil {
+		return "", fmt.Errorf("error submitting MintToken transaction: %v", err)
+	}
+
+	return resp.Tip.String(), nil
+}
+
 func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) ([]*cbornode.Node, error) {
 	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
 	if codedErr != nil {
@@ -567,22 +611,19 @@ func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendN
 	return tokenSendNodes, nil
 }
 
-func (rpcs *RPCSession) SendToken(chainId, keyAddr string, payload *transactions.SendTokenPayload) (string, error) {
+func (rpcs *RPCSession) SendToken(chainId, keyAddr, name, destination string, amount uint64) (string, error) {
 	if rpcs.IsStopped() {
 		return "", StoppedError
 	}
 
-	wrappedPayload, err := ptypes.MarshalAny(payload)
+	sendTxId := goid.NewV4UUID().String()
+
+	txn, err := chaintree.NewSendTokenTransaction(sendTxId, name, amount, destination)
 	if err != nil {
-		return "", fmt.Errorf("error wrapping SendToken payload: %v", err)
+		return "", fmt.Errorf("error building SendToken transaction: %v", err)
 	}
 
-	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{
-		{
-			Type:    transactions.Transaction_SENDTOKEN,
-			Payload: wrappedPayload,
-		},
-	})
+	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
 	if err != nil {
 		return "", err
 	}
@@ -597,7 +638,7 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr string, payload *transactions
 		return "", err
 	}
 
-	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, payload.Name, false)
+	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, name, false)
 	if err != nil {
 		return "", err
 	}
@@ -620,14 +661,14 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr string, payload *transactions
 		}
 
 		sendTxNodeMap := sendTxNodeObj.(map[string]interface{})
-		if sendTxNodeMap["id"] == payload.Id {
+		if sendTxNodeMap["id"] == sendTxId {
 			tokenSendTx = sendTxCid
 			break
 		}
 	}
 
 	if !tokenSendTx.Defined() {
-		return "", fmt.Errorf("send token transaction not found for ID: %s", payload.Id)
+		return "", fmt.Errorf("send token transaction not found for ID: %s", sendTxId)
 	}
 
 	tokenNodes, err := allSendTokenNodes(chain, canonicalTokenName.String(), tokenSendTx)
@@ -643,7 +684,7 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr string, payload *transactions
 	}
 
 	tokenPayload := &transactions.TokenPayload{
-		TransactionId: payload.Id,
+		TransactionId: sendTxId,
 		Tip:           tip.String(),
 		Signature:     serialized,
 		Leaves:        serializeNodes(tokenNodes),
