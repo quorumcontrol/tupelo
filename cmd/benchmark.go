@@ -85,12 +85,10 @@ func measureTransaction(cli *client.Client, trans *messages.Transaction) {
 		case *messages.CurrentState:
 			elapsed := time.Since(startTime)
 			result.Duration = int(elapsed / time.Millisecond)
-		case *messages.Error:
-			result.Error = fmt.Sprintf("%s - error %d, %v", did, msg.Code, msg.Memo)
 		case nil:
 			result.Error = fmt.Sprintf("%s - nil response from channel", did)
 		default:
-			result.Error = fmt.Sprintf("%s - unkown error: %v", did, resp)
+			result.Error = fmt.Sprintf("%s - unkown error: %v", did, msg)
 		}
 	} else {
 		result.Error = fmt.Sprintf("%s - timeout", did)
