@@ -28,6 +28,9 @@ require (
 	github.com/ipfs/go-log v0.0.1
 	github.com/jakehl/goid v1.1.0
 	github.com/karrick/godirwalk v1.10.3 // indirect
+	github.com/libp2p/go-libp2p v0.0.21
+	github.com/libp2p/go-libp2p-circuit v0.0.4
+	github.com/libp2p/go-libp2p-connmgr v0.0.3
 	github.com/libp2p/go-libp2p-peer v0.1.0
 	github.com/libp2p/go-libp2p-pubsub v0.0.3
 	github.com/mitchellh/go-homedir v1.1.0
