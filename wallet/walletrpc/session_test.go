@@ -12,7 +12,6 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 
-	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
@@ -241,15 +240,6 @@ func TestGetTip(t *testing.T) {
 }
 
 func TestSerializeDeserializeSignature(t *testing.T) {
-	signers := bitarray.NewBitArray(3)
-	err := signers.SetBit(0)
-	require.Nil(t, err)
-	err = signers.SetBit(2)
-	require.Nil(t, err)
-
-	marshalledSigners, err := bitarray.Marshal(signers)
-	require.Nil(t, err)
-
 	intSig := extmsgs.Signature{
 		TransactionID: nil,
 		ObjectID:      []byte("objectid"),
@@ -259,7 +249,7 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 		Cycle:         2,
 		Height:        3,
 		Type:          "test",
-		Signers:       marshalledSigners,
+		Signers:       []uint32{1, 0, 1},
 		Signature:     []byte("signature"),
 	}
 

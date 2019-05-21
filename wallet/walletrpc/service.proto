@@ -52,7 +52,7 @@ message Credentials {
 }
 
 message SerializableSignature {
-  repeated bool signers = 1;
+  repeated uint32 signers = 1;
   bytes signature = 2;
   string type = 3;
   bytes object_id = 4;

@@ -8,7 +8,6 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-cid"
@@ -116,19 +115,6 @@ func serializeNodes(nodes []*cbornode.Node) [][]byte {
 }
 
 func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, error) {
-	signers := bitarray.NewBitArray(uint64(len(encodedSig.Signers)))
-	for i, didSign := range encodedSig.Signers {
-		if didSign {
-			if err := signers.SetBit(uint64(i)); err != nil {
-				return nil, fmt.Errorf("error setting bit: %v", err)
-			}
-		}
-	}
-	marshalledSigners, err := bitarray.Marshal(signers)
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling signers array: %v", err)
-	}
-
 	return &extmsgs.Signature{
 		ObjectID:    encodedSig.ObjectId,
 		PreviousTip: encodedSig.PreviousTip,
@@ -136,7 +122,7 @@ func decodeSignature(encodedSig *SerializableSignature) (*extmsgs.Signature, err
 		View:        encodedSig.View,
 		Cycle:       encodedSig.Cycle,
 		Type:        encodedSig.Type,
-		Signers:     marshalledSigners,
+		Signers:     encodedSig.Signers,
 		Signature:   encodedSig.Signature,
 		Height:      encodedSig.Height,
 	}, nil
@@ -157,51 +143,39 @@ func decodeSignatures(encodedSigs map[string]*SerializableSignature) (consensus.
 }
 
 func (rpcs *RPCSession) verifySignatures(sigs consensus.SignatureMap) (bool, error) {
-	var verKeys [][]byte
 
 	sigForNotaryGroup := sigs[rpcs.notaryGroup.ID]
-	signerArray, err := bitarray.Unmarshal(sigForNotaryGroup.Signers)
-	if err != nil {
-		return false, fmt.Errorf("error decoding signatures: %v", err)
-	}
+
+	var verKeys [][]byte
 
 	signers := rpcs.notaryGroup.AllSigners()
-	for i, signer := range signers {
-		isSet, err := signerArray.GetBit(uint64(i))
-		if err != nil {
-			return false, fmt.Errorf("error converting signatures: %v", err)
+	var signerCount uint64
+	for i, cnt := range sigForNotaryGroup.Signers {
+		if cnt > 0 {
+			signerCount++
+			verKey := signers[i].VerKey.Bytes()
+			newKeys := make([][]byte, cnt)
+			for j := uint32(0); j < cnt; j++ {
+				newKeys[i] = verKey
+			}
+			verKeys = append(verKeys, newKeys...)
 		}
-		if isSet {
-			verKeys = append(verKeys, signer.VerKey.Bytes())
-		}
+	}
+	if signerCount < rpcs.notaryGroup.QuorumCount() {
+		return false, nil
 	}
 
 	return bls.VerifyMultiSig(sigForNotaryGroup.Signature, sigForNotaryGroup.GetSignable(), verKeys)
 }
 
 func serializeSignature(sig extmsgs.Signature) (*SerializableSignature, error) {
-	signers, err := bitarray.Unmarshal(sig.Signers)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling signers array: %v", err)
-	}
-
-	signersBools := make([]bool, signers.Capacity())
-	for i := uint64(0); i < signers.Capacity(); i++ {
-		isSet, err := signers.GetBit(i)
-		if err != nil {
-			return nil, fmt.Errorf("error getting signer from bitarray: %v", err)
-		}
-
-		signersBools[i] = isSet
-	}
-
 	return &SerializableSignature{
 		ObjectId:    sig.ObjectID,
 		PreviousTip: sig.PreviousTip,
 		NewTip:      sig.NewTip,
 		View:        sig.View,
 		Cycle:       sig.Cycle,
-		Signers:     signersBools,
+		Signers:     sig.Signers,
 		Signature:   sig.Signature,
 		Type:        sig.Type,
 		Height:      sig.Height,

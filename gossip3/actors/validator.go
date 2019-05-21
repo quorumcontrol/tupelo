@@ -9,7 +9,6 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
-	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -225,23 +224,43 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 	}
 
 	sigVerifier := consensus.GenerateIsValidSignature(func(sig *extmsgs.Signature) (bool, error) {
-		signerArray, err := bitarray.Unmarshal(sig.Signers)
-		if err != nil {
-			return false, fmt.Errorf("error unmarshalling signers bitarray: %v", err)
-		}
 
 		var verKeys [][]byte
 
 		signers := tv.notaryGroup.AllSigners()
-		for i, signer := range signers {
-			isSet, err := signerArray.GetBit(uint64(i))
-			if err != nil {
-				return false, fmt.Errorf("error getting bit: %v", err)
-			}
-			if isSet {
-				verKeys = append(verKeys, signer.VerKey.Bytes())
+		var signerCount uint64
+		for i, cnt := range sig.Signers {
+			if cnt > 0 {
+				signerCount++
+				verKey := signers[i].VerKey.Bytes()
+				newKeys := make([][]byte, cnt)
+				for j := uint32(0); j < cnt; j++ {
+					newKeys[i] = verKey
+				}
+				verKeys = append(verKeys, newKeys...)
 			}
 		}
+		if signerCount < tv.notaryGroup.QuorumCount() {
+			return false, nil
+		}
+
+		// signerArray, err := bitarray.Unmarshal(sig.Signers)
+		// if err != nil {
+		// 	return false, fmt.Errorf("error unmarshalling signers bitarray: %v", err)
+		// }
+
+		// var verKeys [][]byte
+
+		// signers := tv.notaryGroup.AllSigners()
+		// for i, signer := range signers {
+		// 	isSet, err := signerArray.GetBit(uint64(i))
+		// 	if err != nil {
+		// 		return false, fmt.Errorf("error getting bit: %v", err)
+		// 	}
+		// 	if isSet {
+		// 		verKeys = append(verKeys, signer.VerKey.Bytes())
+		// 	}
+		// }
 
 		resp, err := actorCtx.RequestFuture(tv.signatureChecker, &messages.SignatureVerification{
 			Message:   sig.GetSignable(),
