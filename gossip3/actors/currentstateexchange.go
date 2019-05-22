@@ -96,7 +96,7 @@ func (e *CurrentStateExchange) gzipExport() []byte {
 		return nil
 	}
 
-	e.Log.Debugw("gzipExport exported %d keys", wroteCount)
+	e.Log.Debugf("gzipExport exported %d keys", wroteCount)
 
 	return buf.Bytes()
 }

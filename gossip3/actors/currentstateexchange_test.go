@@ -17,6 +17,7 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	cid "github.com/ipfs/go-cid"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -24,6 +25,8 @@ import (
 )
 
 func TestCurrentStateExchange(t *testing.T) {
+	middleware.SetLogLevel("debug")
+	middleware.Log.Debugf("TestCurrentStateExchange")
 	notaryGroupSize := 2
 	testSet := testnotarygroup.NewTestSet(t, notaryGroupSize)
 	pubsub := remote.NewSimulatedPubSub()
@@ -58,6 +61,7 @@ func TestCurrentStateExchange(t *testing.T) {
 	chains := make([]*consensus.SignedChainTree, numOfTrees)
 	tips := make([]*cid.Cid, numOfTrees)
 
+	middleware.Log.Debugf("test sending in chaintree transactions")
 	// First sign some chaintrees on the notary group to fill up current state
 	for i := 0; i < numOfTrees; i++ {
 		key, err := crypto.GenerateKey()
@@ -115,6 +119,7 @@ func TestCurrentStateExchange(t *testing.T) {
 
 		cli := client.New(notaryGroup, chain.MustId(), pubsub)
 		cli.Listen()
+		middleware.Log.Debugf("test sending in failing transaction")
 
 		_, err := cli.PlayTransactions(chain, key, remoteTip, []*chaintree.Transaction{{
 			Type: consensus.TransactionTypeSetData,

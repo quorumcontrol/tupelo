@@ -57,7 +57,7 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 
 	sigWrapper := msg.(*messages.SignatureWrapper)
-	assert.Equal(t, 1, sigWrapper.Signature.Signers[0])
+	assert.Equal(t, uint32(1), sigWrapper.Signature.Signers[0])
 }
 
 func BenchmarkSignatureGenerator(b *testing.B) {
