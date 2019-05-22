@@ -25,8 +25,6 @@ import (
 )
 
 func TestCurrentStateExchange(t *testing.T) {
-	middleware.SetLogLevel("debug")
-	middleware.Log.Debugf("TestCurrentStateExchange")
 	notaryGroupSize := 2
 	testSet := testnotarygroup.NewTestSet(t, notaryGroupSize)
 	pubsub := remote.NewSimulatedPubSub()
@@ -61,7 +59,6 @@ func TestCurrentStateExchange(t *testing.T) {
 	chains := make([]*consensus.SignedChainTree, numOfTrees)
 	tips := make([]*cid.Cid, numOfTrees)
 
-	middleware.Log.Debugf("test sending in chaintree transactions")
 	// First sign some chaintrees on the notary group to fill up current state
 	for i := 0; i < numOfTrees; i++ {
 		key, err := crypto.GenerateKey()

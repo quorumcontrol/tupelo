@@ -262,10 +262,6 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 
 	existingSig, ok := cs.signatures[string(msg.Signature.TransactionID)]
 	if ok {
-		if existingSig.Signers == nil {
-			csw.Log.Errorw("existing sig signers is nil", "existingSig", existingSig)
-			panic("OH NO")
-		}
 		// if the new sig doesn't have any new signatures, then just drop it
 		hasNewSigs := false
 
@@ -282,10 +278,6 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 			if err != nil {
 				csw.Log.Infow("error combigning sigs", "err", err)
 			}
-			if newSig.Signers == nil {
-				csw.Log.Errorw("bad combine signatures return", "sig", newSig)
-				panic("oh no")
-			}
 			csw.Log.Debugw("newsig", "signerCount", len(newSig.Signers), "newSig", newSig)
 			cs.signatures[string(msg.Signature.TransactionID)] = newSig
 			//TODO: broadcast this new sig
@@ -293,10 +285,6 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 		// else no one cares about this sig, drop it
 
 	} else {
-		if msg.Signers == nil {
-			csw.Log.Errorw("bad handle sig msg", "sig", msg)
-			panic("oh no")
-		}
 		cs.signatures[string(msg.Signature.TransactionID)] = msg
 	}
 
@@ -454,10 +442,6 @@ func (csw *ConflictSetWorker) possiblyDone(cs *ConflictSet) *messages.Transactio
 	count := csw.notaryGroup.QuorumCount()
 	csw.Log.Debugw("looking for a transaction with enough signatures", "quorum count", count)
 	for tID, signature := range cs.signatures {
-		if signature.Signers == nil {
-			csw.Log.Errorw("signers was nil", "signature", signature)
-			panic("oh no")
-		}
 		if uint64(len(signature.Signers)) >= count {
 			csw.Log.Debugw("found transaction with enough signatures", "id", tID)
 			return cs.transactions[tID]
@@ -524,19 +508,6 @@ func setupCurrStateCtx(wrapper *messages.CurrentStateWrapper, cs *ConflictSet) {
 	wrapper.SetContext(wrapperCtx)
 }
 
-func sigHasQuorum(sig *extmsgs.Signature, quorumCount int) bool {
-	var didSignCount int
-	for _, sigCount := range sig.Signers {
-		if sigCount > 0 {
-			didSignCount++
-		}
-	}
-	if didSignCount >= quorumCount {
-		return true
-	}
-	return false
-}
-
 func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b *messages.SignatureWrapper) (*messages.SignatureWrapper, error) {
 	csw.Log.Debugw("combining signatures", "signersA", a.Signers, "signersB", b.Signers)
 	newSignerCnt := make([]uint32, len(csw.notaryGroup.Signers))
@@ -558,7 +529,7 @@ func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b 
 
 	aggregatedSig, err := bls.SumSignatures([][]byte{a.Signature.Signature, b.Signature.Signature})
 	if err != nil {
-
+		return nil, fmt.Errorf("error aggregating signatures: %v", err)
 	}
 	newSig := &extmsgs.Signature{
 		TransactionID: a.Signature.TransactionID,
