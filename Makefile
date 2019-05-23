@@ -5,6 +5,9 @@ else
 	TAG = $(VERSION)
 endif
 
+# This is important to export until we're on Go 1.13+ or packr can break
+export GO111MODULE = on
+
 MD5CMD = $(shell { command -v md5sum || command -v md5; } 2>/dev/null)
 
 # GUARD is a function which calculates md5 sum for its
