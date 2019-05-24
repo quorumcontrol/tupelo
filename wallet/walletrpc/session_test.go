@@ -252,7 +252,7 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	marshalledSigners, err := bitarray.Marshal(signers)
 	require.Nil(t, err)
 
-	intSig := extmsgs.Signature{
+	extSig := extmsgs.Signature{
 		TransactionID: nil,
 		ObjectID:      []byte("objectid"),
 		PreviousTip:   []byte("previousTip"),
@@ -265,12 +265,13 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 		Signature:     []byte("signature"),
 	}
 
-	encoded, err := conversion.ToInternalSignature(intSig)
+	encoded, err := conversion.ToInternalSignature(extSig)
 	require.Nil(t, err)
+
 	decoded, err := conversion.ToExternalSignature(encoded)
 	require.Nil(t, err)
 
-	require.Equal(t, intSig, *decoded)
+	require.Equal(t, extSig, *decoded)
 }
 
 func testGetTokenBalance(t *testing.T, sess *RPCSession, chain *consensus.SignedChainTree) {
