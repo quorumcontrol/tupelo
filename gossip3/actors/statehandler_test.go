@@ -426,6 +426,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	savedcid := emptyTree.Tip
 
 	setDataTxn, err := chaintree.NewSetDataTransaction("transaction1", "foo")
+	assert.Nil(t, err)
 	unsignedBlock := &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
 			PreviousTip:  nil,
