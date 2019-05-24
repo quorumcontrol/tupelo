@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
@@ -306,7 +307,7 @@ func newActorlessSystem(testSet *testnotarygroup.TestSet) (*types.NotaryGroup, e
 	ng := types.NewNotaryGroup("actorless")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
-		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
+		signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), sk)
 		ng.AddSigner(signer)
 	}
 	return ng, nil

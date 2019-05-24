@@ -8,7 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/transactions"
+	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -34,7 +34,7 @@ func TestImportExport(t *testing.T) {
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -126,7 +126,7 @@ func TestSendToken(t *testing.T) {
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("send-token-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -198,7 +198,7 @@ func TestGetTip(t *testing.T) {
 
 	ng := types.NewNotaryGroup("get-tip-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -305,7 +305,7 @@ func TestTokens(t *testing.T) {
 
 			ng := types.NewNotaryGroup("test-tokens")
 			ts := testnotarygroup.NewTestSet(t, 1)
-			signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+			signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 			pubSubSystem := remote.NewSimulatedPubSub()
 
 			syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{

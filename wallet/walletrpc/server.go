@@ -9,13 +9,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/improbable-eng/grpc-web/go/grpcweb"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/quorumcontrol/messages/services"
-	"github.com/quorumcontrol/messages/transactions"
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -318,20 +316,6 @@ func (s *server) PlayTransactions(ctx context.Context, req *services.PlayTransac
 	}, nil
 }
 
-func transact(session *RPCSession, chainId, keyAddr string, t transactions.Transaction_Type, payload proto.Message) (*consensus.AddBlockResponse, error) {
-	wrappedPayload, err := ptypes.MarshalAny(payload)
-	if err != nil {
-		return nil, fmt.Errorf("error wrapping transaction payload: %v", err)
-	}
-
-	txn := transactions.Transaction{
-		Type:    transactions.Transaction_SETOWNERSHIP,
-		Payload: wrappedPayload,
-	}
-
-	return session.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{&txn})
-}
-
 func (s *server) SetOwner(ctx context.Context, req *services.SetOwnerRequest) (*services.SetOwnerResponse, error) {
 	session, err := NewSession(s.storagePath, req.Creds.WalletName, s.NotaryGroup, s.PubSub)
 	if err != nil {
@@ -345,7 +329,12 @@ func (s *server) SetOwner(ctx context.Context, req *services.SetOwnerRequest) (*
 
 	defer session.Stop()
 
-	blockResp, err := transact(session, req.ChainId, req.KeyAddr, transactions.Transaction_SETOWNERSHIP, req.Payload)
+	txn := transactions.Transaction{
+		Type:                transactions.Transaction_SETOWNERSHIP,
+		SetOwnershipPayload: req.Payload,
+	}
+
+	blockResp, err := session.PlayTransactions(req.ChainId, req.KeyAddr, []*transactions.Transaction{&txn})
 	if err != nil {
 		return nil, fmt.Errorf("error transacting SetOwnership payload: %v", err)
 	}
@@ -368,7 +357,12 @@ func (s *server) SetData(ctx context.Context, req *services.SetDataRequest) (*se
 
 	defer session.Stop()
 
-	blockResp, err := transact(session, req.ChainId, req.KeyAddr, transactions.Transaction_SETDATA, req.Payload)
+	txn := transactions.Transaction{
+		Type:           transactions.Transaction_SETDATA,
+		SetDataPayload: req.Payload,
+	}
+
+	blockResp, err := session.PlayTransactions(req.ChainId, req.KeyAddr, []*transactions.Transaction{&txn})
 	if err != nil {
 		return nil, fmt.Errorf("error transacting set data payload: %v", err)
 	}
@@ -438,7 +432,12 @@ func (s *server) EstablishToken(ctx context.Context, req *services.EstablishToke
 
 	defer session.Stop()
 
-	blockResp, err := transact(session, req.ChainId, req.KeyAddr, transactions.Transaction_ESTABLISHTOKEN, req.Payload)
+	txn := transactions.Transaction{
+		Type: transactions.Transaction_ESTABLISHTOKEN,
+		EstablishTokenPayload: req.Payload,
+	}
+
+	blockResp, err := session.PlayTransactions(req.ChainId, req.KeyAddr, []*transactions.Transaction{&txn})
 	if err != nil {
 		return nil, fmt.Errorf("error transacting EstablishToken payload: %v", err)
 	}
@@ -461,7 +460,12 @@ func (s *server) MintToken(ctx context.Context, req *services.MintTokenRequest) 
 
 	defer session.Stop()
 
-	blockResp, err := transact(session, req.ChainId, req.KeyAddr, transactions.Transaction_ESTABLISHTOKEN, req.Payload)
+	txn := transactions.Transaction{
+		Type:             transactions.Transaction_MINTTOKEN,
+		MintTokenPayload: req.Payload,
+	}
+
+	blockResp, err := session.PlayTransactions(req.ChainId, req.KeyAddr, []*transactions.Transaction{&txn})
 	if err != nil {
 		return nil, fmt.Errorf("error transacting EstablishToken payload: %v", err)
 	}

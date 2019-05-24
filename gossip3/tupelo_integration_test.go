@@ -7,14 +7,13 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
-	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-cid"
 	libp2plogging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -96,7 +95,7 @@ func newValidTransaction(t *testing.T) extmsgs.Transaction {
 func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
 	ng := types.NewNotaryGroup("test notary")
 
-	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal].ToEcdsaPub(), testSet.SignKeys[indexOfLocal])
+	localSigner := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(testSet.PubKeys[indexOfLocal]), testSet.SignKeys[indexOfLocal])
 	commitPath := testCommitPath + "/" + localSigner.ID
 	currentPath := testCurrentPath + "/" + localSigner.ID
 	if err := os.MkdirAll(commitPath, 0755); err != nil {
@@ -142,7 +141,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	for i, verKey := range testSet.VerKeys {
 		if i != indexOfLocal {
 			// this is a remote signer
-			signer := types.NewRemoteSigner(testSet.PubKeys[i].ToEcdsaPub(), verKey)
+			signer := types.NewRemoteSigner(consensus.PublicKeyToEcdsaPub(testSet.PubKeys[i]), verKey)
 			signer.Actor = actor.NewPID(signer.ActorAddress(localSigner.DstKey), "tupelo-"+signer.ID)
 			ng.AddSigner(signer)
 		}
@@ -276,7 +275,7 @@ func sendTransaction(cli *client.Client, treeKey *ecdsa.PrivateKey,
 	return nil
 }
 
-func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(), error)  {
+func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(), error) {
 	cleanupFuncs := []func(){}
 	cleanUp := func() {
 		middleware.Log.Infow("---- tests over ----")
@@ -286,7 +285,7 @@ func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(
 			f()
 		}
 	}
-	
+
 	if err := os.MkdirAll(testCurrentPath, 0755); err != nil {
 		return nil, nil, cleanUp, err
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
@@ -26,7 +27,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
-		signer := types.NewLocalSigner(testSet.PubKeys[i].ToEcdsaPub(), sk)
+		signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), sk)
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       ng,

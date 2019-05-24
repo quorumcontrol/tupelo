@@ -13,16 +13,15 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/services"
-	"github.com/quorumcontrol/messages/signatures"
-	"github.com/quorumcontrol/messages/transactions"
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
@@ -719,22 +718,17 @@ func (rpcs *RPCSession) ReceiveToken(chainId, keyAddr, encodedPayload string) (*
 		return nil, err
 	}
 
-	receivePayload := transactions.ReceiveTokenPayload{
+	receivePayload := &transactions.ReceiveTokenPayload{
 		SendTokenTransactionId: tokenPayload.TransactionId,
 		Tip:       tip.Bytes(),
 		Signature: tokenPayload.Signature,
 		Leaves:    tokenPayload.Leaves,
 	}
 
-	wrappedPayload, err := ptypes.MarshalAny(&receivePayload)
-	if err != nil {
-		return nil, err
-	}
-
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{
 		{
-			Type:    transactions.Transaction_RECEIVETOKEN,
-			Payload: wrappedPayload,
+			Type:                transactions.Transaction_RECEIVETOKEN,
+			ReceiveTokenPayload: receivePayload,
 		},
 	})
 	if err != nil {
