@@ -428,10 +428,10 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 		for _, t := range cs.transactions {
 			transSpan := t.NewSpan("handleCurrentStateWrapper")
 			transSpan.SetTag("done", true)
-			transSpan.Finish()
 			if !bytes.Equal(t.Transaction.NewTip, currWrapper.CurrentState.Signature.NewTip) {
-				currWrapper.FailedTransactions = append(currWrapper.FailedTransactions, t)
+				transSpan.SetTag("error", true)
 			}
+			transSpan.Finish()
 		}
 
 		cs.done = true
