@@ -545,18 +545,18 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 	return resp, nil
 }
 
-func (rpcs *RPCSession) SetData(chainId, keyAddr, path string, data []byte) (string, error) {
+func (rpcs *RPCSession) SetData(chainId, keyAddr, path string, data []byte) (*cid.Cid, error) {
 	txn, err := chaintree.NewSetDataBytesTransaction(path, data)
 	if err != nil {
-		return "", fmt.Errorf("error building SetData transaction: %v", err)
+		return nil, fmt.Errorf("error building SetData transaction: %v", err)
 	}
 
 	resp, err := rpcs.PlayTransactions(chainId, keyAddr, []*transactions.Transaction{txn})
 	if err != nil {
-		return "", fmt.Errorf("error submitting SetData transaction: %v", err)
+		return nil, fmt.Errorf("error submitting SetData transaction: %v", err)
 	}
 
-	return resp.Tip.String(), nil
+	return resp.Tip, nil
 }
 
 func (rpcs *RPCSession) EstablishToken(chainId, keyAddr, name string, maxTokens uint64) (string, error) {
