@@ -4,9 +4,11 @@ tupelos:
     command: ["rpc-server", "-l", "3"]
 
 testers:
-  js-sdk-latest:
-    image: quorumcontrol/tupelo-js-sdk:latest
-    command: ["npx", "mocha", "--exit"]
-  js-sdk-master:
-    image: quorumcontrol/tupelo-js-sdk:master
-    command: ["npx", "mocha", "--exit"]
+  js-sdk-proto:
+    image: quorumcontrol/tupelo-js-sdk:play-transactions
+  # js-sdk-latest:
+  #   image: quorumcontrol/tupelo-js-sdk:latest
+  #   command: ["npx", "mocha", "--exit"]
+  # js-sdk-master:
+  #   image: quorumcontrol/tupelo-js-sdk:master
+  #   command: ["npx", "mocha", "--exit"]
