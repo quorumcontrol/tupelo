@@ -519,12 +519,12 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 
 	chain, err := rpcs.GetChain(chainId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting chain: %v", err)
 	}
 
 	key, err := rpcs.getKey(keyAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error getting key: %v", err)
 	}
 
 	var remoteTip cid.Cid
@@ -534,7 +534,7 @@ func (rpcs *RPCSession) PlayTransactions(chainId, keyAddr string, transactions [
 
 	resp, err := cli.PlayTransactions(chain, key, &remoteTip, transactions)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error submitting transactions: %v", err)
 	}
 
 	err = rpcs.wallet.SaveChainMetadata(chain)
