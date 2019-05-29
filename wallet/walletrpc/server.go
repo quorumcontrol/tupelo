@@ -379,7 +379,7 @@ func (s *server) Resolve(ctx context.Context, req *services.ResolveRequest) (*se
 func (s *server) ResolveAt(ctx context.Context, req *services.ResolveAtRequest) (*services.ResolveResponse, error) {
 	t, err := cid.Decode(req.Tip)
 	if err != nil {
-		return nil, fmt.Errorf("A valid tip CID must be provided")
+		return nil, fmt.Errorf("error decoding tip: %v", err)
 	}
 	return s.resolveAt(ctx, req.Creds, req.ChainId, req.Path, &t)
 }
