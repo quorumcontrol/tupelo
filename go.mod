@@ -36,7 +36,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/quorumcontrol/chaintree v0.0.0-20190524183749-8b070dcb62d7
+	github.com/quorumcontrol/chaintree v0.0.0-20190529091624-597cb9a3b7b1
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190524131644-280f165f71a5
 	github.com/quorumcontrol/storage v1.1.2
 	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190524184406-a9cabb2
