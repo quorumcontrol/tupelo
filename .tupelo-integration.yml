@@ -5,7 +5,7 @@ tupelos:
 
 testers:
   js-sdk-proto:
-    image: quorumcontrol/tupelo-js-sdk:play-transactions
+    image: quorumcontrol/tupelo-js-sdk:deserialize-responses
     command: ["npx", "mocha", "--exit"]
   # js-sdk-latest:
   #   image: quorumcontrol/tupelo-js-sdk:latest
