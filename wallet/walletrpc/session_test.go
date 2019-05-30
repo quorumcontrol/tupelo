@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -15,6 +16,7 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/tupelo-go-sdk/conversion"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -32,7 +34,7 @@ func TestImportExport(t *testing.T) {
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -124,7 +126,7 @@ func TestSendToken(t *testing.T) {
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("send-token-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -175,7 +177,7 @@ func TestSendToken(t *testing.T) {
 	require.Nil(t, err)
 	decodedSendTokens, err := base64.StdEncoding.DecodeString(sendTokens)
 	require.Nil(t, err)
-	unmarshalledSendTokens := &TokenPayload{}
+	unmarshalledSendTokens := &transactions.TokenPayload{}
 	err = proto.Unmarshal(decodedSendTokens, unmarshalledSendTokens)
 	require.Nil(t, err)
 
@@ -196,7 +198,7 @@ func TestGetTip(t *testing.T) {
 
 	ng := types.NewNotaryGroup("get-tip-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -250,7 +252,7 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	marshalledSigners, err := bitarray.Marshal(signers)
 	require.Nil(t, err)
 
-	intSig := extmsgs.Signature{
+	extSig := extmsgs.Signature{
 		TransactionID: nil,
 		ObjectID:      []byte("objectid"),
 		PreviousTip:   []byte("previousTip"),
@@ -263,12 +265,13 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 		Signature:     []byte("signature"),
 	}
 
-	encoded, err := serializeSignature(intSig)
-	require.Nil(t, err)
-	decoded, err := decodeSignature(encoded)
+	encoded, err := conversion.ToInternalSignature(extSig)
 	require.Nil(t, err)
 
-	require.Equal(t, intSig, *decoded)
+	decoded, err := conversion.ToExternalSignature(encoded)
+	require.Nil(t, err)
+
+	require.Equal(t, extSig, *decoded)
 }
 
 func testGetTokenBalance(t *testing.T, sess *RPCSession, chain *consensus.SignedChainTree) {
@@ -303,7 +306,7 @@ func TestTokens(t *testing.T) {
 
 			ng := types.NewNotaryGroup("test-tokens")
 			ts := testnotarygroup.NewTestSet(t, 1)
-			signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+			signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 			pubSubSystem := remote.NewSimulatedPubSub()
 
 			syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{

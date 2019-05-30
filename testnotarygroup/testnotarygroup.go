@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -40,14 +41,14 @@ type TestSet struct {
 	SignKeys          []*bls.SignKey
 	VerKeys           []*bls.VerKey
 	EcdsaKeys         []*ecdsa.PrivateKey
-	PubKeys           []consensus.PublicKey
+	PubKeys           []signatures.PublicKey
 	SignKeysByAddress map[string]*bls.SignKey
 }
 
 func NewTestSet(t testing.TB, size int) *TestSet {
 	signKeys := blsKeys(size)
 	verKeys := make([]*bls.VerKey, len(signKeys))
-	pubKeys := make([]consensus.PublicKey, len(signKeys))
+	pubKeys := make([]signatures.PublicKey, len(signKeys))
 	ecdsaKeys := make([]*ecdsa.PrivateKey, len(signKeys))
 	signKeysByAddress := make(map[string]*bls.SignKey)
 	for i, signKey := range signKeys {

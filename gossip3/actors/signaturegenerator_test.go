@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -18,7 +19,7 @@ import (
 
 func TestSignatureGenerator(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()
@@ -67,7 +68,7 @@ func TestSignatureGenerator(t *testing.T) {
 
 func BenchmarkSignatureGenerator(b *testing.B) {
 	ts := testnotarygroup.NewTestSet(b, 1)
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewMemStorage()

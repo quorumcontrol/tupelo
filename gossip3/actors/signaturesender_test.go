@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -30,7 +31,7 @@ func TestSendSigs(t *testing.T) {
 	subscriber := rootContext.Spawn(actor.PropsFromFunc(subscriberFunc))
 	defer rootContext.Poison(subscriber)
 
-	signer := types.NewLocalSigner(ts.PubKeys[0].ToEcdsaPub(), ts.SignKeys[0])
+	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	signer.Actor = subscriber
 
 	rootContext.Send(ss, &messages.SignatureWrapper{
