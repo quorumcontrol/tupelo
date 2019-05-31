@@ -3,6 +3,8 @@
 package gossip3
 
 import (
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
