@@ -54,5 +54,3 @@ require (
 )
 
 replace github.com/libp2p/go-libp2p-pubsub v0.0.3 => github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba
-
-replace github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190531102608-6a5e3b394f3715a9eacbef3e9c69fbfee2f8db4e => ../tupelo-go-sdk
