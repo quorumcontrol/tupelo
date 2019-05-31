@@ -672,14 +672,14 @@ github.com/quorumcontrol/chaintree v0.0.0-20190530190017-53765d7c259c/go.mod h1:
 github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba h1:yyXbqfe6eR+DKlS8VTtpMEBCCPvVxdtYIF06hMojPA4=
 github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba/go.mod h1:fYKlZBOF2yrJzYlgeEVFSbYWfbS+E8Zix6gMZ0A6WgE=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190530182608-30c127bffefb/go.mod h1:b8jDN8PulcGcRJ2pQc0lbC3tPaOspGHoBIbPxfB7Jqg=
-github.com/quorumcontrol/messages/build/go v0.0.0-20190531102608-7c6f3ec9a7dba48c23835751632414c8b5ec4bc9 h1:F6okiY8on42YA+JWVKje+PDewWIYZbqMeOjD09VykSk=
-github.com/quorumcontrol/messages/build/go v0.0.0-20190531102608-7c6f3ec9a7dba48c23835751632414c8b5ec4bc9/go.mod h1:QLQVe/V3WcoFNglaJXmoRNs8u+KbsNd5MXeOaa77zgw=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190531102608-c9ab5660238363dec051ff47798750cc1aca004c h1:sHB8GqqPXKu2d5IZkzGh5wQ+aYA4NqM+gZTHoPiaPk8=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190531102608-c9ab5660238363dec051ff47798750cc1aca004c/go.mod h1:QLQVe/V3WcoFNglaJXmoRNs8u+KbsNd5MXeOaa77zgw=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF7FTLpcl171qo5MFvbKjrLEsLtcKF72uQpefiPM=
 github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1/go.mod h1:7JSFW45PpKoXFaUpaJ8YtCNIwQWut0+Huo9ugBnKVe4=
 github.com/quorumcontrol/storage v1.1.2 h1:F6qRGnWx2GzO5fitMh8axvT9NjHUHnGp3n2MYwnjKP4=
 github.com/quorumcontrol/storage v1.1.2/go.mod h1:QGtqgqqMaULflN8Jcctj3zdzMFoyE/RxP0uTd15EKtY=
+github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190531102608-6a5e3b394f3715a9eacbef3e9c69fbfee2f8db4e h1:wzivslycMZUHwbJPnhKEKd4AQa24o1lBB3KhhJUrBlE=
+github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190531102608-6a5e3b394f3715a9eacbef3e9c69fbfee2f8db4e/go.mod h1:MLuZNVJNo6NhkR+5MPwM+MxCQjViJiqEKpNzr/Bbj3U=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.2.2/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
