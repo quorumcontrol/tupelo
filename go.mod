@@ -37,9 +37,9 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/quorumcontrol/chaintree v0.0.0-20190530190017-53765d7c259c
-	github.com/quorumcontrol/messages/build/go v0.0.0-20190531102608-2481f64457ab2de649292edfd5c069b4cec3a723
+	github.com/quorumcontrol/messages/build/go v0.0.0-20190531102608-c9ab5660238363dec051ff47798750cc1aca004c
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190531102608-4a71c9d
+	github.com/quorumcontrol/tupelo-go-sdk v0.3.1
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.1
@@ -55,3 +55,5 @@ require (
 )
 
 replace github.com/libp2p/go-libp2p-pubsub v0.0.3 => github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba
+
+replace github.com/quorumcontrol/tupelo-go-sdk v0.3.1 => ../tupelo-go-sdk

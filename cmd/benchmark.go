@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	gossip3middleware "github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
@@ -41,7 +42,7 @@ type ResultSet struct {
 type Result struct {
 	Duration    int
 	Error       string
-	Transaction *messages.Transaction
+	Transaction *services.AddBlockRequest
 }
 
 var results ResultSet
@@ -52,10 +53,10 @@ var benchmarkStrategy string
 var benchmarkStartDelay int
 var tracingTagName string
 
-var sentCh chan *messages.Transaction
+var sentCh chan *services.AddBlockRequest
 var resultsCh chan *Result
 
-func measureTransaction(cli *client.Client, trans *messages.Transaction) {
+func measureTransaction(cli *client.Client, trans *services.AddBlockRequest) {
 	result := &Result{
 		Transaction: trans,
 	}
@@ -64,7 +65,7 @@ func measureTransaction(cli *client.Client, trans *messages.Transaction) {
 	defer cli.Stop()
 
 	startTime := time.Now()
-	did := string(trans.ObjectID)
+	did := string(trans.ObjectId)
 
 	sp := opentracing.StartSpan("benchmark-transaction")
 	if tracingTagName != "" {
@@ -82,7 +83,7 @@ func measureTransaction(cli *client.Client, trans *messages.Transaction) {
 	resp, err := subscriptionFuture.Result()
 	if err == nil {
 		switch msg := resp.(type) {
-		case *messages.CurrentState:
+		case *signatures.CurrentState:
 			elapsed := time.Since(startTime)
 			result.Duration = int(elapsed / time.Millisecond)
 		case nil:
@@ -105,7 +106,7 @@ func measureTransaction(cli *client.Client, trans *messages.Transaction) {
 func sendTransaction(notaryGroup *types.NotaryGroup, pubsub remote.PubSub, shouldMeasure bool) {
 	fakeT := &testing.T{}
 	trans := gossip3testhelpers.NewValidTransaction(fakeT)
-	cli := client.New(notaryGroup, string(trans.ObjectID), pubsub)
+	cli := client.New(notaryGroup, string(trans.ObjectId), pubsub)
 	if shouldMeasure {
 		cli.Listen()
 		go measureTransaction(cli, &trans)
@@ -186,7 +187,7 @@ var benchmark = &cobra.Command{
 
 		expectedTotal := benchmarkDuration * benchmarkConcurrency
 
-		sentCh = make(chan *messages.Transaction, expectedTotal)
+		sentCh = make(chan *services.AddBlockRequest, expectedTotal)
 		defer close(sentCh)
 
 		resultsCh = make(chan *Result, expectedTotal)
@@ -212,10 +213,10 @@ var benchmark = &cobra.Command{
 		for results.Measured < expectedMeasured {
 			select {
 			case s := <-sentCh:
-				log.Infof("[benchmark] request chainID=%s", s.ObjectID)
+				log.Infof("[benchmark] request chainID=%s", s.ObjectId)
 				results.Total = results.Total + 1
 			case r := <-resultsCh:
-				log.Infof("[benchmark] results chainID=%s duration=%dms err=%s", r.Transaction.ObjectID, r.Duration, r.Error)
+				log.Infof("[benchmark] results chainID=%s duration=%dms err=%s", r.Transaction.ObjectId, r.Duration, r.Error)
 				results.Measured = results.Measured + 1
 
 				if r.Error != "" {

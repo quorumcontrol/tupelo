@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/Workiva/go-datastructures/bitarray"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -58,11 +58,7 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 
 	sigWrapper := msg.(*messages.SignatureWrapper)
-	array, err := bitarray.Unmarshal(sigWrapper.Signature.Signers)
-	require.Nil(t, err)
-	isSet, err := array.GetBit(0)
-	require.Nil(t, err)
-	assert.True(t, isSet)
+	assert.Equal(t, uint32(1), sigWrapper.Signature.Signers[0])
 }
 
 func BenchmarkSignatureGenerator(b *testing.B) {

@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"crypto/ecdsa"
 	"os"
 	"sort"
@@ -147,7 +148,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	}
 
 	signedTree.Signatures = consensus.SignatureMap{
-		"id": *sig,
+		"id": sig,
 	}
 
 	err = fw.SaveChain(signedTree)

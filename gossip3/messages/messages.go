@@ -1,6 +1,9 @@
 package messages
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -43,7 +46,7 @@ type CurrentStateWrapper struct {
 }
 
 func (csw *CurrentStateWrapper) MustMarshal() []byte {
-	bits, err := csw.CurrentState.MarshalMsg(nil)
+	bits, err := proto.Marshal(csw.CurrentState)
 	if err != nil {
 		panic(fmt.Errorf("error marshaling (should not happen): %v", err))
 	}
@@ -54,7 +57,7 @@ type TransactionWrapper struct {
 	tracing.ContextHolder
 
 	ConflictSetID string
-	TransactionID []byte
+	TransactionId []byte
 	Transaction   *services.AddBlockRequest
 	PreFlight     bool
 	Accepted      bool
@@ -63,7 +66,7 @@ type TransactionWrapper struct {
 }
 
 type ActivateSnoozingConflictSets struct {
-	ObjectID []byte
+	ObjectId []byte
 }
 
 type ValidateTransaction struct {

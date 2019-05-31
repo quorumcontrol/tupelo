@@ -7,6 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -59,8 +64,8 @@ func NewConflictSetRouterProps(cfg *ConflictSetRouterConfig) *actor.Props {
 	)
 }
 
-func (csr *ConflictSetRouter) nextHeight(objectID []byte) uint64 {
-	return nextHeight(csr.Log, csr.cfg.CurrentStateStore, objectID)
+func (csr *ConflictSetRouter) nextHeight(ObjectId []byte) uint64 {
+	return nextHeight(csr.Log, csr.cfg.CurrentStateStore, ObjectId)
 }
 
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
@@ -98,23 +103,23 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()
-		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectID,
+		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectId,
 			msg.Transaction.Height)
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
-		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectID, msg.Signature.Height)
+		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectId, msg.Signature.Height)
 	case *signatures.Signature:
-		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID())
-		csr.forwardOrIgnore(context, msg, msg.ObjectID, msg.Height)
+		csr.Log.Debugw("forwarding signature to conflict set", "cs", consensus.ConflictSetID(msg.ObjectId, msg.Height))
+		csr.forwardOrIgnore(context, msg, msg.ObjectId, msg.Height)
 	case *signatures.CurrentState:
 		wrapper := &messages.CurrentStateWrapper{
 			CurrentState: msg,
 			Verified:     true, // because it came in through a validated pubsub channel
 			Metadata:     messages.MetadataMap{"seen": time.Now()},
-			NextHeight:   csr.nextHeight(msg.Signature.ObjectID),
+			NextHeight:   csr.nextHeight(msg.Signature.ObjectId),
 		}
 
-		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectID, msg.Signature.Height)
+		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectId, msg.Signature.Height)
 	case *messages.CurrentStateWrapper:
 		csr.handleCurrentStateWrapper(context, msg)
 	case *messages.ImportCurrentState:
@@ -129,7 +134,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		}
 	case *messages.ActivateSnoozingConflictSets:
 		csr.Log.Debugw("csr received activate snoozed")
-		csr.activateSnoozingConflictSets(context, msg.ObjectID)
+		csr.activateSnoozingConflictSets(context, msg.ObjectId)
 	case *messages.ValidateTransaction:
 		if parent := context.Parent(); parent != nil {
 			context.Forward(parent)
@@ -169,14 +174,14 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 	}
 
 	curHeight := msg.CurrentState.Signature.Height
-	objectID := msg.CurrentState.Signature.ObjectID
-	csr.Log.Debugw("cleaning up conflict sets", "numSets", numConflictSets, "objectID",
-		string(objectID), "currentHeight", curHeight)
+	ObjectId := msg.CurrentState.Signature.ObjectId
+	csr.Log.Debugw("cleaning up conflict sets", "numSets", numConflictSets, "ObjectId",
+		string(ObjectId), "currentHeight", curHeight)
 
 	// Delete conflict sets for object ID and with height <= current one
 	txn := csr.conflictSets.Txn()
 	root := csr.conflictSets.Root()
-	root.WalkPrefix([]byte(fmt.Sprintf("%s/", objectID)), func(k []byte, v interface{}) bool {
+	root.WalkPrefix([]byte(fmt.Sprintf("%s/", ObjectId)), func(k []byte, v interface{}) bool {
 		kS := string(k)
 		splitKey := strings.SplitN(kS, "/", 2)
 		heightS := splitKey[len(splitKey)-1]
@@ -194,8 +199,8 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 
 		// Prune as of height less than or equal to current height
 		cs := v.(*ConflictSet)
-		csr.Log.Debugw("deleting conflict set", "objectID", string(objectID), "height", height)
-		idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(objectID, uint64(height))))
+		csr.Log.Debugw("deleting conflict set", "ObjectId", string(ObjectId), "height", height)
+		idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(ObjectId, uint64(height))))
 		csr.recentlyDone.Add(idS, true)
 		cs.StopTrace()
 		txn.Delete(k)
@@ -207,8 +212,8 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 }
 
 func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, msg interface{},
-	objectID []byte, height uint64) {
-	cs := csr.getOrCreateCS(objectID, height)
+	ObjectId []byte, height uint64) {
+	cs := csr.getOrCreateCS(ObjectId, height)
 	if cs != nil {
 		context.Send(csr.pool, &csWorkerRequest{
 			msg: msg,
@@ -224,7 +229,7 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 	if ver.Verified {
 		sp.SetTag("verified", true)
 		wrapper.Verified = true
-		csr.forwardOrIgnore(context, wrapper, wrapper.CurrentState.Signature.ObjectID,
+		csr.forwardOrIgnore(context, wrapper, wrapper.CurrentState.Signature.ObjectId,
 			wrapper.CurrentState.Signature.Height)
 		sp.Finish()
 		return nil
@@ -240,28 +245,28 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 // if there is already a conflict set, then forward the message there
 // if there isn't then, look at the recently done and if it's done, return nil
 // if it's not in either set, then create the actor
-func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *ConflictSet {
-	idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(objectID, height)))
+func (csr *ConflictSetRouter) getOrCreateCS(ObjectId []byte, height uint64) *ConflictSet {
+	idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(ObjectId, height)))
 	csr.Log.Debugw("determining whether or not to create another conflict set", "numExistingSets",
-		csr.conflictSets.Len(), "objectID", objectID, "height", height)
-	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, height))
+		csr.conflictSets.Len(), "ObjectId", ObjectId, "height", height)
+	nodeID := []byte(fmt.Sprintf("%s/%d", ObjectId, height))
 	csI, ok := csr.conflictSets.Get(nodeID)
 	if ok {
-		csr.Log.Debugw("got existing conflict set", "objectID", objectID, "height", height)
+		csr.Log.Debugw("got existing conflict set", "ObjectId", ObjectId, "height", height)
 		return csI.(*ConflictSet)
 	}
 
 	if _, ok = csr.recentlyDone.Get(idS); ok {
-		csr.Log.Debugw("conflict set is already done", "objectID", objectID, "height", height)
+		csr.Log.Debugw("conflict set is already done", "ObjectId", ObjectId, "height", height)
 		return nil
 	}
 
-	csr.Log.Debugw("creating conflict set", "objectID", objectID, "height", height)
+	csr.Log.Debugw("creating conflict set", "ObjectId", ObjectId, "height", height)
 	cfg := csr.cfg
 	cs := NewConflictSet(idS)
 	sp := cs.StartTrace("conflictset")
 	sp.SetTag("csid", idS)
-	sp.SetTag("objectID", objectID)
+	sp.SetTag("ObjectId", ObjectId)
 	sp.SetTag("height", height)
 	sp.SetTag("signer", cfg.Signer.ID)
 	sets, _, _ := csr.conflictSets.Insert(nodeID, cs)
@@ -269,12 +274,12 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *Con
 	return cs
 }
 
-func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, objectID []byte) {
-	nh := csr.nextHeight(objectID)
-	nodeID := fmt.Sprintf("%s/%d", objectID, nh)
+func (csr *ConflictSetRouter) activateSnoozingConflictSets(context actor.Context, ObjectId []byte) {
+	nh := csr.nextHeight(ObjectId)
+	nodeID := fmt.Sprintf("%s/%d", ObjectId, nh)
 	cs, ok := csr.conflictSets.Get([]byte(nodeID))
 	if !ok {
-		csr.Log.Debugw("no conflict sets to desnooze", "objectID", objectID, "height", nh)
+		csr.Log.Debugw("no conflict sets to desnooze", "ObjectId", ObjectId, "height", nh)
 		return
 	}
 
@@ -289,15 +294,15 @@ func conflictSetIDToInternalID(id []byte) string {
 	return hexutil.Encode(id)
 }
 
-func nextHeight(log *zap.SugaredLogger, currentStateStore storage.Reader, objectID []byte) uint64 {
-	log.Debugw("calculating next height", "objectID", string(objectID))
-	currStateBits, err := currentStateStore.Get(objectID)
+func nextHeight(log *zap.SugaredLogger, currentStateStore storage.Reader, ObjectId []byte) uint64 {
+	log.Debugw("calculating next height", "ObjectId", string(ObjectId))
+	currStateBits, err := currentStateStore.Get(ObjectId)
 	if err != nil {
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 	if len(currStateBits) > 0 {
-		var currState signatures.CurrentState
-		_, err = currState.UnmarshalMsg(currStateBits)
+		currState := &signatures.CurrentState{}
+		err = proto.Unmarshal(currStateBits, currState)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling: %v", err))
 		}

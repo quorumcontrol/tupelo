@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/quorumcontrol/messages/build/go/services"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
@@ -17,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 )
 
 func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
@@ -57,7 +58,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	transHeight := uint64(0)
 
-	trans := &messages.Transaction{
+	trans := &services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: emptyTree.Tip.Bytes(),
 		Height:      transHeight,
@@ -66,7 +67,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	stateTrans := &stateTransaction{
 		CurrentState: nil,
-		ObjectID:     []byte(treeDID),
+		ObjectId:     []byte(treeDID),
 		Transaction:  trans,
 		Block:        blockWithHeaders,
 	}
@@ -85,7 +86,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	stateTrans2 := &stateTransaction{
 		CurrentState: newState,
-		ObjectID:     []byte(treeDID),
+		ObjectId:     []byte(treeDID),
 		Transaction:  trans,
 		Block:        blockWithHeaders,
 	}
@@ -112,7 +113,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	trans = &messages.Transaction{
+	trans = &services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Height:      blockWithHeaders.Height,
@@ -121,7 +122,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	stateTrans3 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
-		ObjectID:     []byte(treeDID),
+		ObjectId:     []byte(treeDID),
 		Transaction:  trans,
 		Block:        blockWithHeaders,
 	}
@@ -157,7 +158,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 	nodes = dagToByteNodes(t, testTree.Dag)
 
-	trans = &messages.Transaction{
+	trans = &services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Height:      blockWithHeaders.Height,
@@ -166,7 +167,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	stateTrans4 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
-		ObjectID:     []byte(treeDID),
+		ObjectId:     []byte(treeDID),
 		Transaction:  trans,
 		Block:        blockWithHeaders,
 	}
@@ -200,7 +201,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	nodes = dagToByteNodes(t, testTree.Dag)
 
-	trans = &messages.Transaction{
+	trans = &services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Height:      blockWithHeaders.Height,
@@ -209,7 +210,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	stateTrans5 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
-		ObjectID:     []byte(treeDID),
+		ObjectId:     []byte(treeDID),
 		Transaction:  trans,
 		Block:        blockWithHeaders,
 	}
@@ -221,7 +222,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
 	assert.Nil(t, err)
 
-	trans = &messages.Transaction{
+	trans = &services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Height:      blockWithHeaders.Height,
@@ -230,7 +231,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	stateTrans6 := &stateTransaction{
 		CurrentState: testTree.Dag.Tip.Bytes(),
-		ObjectID:     []byte(treeDID),
+		ObjectId:     []byte(treeDID),
 		Transaction:  trans,
 		Block:        blockWithHeaders,
 	}
@@ -250,7 +251,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Equal(t, "test", val)
 }
 
-func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Transaction) *stateTransaction {
+func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *services.AddBlockRequest) *stateTransaction {
 	block := &chaintree.BlockWithHeaders{}
 	err := cbornode.DecodeInto(trans.Payload, block)
 	if err != nil {
@@ -260,7 +261,7 @@ func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *messages.Tr
 		CurrentState: tip.Bytes(),
 		Block:        block,
 		Transaction:  trans,
-		ObjectID:     []byte(did),
+		ObjectId:     []byte(did),
 	}
 }
 
@@ -293,7 +294,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	require.Nil(t, err)
 
 	sw := &safewrap.SafeWrap{}
-	trans := &messages.Transaction{
+	trans := &services.AddBlockRequest{
 		State:       nodes,
 		Height:      0,
 		PreviousTip: emptyTree.Tip.Bytes(),
@@ -336,7 +337,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 		assert.Nil(t, err)
 
-		trans = &messages.Transaction{
+		trans = &services.AddBlockRequest{
 			State:       nodes,
 			PreviousTip: testTree.Dag.Tip.Bytes(),
 			Height:      1,
@@ -373,7 +374,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
-	trans = &messages.Transaction{
+	trans = &services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
@@ -403,7 +404,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	// blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
 	// assert.Nil(t, err)
 
-	// trans = &messages.Transaction{
+	// trans = &services.AddBlockRequest{
 	//	State:       nodes,
 	//	PreviousTip: testTree.Dag.Tip.Bytes(),
 	//	Payload:     sw.WrapObject(blockWithHeaders).RawData(),
@@ -441,7 +442,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	sw := &safewrap.SafeWrap{}
 
-	trans := &messages.Transaction{
+	trans := &services.AddBlockRequest{
 		State:       nodes1,
 		Height:      0,
 		PreviousTip: testTree.Dag.Tip.Bytes(),
@@ -475,7 +476,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	blockWithHeaders2, err := consensus.SignBlock(unsignedBlock2, treeKey)
 	assert.Nil(t, err)
 
-	trans2 := &messages.Transaction{
+	trans2 := &services.AddBlockRequest{
 		State:       nodes2,
 		Height:      1,
 		PreviousTip: tip.Bytes(),
@@ -509,7 +510,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	nodesCombined := append(append(nodes1, nodes2...), nodes3...)
 
-	trans3 := &messages.Transaction{
+	trans3 := &services.AddBlockRequest{
 		State:       nodesCombined,
 		Height:      3,
 		PreviousTip: savedcid.Bytes(),

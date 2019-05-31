@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"fmt"
 	"net"
 	"os"
@@ -215,7 +216,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	}
 
 	signedTree.Signatures = consensus.SignatureMap{
-		"id": *sig,
+		"id": sig,
 	}
 
 	err = w.SaveChain(signedTree)

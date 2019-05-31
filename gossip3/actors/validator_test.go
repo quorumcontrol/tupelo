@@ -9,6 +9,7 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
@@ -122,7 +123,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 		NewTip:      testTree.Dag.Tip.Bytes(),
 		Payload:     bits,
 		State:       nodes,
-		ObjectID:    []byte(treeDID),
+		ObjectId:    []byte(treeDID),
 	}
 
 	fut := actor.EmptyRootContext.RequestFuture(validator, &validationRequest{

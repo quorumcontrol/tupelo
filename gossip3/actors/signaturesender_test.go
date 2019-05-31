@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -34,11 +35,11 @@ func TestSendSigs(t *testing.T) {
 	signer.Actor = subscriber
 
 	rootContext.Send(ss, &messages.SignatureWrapper{
-		Signature:        &signatures.Signature{TransactionID: []byte("testonly")},
+		Signature:        &signatures.Signature{TransactionId: []byte("testonly")},
 		RewardsCommittee: []*types.Signer{signer},
 	})
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
-	assert.Equal(t, []byte("testonly"), msg.(*signatures.Signature).TransactionID)
+	assert.Equal(t, []byte("testonly"), msg.(*signatures.Signature).TransactionId)
 }

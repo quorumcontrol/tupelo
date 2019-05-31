@@ -1,12 +1,14 @@
 package actors
 
 import (
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/golang/protobuf/proto"
 	"context"
 	"fmt"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/Workiva/go-datastructures/bitarray"
 	lru "github.com/hashicorp/golang-lru"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -52,38 +54,34 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg proto.Me
 	}
 
 	sig := currState.Signature
-	signerArray, err := bitarray.Unmarshal(sig.Signers)
-	if err != nil {
-		cv.log.Errorw("error unmarshaling signer bit array", "err", err)
-		cv.seen.Add(cacheKey(currState), false)
-		return false
-	}
+	
 	var verKeys [][]byte
 
 	signers := cv.notaryGroup.AllSigners()
-	for i, signer := range signers {
-		isSet, err := signerArray.GetBit(uint64(i))
-		if err != nil {
-			cv.log.Errorw("error getting bit", "err", err)
-			cv.seen.Add(cacheKey(currState), false)
-			return false
-		}
-		if isSet {
-			verKeys = append(verKeys, signer.VerKey.Bytes())
+	var signerCount uint64
+	for i, cnt := range sig.Signers {
+		if cnt > 0 {
+			signerCount++
+			verKey := signers[i].VerKey.Bytes()
+			newKeys := make([][]byte, cnt)
+			for j := uint32(0); j < cnt; j++ {
+				newKeys[j] = verKey
+			}
+			verKeys = append(verKeys, newKeys...)
 		}
 	}
 
-	if uint64(len(verKeys)) < cv.notaryGroup.QuorumCount() {
+	if signerCount < cv.notaryGroup.QuorumCount() {
 		cv.log.Infow("too few signatures on commit message", "lenVerKeys", len(verKeys), "quorumAt", cv.notaryGroup.QuorumCount())
 		cv.seen.Add(cacheKey(currState), false)
 		return false
 	}
 
-	cv.log.Debugw("checking signature", "numVerKeys", len(verKeys))
+	cv.log.Debugw("checking signature", "numSigners", signerCount, "numVerKeys", len(verKeys))
 	actorContext := actor.EmptyRootContext
 
 	fut := actorContext.RequestFuture(cv.signatureChecker, &messages.SignatureVerification{
-		Message:   sig.GetSignable(),
+		Message:   consensus.GetSignable(sig),
 		Signature: sig.Signature,
 		VerKeys:   verKeys,
 	}, 1*time.Second)

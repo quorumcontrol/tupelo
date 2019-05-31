@@ -84,7 +84,7 @@ func newValidTransaction(t *testing.T) services.AddBlockRequest {
 		PreviousTip: emptyTip.Bytes(),
 		NewTip:      testTree.Dag.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-		ObjectID:    []byte(treeDID),
+		ObjectId:    []byte(treeDID),
 	}
 }
 
@@ -203,14 +203,14 @@ func TestLibP2PSigning(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
-		cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+		cli := client.New(systems[0], string(trans.ObjectId), pubSub)
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
 	trans := newValidTransaction(t)
 
-	cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+	cli := client.New(systems[0], string(trans.ObjectId), pubSub)
 	cli.Listen()
 	defer cli.Stop()
 

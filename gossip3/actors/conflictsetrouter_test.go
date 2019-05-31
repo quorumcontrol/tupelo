@@ -6,10 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -155,15 +158,15 @@ func TestHandlesDeadlocks(t *testing.T) {
 	var conflictSetID string
 	for i := 0; i < len(trans); i++ {
 		tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "path/to/somewhere", strconv.Itoa(i))
-		require.Truef(t, conflictSetID == "" || tr.ConflictSetID() == conflictSetID, "test transactions should all be in the same conflict set")
-		conflictSetID = tr.ConflictSetID()
+		conflictSetID = consensus.ConflictSetID(tr.ObjectId, tr.Height)
+		require.Truef(t, conflictSetID == "" || conflictSetID == conflictSetID, "test transactions should all be in the same conflict set")
 		trans[i] = fakeValidateTransaction(t, &tr)
 		rootContext.Send(conflictSetRouter, trans[i])
 	}
 	// it's known that trans[0] is the lowest transaction,
 	// this is just a sanity check
-	require.True(t, string(trans[1].TransactionID) < string(trans[2].TransactionID))
-	require.True(t, string(trans[1].TransactionID) < string(trans[0].TransactionID))
+	require.True(t, string(trans[1].TransactionId) < string(trans[2].TransactionId))
+	require.True(t, string(trans[1].TransactionId) < string(trans[0].TransactionId))
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
@@ -287,13 +290,13 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 }
 
 func fakeValidateTransaction(t testing.TB, trans *services.AddBlockRequest) *messages.TransactionWrapper {
-	bits, err := trans.MarshalMsg(nil)
+	bits, err := proto.Marshal(trans)
 	require.Nil(t, err)
 	key := crypto.Keccak256(bits)
 	wrapper := &messages.TransactionWrapper{
-		TransactionID: key,
+		TransactionId: key,
 		Transaction:   trans,
-		ConflictSetID: trans.ConflictSetID(),
+		ConflictSetID: consensus.ConflictSetID(trans.ObjectId, trans.Height),
 		PreFlight:     true,
 		Accepted:      true,
 		Metadata:      messages.MetadataMap{"seen": time.Now()},
@@ -438,13 +441,13 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	require.Equal(t, uint64(1), currentStateWrapper0.CurrentState.Signature.Height)
 
 	// Store current state in store so that second CSR knows the current state height
-	t.Logf("storing current state in store, objectID: %s", trans0.ObjectID)
-	err = currentStateStore.Set(trans0.ObjectID, currentStateWrapper0.MustMarshal())
+	t.Logf("storing current state in store, ObjectId: %s", trans0.ObjectId)
+	err = currentStateStore.Set(trans0.ObjectId, currentStateWrapper0.MustMarshal())
 	require.Nil(t, err)
 
 	// Send a transaction to first CSR, to get stale on receipt of the commit notification
 	trans1 := testhelpers.NewValidTransaction(t)
-	trans1.ObjectID = trans0.ObjectID
+	trans1.ObjectId = trans0.ObjectId
 	trans1.Height = 2
 	transWrapper1 := fakeValidateTransaction(t, &trans1)
 	t.Logf("sending transaction wrapper #2 to conflict set router #1")
@@ -452,7 +455,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 
 	// Send another transaction to first CSR, to get stale on receipt of the commit notification
 	trans2 := testhelpers.NewValidTransaction(t)
-	trans2.ObjectID = trans0.ObjectID
+	trans2.ObjectId = trans0.ObjectId
 	trans2.Height = 3
 	transWrapper2 := fakeValidateTransaction(t, &trans2)
 	t.Logf("sending transaction wrapper #3 to conflict set router #1")
@@ -460,7 +463,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 
 	// Send a transaction to second CSR, which forms basis for commit notification to first CSR
 	trans3 := testhelpers.NewValidTransaction(t)
-	trans3.ObjectID = trans0.ObjectID
+	trans3.ObjectId = trans0.ObjectId
 	trans3.Height = 3
 	transWrapper3 := fakeValidateTransaction(t, &trans3)
 	require.Equal(t, transWrapper2.ConflictSetID, transWrapper3.ConflictSetID)
@@ -473,7 +476,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	require.True(t, currentStateWrapper1.Verified)
 	require.Equal(t, trans3.NewTip, currentStateWrapper1.CurrentState.Signature.NewTip)
 	require.Equal(t, uint64(trans3.Height), currentStateWrapper1.CurrentState.Signature.Height)
-	require.Equal(t, trans0.ObjectID, currentStateWrapper1.CurrentState.Signature.ObjectID)
+	require.Equal(t, trans0.ObjectId, currentStateWrapper1.CurrentState.Signature.ObjectId)
 
 	t.Logf("sending commit notification to conflict set router #1")
 	ctx.Send(conflictSetRouter0, currentStateWrapper1.CurrentState)

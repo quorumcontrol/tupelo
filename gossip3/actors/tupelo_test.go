@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
@@ -65,16 +66,16 @@ func TestCommits(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		trans := testhelpers.NewValidTransaction(t)
-		cli := client.New(system, string(trans.ObjectID), pubsub)
+		cli := client.New(system, string(trans.ObjectId), pubsub)
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
 	t.Run("commits a good transaction", func(t *testing.T) {
 		trans := testhelpers.NewValidTransaction(t)
-		t.Logf("trans id: %s, objectID: %s, base64 obj: %s", base64.StdEncoding.EncodeToString(trans.ID()), string(trans.ObjectID), base64.StdEncoding.EncodeToString(trans.ObjectID))
+		t.Logf("trans id: %s, ObjectId: %s, base64 obj: %s", base64.StdEncoding.EncodeToString(consensus.RequestID(&trans)), string(trans.ObjectId), base64.StdEncoding.EncodeToString(trans.ObjectId))
 
-		cli := client.New(system, string(trans.ObjectID), pubsub)
+		cli := client.New(system, string(trans.ObjectId), pubsub)
 		cli.Listen()
 		defer cli.Stop()
 
@@ -87,7 +88,7 @@ func TestCommits(t *testing.T) {
 
 		require.Nil(t, err)
 		assert.Equal(t, resp.(*signatures.CurrentState).Signature.NewTip, trans.NewTip)
-		assert.Equal(t, resp.(*signatures.CurrentState).Signature.ObjectID, trans.ObjectID)
+		assert.Equal(t, resp.(*signatures.CurrentState).Signature.ObjectId, trans.ObjectId)
 	})
 
 }
