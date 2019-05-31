@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -158,15 +156,16 @@ func TestHandlesDeadlocks(t *testing.T) {
 	var conflictSetID string
 	for i := 0; i < len(trans); i++ {
 		tr := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "path/to/somewhere", strconv.Itoa(i))
-		conflictSetID = consensus.ConflictSetID(tr.ObjectId, tr.Height)
-		require.Truef(t, conflictSetID == "" || conflictSetID == conflictSetID, "test transactions should all be in the same conflict set")
+		trID := consensus.ConflictSetID(tr.ObjectId, tr.Height)
+		require.Truef(t, conflictSetID == "" || trID == conflictSetID, "test transactions should all be in the same conflict set")
+		conflictSetID = trID
 		trans[i] = fakeValidateTransaction(t, &tr)
 		rootContext.Send(conflictSetRouter, trans[i])
 	}
 	// it's known that trans[0] is the lowest transaction,
 	// this is just a sanity check
 	require.True(t, string(trans[1].TransactionId) < string(trans[2].TransactionId))
-	require.True(t, string(trans[1].TransactionId) < string(trans[0].TransactionId))
+	require.True(t, string(trans[1].TransactionId) > string(trans[0].TransactionId))
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
@@ -178,7 +177,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	// at this point the first signer should have 3 transactions with 1 signature each and be in a deadlocked state
 	// which means it should sign the lowest transaction (a different one than it did before)
 	// one more signature on that same transaction should get it to quorum in the new view
-	sig, err := rootContext.RequestFuture(sigGeneratorActors[1], trans[1], 1*time.Second).Result()
+	sig, err := rootContext.RequestFuture(sigGeneratorActors[1], trans[0], 1*time.Second).Result()
 	require.Nil(t, err)
 	rootContext.Send(conflictSetRouter, sig)
 
@@ -186,7 +185,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
 	assert.True(t, wrap.Verified)
-	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
+	assert.Equal(t, trans[0].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 
 func TestHandlesCommitsBeforeTransactions(t *testing.T) {
@@ -290,11 +289,8 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 }
 
 func fakeValidateTransaction(t testing.TB, trans *services.AddBlockRequest) *messages.TransactionWrapper {
-	bits, err := proto.Marshal(trans)
-	require.Nil(t, err)
-	key := crypto.Keccak256(bits)
 	wrapper := &messages.TransactionWrapper{
-		TransactionId: key,
+		TransactionId: consensus.RequestID(trans),
 		Transaction:   trans,
 		ConflictSetID: consensus.ConflictSetID(trans.ObjectId, trans.Height),
 		PreFlight:     true,
