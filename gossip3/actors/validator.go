@@ -19,7 +19,6 @@ import (
 	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
@@ -28,7 +27,7 @@ import (
 
 type stateTransaction struct {
 	ObjectID      []byte
-	Transaction   *extmsgs.Transaction
+	Transaction   *services.AddBlockRequest
 	CurrentState  []byte
 	TransactionID []byte
 	ConflictSetID string
@@ -49,7 +48,7 @@ type TransactionValidatorConfig struct {
 }
 
 type validationRequest struct {
-	transaction *extmsgs.Transaction
+	transaction *services.AddBlockRequest
 }
 
 const maxValidatorConcurrency = 10
@@ -107,7 +106,7 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 
 	if len(objectIDBits) > 0 {
 		expectedHeight := tv.nextHeight(t.ObjectID)
-		var currentState extmsgs.CurrentState
+		var currentState signatures.CurrentState
 		_, err := currentState.UnmarshalMsg(objectIDBits)
 		if err != nil {
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
@@ -224,7 +223,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, err
 	}
 
-	sigVerifier := consensus.GenerateIsValidSignature(func(sig *extmsgs.Signature) (bool, error) {
+	sigVerifier := consensus.GenerateIsValidSignature(func(sig *signatures.Signature) (bool, error) {
 		signerArray, err := bitarray.Unmarshal(sig.Signers)
 		if err != nil {
 			return false, fmt.Errorf("error unmarshalling signers bitarray: %v", err)

@@ -11,7 +11,6 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -87,8 +86,8 @@ func TestCommits(t *testing.T) {
 		resp, err := fut.Result()
 
 		require.Nil(t, err)
-		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.NewTip, trans.NewTip)
-		assert.Equal(t, resp.(*extmsgs.CurrentState).Signature.ObjectID, trans.ObjectID)
+		assert.Equal(t, resp.(*signatures.CurrentState).Signature.NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*signatures.CurrentState).Signature.ObjectID, trans.ObjectID)
 	})
 
 }

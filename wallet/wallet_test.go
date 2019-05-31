@@ -27,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/ipfs"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
@@ -210,7 +209,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	ecdsaSig, _ := crypto.Sign(hsh, key)
 
-	sig := &extmsgs.Signature{
+	sig := &signatures.Signature{
 		Type:      consensus.KeyTypeSecp256k1,
 		Signature: ecdsaSig,
 	}

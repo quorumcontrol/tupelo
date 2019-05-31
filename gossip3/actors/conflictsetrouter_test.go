@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -287,7 +286,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	assert.Equal(t, trans.NewTip, wrap.CurrentState.Signature.NewTip)
 }
 
-func fakeValidateTransaction(t testing.TB, trans *extmsgs.Transaction) *messages.TransactionWrapper {
+func fakeValidateTransaction(t testing.TB, trans *services.AddBlockRequest) *messages.TransactionWrapper {
 	bits, err := trans.MarshalMsg(nil)
 	require.Nil(t, err)
 	key := crypto.Keccak256(bits)

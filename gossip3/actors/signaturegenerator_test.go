@@ -8,7 +8,6 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -37,7 +36,7 @@ func TestSignatureGenerator(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *extmsgs.Transaction:
+		case *services.AddBlockRequest:
 			context.Request(validator, &validationRequest{
 				transaction: msg,
 			})

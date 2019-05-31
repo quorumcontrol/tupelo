@@ -9,7 +9,6 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	lru "github.com/hashicorp/golang-lru"
 	peer "github.com/libp2p/go-libp2p-peer"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -38,8 +37,8 @@ func newCommitValidator(group *types.NotaryGroup, sigChecker *actor.PID) *commit
 	}
 }
 
-func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.WireMessage) bool {
-	currState, ok := msg.(*extmsgs.CurrentState)
+func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg proto.Message) bool {
+	currState, ok := msg.(*signatures.CurrentState)
 	if !ok {
 		cv.log.Errorw("received non-currentstate message")
 		return false
@@ -108,6 +107,6 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg extmsgs.
 	return false
 }
 
-func cacheKey(currState *extmsgs.CurrentState) string {
+func cacheKey(currState *signatures.CurrentState) string {
 	return string(currState.Signature.Signature)
 }

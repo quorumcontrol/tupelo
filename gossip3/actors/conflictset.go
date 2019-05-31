@@ -13,7 +13,6 @@ import (
 	"github.com/Workiva/go-datastructures/bitarray"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
@@ -135,7 +134,7 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 	case *messages.TransactionWrapper:
 		csw.handleNewTransaction(cs, context, msg)
 	// this will be an external signature
-	case *extmsgs.Signature:
+	case *signatures.Signature:
 		wrapper, err := sigToWrapper(msg, csw.notaryGroup, csw.signer, false)
 		if err != nil {
 			panic(fmt.Sprintf("error wrapping sig: %v", err))
@@ -372,8 +371,8 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 		return fmt.Errorf("error marshaling bitarray: %v", err)
 	}
 
-	currState := &extmsgs.CurrentState{
-		Signature: &extmsgs.Signature{
+	currState := &signatures.CurrentState{
+		Signature: &signatures.Signature{
 			TransactionID: trans.TransactionID,
 			ObjectID:      trans.Transaction.ObjectID,
 			PreviousTip:   trans.Transaction.PreviousTip,
@@ -483,7 +482,7 @@ func (csw *ConflictSetWorker) deadlocked(cs *ConflictSet) bool {
 	return true
 }
 
-func sigToWrapper(sig *extmsgs.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
+func sigToWrapper(sig *signatures.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
 	signerMap := make(messages.SignerMap)
 	signerBitMap, err := bitarray.Unmarshal(sig.Signers)
 	if err != nil {
@@ -500,7 +499,7 @@ func sigToWrapper(sig *extmsgs.Signature, ng *types.NotaryGroup, self *types.Sig
 		}
 	}
 
-	conflictSetID := extmsgs.ConflictSetID(sig.ObjectID, sig.Height)
+	conflictSetID := consensus.ConflictSetID(sig.ObjectID, sig.Height)
 
 	committee, err := ng.RewardsCommittee([]byte(sig.NewTip), self)
 	if err != nil {

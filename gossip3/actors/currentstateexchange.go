@@ -11,7 +11,6 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
@@ -129,7 +128,7 @@ func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte)
 			panic(fmt.Sprintf("Error reading kv pair %v", err))
 		}
 
-		var currentState extmsgs.CurrentState
+		var currentState signatures.CurrentState
 		_, err = currentState.UnmarshalMsg(currentStateBits)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling CurrentState: %v", err))

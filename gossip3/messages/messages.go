@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 )
@@ -21,7 +20,7 @@ type SignatureWrapper struct {
 	ConflictSetID    string
 	RewardsCommittee []*types.Signer
 	Signers          SignerMap
-	Signature        *extmsgs.Signature
+	Signature        *signatures.Signature
 	Metadata         MetadataMap
 }
 
@@ -38,7 +37,7 @@ type CurrentStateWrapper struct {
 
 	Internal     bool
 	Verified     bool
-	CurrentState *extmsgs.CurrentState
+	CurrentState *signatures.CurrentState
 	Metadata     MetadataMap
 	NextHeight   uint64
 }
@@ -56,7 +55,7 @@ type TransactionWrapper struct {
 
 	ConflictSetID string
 	TransactionID []byte
-	Transaction   *extmsgs.Transaction
+	Transaction   *services.AddBlockRequest
 	PreFlight     bool
 	Accepted      bool
 	Stale         bool
@@ -68,7 +67,7 @@ type ActivateSnoozingConflictSets struct {
 }
 
 type ValidateTransaction struct {
-	Transaction *extmsgs.Transaction
+	Transaction *services.AddBlockRequest
 }
 
 type GetNumConflictSets struct{}
@@ -81,7 +80,7 @@ type GzipImport struct {
 }
 
 type ImportCurrentState struct {
-	CurrentState *extmsgs.CurrentState
+	CurrentState *signatures.CurrentState
 }
 
 type DoCurrentStateExchange struct {

@@ -8,7 +8,6 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	"github.com/Workiva/go-datastructures/bitarray"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -60,7 +59,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		panic(fmt.Sprintf("error getting committee: %v", err))
 	}
 
-	signature := &extmsgs.Signature{
+	signature := &signatures.Signature{
 		TransactionID: msg.TransactionID,
 		ObjectID:      msg.Transaction.ObjectID,
 		PreviousTip:   msg.Transaction.PreviousTip,

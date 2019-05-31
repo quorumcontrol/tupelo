@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/conversion"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -252,7 +251,7 @@ func TestSerializeDeserializeSignature(t *testing.T) {
 	marshalledSigners, err := bitarray.Marshal(signers)
 	require.Nil(t, err)
 
-	extSig := extmsgs.Signature{
+	extSig := signatures.Signature{
 		TransactionID: nil,
 		ObjectID:      []byte("objectid"),
 		PreviousTip:   []byte("previousTip"),

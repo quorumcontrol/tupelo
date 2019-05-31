@@ -7,7 +7,6 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -56,13 +55,13 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		tn.handleStarted(context)
-	case *extmsgs.GetTip:
+	case *services.GetTipRequest:
 		tn.handleGetTip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentStateWrapper(context, msg)
-	case *extmsgs.Signature:
+	case *signatures.Signature:
 		context.Forward(tn.conflictSetRouter)
-	case *extmsgs.Transaction:
+	case *services.AddBlockRequest:
 		tn.handleNewTransaction(context)
 	case *messages.ValidateTransaction:
 		tn.handleNewTransaction(context)
@@ -102,7 +101,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		if err != nil {
 			panic(fmt.Sprintf("error spawning broadcast receiver: %v", err))
 		}
-	case *extmsgs.Transaction:
+	case *services.AddBlockRequest:
 		// broadcaster has sent us a fresh transaction
 		tn.validateTransaction(context, &messages.ValidateTransaction{
 			Transaction: msg,
@@ -130,15 +129,15 @@ func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.V
 	})
 }
 
-func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
-	tn.Log.Debugw("handleGetTip", "tip", msg.ObjectID)
-	currStateBits, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
+func (tn *TupeloNode) handleGetTip(context actor.Context, msg *services.GetTipRequest) {
+	tn.Log.Debugw("handleGetTip", "tip", msg.ChainId)
+	currStateBits, err := tn.cfg.CurrentStateStore.Get([]byte(msg.ChainId))
 	if err != nil {
 		tn.Log.Errorw("error getting tip", "err", err)
 		return
 	}
 
-	var currState extmsgs.CurrentState
+	var currState signatures.CurrentState
 
 	if len(currStateBits) > 0 {
 		_, err = currState.UnmarshalMsg(currStateBits)

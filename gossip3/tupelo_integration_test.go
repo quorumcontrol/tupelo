@@ -24,7 +24,6 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -51,7 +50,7 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 	return nodes
 }
 
-func newValidTransaction(t *testing.T) extmsgs.Transaction {
+func newValidTransaction(t *testing.T) services.AddBlockRequest {
 	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -80,7 +79,7 @@ func newValidTransaction(t *testing.T) extmsgs.Transaction {
 	_, err = testTree.ProcessBlock(blockWithHeaders)
 	require.Nil(t, err)
 	nodes := dagToByteNodes(t, emptyTree)
-	return extmsgs.Transaction{
+	return services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: emptyTip.Bytes(),
 		NewTip:      testTree.Dag.Tip.Bytes(),
@@ -223,8 +222,8 @@ func TestLibP2PSigning(t *testing.T) {
 	resp, err := fut.Result()
 	require.Nil(t, err)
 	require.NotNil(t, resp)
-	require.IsType(t, &extmsgs.CurrentState{}, resp)
-	sigResp := resp.(*extmsgs.CurrentState)
+	require.IsType(t, &signatures.CurrentState{}, resp)
+	sigResp := resp.(*signatures.CurrentState)
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
 }
 

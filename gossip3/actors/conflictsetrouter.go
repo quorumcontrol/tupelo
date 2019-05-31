@@ -14,7 +14,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/quorumcontrol/storage"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -104,10 +103,10 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
 		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectID, msg.Signature.Height)
-	case *extmsgs.Signature:
+	case *signatures.Signature:
 		csr.Log.Debugw("forwarding signature to conflict set", "cs", msg.ConflictSetID())
 		csr.forwardOrIgnore(context, msg, msg.ObjectID, msg.Height)
-	case *extmsgs.CurrentState:
+	case *signatures.CurrentState:
 		wrapper := &messages.CurrentStateWrapper{
 			CurrentState: msg,
 			Verified:     true, // because it came in through a validated pubsub channel
@@ -196,7 +195,7 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 		// Prune as of height less than or equal to current height
 		cs := v.(*ConflictSet)
 		csr.Log.Debugw("deleting conflict set", "objectID", string(objectID), "height", height)
-		idS := conflictSetIDToInternalID([]byte(extmsgs.ConflictSetID(objectID, uint64(height))))
+		idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(objectID, uint64(height))))
 		csr.recentlyDone.Add(idS, true)
 		cs.StopTrace()
 		txn.Delete(k)
@@ -242,7 +241,7 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 // if there isn't then, look at the recently done and if it's done, return nil
 // if it's not in either set, then create the actor
 func (csr *ConflictSetRouter) getOrCreateCS(objectID []byte, height uint64) *ConflictSet {
-	idS := conflictSetIDToInternalID([]byte(extmsgs.ConflictSetID(objectID, height)))
+	idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(objectID, height)))
 	csr.Log.Debugw("determining whether or not to create another conflict set", "numExistingSets",
 		csr.conflictSets.Len(), "objectID", objectID, "height", height)
 	nodeID := []byte(fmt.Sprintf("%s/%d", objectID, height))
@@ -297,7 +296,7 @@ func nextHeight(log *zap.SugaredLogger, currentStateStore storage.Reader, object
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 	if len(currStateBits) > 0 {
-		var currState extmsgs.CurrentState
+		var currState signatures.CurrentState
 		_, err = currState.UnmarshalMsg(currStateBits)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling: %v", err))
