@@ -226,7 +226,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, err
 	}
 
-	sigVerifier := consensus.GenerateIsValidSignature(func(sig *signatures.Signature) (bool, error) {
+	sigVerifier := types.GenerateIsValidSignature(func(sig *signatures.Signature) (bool, error) {
 
 		var verKeys [][]byte
 
@@ -268,7 +268,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		tree,
 		[]chaintree.BlockValidatorFunc{
 			isOwner,
-			consensus.IsTokenRecipient,
+			types.IsTokenRecipient,
 			sigVerifier,
 		},
 		consensus.DefaultTransactors,
