@@ -238,7 +238,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 				verKey := signers[i].VerKey.Bytes()
 				newKeys := make([][]byte, cnt)
 				for j := uint32(0); j < cnt; j++ {
-					newKeys[i] = verKey
+					newKeys[j] = verKey
 				}
 				verKeys = append(verKeys, newKeys...)
 			}

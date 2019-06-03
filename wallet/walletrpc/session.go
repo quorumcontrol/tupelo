@@ -132,7 +132,7 @@ func (rpcs *RPCSession) verifySignatures(sigs consensus.SignatureMap) (bool, err
 			verKey := signers[i].VerKey.Bytes()
 			newKeys := make([][]byte, cnt)
 			for j := uint32(0); j < cnt; j++ {
-				newKeys[i] = verKey
+				newKeys[j] = verKey
 			}
 			verKeys = append(verKeys, newKeys...)
 		}
