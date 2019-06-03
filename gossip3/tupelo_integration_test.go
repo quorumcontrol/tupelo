@@ -3,6 +3,8 @@
 package gossip3
 
 import (
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -24,7 +26,6 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -51,7 +52,7 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 	return nodes
 }
 
-func newValidTransaction(t *testing.T) extmsgs.Transaction {
+func newValidTransaction(t *testing.T) services.AddBlockRequest {
 	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -80,12 +81,12 @@ func newValidTransaction(t *testing.T) extmsgs.Transaction {
 	_, err = testTree.ProcessBlock(blockWithHeaders)
 	require.Nil(t, err)
 	nodes := dagToByteNodes(t, emptyTree)
-	return extmsgs.Transaction{
+	return services.AddBlockRequest{
 		State:       nodes,
 		PreviousTip: emptyTip.Bytes(),
 		NewTip:      testTree.Dag.Tip.Bytes(),
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-		ObjectID:    []byte(treeDID),
+		ObjectId:    []byte(treeDID),
 	}
 }
 
@@ -204,14 +205,14 @@ func TestLibP2PSigning(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		trans := newValidTransaction(t)
-		cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+		cli := client.New(systems[0], string(trans.ObjectId), pubSub)
 		err := cli.SendTransaction(&trans)
 		require.Nil(t, err)
 	}
 
 	trans := newValidTransaction(t)
 
-	cli := client.New(systems[0], string(trans.ObjectID), pubSub)
+	cli := client.New(systems[0], string(trans.ObjectId), pubSub)
 	cli.Listen()
 	defer cli.Stop()
 
@@ -223,8 +224,8 @@ func TestLibP2PSigning(t *testing.T) {
 	resp, err := fut.Result()
 	require.Nil(t, err)
 	require.NotNil(t, resp)
-	require.IsType(t, &extmsgs.CurrentState{}, resp)
-	sigResp := resp.(*extmsgs.CurrentState)
+	require.IsType(t, &signatures.CurrentState{}, resp)
+	sigResp := resp.(*signatures.CurrentState)
 	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
 }
 

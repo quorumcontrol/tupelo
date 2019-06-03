@@ -1,10 +1,12 @@
 package messages
 
 import (
+	"github.com/golang/protobuf/proto"
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 )
@@ -21,7 +23,7 @@ type SignatureWrapper struct {
 	ConflictSetID    string
 	RewardsCommittee []*types.Signer
 	Signers          SignerMap
-	Signature        *extmsgs.Signature
+	Signature        *signatures.Signature
 	Metadata         MetadataMap
 }
 
@@ -38,13 +40,13 @@ type CurrentStateWrapper struct {
 
 	Internal     bool
 	Verified     bool
-	CurrentState *extmsgs.CurrentState
+	CurrentState *signatures.CurrentState
 	Metadata     MetadataMap
 	NextHeight   uint64
 }
 
 func (csw *CurrentStateWrapper) MustMarshal() []byte {
-	bits, err := csw.CurrentState.MarshalMsg(nil)
+	bits, err := proto.Marshal(csw.CurrentState)
 	if err != nil {
 		panic(fmt.Errorf("error marshaling (should not happen): %v", err))
 	}
@@ -55,8 +57,8 @@ type TransactionWrapper struct {
 	tracing.ContextHolder
 
 	ConflictSetID string
-	TransactionID []byte
-	Transaction   *extmsgs.Transaction
+	TransactionId []byte
+	Transaction   *services.AddBlockRequest
 	PreFlight     bool
 	Accepted      bool
 	Stale         bool
@@ -64,11 +66,11 @@ type TransactionWrapper struct {
 }
 
 type ActivateSnoozingConflictSets struct {
-	ObjectID []byte
+	ObjectId []byte
 }
 
 type ValidateTransaction struct {
-	Transaction *extmsgs.Transaction
+	Transaction *services.AddBlockRequest
 }
 
 type GetNumConflictSets struct{}
@@ -81,7 +83,7 @@ type GzipImport struct {
 }
 
 type ImportCurrentState struct {
-	CurrentState *extmsgs.CurrentState
+	CurrentState *signatures.CurrentState
 }
 
 type DoCurrentStateExchange struct {

@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/quorumcontrol/messages/build/go/signatures"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/Workiva/go-datastructures/bitarray"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -30,18 +30,9 @@ func TestCommitValidator(t *testing.T) {
 		defer actor.EmptyRootContext.Stop(alwaysVerifier)
 
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
-
-		arry := bitarray.NewSparseBitArray()
-		err := arry.SetBit(0)
-		require.Nil(t, err)
-		err = arry.SetBit(1)
-		require.Nil(t, err)
-
-		marshaledArray, err := bitarray.Marshal(arry)
-		require.Nil(t, err)
-		currentState := &extmsgs.CurrentState{
-			Signature: &extmsgs.Signature{
-				Signers: marshaledArray,
+		currentState := &signatures.CurrentState{
+			Signature: &signatures.Signature{
+				Signers: []uint32{1, 1, 0},
 			},
 		}
 
@@ -55,17 +46,9 @@ func TestCommitValidator(t *testing.T) {
 
 		validator := newCommitValidator(notaryGroup, neverVerifier)
 
-		arry := bitarray.NewSparseBitArray()
-		err := arry.SetBit(0)
-		require.Nil(t, err)
-		err = arry.SetBit(1)
-		require.Nil(t, err)
-
-		marshaledArray, err := bitarray.Marshal(arry)
-		require.Nil(t, err)
-		currentState := &extmsgs.CurrentState{
-			Signature: &extmsgs.Signature{
-				Signers: marshaledArray,
+		currentState := &signatures.CurrentState{
+			Signature: &signatures.Signature{
+				Signers: []uint32{1, 1, 0},
 			},
 		}
 
@@ -79,15 +62,9 @@ func TestCommitValidator(t *testing.T) {
 
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 
-		arry := bitarray.NewSparseBitArray()
-		err := arry.SetBit(0)
-		require.Nil(t, err)
-
-		marshaledArray, err := bitarray.Marshal(arry)
-		require.Nil(t, err)
-		currentState := &extmsgs.CurrentState{
-			Signature: &extmsgs.Signature{
-				Signers: marshaledArray,
+		currentState := &signatures.CurrentState{
+			Signature: &signatures.Signature{
+				Signers: []uint32{1, 0, 0},
 			},
 		}
 

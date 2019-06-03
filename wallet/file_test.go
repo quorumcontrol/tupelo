@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"crypto/ecdsa"
 	"os"
 	"sort"
@@ -18,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
@@ -142,13 +142,13 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	ecdsaSig, _ := crypto.Sign(hsh, key)
 
-	sig := &extmsgs.Signature{
+	sig := &signatures.Signature{
 		Type:      consensus.KeyTypeSecp256k1,
 		Signature: ecdsaSig,
 	}
 
 	signedTree.Signatures = consensus.SignatureMap{
-		"id": *sig,
+		"id": sig,
 	}
 
 	err = fw.SaveChain(signedTree)

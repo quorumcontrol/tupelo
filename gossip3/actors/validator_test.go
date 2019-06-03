@@ -9,10 +9,10 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/stretchr/testify/require"
 
@@ -31,7 +31,7 @@ func TestValidator(t *testing.T) {
 	fut := actor.NewFuture(1 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *extmsgs.Transaction:
+		case *services.AddBlockRequest:
 			context.Request(validator, &validationRequest{
 				transaction: msg,
 			})
@@ -117,13 +117,13 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	bits := sw.WrapObject(blockWithHeaders).RawData()
 	require.Nil(t, sw.Err)
 
-	trans := extmsgs.Transaction{
+	trans := services.AddBlockRequest{
 		PreviousTip: evilTree.Tip.Bytes(),
 		Height:      blockWithHeaders.Height,
 		NewTip:      testTree.Dag.Tip.Bytes(),
 		Payload:     bits,
 		State:       nodes,
-		ObjectID:    []byte(treeDID),
+		ObjectId:    []byte(treeDID),
 	}
 
 	fut := actor.EmptyRootContext.RequestFuture(validator, &validationRequest{

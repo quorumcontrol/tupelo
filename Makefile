@@ -39,17 +39,13 @@ $(call GUARD,VERSION):
 $(FIRSTGOPATH)/bin/protoc-gen-go:
 	go get -u github.com/golang/protobuf/protoc-gen-go
 
-$(FIRSTGOPATH)/bin/msgp:
-	go get -u github.com/tinylib/msgp
-
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
 
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
-$(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserver/nodestore/badger/badger.proto $(FIRSTGOPATH)/bin/msgp $(FIRSTGOPATH)/bin/protoc-gen-go
-	cd gossip3/messages && go generate
+$(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserver/nodestore/badger/badger.proto $(FIRSTGOPATH)/bin/protoc-gen-go
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. *.proto
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/*.proto
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/badger/*.proto

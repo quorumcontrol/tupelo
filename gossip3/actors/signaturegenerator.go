@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
-	"github.com/Workiva/go-datastructures/bitarray"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -44,33 +45,26 @@ func (sg *SignatureGenerator) Receive(context actor.Context) {
 
 func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	ng := sg.notaryGroup
-	signers := bitarray.NewSparseBitArray()
-	if err := signers.SetBit(ng.IndexOfSigner(sg.signer)); err != nil {
-		sg.Log.Errorf("failed to set bit of signer: %s", err)
-		// TODO: Enable
-		// panic(fmt.Sprintf("failed to set bit of signer: %s", err))
-	}
-	marshaled, err := bitarray.Marshal(signers)
-	if err != nil {
-		panic(fmt.Sprintf("error marshaling bitarray: %v", err))
-	}
+
+	signers := make([]uint32, len(ng.Signers))
+	signers[ng.IndexOfSigner(sg.signer)] = 1
 
 	committee, err := ng.RewardsCommittee([]byte(msg.Transaction.NewTip), sg.signer)
 	if err != nil {
 		panic(fmt.Sprintf("error getting committee: %v", err))
 	}
 
-	signature := &extmsgs.Signature{
-		TransactionID: msg.TransactionID,
-		ObjectID:      msg.Transaction.ObjectID,
+	signature := &signatures.Signature{
+		TransactionId: msg.TransactionId,
+		ObjectId:      msg.Transaction.ObjectId,
 		PreviousTip:   msg.Transaction.PreviousTip,
 		NewTip:        msg.Transaction.NewTip,
-		Signers:       marshaled,
+		Signers:       signers,
 		Height:        msg.Transaction.Height,
 	}
 
-	sg.Log.Debugw("signing", "t", msg.TransactionID)
-	sig, err := sg.signer.SignKey.Sign(signature.GetSignable())
+	sg.Log.Debugw("signing", "t", msg.TransactionId)
+	sig, err := sg.signer.SignKey.Sign(consensus.GetSignable(signature))
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
 	}

@@ -3,11 +3,16 @@ package actors
 import (
 	"fmt"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -56,38 +61,38 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		tn.handleStarted(context)
-	case *extmsgs.GetTip:
+	case *services.GetTipRequest:
 		tn.handleGetTip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentStateWrapper(context, msg)
-	case *extmsgs.Signature:
+	case *signatures.Signature:
 		context.Forward(tn.conflictSetRouter)
-	case *extmsgs.Transaction:
+	case *services.AddBlockRequest:
 		tn.handleNewTransaction(context)
 	case *messages.ValidateTransaction:
 		tn.handleNewTransaction(context)
 	case *messages.TransactionWrapper:
 		tn.handleNewTransaction(context)
-	case *messages.RequestCurrentStateSnapshot:
+	case *services.RequestCurrentStateSnapshot:
 		context.Forward(tn.currentStateExchangeActor)
 	}
 }
 
 func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
-		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionID, "seen", msg.Metadata["seen"])
-		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.CurrentKey(), msg.MustMarshal())
+		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionId, "seen", msg.Metadata["seen"])
+		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.Signature.ObjectId, msg.MustMarshal())
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
-		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "objectID", msg.CurrentState.Signature.ObjectID)
+		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "ObjectId", msg.CurrentState.Signature.ObjectId)
 		// un-snooze waiting conflict sets
-		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectID: msg.CurrentState.Signature.ObjectID})
+		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectId: msg.CurrentState.Signature.ObjectId})
 
 		// if we are the ones creating this current state then broadcast
 		if msg.Internal {
-			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectID))
-			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectID), msg.CurrentState); err != nil {
+			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectId))
+			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectId), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
 			}
 		}
@@ -102,7 +107,7 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 		if err != nil {
 			panic(fmt.Sprintf("error spawning broadcast receiver: %v", err))
 		}
-	case *extmsgs.Transaction:
+	case *services.AddBlockRequest:
 		// broadcaster has sent us a fresh transaction
 		tn.validateTransaction(context, &messages.ValidateTransaction{
 			Transaction: msg,
@@ -124,31 +129,31 @@ func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 }
 
 func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.ValidateTransaction) {
-	tn.Log.Debugw("validating transaction", "transactionID", msg.Transaction.ID())
+	tn.Log.Debugw("validating transaction", "TransactionId", consensus.RequestID(msg.Transaction))
 	context.Request(tn.validatorPool, &validationRequest{
 		transaction: msg.Transaction,
 	})
 }
 
-func (tn *TupeloNode) handleGetTip(context actor.Context, msg *extmsgs.GetTip) {
-	tn.Log.Debugw("handleGetTip", "tip", msg.ObjectID)
-	currStateBits, err := tn.cfg.CurrentStateStore.Get(msg.ObjectID)
+func (tn *TupeloNode) handleGetTip(context actor.Context, msg *services.GetTipRequest) {
+	tn.Log.Debugw("handleGetTip", "tip", msg.ChainId)
+	currStateBits, err := tn.cfg.CurrentStateStore.Get([]byte(msg.ChainId))
 	if err != nil {
 		tn.Log.Errorw("error getting tip", "err", err)
 		return
 	}
 
-	var currState extmsgs.CurrentState
+	currState := &signatures.CurrentState{}
 
 	if len(currStateBits) > 0 {
-		_, err = currState.UnmarshalMsg(currStateBits)
+		err = proto.Unmarshal(currStateBits, currState)
 		if err != nil {
 			tn.Log.Errorw("error unmarshaling CurrentState", "err", err)
 			return
 		}
 	}
 
-	context.Respond(&currState)
+	context.Respond(currState)
 }
 
 func (tn *TupeloNode) handleStarted(context actor.Context) {

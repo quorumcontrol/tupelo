@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/Workiva/go-datastructures/bitarray"
+	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -37,7 +36,7 @@ func TestSignatureGenerator(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	validatorSenderFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *extmsgs.Transaction:
+		case *services.AddBlockRequest:
 			context.Request(validator, &validationRequest{
 				transaction: msg,
 			})
@@ -59,11 +58,7 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 
 	sigWrapper := msg.(*messages.SignatureWrapper)
-	array, err := bitarray.Unmarshal(sigWrapper.Signature.Signers)
-	require.Nil(t, err)
-	isSet, err := array.GetBit(0)
-	require.Nil(t, err)
-	assert.True(t, isSet)
+	assert.Equal(t, uint32(1), sigWrapper.Signature.Signers[0])
 }
 
 func BenchmarkSignatureGenerator(b *testing.B) {

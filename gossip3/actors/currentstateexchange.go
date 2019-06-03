@@ -8,10 +8,14 @@ import (
 	"io"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
@@ -43,15 +47,15 @@ func NewCurrentStateExchangeProps(config *CurrentStateExchangeConfig) *actor.Pro
 func (e *CurrentStateExchange) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *messages.DoCurrentStateExchange:
-		context.Request(msg.Destination, &messages.RequestCurrentStateSnapshot{})
-	case *messages.RequestCurrentStateSnapshot:
+		context.Request(msg.Destination, &services.RequestCurrentStateSnapshot{})
+	case *services.RequestCurrentStateSnapshot:
 		e.handleRequestCurrentStateSnapshot(context, msg)
-	case *messages.ReceiveCurrentStateSnapshot:
+	case *services.ReceiveCurrentStateSnapshot:
 		e.gzipImport(context, msg.Payload)
 	}
 }
 
-func (e *CurrentStateExchange) handleRequestCurrentStateSnapshot(context actor.Context, msg *messages.RequestCurrentStateSnapshot) {
+func (e *CurrentStateExchange) handleRequestCurrentStateSnapshot(context actor.Context, msg *services.RequestCurrentStateSnapshot) {
 	if context.Sender() == nil {
 		panic("RequestCurrentStateSnapshot requires a Sender")
 	}
@@ -62,7 +66,7 @@ func (e *CurrentStateExchange) handleRequestCurrentStateSnapshot(context actor.C
 		return
 	}
 
-	payload := &messages.ReceiveCurrentStateSnapshot{
+	payload := &services.ReceiveCurrentStateSnapshot{
 		Payload: gzippedBytes,
 	}
 
@@ -96,7 +100,7 @@ func (e *CurrentStateExchange) gzipExport() []byte {
 		return nil
 	}
 
-	e.Log.Debugw("gzipExport exported %d keys", wroteCount)
+	e.Log.Debugf("gzipExport exported %d keys", wroteCount)
 
 	return buf.Bytes()
 }
@@ -129,13 +133,13 @@ func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte)
 			panic(fmt.Sprintf("Error reading kv pair %v", err))
 		}
 
-		var currentState extmsgs.CurrentState
-		_, err = currentState.UnmarshalMsg(currentStateBits)
+		currentState := &signatures.CurrentState{}
+		err = proto.Unmarshal(currentStateBits, currentState)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling CurrentState: %v", err))
 		}
 
-		context.Send(e.cfg.ConflictSetRouter, &messages.ImportCurrentState{CurrentState: &currentState})
+		context.Send(e.cfg.ConflictSetRouter, &messages.ImportCurrentState{CurrentState: currentState})
 
 		wroteCount++
 		bytesLeft = buf.Len() > 0

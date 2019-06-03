@@ -13,11 +13,8 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 
-	"github.com/Workiva/go-datastructures/bitarray"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	"github.com/quorumcontrol/tupelo-go-sdk/conversion"
-	extmsgs "github.com/quorumcontrol/tupelo-go-sdk/gossip3/messages"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -240,38 +237,6 @@ func TestGetTip(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, newTip, getTipResp)
-}
-
-func TestSerializeDeserializeSignature(t *testing.T) {
-	signers := bitarray.NewBitArray(3)
-	err := signers.SetBit(0)
-	require.Nil(t, err)
-	err = signers.SetBit(2)
-	require.Nil(t, err)
-
-	marshalledSigners, err := bitarray.Marshal(signers)
-	require.Nil(t, err)
-
-	extSig := extmsgs.Signature{
-		TransactionID: nil,
-		ObjectID:      []byte("objectid"),
-		PreviousTip:   []byte("previousTip"),
-		NewTip:        []byte("newtip"),
-		View:          1,
-		Cycle:         2,
-		Height:        3,
-		Type:          "test",
-		Signers:       marshalledSigners,
-		Signature:     []byte("signature"),
-	}
-
-	encoded, err := conversion.ToInternalSignature(extSig)
-	require.Nil(t, err)
-
-	decoded, err := conversion.ToExternalSignature(encoded)
-	require.Nil(t, err)
-
-	require.Equal(t, extSig, *decoded)
 }
 
 func testGetTokenBalance(t *testing.T, sess *RPCSession, chain *consensus.SignedChainTree) {
