@@ -68,20 +68,25 @@ func (csr *ConflictSetRouter) nextHeight(ObjectId []byte) uint64 {
 	return nextHeight(csr.Log, csr.cfg.CurrentStateStore, ObjectId)
 }
 
+func (csr *ConflictSetRouter) commitTopic() string {
+	return csr.cfg.NotaryGroup.Config().CommitTopic
+}
+
 func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		csr.Log.Debugw("spawning", "self", context.Self().String())
 		cfg := csr.cfg
+		commitTopic := csr.commitTopic()
 
 		topicValidator := newCommitValidator(cfg.NotaryGroup, cfg.SignatureChecker)
-		err := cfg.PubSubSystem.RegisterTopicValidator(commitPubSubTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
+		err := cfg.PubSubSystem.RegisterTopicValidator(commitTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
 		if err != nil {
 			panic(fmt.Sprintf("error registering topic validator: %v", err))
 		}
 		csr.commitValidator = topicValidator
 
-		_, err = context.SpawnNamed(cfg.PubSubSystem.NewSubscriberProps(commitPubSubTopic), "commit-subscriber")
+		_, err = context.SpawnNamed(cfg.PubSubSystem.NewSubscriberProps(commitTopic), "commit-subscriber")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning commit receiver: %v", err))
 		}
@@ -99,7 +104,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		}
 		csr.pool = pool
 	case *actor.Stopping:
-		csr.cfg.PubSubSystem.UnregisterTopicValidator(commitPubSubTopic)
+		csr.cfg.PubSubSystem.UnregisterTopicValidator(csr.commitTopic())
 	case *messages.TransactionWrapper:
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()
@@ -153,7 +158,7 @@ func (csr *ConflictSetRouter) handleCurrentStateWrapper(context actor.Context, m
 		"height", msg.CurrentState.Signature.Height)
 
 	if msg.Internal {
-		if err := csr.cfg.PubSubSystem.Broadcast(commitPubSubTopic, msg.CurrentState); err != nil {
+		if err := csr.cfg.PubSubSystem.Broadcast(csr.commitTopic(), msg.CurrentState); err != nil {
 			csr.Log.Errorw("error publishing", "err", err)
 		}
 	}

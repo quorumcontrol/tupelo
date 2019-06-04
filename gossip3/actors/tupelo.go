@@ -12,16 +12,11 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
-
-const commitPubSubTopic = "tupelo-commits"
-
-const ErrBadTransaction = 1
 
 // TupeloNode is the main logic of the entire system,
 // consisting of multiple gossipers
@@ -103,7 +98,7 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 func (tn *TupeloNode) handleNewTransaction(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
-		_, err := context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(client.TransactionBroadcastTopic), "broadcast-subscriber")
+		_, err := context.SpawnNamed(tn.cfg.PubSubSystem.NewSubscriberProps(tn.notaryGroup.Config().TransactionTopic), "broadcast-subscriber")
 		if err != nil {
 			panic(fmt.Sprintf("error spawning broadcast receiver: %v", err))
 		}
