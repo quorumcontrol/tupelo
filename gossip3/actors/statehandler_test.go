@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 )
 
 func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
@@ -29,6 +30,12 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 		nodes[i] = node.RawData()
 	}
 	return nodes
+}
+
+func newTransactionValidator() TransactionValidator {
+	return TransactionValidator{
+		notaryGroup: types.NewNotaryGroup("testnotarygroup"),
+	}
 }
 
 func TestChainTreeStateHandler(t *testing.T) {
@@ -72,7 +79,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		Block:        blockWithHeaders,
 	}
 
-	validator := TransactionValidator{}
+	validator := newTransactionValidator()
 	newState, isAccepted, err := validator.chainTreeStateHandler(nil, stateTrans)
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
@@ -301,7 +308,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	validator := TransactionValidator{}
+	validator := newTransactionValidator()
 	newState, isAccepted, err := validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, cid.Undef, trans))
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
@@ -449,7 +456,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		Payload:     sw.WrapObject(blockWithHeaders).RawData(),
 	}
 
-	validator := TransactionValidator{}
+	validator := newTransactionValidator()
 	newState, isAccepted, err := validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)

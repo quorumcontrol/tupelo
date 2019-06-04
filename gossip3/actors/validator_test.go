@@ -14,6 +14,7 @@ import (
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -24,6 +25,7 @@ func TestValidator(t *testing.T) {
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
+		NotaryGroup:       types.NewNotaryGroup("testvalidator"),
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer rootContext.Poison(validator)
@@ -59,6 +61,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	currentState := storage.NewMemStorage()
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
+		NotaryGroup:       types.NewNotaryGroup("testcannotfakeoldhistory"),
 	}
 	validator := actor.EmptyRootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer actor.EmptyRootContext.Poison(validator)
@@ -140,6 +143,7 @@ func BenchmarkValidator(b *testing.B) {
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
+		NotaryGroup:       types.NewNotaryGroup("BenchmarkValidator"),
 	}
 	validator := rootContext.Spawn(NewTransactionValidatorProps(cfg))
 	defer actor.EmptyRootContext.Poison(validator)

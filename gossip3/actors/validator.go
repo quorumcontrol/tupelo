@@ -2,8 +2,8 @@ package actors
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -19,7 +19,6 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/chaintree/typecaster"
 	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -264,14 +263,16 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return sigResult.Verified, nil
 	})
 
+	blockValidators, err := tv.notaryGroup.BlockValidators(context.TODO())
+	if err != nil {
+		return nil, false, fmt.Errorf("error getting block validators: %v", err)
+	}
 	chainTree, err := chaintree.NewChainTree(
 		tree,
-		[]chaintree.BlockValidatorFunc{
-			isOwner,
-			types.IsTokenRecipient,
-			sigVerifier,
-		},
-		consensus.DefaultTransactors,
+		// sigVerifier is special cased here because it doesn't follow the pattern of other block validators and instead
+		// relies on some other data in the closure here.
+		append(blockValidators, sigVerifier),
+		tv.notaryGroup.Config().Transactions,
 	)
 
 	if err != nil {
@@ -290,49 +291,4 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 	}
 
 	return chainTree.Dag.Tip.Bytes(), true, nil
-}
-
-func isOwner(tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
-
-	id, _, err := tree.Resolve([]string{"id"})
-	if err != nil {
-		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
-	}
-
-	headers := &consensus.StandardHeaders{}
-
-	err = typecaster.ToType(blockWithHeaders.Headers, headers)
-	if err != nil {
-		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
-	}
-
-	var addrs []string
-
-	uncastAuths, _, err := tree.Resolve(strings.Split("tree/"+consensus.TreePathForAuthentications, "/"))
-	if err != nil {
-		return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err resolving: %v", err)}
-	}
-	// If there are no authentications then the Chain Tree is still owned by its genesis key
-	if uncastAuths == nil {
-		addrs = []string{consensus.DidToAddr(id.(string))}
-	} else {
-		err = typecaster.ToType(uncastAuths, &addrs)
-		if err != nil {
-			return false, &consensus.ErrorCode{Code: consensus.ErrUnknown, Memo: fmt.Sprintf("err casting: %v", err)}
-		}
-	}
-
-	for _, addr := range addrs {
-		isSigned, err := consensus.IsBlockSignedBy(blockWithHeaders, addr)
-
-		if err != nil {
-			return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error finding if signed: %v", err), Code: consensus.ErrUnknown}
-		}
-
-		if isSigned {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
