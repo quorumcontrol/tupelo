@@ -11,3 +11,4 @@ _old
 /packrd/
 *-packr.go
 /local-run/
+*.pb.go
