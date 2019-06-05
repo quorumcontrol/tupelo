@@ -232,12 +232,7 @@ func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Opti
 }
 
 func (nb *NodeBuilder) configDir(namespace string) string {
-	conf := configdir.New("tupelo", filepath.Join(nb.Config.Namespace, namespace))
-	folders := conf.QueryFolders(configdir.Global)
-	if err := os.MkdirAll(folders[0].Path, 0700); err != nil {
-		panic(err)
-	}
-	return folders[0].Path
+	return configDir(nb.Config.Namespace, namespace)
 }
 
 func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
@@ -246,4 +241,13 @@ func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
 		panic(err)
 	}
 	return
+}
+
+func configDir(globalNamespace, namespace string) string {
+	conf := configdir.New("tupelo", filepath.Join(globalNamespace, namespace))
+	folders := conf.QueryFolders(configdir.Global)
+	if err := os.MkdirAll(folders[0].Path, 0700); err != nil {
+		panic(err)
+	}
+	return folders[0].Path
 }
