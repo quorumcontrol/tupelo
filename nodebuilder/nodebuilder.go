@@ -1,12 +1,15 @@
 package nodebuilder
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 
@@ -35,13 +38,32 @@ type NodeBuilder struct {
 	actorToStop *actor.PID
 }
 
+func (nb *NodeBuilder) Host() p2p.Node {
+	return nb.host
+}
+
+func (nb *NodeBuilder) NotaryGroup() *types.NotaryGroup {
+	return nb.setupNotaryGroup(nil)
+}
+
+func (nb *NodeBuilder) BootstrappedP2PNode(ctx context.Context, opts ...p2p.Option) (p2p.Node, error) {
+	host, err := p2p.NewHostFromOptions(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("error creating host: %v", err)
+	}
+	if _, err = host.Bootstrap(nb.bootstrapNodes()); err != nil {
+		return nil, fmt.Errorf("error bootstrapping: %v", err)
+	}
+	return host, nil
+}
+
 func (nb *NodeBuilder) Start(ctx context.Context) error {
 	err := nb.configAssertions()
 	if err != nil {
 		return err
 	}
 
-	nb.startTracing()
+	nb.StartTracing()
 
 	if nb.Config.BootstrapOnly {
 		return nb.startBootstrap(ctx)
@@ -71,10 +93,14 @@ func (nb *NodeBuilder) configAssertions() error {
 		return fmt.Errorf("error: must specify a NotaryGroupConfig (there's a DefaultConfig() helper in tupelo-go-sdk)")
 	}
 
+	if len(conf.BootstrapNodes) == 0 {
+		return fmt.Errorf("you must explicitly provide bootstrap nodes")
+	}
+
 	return nil
 }
 
-func (nb *NodeBuilder) startTracing() {
+func (nb *NodeBuilder) StartTracing() {
 	switch nb.Config.TracingSystem {
 	case JaegerTracing:
 		own, err := nb.ownPeerID()
@@ -88,12 +114,10 @@ func (nb *NodeBuilder) startTracing() {
 }
 
 func (nb *NodeBuilder) startSigner(ctx context.Context) error {
-	remote.Start()
 	localKeys := nb.Config.PrivateKeySet
 	localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
 
-	storagePath := nb.configDir(remoteNetworkNamespace)
-	currentPath := signerCurrentPath(storagePath, localSigner)
+	currentPath := signerCurrentPath(nb.Config.StoragePath, localSigner)
 
 	badgerCurrent, err := storage.NewBadgerStorage(currentPath)
 	if err != nil {
@@ -102,32 +126,39 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 
 	group := nb.setupNotaryGroup(localSigner)
 
-	cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
-	for _, s := range group.Signers {
-		id, err := p2p.PeerFromEcdsaKey(s.DstKey)
-		if err != nil {
-			panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+	var pubsub remote.PubSub
+	if !nb.Config.Offline {
+		remote.Start()
+
+		cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
+		for _, s := range group.Signers {
+			id, err := p2p.PeerFromEcdsaKey(s.DstKey)
+			if err != nil {
+				panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+			}
+			cm.Protect(id, "signer")
 		}
-		cm.Protect(id, "signer")
-	}
 
-	p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
-	if err != nil {
-		return fmt.Errorf("error setting up p2p host: %v", err)
-	}
-	if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
-		return fmt.Errorf("failed to bootstrap: %s", err)
-	}
+		p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
+		if err != nil {
+			return fmt.Errorf("error setting up p2p host: %v", err)
+		}
+		if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
+			return fmt.Errorf("failed to bootstrap: %s", err)
+		}
 
-	nb.host = p2pHost
+		remote.NewRouter(p2pHost)
 
-	remote.NewRouter(p2pHost)
+		nb.host = p2pHost
+
+		pubsub = remote.NewNetworkPubSub(p2pHost)
+	}
 
 	act, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              localSigner,
 		NotaryGroup:       group,
 		CurrentStateStore: badgerCurrent,
-		PubSubSystem:      remote.NewNetworkPubSub(p2pHost),
+		PubSubSystem:      pubsub,
 	}), syncerActorName(localSigner))
 	if err != nil {
 		panic(fmt.Sprintf("error spawning: %v", err))
@@ -148,6 +179,10 @@ func (nb *NodeBuilder) setupNotaryGroup(local *types.Signer) *types.NotaryGroup 
 	}
 
 	for _, keySet := range nb.Config.Signers {
+		if local != nil && bytes.Equal(crypto.FromECDSAPub(local.DstKey), crypto.FromECDSAPub(keySet.DestKey)) {
+			continue
+		}
+
 		signer := types.NewRemoteSigner(keySet.DestKey, keySet.VerKey)
 		if local != nil {
 			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
@@ -191,10 +226,7 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 }
 
 func (nb *NodeBuilder) bootstrapNodes() []string {
-	if len(nb.Config.BootstrapNodes) > 0 {
-		return nb.Config.BootstrapNodes
-	}
-	return p2p.BootstrapNodes()
+	return nb.Config.BootstrapNodes
 }
 
 func (nb *NodeBuilder) bootstrapNodesWithoutSelf() ([]string, error) {

@@ -1,0 +1,90 @@
+package nodebuilder
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+)
+
+const localConfigName = "local-network"
+
+type LocalNetwork struct {
+	Builders        []*NodeBuilder
+	Nodes           []p2p.Node
+	ClientNode      p2p.Node
+	BootstrapNode   p2p.Node
+	BootstrapAddrrs []string
+	NotaryGroup     *types.NotaryGroup
+}
+
+func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySet, ngConfig *types.Config) (*LocalNetwork, error) {
+	boot, err := p2p.NewHostFromOptions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error creating host from options: %v", err)
+	}
+
+	clientNode, err := p2p.NewHostFromOptions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error creating host from options: %v", err)
+	}
+
+	ln := &LocalNetwork{
+		BootstrapNode:   boot,
+		ClientNode:      clientNode,
+		BootstrapAddrrs: BootstrapAddresses(boot),
+	}
+
+	signers := make([]PublicKeySet, len(keys))
+	for i, keySet := range keys {
+		public := PublicKeySet{
+			DestKey: &keySet.DestKey.PublicKey,
+			VerKey:  keySet.SignKey.MustVerKey(),
+		}
+		signers[i] = public
+	}
+
+	configs := make([]*Config, len(signers))
+	for i, keySet := range keys {
+		configs[i] = &Config{
+			NotaryGroupConfig: ngConfig,
+			PrivateKeySet:     keySet,
+			Signers:           signers,
+			BootstrapNodes:    ln.BootstrapAddrrs,
+			StoragePath:       configDir(namespace, localConfigName),
+		}
+	}
+
+	for _, c := range configs {
+		nb := &NodeBuilder{Config: c}
+		err := nb.Start(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error setting up nodebuilder: %v", err)
+		}
+		ln.Builders = append(ln.Builders, nb)
+		ln.Nodes = append(ln.Nodes, nb.Host())
+	}
+
+	group := types.NewNotaryGroupFromConfig(ngConfig)
+
+	for _, keySet := range signers {
+		signer := types.NewRemoteSigner(keySet.DestKey, keySet.VerKey)
+		group.AddSigner(signer)
+	}
+	ln.NotaryGroup = group
+
+	return ln, nil
+}
+
+func BootstrapAddresses(bootstrapHost p2p.Node) []string {
+	addresses := bootstrapHost.Addresses()
+	for _, addr := range addresses {
+		addrStr := addr.String()
+		if strings.Contains(addrStr, "127.0.0.1") {
+			return []string{addrStr}
+		}
+	}
+	return nil
+}

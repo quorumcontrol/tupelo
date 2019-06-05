@@ -28,7 +28,8 @@ func TestBootstrap(t *testing.T) {
 				PrivateKeySet: &PrivateKeySet{
 					DestKey: key,
 				},
-				BootstrapOnly: true,
+				BootstrapNodes: p2p.BootstrapNodes(),
+				BootstrapOnly:  true,
 			},
 		}
 		err = nb.Start(ctx)

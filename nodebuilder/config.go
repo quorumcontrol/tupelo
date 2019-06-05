@@ -20,7 +20,8 @@ type PrivateKeySet struct {
 type TracingSystem int
 
 const (
-	JaegerTracing TracingSystem = iota
+	NoTracing TracingSystem = iota
+	JaegerTracing
 	ElasticTracing
 )
 
