@@ -30,8 +30,6 @@ import (
 	"github.com/shibukawa/configdir"
 )
 
-const remoteNetworkNamespace = "distributed-network"
-
 type NodeBuilder struct {
 	Config      *Config
 	host        p2p.Node

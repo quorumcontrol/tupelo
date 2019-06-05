@@ -22,9 +22,9 @@ const (
 	publicKeyFile  = "public-keys.json"
 	privateKeyFile = "private-keys.json"
 
-	remoteConfigName = "remote-network"
-
-	bootstrapKeyFile = "bootstrap-keys.json"
+	remoteConfigName      = "remote-network"
+	localNetworkNamespace = "localnetwork"
+	bootstrapKeyFile      = "bootstrap-keys.json"
 )
 
 type LegacyPublicKeySet struct {
@@ -95,8 +95,9 @@ func LegacyBootstrapConfig(namespace string, port int) (*Config, error) {
 		PrivateKeySet: &PrivateKeySet{
 			DestKey: ecdsaKey,
 		},
-		BootstrapOnly: true,
-		Port:          port,
+		BootstrapNodes: p2p.BootstrapNodes(),
+		BootstrapOnly:  true,
+		Port:           port,
 	}, nil
 }
 
@@ -145,6 +146,8 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 		NotaryGroupConfig: ngConfig,
 		Signers:           signers,
 		PrivateKeySet:     privateKeySet,
+		BootstrapNodes:    p2p.BootstrapNodes(),
+		StoragePath:       configDir(namespace, remoteConfigName),
 	}
 	if enableElasticTracing {
 		c.TracingSystem = ElasticTracing

@@ -3,24 +3,16 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/storage"
-	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo/gossip3/actors"
+	"github.com/quorumcontrol/tupelo/nodebuilder"
+
 	"google.golang.org/grpc"
 
 	"github.com/quorumcontrol/tupelo/wallet/walletrpc"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	gossip3remote "github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
@@ -30,140 +22,6 @@ import (
 )
 
 const defaultPort = 50051
-
-func unmarshalKeys(keySet interface{}, bytes []byte) error {
-	if bytes != nil {
-		err := json.Unmarshal(bytes, keySet)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func loadKeyFile(keySet interface{}, path string, name string) error {
-	jsonBytes, err := readConfig(path, name)
-	if err != nil {
-		return fmt.Errorf("error loading key file: %v", err)
-	}
-
-	return unmarshalKeys(keySet, jsonBytes)
-}
-
-func loadPublicKeyFile(path string) ([]*PublicKeySet, error) {
-	var keySet []*PublicKeySet
-	err := loadKeyFile(&keySet, path, publicKeyFile)
-
-	return keySet, err
-}
-
-func loadPrivateKeyFile(path string) ([]*PrivateKeySet, error) {
-	var keySet []*PrivateKeySet
-	err := loadKeyFile(&keySet, path, privateKeyFile)
-
-	return keySet, err
-}
-
-func loadLocalKeys(num int) ([]*PrivateKeySet, []*PublicKeySet, error) {
-	privateKeys, err := loadPrivateKeyFile(configDir(localConfigName))
-	if err != nil {
-		return nil, nil, fmt.Errorf("error loading private keys: %v", err)
-	}
-
-	publicKeys, err := loadPublicKeyFile(configDir(localConfigName))
-	if err != nil {
-		return nil, nil, fmt.Errorf("error loading public keys: %v", err)
-	}
-
-	savedKeyCount := len(privateKeys)
-	if savedKeyCount < num {
-		extraPrivateKeys, extraPublicKeys, err := generateKeySets(num - savedKeyCount)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error generating extra node keys: %v", err)
-		}
-
-		combinedPrivateKeys := append(privateKeys, extraPrivateKeys...)
-		combinedPublicKeys := append(publicKeys, extraPublicKeys...)
-
-		err = writeJSONKeys(combinedPrivateKeys, combinedPublicKeys, configDir(localConfigName))
-		if err != nil {
-			return nil, nil, fmt.Errorf("error writing extra node keys: %v", err)
-		}
-
-		return combinedPrivateKeys, combinedPublicKeys, nil
-	} else if savedKeyCount > num {
-		return privateKeys[:num], publicKeys[:num], nil
-	} else {
-		return privateKeys, publicKeys, nil
-	}
-}
-
-func syncerActorName(signer *gossip3types.Signer) string {
-	return "tupelo-" + signer.ID
-}
-
-func signerCurrentPath(storagePath string, signer *gossip3types.Signer) (path string) {
-	path = filepath.Join(storagePath, signer.ID+"-current")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		panic(err)
-	}
-	return
-}
-
-func setupLocalSigner(ctx context.Context, pubSubSystem remote.PubSub, group *gossip3types.NotaryGroup, ecdsaKeyHex string, blsKeyHex string, storagePath string) *gossip3types.Signer {
-	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
-	if err != nil {
-		panic(fmt.Sprintf("error decoding ecdsa key: %v", err))
-	}
-
-	blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
-
-	signer := gossip3types.NewLocalSigner(&ecdsaKey.PublicKey, blsKey)
-
-	currentPath := signerCurrentPath(storagePath, signer)
-
-	currentStore, err := storage.NewBadgerStorage(currentPath)
-	if err != nil {
-		panic(fmt.Sprintf("error setting up badger storage: %v", err))
-	}
-
-	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              signer,
-		NotaryGroup:       group,
-		CurrentStateStore: currentStore,
-		PubSubSystem:      pubSubSystem,
-	}), syncerActorName(signer))
-	if err != nil {
-		panic(fmt.Sprintf("error spawning actor: %v", err))
-	}
-	signer.Actor = syncer
-
-	go func() {
-		<-ctx.Done()
-		actor.EmptyRootContext.Poison(syncer)
-	}()
-
-	group.AddSigner(signer)
-
-	return signer
-}
-
-func setupLocalNetwork(ctx context.Context, pubSubSystem remote.PubSub, nodeCount int) *gossip3types.NotaryGroup {
-	privateKeys, _, err := loadLocalKeys(nodeCount)
-	if err != nil {
-		panic(fmt.Sprintf("error generating node keys: %v", err))
-	}
-
-	group := gossip3types.NewNotaryGroup("local notary group")
-
-	for _, keys := range privateKeys {
-		log.Info("setting up gossip node")
-		setupLocalSigner(ctx, pubSubSystem, group, keys.EcdsaHexPrivateKey, keys.BlsHexPrivateKey, configDir(localConfigName))
-	}
-
-	return group
-}
 
 func panicWithoutTLSOpts() {
 	if certFile == "" || keyFile == "" {
@@ -205,38 +63,44 @@ var rpcServerCmd = &cobra.Command{
 		defer cancel()
 
 		var pubSubSystem remote.PubSub
+		key, err = crypto.GenerateKey()
+		if err != nil {
+			panic(fmt.Errorf("error generating key: %v", err))
+		}
 
 		if localNetworkNodeCount > 0 && !remoteNetwork {
-			fmt.Printf("Setting up local network with %d nodes\n", localNetworkNodeCount)
-			pubSubSystem = remote.NewSimulatedPubSub()
-			group = setupLocalNetwork(ctx, pubSubSystem, localNetworkNodeCount)
+			ln, err := nodebuilder.LegacyLocalNetwork(ctx, configNamespace, localNetworkNodeCount)
+			if err != nil {
+				panic(fmt.Errorf("error generating localnetwork: %v", err))
+			}
+
+			p2pHost, err := ln.BootstrappedP2PNode(ctx, p2p.WithKey(key))
+			if err != nil {
+				panic(fmt.Errorf("error creating host: %v", err))
+			}
+			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
+			group = ln.NotaryGroup
 		} else {
-			fmt.Println("Using remote network")
 			gossip3remote.Start()
-			key, err = crypto.GenerateKey()
+
+			config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
 			if err != nil {
-				panic(fmt.Sprintf("error generating key: %v", err))
+				panic(fmt.Errorf("error generating legacy config: %v", err))
 			}
-			p2pHost, err := p2p.NewLibP2PHost(ctx, key, 0)
+
+			nb := &nodebuilder.NodeBuilder{Config: config}
+
+			p2pHost, err := nb.BootstrappedP2PNode(ctx, p2p.WithKey(key))
 			if err != nil {
-				panic(fmt.Sprintf("error setting up p2p host: %v", err))
+				panic(fmt.Errorf("error creating host: %v", err))
 			}
-			fmt.Println("Bootstrapping node")
-			if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
-				panic(err)
-			}
-			fmt.Println("Waiting for bootstrap")
-			if err = p2pHost.WaitForBootstrap(1, 10*time.Second); err != nil {
-				panic(err)
-			}
-			fmt.Println("Bootstrapped!")
 			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
 
 			gossip3remote.NewRouter(p2pHost)
 
-			group = setupNotaryGroup(nil, bootstrapPublicKeys)
-			group.SetupAllRemoteActors(&key.PublicKey)
+			group = nb.NotaryGroup()
 		}
+		group.SetupAllRemoteActors(&key.PublicKey)
 		walletStorage := walletPath()
 
 		var grpcServer *grpc.Server

@@ -15,26 +15,17 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"time"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo/nodebuilder"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
-	gossip3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/spf13/cobra"
 )
 
 var (
-	BlsSignKeys  []*bls.SignKey
-	EcdsaKeys    []*ecdsa.PrivateKey
 	testnodePort int
 
 	enableJaegerTracing  bool
@@ -68,38 +59,6 @@ var testnodeCmd = &cobra.Command{
 		fmt.Printf("started signer host %s on %v\n", nb.Host().Identity(), nb.Host().Addresses())
 		select {}
 	},
-}
-
-func setupNotaryGroup(local *gossip3types.Signer, keys []*PublicKeySet) *gossip3types.NotaryGroup {
-	if len(keys) == 0 {
-		panic(fmt.Sprintf("no keys provided"))
-	}
-
-	group := gossip3types.NewNotaryGroup("hardcodedprivatekeysareunsafe")
-
-	if local != nil {
-		group.AddSigner(local)
-	}
-
-	for _, keySet := range keys {
-		ecdsaBytes := hexutil.MustDecode(keySet.EcdsaHexPublicKey)
-		if local != nil && bytes.Equal(crypto.FromECDSAPub(local.DstKey), ecdsaBytes) {
-			continue
-		}
-
-		verKeyBytes := hexutil.MustDecode(keySet.BlsHexPublicKey)
-		ecdsaPub, err := crypto.UnmarshalPubkey(ecdsaBytes)
-		if err != nil {
-			panic("couldn't unmarshal ECDSA pub key")
-		}
-		signer := gossip3types.NewRemoteSigner(ecdsaPub, bls.BytesToVerKey(verKeyBytes))
-		if local != nil {
-			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
-		}
-		group.AddSigner(signer)
-	}
-
-	return group
 }
 
 func init() {

@@ -78,6 +78,17 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 	return ln, nil
 }
 
+func (ln *LocalNetwork) BootstrappedP2PNode(ctx context.Context, opts ...p2p.Option) (p2p.Node, error) {
+	host, err := p2p.NewHostFromOptions(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("error creating host: %v", err)
+	}
+	if _, err = host.Bootstrap(ln.BootstrapAddrrs); err != nil {
+		return nil, fmt.Errorf("error bootstrapping: %v", err)
+	}
+	return host, nil
+}
+
 func BootstrapAddresses(bootstrapHost p2p.Node) []string {
 	addresses := bootstrapHost.Addresses()
 	for _, addr := range addresses {

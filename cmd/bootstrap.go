@@ -28,7 +28,7 @@ var bootstrapNodeCmd = &cobra.Command{
 
 		err = nb.Start(ctx)
 		if err != nil {
-			panic(fmt.Errorf("error starting bootstrap", err))
+			panic(fmt.Errorf("error starting bootstrap: %v", err))
 		}
 
 		fmt.Println("Bootstrap node running at:")

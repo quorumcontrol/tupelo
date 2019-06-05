@@ -59,6 +59,7 @@ func TestSigner(t *testing.T) {
 					DestKey: ts.EcdsaKeys[0],
 					SignKey: ts.SignKeys[0],
 				},
+				StoragePath:    configDir("tests", "testonly"),
 				BootstrapNodes: addrs,
 				Signers: []PublicKeySet{
 					PublicKeySet{
