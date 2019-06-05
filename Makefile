@@ -59,7 +59,7 @@ vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 tupelo: $(packr) $(generated) $(gosources) go.mod go.sum
 	go build
 
-lint: $(FIRSTGOPATH)/bin/golangci-lint
+lint: $(FIRSTGOPATH)/bin/golangci-lint $(packr) $(generated)
 	$(FIRSTGOPATH)/bin/golangci-lint run --build-tags integration
 
 $(FIRSTGOPATH)/bin/golangci-lint:
