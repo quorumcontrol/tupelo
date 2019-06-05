@@ -48,7 +48,6 @@ var (
 	certFile              string
 	keyFile               string
 	localNetworkNodeCount int
-	remoteNetwork         bool
 	tls                   bool
 )
 

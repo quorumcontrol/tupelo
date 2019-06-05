@@ -38,6 +38,7 @@ var (
 	cfgFile          string
 	logLvlName       string
 	overrideKeysFile string
+	remoteNetwork    bool
 
 	configNamespace string
 
@@ -95,6 +96,10 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if localNetworkNodeCount > 0 && remoteNetwork {
+			panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
+		}
+
 		logLevel, err := getLogLevel(logLvlName)
 		if err != nil {
 			panic(err.Error())
@@ -125,6 +130,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
 	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument.")
+	rootCmd.PersistentFlags().BoolVarP(&remoteNetwork, "remote-network", "r", false, "Connect to a remote network. Mutually exclusive with -l / --local-network.")
 	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "Path to notary group bootstrap keys file.")
 	rootCmd.PersistentFlags().StringVar(&configNamespace, "namespace", "default", "a global config namespace (useful for tests). All configs will be separated using this")
 }
