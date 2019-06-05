@@ -147,7 +147,7 @@ var benchmark = &cobra.Command{
 
 		config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableJaegerTracing, enableElasticTracing, overrideKeysFile)
 		if err != nil {
-			panic(fmt.Errorf("error getting config", err))
+			panic(fmt.Errorf("error getting config: %v", err))
 		}
 		nb := &nodebuilder.NodeBuilder{Config: config}
 		nb.StartTracing()

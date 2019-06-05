@@ -261,10 +261,6 @@ func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Opti
 	return p2p.NewHostFromOptions(ctx, append(opts, addlOpts...)...)
 }
 
-func (nb *NodeBuilder) configDir(namespace string) string {
-	return configDir(nb.Config.Namespace, namespace)
-}
-
 func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
 	path = filepath.Join(storagePath, signer.ID+"-current")
 	if err := os.MkdirAll(path, 0755); err != nil {

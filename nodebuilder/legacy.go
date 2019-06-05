@@ -22,9 +22,8 @@ const (
 	publicKeyFile  = "public-keys.json"
 	privateKeyFile = "private-keys.json"
 
-	remoteConfigName      = "remote-network"
-	localNetworkNamespace = "localnetwork"
-	bootstrapKeyFile      = "bootstrap-keys.json"
+	remoteConfigName = "remote-network"
+	bootstrapKeyFile = "bootstrap-keys.json"
 )
 
 type LegacyPublicKeySet struct {
@@ -177,19 +176,6 @@ func LegacyLocalNetwork(ctx context.Context, namespace string, nodeCount int) (*
 	ngConfig.ID = "localnetwork"
 
 	return NewLocalNetwork(ctx, namespace, keys, ngConfig)
-}
-
-func loadBootstrapKeyFile(path string) ([]*LegacyPublicKeySet, error) {
-	var keySet []*LegacyPublicKeySet
-
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("error reading path %v: %v", path, err)
-	}
-
-	err = unmarshalKeys(keySet, file)
-
-	return keySet, err
 }
 
 func loadKeyFile(keySet interface{}, path string, name string) error {

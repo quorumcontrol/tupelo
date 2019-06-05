@@ -41,7 +41,6 @@ var (
 
 	configNamespace string
 
-	localConfigName  = "local-network"
 	remoteConfigName = "remote-network"
 )
 

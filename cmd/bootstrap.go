@@ -21,7 +21,7 @@ var bootstrapNodeCmd = &cobra.Command{
 
 		c, err := nodebuilder.LegacyBootstrapConfig(configNamespace, bootstrapNodePort)
 		if err != nil {
-			panic(fmt.Errorf("error getting config", err))
+			panic(fmt.Errorf("error getting config: %v", err))
 		}
 
 		nb := &nodebuilder.NodeBuilder{Config: c}
