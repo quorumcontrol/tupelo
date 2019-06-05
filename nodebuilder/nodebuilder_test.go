@@ -73,5 +73,7 @@ func TestSigner(t *testing.T) {
 		}
 		err = nb.Start(ctx)
 		require.Nil(t, err)
+		err = nb.Stop()
+		require.Nil(t, err)
 	})
 }

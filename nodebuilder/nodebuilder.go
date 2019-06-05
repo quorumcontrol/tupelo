@@ -2,7 +2,6 @@ package nodebuilder
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,11 +30,17 @@ import (
 const remoteNetworkNamespace = "distributed-network"
 
 type NodeBuilder struct {
-	Config *Config
-	host   p2p.Node
+	Config      *Config
+	host        p2p.Node
+	actorToStop *actor.PID
 }
 
 func (nb *NodeBuilder) Start(ctx context.Context) error {
+	err := nb.configAssertions()
+	if err != nil {
+		return err
+	}
+
 	nb.startTracing()
 
 	if nb.Config.BootstrapOnly {
@@ -43,6 +48,30 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 	}
 
 	return nb.startSigner(ctx)
+}
+
+func (nb *NodeBuilder) Stop() error {
+	if nb.actorToStop != nil {
+		err := actor.EmptyRootContext.PoisonFuture(nb.actorToStop).Wait()
+		if err != nil {
+			return fmt.Errorf("signer failed to stop gracefully: %v", err)
+		}
+	}
+
+	if nb.Config.TracingSystem == JaegerTracing {
+		tracing.StopJaeger()
+	}
+
+	return nil
+}
+
+func (nb *NodeBuilder) configAssertions() error {
+	conf := nb.Config
+	if !conf.BootstrapOnly && conf.NotaryGroupConfig == nil {
+		return fmt.Errorf("error: must specify a NotaryGroupConfig (there's a DefaultConfig() helper in tupelo-go-sdk)")
+	}
+
+	return nil
 }
 
 func (nb *NodeBuilder) startTracing() {
@@ -82,7 +111,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 		cm.Protect(id, "signer")
 	}
 
-	p2pHost, err := p2pNodeWithOpts(ctx, nb.Config.PrivateKeySet.DestKey, nb.Config.Port, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
+	p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
 	if err != nil {
 		return fmt.Errorf("error setting up p2p host: %v", err)
 	}
@@ -105,6 +134,8 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	}
 
 	localSigner.Actor = act
+	nb.actorToStop = act
+
 	return nil
 }
 
@@ -134,10 +165,8 @@ func syncerActorName(signer *types.Signer) string {
 func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 	cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
 
-	host, err := p2pNodeWithOpts(
+	host, err := nb.p2pNodeWithOpts(
 		ctx,
-		nb.Config.PrivateKeySet.DestKey,
-		nb.Config.Port,
 		p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
 		p2p.WithRelayOpts(circuit.OptHop),
 	)
@@ -189,14 +218,15 @@ func (nb *NodeBuilder) ownPeerID() (peer.ID, error) {
 	return p2p.PeerFromEcdsaKey(&nb.Config.PrivateKeySet.DestKey.PublicKey)
 }
 
-func p2pNodeWithOpts(ctx context.Context, ecdsaKey *ecdsa.PrivateKey, port int, addlOpts ...p2p.Option) (p2p.Node, error) {
+func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Option) (p2p.Node, error) {
 	opts := []p2p.Option{
-		p2p.WithKey(ecdsaKey),
+		p2p.WithKey(nb.Config.PrivateKeySet.DestKey),
 		p2p.WithDiscoveryNamespaces("tupelo-transaction-gossipers"),
-		p2p.WithListenIP("0.0.0.0", port),
+		p2p.WithListenIP("0.0.0.0", nb.Config.Port),
 	}
-	if hostIP, ok := os.LookupEnv("TUPELO_PUBLIC_IP"); ok {
-		opts = append(opts, p2p.WithExternalIP(hostIP, port))
+
+	if nb.Config.PublicIP != "" {
+		opts = append(opts, p2p.WithExternalIP(nb.Config.PublicIP, nb.Config.Port))
 	}
 	return p2p.NewHostFromOptions(ctx, append(opts, addlOpts...)...)
 }
