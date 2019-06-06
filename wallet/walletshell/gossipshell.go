@@ -9,7 +9,6 @@ import (
 
 	"github.com/abiosoft/ishell"
 	"github.com/ethereum/go-ethereum/crypto"
-	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
@@ -284,11 +283,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 			keyAddr := c.Args[1]
 
 			path := c.Args[2]
-			data, err := cbornode.DumpObject(c.Args[3])
-			if err != nil {
-				c.Printf("error encoding input: %v\n", err)
-				return
-			}
+			data := c.Args[3]
 
 			txn, err := chaintree.NewSetDataTransaction(path, data)
 			if err != nil {
