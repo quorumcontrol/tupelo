@@ -209,13 +209,13 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 
 	nb.host = host
 
-	boostrappers, err := nb.bootstrapNodesWithoutSelf()
+	bootstappers, err := nb.bootstrapNodesWithoutSelf()
 	if err != nil {
 		return fmt.Errorf("error getting bootstrap nodes: %v", err)
 	}
 
-	if len(boostrappers) > 0 {
-		if _, err = host.Bootstrap(boostrappers); err != nil {
+	if len(bootstappers) > 0 {
+		if _, err = host.Bootstrap(bootstappers); err != nil {
 			return fmt.Errorf("bootstrapping failed: %s", err)
 		}
 	}
