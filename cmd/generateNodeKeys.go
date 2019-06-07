@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/quorumcontrol/tupelo/nodebuilder"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
@@ -18,7 +20,7 @@ var (
 	generateNodeKeysPath   string
 )
 
-func generateKeySets(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, err error) {
+func generateKeySets(numberOfKeys int) (privateKeys []*nodebuilder.LegacyPrivateKeySet, publicKeys []*nodebuilder.LegacyPublicKeySet, err error) {
 	for i := 1; i <= numberOfKeys; i++ {
 		blsKey, err := bls.NewSignKey()
 		if err != nil {
@@ -33,12 +35,12 @@ func generateKeySets(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys
 			return nil, nil, err
 		}
 
-		privateKeys = append(privateKeys, &PrivateKeySet{
+		privateKeys = append(privateKeys, &nodebuilder.LegacyPrivateKeySet{
 			BlsHexPrivateKey:   hexutil.Encode(blsKey.Bytes()),
 			EcdsaHexPrivateKey: hexutil.Encode(crypto.FromECDSA(ecdsaKey)),
 		})
 
-		publicKeys = append(publicKeys, &PublicKeySet{
+		publicKeys = append(publicKeys, &nodebuilder.LegacyPublicKeySet{
 			BlsHexPublicKey:   hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
 			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).PublicKey),
 			PeerIDBase58Key:   peerID.Pretty(),
@@ -48,7 +50,7 @@ func generateKeySets(numberOfKeys int) (privateKeys []*PrivateKeySet, publicKeys
 	return privateKeys, publicKeys, err
 }
 
-func printTextKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet) {
+func printTextKeys(privateKeys []*nodebuilder.LegacyPrivateKeySet, publicKeys []*nodebuilder.LegacyPublicKeySet) {
 	for i := 1; i <= len(privateKeys); i++ {
 		fmt.Printf("================ Key %v ================\n", i)
 		fmt.Printf(
@@ -67,7 +69,7 @@ const (
 	privateKeyFile = "private-keys.json"
 )
 
-func writeJSONKeys(privateKeys []*PrivateKeySet, publicKeys []*PublicKeySet, path string) error {
+func writeJSONKeys(privateKeys []*nodebuilder.LegacyPrivateKeySet, publicKeys []*nodebuilder.LegacyPublicKeySet, path string) error {
 	publicKeyJson, err := json.Marshal(publicKeys)
 	if err != nil {
 		return fmt.Errorf("Error marshaling public keys: %v", err)

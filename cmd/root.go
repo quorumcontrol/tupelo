@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -36,15 +35,13 @@ const (
 )
 
 var (
-	bootstrapPublicKeys []*PublicKeySet
-	cfgFile             string
-	logLvlName          string
-	newKeysFile         string
-	overrideKeysFile    string
+	cfgFile          string
+	logLvlName       string
+	overrideKeysFile string
+	remoteNetwork    bool
 
 	configNamespace string
 
-	localConfigName  = "local-network"
 	remoteConfigName = "remote-network"
 )
 
@@ -84,15 +81,6 @@ func configDir(namespace string) string {
 	return folders[0].Path
 }
 
-func readConfig(path string, filename string) ([]byte, error) {
-	_, err := os.Stat(filepath.Join(path, filename))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-
-	return ioutil.ReadFile(filepath.Join(path, filename))
-}
-
 func writeFile(parentDir string, filename string, data []byte) error {
 	err := os.MkdirAll(parentDir, 0755)
 	if err != nil {
@@ -100,51 +88,6 @@ func writeFile(parentDir string, filename string, data []byte) error {
 	}
 
 	return ioutil.WriteFile(filepath.Join(parentDir, filename), data, 0644)
-}
-
-func loadBootstrapKeyFile(path string) ([]*PublicKeySet, error) {
-	var keySet []*PublicKeySet
-
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("error reading path %v: %v", path, err)
-	}
-
-	err = unmarshalKeys(keySet, file)
-
-	return keySet, err
-}
-
-func saveBootstrapKeys(keys []*PublicKeySet) error {
-	bootstrapKeyJson, err := json.Marshal(keys)
-	if err != nil {
-		return fmt.Errorf("Error marshaling bootstrap keys: %v", err)
-	}
-
-	err = writeFile(configDir(remoteConfigName), bootstrapKeyFile, bootstrapKeyJson)
-	if err != nil {
-		return fmt.Errorf("error writing bootstrap keys: %v", err)
-	}
-
-	return nil
-}
-
-func readBootstrapKeys() ([]*PublicKeySet, error) {
-	var keySet []*PublicKeySet
-	err := loadKeyFile(&keySet, configDir(remoteConfigName), bootstrapKeyFile)
-
-	return keySet, err
-}
-
-type PublicKeySet struct {
-	BlsHexPublicKey   string `json:"blsHexPublicKey,omitempty"`
-	EcdsaHexPublicKey string `json:"ecdsaHexPublicKey,omitempty"`
-	PeerIDBase58Key   string `json:"peerIDBase58Key,omitempty"`
-}
-
-type PrivateKeySet struct {
-	BlsHexPrivateKey   string `json:"blsHexPrivateKey,omitempty"`
-	EcdsaHexPrivateKey string `json:"ecdsaHexPrivateKey,omitempty"`
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -167,38 +110,8 @@ var rootCmd = &cobra.Command{
 			fmt.Println("unknown ipfs log level")
 		}
 
-		if overrideKeysFile != "" {
-			remoteNetwork = true
-			publicKeys, err := loadPublicKeyFile(overrideKeysFile)
-			if err != nil {
-				panic(fmt.Sprintf("Error loading public keys: %v", err))
-			}
-
-			bootstrapPublicKeys = publicKeys
-		} else {
-			publicKeys, err := readBootstrapKeys()
-			if err != nil {
-				fmt.Printf("error loading stored bootstrap keys: %v", err)
-			} else {
-				bootstrapPublicKeys = publicKeys
-			}
-		}
-
 		if err = gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
 			panic(err)
-		}
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		if newKeysFile != "" {
-			keys, err := loadBootstrapKeyFile(newKeysFile)
-			if err != nil {
-				panic(fmt.Sprintf("Error loading bootstrap keys: %v", err))
-			}
-
-			err = saveBootstrapKeys(keys)
-			if err != nil {
-				panic(fmt.Sprintf("Error saving bootstrap keys: %v", err))
-			}
 		}
 	},
 }
@@ -216,10 +129,9 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
-	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument. Mutually exclusive with bootstrap-* and -r / --remote-network.")
+	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument.")
 	rootCmd.PersistentFlags().BoolVarP(&remoteNetwork, "remote-network", "r", false, "Connect to a remote network. Mutually exclusive with -l / --local-network.")
-	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "Path to notary group bootstrap keys file. Implies -r / --remote-network.")
-	rootCmd.Flags().StringVarP(&newKeysFile, "import-boot-keys", "i", "", "Path of a notary group key file to import")
+	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "Path to notary group bootstrap keys file.")
 	rootCmd.PersistentFlags().StringVar(&configNamespace, "namespace", "default", "a global config namespace (useful for tests). All configs will be separated using this")
 }
 

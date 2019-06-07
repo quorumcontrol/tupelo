@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,6 +8,10 @@ import (
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/tupelo/nodebuilder"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	opentracing "github.com/opentracing/opentracing-go"
@@ -21,7 +23,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	gossip3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
-	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/quorumcontrol/tupelo/resources"
 	"github.com/spf13/cobra"
 )
@@ -144,34 +145,26 @@ var benchmark = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		if enableElasticTracing && enableJaegerTracing {
-			panic("only one tracing library may be used at once")
+		config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableJaegerTracing, enableElasticTracing, overrideKeysFile)
+		if err != nil {
+			panic(fmt.Errorf("error getting config: %v", err))
 		}
-		if enableJaegerTracing {
-			tracing.StartJaeger("benchmarker")
-			defer tracing.StopJaeger()
-		}
-		if enableElasticTracing {
-			tracing.StartElastic()
-		}
+		nb := &nodebuilder.NodeBuilder{Config: config}
+		nb.StartTracing()
 
 		key, err := crypto.GenerateKey()
 		if err != nil {
 			panic(fmt.Sprintf("error generating key: %v", err))
 		}
 
-		p2pHost, err := p2p.NewLibP2PHost(ctx, key, 0)
+		p2pHost, err := nb.BootstrappedP2PNode(ctx, p2p.WithKey(key))
 		if err != nil {
 			panic(fmt.Sprintf("error setting up p2p host: %v", err))
 		}
 
-		if _, err = p2pHost.Bootstrap(p2p.BootstrapNodes()); err != nil {
-			panic(err)
-		}
-
 		gossip3remote.NewRouter(p2pHost)
 
-		group := setupNotaryGroup(nil, bootstrapPublicKeys)
+		group := nb.NotaryGroup()
 		group.SetupAllRemoteActors(&key.PublicKey)
 
 		pubSubSystem := remote.NewNetworkPubSub(p2pHost)
