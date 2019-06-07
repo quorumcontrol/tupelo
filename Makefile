@@ -17,11 +17,9 @@ GUARD = $(1)_GUARD_$(shell echo $($(1)) | $(MD5CMD) | cut -d ' ' -f 1)
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
 VERSION_TXT = resources/templates/version.txt
 
-generated = gossip3/messages/internal_gen.go \
-	    gossip3/messages/internal_gen_test.go \
-	    rpcserver/tupelo.pb.go \
-	    rpcserver/nodestore/nodestore.pb.go \
-	    rpcserver/nodestore/badger/badger.pb.go
+generated = rpcserver/tupelo.pb.go \
+	rpcserver/nodestore/nodestore.pb.go \
+	rpcserver/nodestore/badger/badger.pb.go
 
 gosources = $(shell find . -path "./vendor/*" -prune -o -type f -name "*.go" -print)
 packr = packrd/packed-packr.go resources/resources-packr.go
@@ -93,6 +91,7 @@ clean:
 	$(FIRSTGOPATH)/bin/packr2 clean
 	go clean
 	rm -rf vendor
+	rm $(generated)
 
 github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
