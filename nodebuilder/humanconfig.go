@@ -132,9 +132,9 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 }
 
 // TomlToConfig will load a config from a toml string
-func TomlToConfig(tomlBytes string) (*Config, error) {
+func TomlToConfig(tomlStr string) (*Config, error) {
 	var hc HumanConfig
-	_, err := toml.Decode(tomlBytes, &hc)
+	_, err := toml.Decode(tomlStr, &hc)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding toml: %v", err)
 	}
