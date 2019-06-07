@@ -47,9 +47,12 @@ var shellCmd = &cobra.Command{
 		} else {
 			gossip3remote.Start()
 
-			config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
-			if err != nil {
-				panic(fmt.Errorf("error generating legacy config: %v", err))
+			config := nodebuilderConfig
+			if config == nil {
+				config, err = nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
+				if err != nil {
+					panic(fmt.Errorf("error generating legacy config: %v", err))
+				}
 			}
 
 			nb := &nodebuilder.NodeBuilder{Config: config}

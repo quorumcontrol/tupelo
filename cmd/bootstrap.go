@@ -19,9 +19,13 @@ var bootstrapNodeCmd = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		c, err := nodebuilder.LegacyBootstrapConfig(configNamespace, bootstrapNodePort)
-		if err != nil {
-			panic(fmt.Errorf("error getting config: %v", err))
+		var err error
+		c := nodebuilderConfig
+		if c == nil {
+			c, err = nodebuilder.LegacyBootstrapConfig(configNamespace, bootstrapNodePort)
+			if err != nil {
+				panic(fmt.Errorf("error getting config: %v", err))
+			}
 		}
 
 		nb := &nodebuilder.NodeBuilder{Config: c}
