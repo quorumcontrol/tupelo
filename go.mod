@@ -32,7 +32,6 @@ require (
 	github.com/libp2p/go-libp2p-connmgr v0.0.3
 	github.com/libp2p/go-libp2p-peer v0.1.0
 	github.com/libp2p/go-libp2p-pubsub v0.0.3
-	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/quorumcontrol/chaintree v0.0.0-20190530190017-53765d7c259c
@@ -41,7 +40,6 @@ require (
 	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190604010000-234618cf102bcfea05d6d73476c7fb5344cd61d7
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
-	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.9.1
