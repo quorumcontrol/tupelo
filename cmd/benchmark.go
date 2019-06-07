@@ -145,9 +145,9 @@ var benchmark = &cobra.Command{
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		var err error
 		config := nodebuilderConfig
 		if config == nil {
+			var err error
 			config, err = nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
 			if err != nil {
 				panic(fmt.Errorf("error generating legacy config: %v", err))

@@ -43,17 +43,17 @@ var testnodeCmd = &cobra.Command{
 
 		remote.Start()
 
-		var err error
-	 	config := nodebuilderConfig
+		config := nodebuilderConfig
 		if config == nil {
+			var err error
 			config, err = nodebuilder.LegacyConfig(configNamespace, testnodePort, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
 			if err != nil {
 				panic(fmt.Errorf("error getting legacy config: %v", err))
 			}
 		}
-		
+
 		nb := &nodebuilder.NodeBuilder{Config: config}
-		err = nb.Start(ctx)
+		err := nb.Start(ctx)
 		if err != nil {
 			panic(fmt.Errorf("error starting: %v", err))
 		}
