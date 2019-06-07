@@ -3,7 +3,7 @@ services:
   benchmark:
     build: .
     volumes:
-      - ./cmd/testnode-local-keys:/bootstrap-keys
-    command: ["benchmark", "-k", "/bootstrap-keys", "-d", "30", "-c", "2", "-i", "60", "-s", "tps", "-t", "5"]
+      - ./configs/localdocker:/configs
+    command: ["benchmark", "--config", "/configs/benchmark/config.toml", "-d", "30", "-c", "2", "-i", "60", "-s", "tps", "-t", "5"]
     environment:
       TUPELO_BOOTSTRAP_NODES: "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
