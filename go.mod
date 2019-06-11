@@ -16,6 +16,7 @@ require (
 	github.com/gobuffalo/packr/v2 v2.2.0
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.1
+	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
 	github.com/hashicorp/golang-lru v0.5.1
@@ -26,7 +27,6 @@ require (
 	github.com/ipfs/go-ipfs-http-client v0.0.0-20190329134716-880cd0134a92
 	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
 	github.com/ipfs/go-log v0.0.1
-	github.com/jakehl/goid v1.1.0
 	github.com/karrick/godirwalk v1.10.3 // indirect
 	github.com/libp2p/go-libp2p v0.0.21
 	github.com/libp2p/go-libp2p-circuit v0.0.4
@@ -35,10 +35,10 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.0.3
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/quorumcontrol/chaintree v0.0.0-20190530190017-53765d7c259c
+	github.com/quorumcontrol/chaintree v0.0.0-20190620141948-3938753d0308
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca
 	github.com/quorumcontrol/storage v1.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190604010000-4541a467ee8900fa2a2a0711f126da3ee7452858
+	github.com/quorumcontrol/tupelo-go-sdk v0.4.1-0.20190624144326-0e29191d3090
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.3
 	github.com/stretchr/testify v1.3.0
