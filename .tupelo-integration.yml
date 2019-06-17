@@ -9,9 +9,12 @@ testers:
   js-sdk-master:
     image: quorumcontrol/tupelo-js-sdk:master
     command: ["npx", "mocha", "--exit"]
-  go-sdk-latest:
-    image: quorumcontrol/tupelo-go-sdk:latest
-    command: ["go", "test", "-mod=vendor", "-tags=integration", "-timeout=2m", "./..."]
-  go-sdk-master:
-    image: quorumcontrol/tupelo-go-sdk:master
+#  go-sdk-latest:
+#    image: quorumcontrol/tupelo-go-sdk:latest
+#    command: ["go", "test", "-mod=vendor", "-tags=integration", "-timeout=2m", "./..."]
+#  go-sdk-master:
+#    image: quorumcontrol/tupelo-go-sdk:master
+#    command: ["go", "test", "-mod=vendor", "-tags=integration", "-timeout=2m", "./..."]
+  go-sdk-increased-timeouts:
+    image: quorumcontrol/tupelo-go-sdk:increased-timeouts
     command: ["go", "test", "-mod=vendor", "-tags=integration", "-timeout=2m", "./..."]
