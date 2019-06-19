@@ -82,7 +82,25 @@ func readBootstrapKeys(namespace string, overridePath string) ([]*LegacyPublicKe
 	return keySet, err
 }
 
-func LegacyBootstrapConfig(namespace string, port int) (*Config, error) {
+type legacyBootstrapInputConfig interface {
+	PrivateKeySet() *PrivateKeySet
+	BootstrapNodes() []string
+	PublicIP() string
+}
+
+func LegacyBootstrapConfig(namespace string, port int, conf legacyBootstrapInputConfig) (
+	*Config, error) {
+	if conf != nil {
+		return &Config{
+			Namespace:      namespace,
+			PrivateKeySet:  conf.PrivateKeySet(),
+			BootstrapNodes: conf.BootstrapNodes(),
+			BootstrapOnly:  true,
+			Port:           port,
+			PublicIP:       conf.PublicIP(),
+		}, nil
+	}
+
 	ecdsaKeyHex := os.Getenv("TUPELO_NODE_ECDSA_KEY_HEX")
 	ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
 	if err != nil {
@@ -100,41 +118,66 @@ func LegacyBootstrapConfig(namespace string, port int) (*Config, error) {
 	}, nil
 }
 
-func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaegerTracing bool, overrideKeysFile string) (*Config, error) {
+type legacyConfigInput interface {
+	PrivateKeySet() *PrivateKeySet
+	BootstrapNodes() []string
+	Signers() []PublicKeySet
+	PublicIP() string
+}
+
+func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaegerTracing bool, overrideKeysFile string, conf legacyConfigInput) (*Config, error) {
 	if enableElasticTracing && enableJaegerTracing {
 		return nil, fmt.Errorf("only one tracing library may be used at once")
 	}
 
+	var bootstrapNodes []string
 	var privateKeySet *PrivateKeySet
-	ecdsaKeyHex, ok := os.LookupEnv("TUPELO_NODE_ECDSA_KEY_HEX")
-	if ok {
-		blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
-		ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
+	var signers []PublicKeySet
+	var publicIp string
+	if conf != nil {
+		privateKeySet = conf.PrivateKeySet()
+		bootstrapNodes = conf.BootstrapNodes()
+		signers = conf.Signers()
+		for _, signer := range signers {
+			if signer.VerKey == nil {
+				panic("signer VerKey can't be nil")
+			}
+			if signer.DestKey == nil {
+				panic("signer DestKey can't be nil")
+			}
+		}
+		publicIp = conf.PublicIP()
+	} else {
+		ecdsaKeyHex, ok := os.LookupEnv("TUPELO_NODE_ECDSA_KEY_HEX")
+		if ok {
+			blsKeyHex := os.Getenv("TUPELO_NODE_BLS_KEY_HEX")
+			ecdsaKey, err := crypto.ToECDSA(hexutil.MustDecode(ecdsaKeyHex))
+			if err != nil {
+				return nil, fmt.Errorf("error decoding ECDSA key (from $TUPELO_NODE_ECDSA_KEY_HEX)")
+			}
+
+			blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
+
+			privateKeySet = &PrivateKeySet{
+				DestKey: ecdsaKey,
+				SignKey: blsKey,
+			}
+		}
+
+		bootstrapNodes = p2p.BootstrapNodes()
+
+		legacyKeys, err := readBootstrapKeys(namespace, overrideKeysFile)
 		if err != nil {
-			return nil, fmt.Errorf("error decoding ECDSA key (from $TUPELO_NODE_ECDSA_KEY_HEX)")
+			return nil, fmt.Errorf("error getting bootstrap keys: %v", err)
 		}
-
-		blsKey := bls.BytesToSignKey(hexutil.MustDecode(blsKeyHex))
-
-		privateKeySet = &PrivateKeySet{
-			DestKey: ecdsaKey,
-			SignKey: blsKey,
+		signers := make([]PublicKeySet, len(legacyKeys))
+		for i, legacy := range legacyKeys {
+			pub, err := legacy.ToPublicKeySet()
+			if err != nil {
+				return nil, fmt.Errorf("error converting public keys: %v", err)
+			}
+			signers[i] = *pub
 		}
-	}
-
-	legacyKeys, err := readBootstrapKeys(namespace, overrideKeysFile)
-	if err != nil {
-		return nil, fmt.Errorf("error getting bootstrap keys: %v", err)
-	}
-
-	signers := make([]PublicKeySet, len(legacyKeys))
-
-	for i, legacy := range legacyKeys {
-		pub, err := legacy.ToPublicKeySet()
-		if err != nil {
-			return nil, fmt.Errorf("error converting public keys: %v", err)
-		}
-		signers[i] = *pub
 	}
 
 	ngConfig := types.DefaultConfig()
@@ -145,8 +188,9 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 		NotaryGroupConfig: ngConfig,
 		Signers:           signers,
 		PrivateKeySet:     privateKeySet,
-		BootstrapNodes:    p2p.BootstrapNodes(),
+		BootstrapNodes:    bootstrapNodes,
 		StoragePath:       configDir(namespace, remoteConfigName),
+		PublicIP:          publicIp,
 		Port:              port,
 	}
 	if enableElasticTracing {
