@@ -147,6 +147,7 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 		PrivateKeySet:     privateKeySet,
 		BootstrapNodes:    p2p.BootstrapNodes(),
 		StoragePath:       configDir(namespace, remoteConfigName),
+		Port:              port,
 	}
 	if enableElasticTracing {
 		c.TracingSystem = ElasticTracing
