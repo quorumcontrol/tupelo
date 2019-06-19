@@ -47,7 +47,7 @@ var shellCmd = &cobra.Command{
 		} else {
 			gossip3remote.Start()
 
-			config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
+			config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile, nil)
 			if err != nil {
 				panic(fmt.Errorf("error generating legacy config: %v", err))
 			}
@@ -60,12 +60,12 @@ var shellCmd = &cobra.Command{
 			}
 			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
 
-			group, err := setupNotaryGroup(nil, bootstrapPublicKeys)
-			if err != nil {
-				panic(err)
-			}
-			group.SetupAllRemoteActors(&key.PublicKey)
+			gossip3remote.NewRouter(p2pHost)
+
+			group = nb.NotaryGroup()
 		}
+		group.SetupAllRemoteActors(&key.PublicKey)
+		
 		walletStorage := walletPath()
 		if err = os.MkdirAll(walletStorage, 0700); err != nil {
 			panic(err)

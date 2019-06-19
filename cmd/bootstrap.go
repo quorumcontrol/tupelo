@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
+
 	"github.com/quorumcontrol/tupelo/nodebuilder"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -13,24 +16,6 @@ import (
 )
 
 var bootstrapNodePort int
-
-func findBootstrapperPeers(host p2p.Node) ([]string, error) {
-	middleware.Log.Debugw("detecting peer addresses via environment...")
-	anAddr := host.Addresses()[0].String()
-	keySlice := strings.Split(anAddr, "/")
-	key := keySlice[len(keySlice)-1]
-	bootstrapNodes := p2p.BootstrapNodes()
-	peers := []string{}
-	for _, nodeAddr := range bootstrapNodes {
-		if !strings.Contains(nodeAddr, key) {
-			peers = append(peers, nodeAddr)
-		}
-	}
-
-	middleware.Log.Debugw("found peers", "peers", peers)
-
-	return peers, nil
-}
 
 type bootstrapperConfigurationRaw struct {
 	EcdsaHex   string   `json:"ecdsaHex"`
@@ -42,6 +27,20 @@ type bootstrapperConfiguration struct {
 	ecdsaKey   *ecdsa.PrivateKey
 	peerAddrs  []string
 	externalIp string
+}
+
+func (b bootstrapperConfiguration) PrivateKeySet() *nodebuilder.PrivateKeySet {
+	return &nodebuilder.PrivateKeySet{
+		DestKey: b.ecdsaKey,
+	}
+}
+
+func (b bootstrapperConfiguration) BootstrapNodes() []string {
+	return b.peerAddrs
+}
+
+func (b bootstrapperConfiguration) PublicIP() string {
+	return b.externalIp
 }
 
 func decodeBootstrapperConfig(confB []byte) (bootstrapperConfiguration, error) {
@@ -67,39 +66,18 @@ func decodeBootstrapperConfig(confB []byte) (bootstrapperConfiguration, error) {
 	return config, nil
 }
 
-func loadBootstrapperConfig() (bootstrapperConfiguration, error) {
-	var config bootstrapperConfiguration
+func loadBootstrapperConfig() (*bootstrapperConfiguration, error) {
 	confB, err := readConfJson()
 	if err == nil {
-		config, err = decodeBootstrapperConfig(confB)
+		config, err := decodeBootstrapperConfig(confB)
 		if err != nil {
-			return config, err
+			return nil, err
 		}
 		middleware.Log.Infow("successfully loaded configuration from file")
-	} else {
-		middleware.Log.Infow("loading configuration from environment")
-		varName := "TUPELO_NODE_ECDSA_KEY_HEX"
-		ecdsaHex := os.Getenv(varName)
-		ecdsaBytes, err := hexutil.Decode(ecdsaHex)
-		if err != nil {
-			return config, fmt.Errorf("error decoding ECDSA key from $%s: %s", varName, err)
-		}
-		ecdsaKey, err := crypto.ToECDSA(ecdsaBytes)
-		if err != nil {
-			return config, fmt.Errorf("error decoding ecdsa key from $%s: %s", varName, err)
-		}
-
-		extIp := ""
-		if pip, ok := os.LookupEnv("TUPELO_PUBLIC_IP"); ok {
-			extIp = pip
-			middleware.Log.Infow("got external IP from $TUPELO_PUBLIC_IP", "externalIp", extIp)
-		}
-
-		config.ecdsaKey = ecdsaKey
-		config.externalIp = extIp
+		return &config, err
 	}
 
-	return config, nil
+	return nil, nil
 }
 
 var bootstrapNodeCmd = &cobra.Command{
@@ -112,12 +90,10 @@ var bootstrapNodeCmd = &cobra.Command{
 			panic(err)
 		}
 
-		ctx := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		
-		cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
 
-		c, err := nodebuilder.LegacyBootstrapConfig(configNamespace, bootstrapNodePort)
+		c, err := nodebuilder.LegacyBootstrapConfig(configNamespace, bootstrapNodePort, config)
 		if err != nil {
 			panic(fmt.Errorf("error getting config: %v", err))
 		}

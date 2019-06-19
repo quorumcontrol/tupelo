@@ -82,7 +82,7 @@ var rpcServerCmd = &cobra.Command{
 		} else {
 			gossip3remote.Start()
 
-			config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
+			config, err := nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile, nil)
 			if err != nil {
 				panic(fmt.Errorf("error generating legacy config: %v", err))
 			}
