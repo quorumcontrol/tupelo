@@ -457,7 +457,7 @@ func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	ledger := consensus.NewTreeLedger(tree, canonicalTokenName.String())
+	ledger := consensus.NewTreeLedger(tree, canonicalTokenName)
 	bal, err := ledger.Balance()
 	if err != nil {
 		return 0, fmt.Errorf("error getting token %s balance: %s", token, err)
@@ -571,17 +571,17 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, name, destination string, am
 		return "", err
 	}
 
-	tree, err := chain.ChainTree.TreeAt(*resp.Tip)
+	sendTree, err := chain.ChainTree.At(resp.Tip)
 	if err != nil {
 		return "", err
 	}
 
-	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, name, false)
+	canonicalTokenName, err := consensus.CanonicalTokenName(sendTree.Dag, chainId, name, false)
 	if err != nil {
 		return "", err
 	}
 
-	tokenPayload, err := consensus.TokenPayloadForTransaction(tree, canonicalTokenName, sendTxId, &resp.Signature)
+	tokenPayload, err := consensus.TokenPayloadForTransaction(sendTree, canonicalTokenName, sendTxId, &resp.Signature)
 	if err != nil {
 		return "", err
 	}
