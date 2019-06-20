@@ -189,7 +189,7 @@ func TestSendAndReceiveToken(t *testing.T) {
 
 	receiveTokensTip, err := sess.ReceiveToken(destChain.MustId(), destAddr, sendTokens)
 	require.Nil(t, err)
-	assert.NotNil(t, receiveTokensTip)
+	require.NotNil(t, receiveTokensTip)
 
 	destChain, err = sess.GetChain(destChain.MustId())
 	require.Nil(t, err)
