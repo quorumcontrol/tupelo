@@ -74,7 +74,7 @@ integration-test: test .tupelo-integration.yml
 
 ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
 	mkdir -p test_results/tests
-	gotestsum --junitfile=test_results/tests/results.xml -- -mod=readonly -tags=integration ./...
+	gotestsum --junitfile=test_results/tests/results.xml -- -tags=integration ./...
 
 ci-integration-test: ci-test integration-test
 
