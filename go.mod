@@ -34,7 +34,7 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.0.3
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/prometheus/client_golang v0.9.3 // indirect
+	github.com/prometheus/client_golang v0.9.3
 	github.com/quorumcontrol/chaintree v0.0.0-20190530190017-53765d7c259c
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca
 	github.com/quorumcontrol/storage v1.1.2

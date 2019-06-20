@@ -105,6 +105,10 @@ var bootstrapNodeCmd = &cobra.Command{
 			panic(fmt.Errorf("error starting bootstrap: %v", err))
 		}
 
+		if err := startPromServer(); err != nil {
+			panic(err)
+		}
+
 		fmt.Println("Bootstrap node running at:")
 		for _, addr := range nb.Host().Addresses() {
 			fmt.Println(addr)

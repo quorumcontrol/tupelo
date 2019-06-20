@@ -165,6 +165,10 @@ var testnodeCmd = &cobra.Command{
 			panic(fmt.Errorf("error starting: %v", err))
 		}
 
+		if err := startPromServer(); err != nil {
+			panic(err)
+		}
+
 		fmt.Printf("started signer host %s on %v\n", nb.Host().Identity(), nb.Host().Addresses())
 		select {}
 	},
