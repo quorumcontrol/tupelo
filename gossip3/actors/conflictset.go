@@ -167,12 +167,10 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, m
 
 	cs.active = true
 
-	var err error
 	if cs.snoozedCommit != nil {
-		err = csw.handleCurrentStateWrapper(cs, context, cs.snoozedCommit)
-	}
-	if err != nil {
-		panic(fmt.Errorf("error processing snoozed commit: %v", err))
+		if err := csw.handleCurrentStateWrapper(cs, context, cs.snoozedCommit); err != nil {
+			panic(fmt.Errorf("error processing snoozed commit: %v", err))
+		}
 	}
 
 	if cs.done {
