@@ -48,6 +48,8 @@ $(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserv
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/*.proto
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/badger/*.proto
 
+generated: $(generated)
+
 # TODO: remove mkdir -p for go-libp2p-pubsub once fork is no longer needed
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 	mkdir -p $(FIRSTGOPATH)/pkg/mod/github.com/libp2p/go-libp2p-pubsub@v0.0.3
@@ -99,4 +101,4 @@ github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
 	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
 
-.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare
+.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare generated
