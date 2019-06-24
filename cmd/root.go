@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/quorumcontrol/tupelo/nodebuilder"
+
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/tupelo/gossip3"
@@ -33,9 +35,11 @@ const (
 )
 
 var (
-	logLvlName       string
-	overrideKeysFile string
-	remoteNetwork    bool
+	configFilePath    string
+	nodebuilderConfig *nodebuilder.Config
+	logLvlName        string
+	overrideKeysFile  string
+	remoteNetwork     bool
 
 	configNamespace string
 
@@ -110,6 +114,14 @@ var rootCmd = &cobra.Command{
 		if err = gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
 			panic(err)
 		}
+
+		if configFilePath != "" {
+			err = loadTomlConfig(configFilePath)
+			if err != nil {
+				panic(err)
+			}
+		}
+
 	},
 }
 
@@ -122,7 +134,21 @@ func Execute() {
 	}
 }
 
+func loadTomlConfig(path string) error {
+	tomlBits, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %v", path, err)
+	}
+	c, err := nodebuilder.TomlToConfig(string(tomlBits))
+	if err != nil {
+		return fmt.Errorf("error getting config from toml: %v", err)
+	}
+	nodebuilderConfig = c
+	return nil
+}
+
 func init() {
+	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "path to a toml config file")
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
 	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument.")
 	rootCmd.PersistentFlags().BoolVarP(&remoteNetwork, "remote-network", "r", false, "Connect to a remote network. Mutually exclusive with -l / --local-network.")

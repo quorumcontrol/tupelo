@@ -1,0 +1,9 @@
+Port = 34001
+BootstrapOnly = true
+BootstrapNodes = [
+    "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
+]
+
+[PrivateKeySet]
+SignKeyHex = "0x1ef1cf13d52b2dbf3134d7fff6aa617c5cdac42ed89bd20007bfc93d00f0d0c6"
+DestKeyHex = "0xe2c0b170c56ff0bf08c7376f1ca4bd5cbe481a85f6cdb3de609863e25dce613a"

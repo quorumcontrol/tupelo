@@ -39,5 +39,4 @@ type Config struct {
 
 	TracingSystem TracingSystem // either Jaeger or Elastic
 	BootstrapOnly bool
-	Offline       bool
 }

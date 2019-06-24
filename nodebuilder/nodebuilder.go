@@ -125,32 +125,30 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	group := nb.setupNotaryGroup(localSigner)
 
 	var pubsub remote.PubSub
-	if !nb.Config.Offline {
-		remote.Start()
+	remote.Start()
 
-		cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
-		for _, s := range group.Signers {
-			id, err := p2p.PeerFromEcdsaKey(s.DstKey)
-			if err != nil {
-				panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
-			}
-			cm.Protect(id, "signer")
-		}
-
-		p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
+	cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
+	for _, s := range group.Signers {
+		id, err := p2p.PeerFromEcdsaKey(s.DstKey)
 		if err != nil {
-			return fmt.Errorf("error setting up p2p host: %v", err)
+			panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
 		}
-		if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
-			return fmt.Errorf("failed to bootstrap: %s", err)
-		}
-
-		remote.NewRouter(p2pHost)
-
-		nb.host = p2pHost
-
-		pubsub = remote.NewNetworkPubSub(p2pHost)
+		cm.Protect(id, "signer")
 	}
+
+	p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
+	if err != nil {
+		return fmt.Errorf("error setting up p2p host: %v", err)
+	}
+	if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
+		return fmt.Errorf("failed to bootstrap: %s", err)
+	}
+
+	remote.NewRouter(p2pHost)
+
+	nb.host = p2pHost
+
+	pubsub = remote.NewNetworkPubSub(p2pHost)
 
 	act, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              localSigner,

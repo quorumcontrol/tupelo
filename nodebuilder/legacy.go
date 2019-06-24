@@ -60,7 +60,7 @@ func (lpks *LegacyPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 
 	ecdsaPrivate, err := crypto.ToECDSA(ecdsaBits)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't unmarshal ECDSA pub key: %v", err)
+		return nil, fmt.Errorf("couldn't unmarshal ECDSA private key: %v", err)
 	}
 
 	return &PrivateKeySet{
