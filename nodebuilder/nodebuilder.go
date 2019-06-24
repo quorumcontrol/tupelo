@@ -25,7 +25,7 @@ import (
 
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/quorumcontrol/storage"
 	"github.com/shibukawa/configdir"
 )
