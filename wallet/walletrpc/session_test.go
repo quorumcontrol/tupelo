@@ -7,19 +7,22 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
-	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
+
+	"github.com/quorumcontrol/chaintree/safewrap"
+
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestImportExport(t *testing.T) {
@@ -114,7 +117,7 @@ func TestImportExport(t *testing.T) {
 	assert.Equal(t, chain.MustId(), importedUnverified.MustId())
 }
 
-func TestSendToken(t *testing.T) {
+func TestSendAndReceiveToken(t *testing.T) {
 	path := ".tmp/test-send-token"
 	err := os.RemoveAll(path)
 	require.Nil(t, err)
@@ -183,6 +186,31 @@ func TestSendToken(t *testing.T) {
 	assert.NotEmpty(t, unmarshalledSendTokens.Leaves)
 	assert.NotNil(t, unmarshalledSendTokens.Tip)
 	assert.NotNil(t, unmarshalledSendTokens.Signature)
+
+	receiveTokensTip, err := sess.ReceiveToken(destChain.MustId(), destAddr, sendTokens)
+	require.Nil(t, err)
+	require.NotNil(t, receiveTokensTip)
+
+	destChain, err = sess.GetChain(destChain.MustId())
+	require.Nil(t, err)
+
+	destChainTree, err := destChain.ChainTree.At(receiveTokensTip)
+	require.Nil(t, err)
+
+	destTree, err := destChainTree.Tree()
+	require.Nil(t, err)
+
+	senderTree, err := chain.ChainTree.Tree()
+	require.Nil(t, err)
+	canonicalTokenName, err := consensus.CanonicalTokenName(senderTree, chain.MustId(), "test-token", true)
+	require.Nil(t, err)
+
+	ledger := consensus.NewTreeLedger(destTree, canonicalTokenName)
+
+	balance, err := ledger.Balance()
+	require.Nil(t, err)
+
+	assert.Equal(t, uint64(5), balance)
 }
 
 func TestGetTip(t *testing.T) {

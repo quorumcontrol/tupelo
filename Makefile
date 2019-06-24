@@ -68,7 +68,7 @@ test: $(packr) $(generated) $(gosources) go.mod go.sum
 
 SOURCE_MOUNT ?= -v ${CURDIR}:/src/tupelo
 
-integration-test: test .tupelo-integration.yml
+integration-test: .tupelo-integration.yml
 	docker pull quorumcontrol/tupelo-integration-runner || true
 	docker run -v /var/run/docker.sock:/var/run/docker.sock $(SOURCE_MOUNT) quorumcontrol/tupelo-integration-runner
 

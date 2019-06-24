@@ -8,11 +8,10 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/jakehl/goid"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gogo/protobuf/proto"
-	cid "github.com/ipfs/go-cid"
+	"github.com/google/uuid"
+	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -106,14 +105,6 @@ func serializeDag(dag *dag.Dag) ([][]byte, error) {
 	}
 
 	return dagBytes, nil
-}
-
-func serializeNodes(nodes []*cbornode.Node) [][]byte {
-	var bytes [][]byte
-	for _, node := range nodes {
-		bytes = append(bytes, node.RawData())
-	}
-	return bytes
 }
 
 func (rpcs *RPCSession) verifySignatures(sigs consensus.SignatureMap) (bool, error) {
@@ -466,7 +457,7 @@ func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	ledger := consensus.NewTreeLedger(tree, canonicalTokenName.String())
+	ledger := consensus.NewTreeLedger(tree, canonicalTokenName)
 	bal, err := ledger.Balance()
 	if err != nil {
 		return 0, fmt.Errorf("error getting token %s balance: %s", token, err)
@@ -554,35 +545,16 @@ func (rpcs *RPCSession) MintToken(chainId, keyAddr, name string, amount uint64) 
 	return resp.Tip.String(), nil
 }
 
-func allSendTokenNodes(chain *consensus.SignedChainTree, tokenName string, sendNodeId cid.Cid) ([]*cbornode.Node, error) {
-	sendTokenNode, codedErr := chain.ChainTree.Dag.Get(sendNodeId)
-	if codedErr != nil {
-		return nil, fmt.Errorf("error getting send token node: %v", codedErr)
-	}
-
-	tokenPath, err := consensus.TokenPath(tokenName)
-	if err != nil {
-		return nil, err
-	}
-	tokenPath = append([]string{chaintree.TreeLabel}, tokenPath...)
-	tokenPath = append(tokenPath, consensus.TokenSendLabel)
-
-	tokenSendNodes, codedErr := chain.ChainTree.Dag.NodesForPath(tokenPath)
-	if codedErr != nil {
-		return nil, codedErr
-	}
-
-	tokenSendNodes = append(tokenSendNodes, sendTokenNode)
-
-	return tokenSendNodes, nil
-}
-
 func (rpcs *RPCSession) SendToken(chainId, keyAddr, name, destination string, amount uint64) (string, error) {
 	if rpcs.IsStopped() {
 		return "", StoppedError
 	}
 
-	sendTxId := goid.NewV4UUID().String()
+	sendTxUUID, err := uuid.NewRandom()
+	if err != nil {
+		return "", fmt.Errorf("error generating send token transaction ID: %v", err)
+	}
+	sendTxId := sendTxUUID.String()
 
 	txn, err := chaintree.NewSendTokenTransaction(sendTxId, name, amount, destination)
 	if err != nil {
@@ -599,56 +571,19 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, name, destination string, am
 		return "", err
 	}
 
-	tree, err := chain.ChainTree.Tree()
+	sendTree, err := chain.ChainTree.At(resp.Tip)
 	if err != nil {
 		return "", err
 	}
 
-	canonicalTokenName, err := consensus.CanonicalTokenName(tree, chainId, name, false)
+	canonicalTokenName, err := consensus.CanonicalTokenName(sendTree.Dag, chainId, name, false)
 	if err != nil {
 		return "", err
 	}
 
-	tokenSends, err := consensus.TokenTransactionCidsForType(chain.ChainTree.Dag, canonicalTokenName.String(), consensus.TokenSendLabel)
+	tokenPayload, err := consensus.TokenPayloadForTransaction(sendTree, canonicalTokenName, sendTxId, &resp.Signature)
 	if err != nil {
 		return "", err
-	}
-
-	tokenSendTx := cid.Undef
-	for _, sendTxCid := range tokenSends {
-		sendTxNode, err := chain.ChainTree.Dag.Get(sendTxCid)
-		if err != nil {
-			return "", err
-		}
-
-		sendTxNodeObj, err := nodestore.CborNodeToObj(sendTxNode)
-		if err != nil {
-			return "", err
-		}
-
-		sendTxNodeMap := sendTxNodeObj.(map[string]interface{})
-		if sendTxNodeMap["id"] == sendTxId {
-			tokenSendTx = sendTxCid
-			break
-		}
-	}
-
-	if !tokenSendTx.Defined() {
-		return "", fmt.Errorf("send token transaction not found for ID: %s", sendTxId)
-	}
-
-	tokenNodes, err := allSendTokenNodes(chain, canonicalTokenName.String(), tokenSendTx)
-	if err != nil {
-		return "", err
-	}
-
-	tip := *resp.Tip
-
-	tokenPayload := &transactions.TokenPayload{
-		TransactionId: sendTxId,
-		Tip:           tip.String(),
-		Signature:     &resp.Signature,
-		Leaves:        serializeNodes(tokenNodes),
 	}
 
 	serializedPayload, err := proto.Marshal(tokenPayload)
