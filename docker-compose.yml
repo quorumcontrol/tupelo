@@ -2,7 +2,7 @@ version: "3"
 services:
   bootstrap:
     build: .
-    command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml"]
+    command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-error}"]
     volumes:
       - ./configs/localdocker:/configs      
     networks:
@@ -15,25 +15,29 @@ services:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node0/config.toml"]
+    command: ["test-node", "--config", "/configs/node0/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-error}"]
 
   node1:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node1/config.toml"]
+    command: ["test-node", "--config", "/configs/node1/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-error}"]
   
   node2:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node2/config.toml"]
+    command: ["test-node", "--config", "/configs/node2/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-error}"]
 
   rpc-server:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["rpc-server","-r", "-l", "0", "--config", "/configs/rpcserver/config.toml"]
+    command: ["rpc-server","-r", "-l", "0", "--config", "/configs/rpcserver/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-error}"]
     ports:
       - "50051:50051"
 
