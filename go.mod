@@ -52,6 +52,6 @@ require (
 	google.golang.org/grpc v1.21.1
 )
 
-replace github.com/libp2p/go-libp2p-pubsub v0.0.3 => github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba
+replace github.com/libp2p/go-libp2p-pubsub v0.1.0 => github.com/quorumcontrol/go-libp2p-pubsub v0.0.4-0.20190528094025-e4e719f73e7a
 
 replace github.com/libp2p/go-libp2p-core => github.com/libp2p/go-libp2p-core v0.0.3
