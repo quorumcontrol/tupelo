@@ -27,13 +27,13 @@ services:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node1/config.toml"]
+    command: ["test-node", "--config", "/configs/node2/config.toml"]
 
   rpc-server:
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["rpc-server", "--config", "/configs/rpcserver/config.toml"]
+    command: ["rpc-server","-r", "-l", "0", "--config", "/configs/rpcserver/config.toml"]
     ports:
       - "50051:50051"
 
