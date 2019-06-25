@@ -20,5 +20,5 @@ DestKeyHex = "0x0468924bd1341b5cec1fed888aaf1e3caa94e7d0f13d4f4573b01b296374b9e7
 
 [NotaryGroup]
 id = "localdocker"
-transactionTopic = "tupelo-pubsub-topics"
+transactionTopic = "tupelo-transaction-broadcast"
 commitTopic = "tupelo-pubsub-commits"

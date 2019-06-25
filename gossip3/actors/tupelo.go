@@ -131,21 +131,23 @@ func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.V
 }
 
 func (tn *TupeloNode) handleGetTip(context actor.Context, msg *services.GetTipRequest) {
-	tn.Log.Debugw("handleGetTip", "tip", msg.ChainId)
+	tn.Log.Debugw("handleGetTip", "chainId", msg.ChainId)
 	currStateBits, err := tn.cfg.CurrentStateStore.Get([]byte(msg.ChainId))
 	if err != nil {
-		tn.Log.Errorw("error getting tip", "err", err)
+		tn.Log.Errorw("error getting tip", "chainId", msg.ChainId, "err", err)
 		return
 	}
 
 	currState := &signatures.CurrentState{}
-
 	if len(currStateBits) > 0 {
+		tn.Log.Debugw("could get current state for chain tree", "chainId", msg.ChainId)
 		err = proto.Unmarshal(currStateBits, currState)
 		if err != nil {
 			tn.Log.Errorw("error unmarshaling CurrentState", "err", err)
 			return
 		}
+	} else {
+		tn.Log.Debugw("couldn't get current state for chain tree", "chainId", msg.ChainId)
 	}
 
 	context.Respond(currState)

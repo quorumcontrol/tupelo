@@ -25,7 +25,7 @@ DestKeyHex = "0x0438b196bddb9c3ec395b8ccb07bdab44ec768c084e7141b09ac5638d47fffbd
 id = "did:tupelo:exampleonly"
 transactionToken = "sometoken"
 burnAmount = 100
-transactionTopic = "tupelo-pubsub-topics"
+transactionTopic = "tupelo-transaction-broadcast"
 commitTopic = "tupelo-pubsub-commits"
 validatorGenerators = [
     "ISOWNER",
