@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/AsynkronIT/protoactor-go/actor"
 	lru "github.com/hashicorp/golang-lru"
-	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"

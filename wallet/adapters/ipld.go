@@ -7,6 +7,7 @@ import (
 	ipfsHttpClient "github.com/ipfs/go-ipfs-http-client"
 	"github.com/ipfs/go-ipfs/core"
 	"github.com/ipfs/go-ipfs/core/coreapi"
+	"github.com/ipfs/go-ipfs/core/node/libp2p"
 	"github.com/ipfs/go-ipfs/repo/fsrepo"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -92,7 +93,7 @@ func NewIpldNodeStorage(config map[string]interface{}) (*IpldStorageAdapter, err
 	nodeConfig := &core.BuildCfg{
 		Online:    online,
 		Permanent: true,
-		Routing:   core.DHTOption,
+		Routing:   libp2p.DHTOption,
 		Repo:      repo,
 	}
 
