@@ -1,14 +1,15 @@
 package actors
 
 import (
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	"github.com/quorumcontrol/messages/build/go/signatures"
 	"bytes"
 	"context"
 	"fmt"
 	"math"
 	"reflect"
 	"time"
+
+	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 
