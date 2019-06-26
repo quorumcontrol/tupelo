@@ -297,7 +297,7 @@ func (csw *ConflictSetWorker) checkState(cs *ConflictSet, context actor.Context,
 	defer sp.Finish()
 
 	csw.Log.Debugw("check state")
-	if cs.updates < msg.atUpdate {
+	if msg.atUpdate < cs.updates {
 		csw.Log.Debugw("old update")
 		sp.SetTag("oldUpdate", true)
 		// we know there will be another check state message with a higher update
