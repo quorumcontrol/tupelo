@@ -100,7 +100,10 @@ var rpcServerCmd = &cobra.Command{
 
 			gossip3remote.NewRouter(p2pHost)
 
-			group = nb.NotaryGroup()
+			group, err = nb.NotaryGroup()
+			if err != nil {
+				panic(fmt.Errorf("error getting group: %v", err))
+			}
 		}
 		group.SetupAllRemoteActors(&key.PublicKey)
 		walletStorage := walletPath()

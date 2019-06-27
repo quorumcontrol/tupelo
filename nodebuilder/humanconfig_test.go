@@ -1,9 +1,10 @@
 package nodebuilder
 
 import (
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestTomlLoading(t *testing.T) {
@@ -11,7 +12,7 @@ func TestTomlLoading(t *testing.T) {
 	require.Nil(t, err)
 	c, err := TomlToConfig(string(bits))
 	require.Nil(t, err)
-	require.Len(t, c.Signers, 2)
+	require.Len(t, c.NotaryGroupConfig.Signers, 2)
 }
 
 func TestFailsWithInvalidTracer(t *testing.T) {

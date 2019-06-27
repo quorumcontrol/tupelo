@@ -32,7 +32,7 @@ type LegacyPublicKeySet struct {
 	PeerIDBase58Key   string `json:"peerIDBase58Key,omitempty"`
 }
 
-func (lpks *LegacyPublicKeySet) ToPublicKeySet() (*PublicKeySet, error) {
+func (lpks *LegacyPublicKeySet) ToPublicKeySet() (*types.PublicKeySet, error) {
 	blsBits := hexutil.MustDecode(lpks.BlsHexPublicKey)
 	ecdsaBits := hexutil.MustDecode(lpks.EcdsaHexPublicKey)
 
@@ -43,7 +43,7 @@ func (lpks *LegacyPublicKeySet) ToPublicKeySet() (*PublicKeySet, error) {
 
 	verKey := bls.BytesToVerKey(blsBits)
 
-	return &PublicKeySet{
+	return &types.PublicKeySet{
 		DestKey: ecdsaPub,
 		VerKey:  verKey,
 	}, nil
@@ -127,7 +127,7 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 		return nil, fmt.Errorf("error getting bootstrap keys: %v", err)
 	}
 
-	signers := make([]PublicKeySet, len(legacyKeys))
+	signers := make([]types.PublicKeySet, len(legacyKeys))
 
 	for i, legacy := range legacyKeys {
 		pub, err := legacy.ToPublicKeySet()
@@ -139,11 +139,11 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 
 	ngConfig := types.DefaultConfig()
 	ngConfig.ID = "hardcodedprivatekeysareunsafe" // this is what it was
+	ngConfig.Signers = signers
 
 	c := &Config{
 		Namespace:         namespace,
 		NotaryGroupConfig: ngConfig,
-		Signers:           signers,
 		PrivateKeySet:     privateKeySet,
 		BootstrapNodes:    p2p.BootstrapNodes(),
 		StoragePath:       configDir(namespace, remoteConfigName),

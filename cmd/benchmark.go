@@ -168,7 +168,10 @@ var benchmark = &cobra.Command{
 
 		gossip3remote.NewRouter(p2pHost)
 
-		group := nb.NotaryGroup()
+		group, err := nb.NotaryGroup()
+		if err != nil {
+			panic(fmt.Errorf("error getting notary group: %v", err))
+		}
 		group.SetupAllRemoteActors(&key.PublicKey)
 
 		pubSubSystem := remote.NewNetworkPubSub(p2pHost)

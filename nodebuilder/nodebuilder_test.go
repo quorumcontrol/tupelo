@@ -51,6 +51,16 @@ func TestSigner(t *testing.T) {
 
 		ngConfig := types.DefaultConfig()
 		ngConfig.ID = "hardcoded"
+		ngConfig.Signers = []types.PublicKeySet{
+			types.PublicKeySet{
+				DestKey: &ts.EcdsaKeys[1].PublicKey,
+				VerKey:  ts.SignKeys[1].MustVerKey(),
+			},
+			types.PublicKeySet{
+				DestKey: &ts.EcdsaKeys[2].PublicKey,
+				VerKey:  ts.SignKeys[2].MustVerKey(),
+			},
+		}
 
 		nb := &NodeBuilder{
 			Config: &Config{
@@ -61,16 +71,6 @@ func TestSigner(t *testing.T) {
 				},
 				StoragePath:    configDir("tests", "testonly"),
 				BootstrapNodes: addrs,
-				Signers: []PublicKeySet{
-					PublicKeySet{
-						DestKey: &ts.EcdsaKeys[1].PublicKey,
-						VerKey:  ts.SignKeys[1].MustVerKey(),
-					},
-					PublicKeySet{
-						DestKey: &ts.EcdsaKeys[2].PublicKey,
-						VerKey:  ts.SignKeys[2].MustVerKey(),
-					},
-				},
 			},
 		}
 		err = nb.Start(ctx)

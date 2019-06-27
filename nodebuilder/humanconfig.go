@@ -36,34 +36,6 @@ func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 	}, nil
 }
 
-type HumanPublicKeySet struct {
-	VerKeyHex  string
-	DestKeyHex string
-}
-
-func (hpubset *HumanPublicKeySet) ToPublicKeySet() (pubset PublicKeySet, err error) {
-	blsBits, err := hexutil.Decode(hpubset.VerKeyHex)
-	if err != nil {
-		return pubset, fmt.Errorf("error decoding verkey: %v", err)
-	}
-	ecdsaBits, err := hexutil.Decode(hpubset.DestKeyHex)
-	if err != nil {
-		return pubset, fmt.Errorf("error decoding destkey: %v", err)
-	}
-
-	ecdsaPub, err := crypto.UnmarshalPubkey(ecdsaBits)
-	if err != nil {
-		return pubset, fmt.Errorf("couldn't unmarshal ECDSA pub key: %v", err)
-	}
-
-	verKey := bls.BytesToVerKey(blsBits)
-
-	return PublicKeySet{
-		DestKey: ecdsaPub,
-		VerKey:  verKey,
-	}, nil
-}
-
 // HumanConfig is used for parsing an ondisk configuration into the application-used Config
 // struct. At the time of this comment, it also uses the types.HumanConfig for notary groups
 // defined in the tupelo-go-sdk as well.
@@ -76,7 +48,6 @@ type HumanConfig struct {
 	Port        int
 
 	PrivateKeySet  *HumanPrivateKeySet
-	Signers        []HumanPublicKeySet
 	BootstrapNodes []string
 
 	BootstrapOnly bool
@@ -117,16 +88,6 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		}
 		c.PrivateKeySet = privSet
 	}
-
-	signers := make([]PublicKeySet, len(hc.Signers))
-	for i, humanPub := range hc.Signers {
-		pub, err := humanPub.ToPublicKeySet()
-		if err != nil {
-			return nil, fmt.Errorf("error getting signer from human: %v", err)
-		}
-		signers[i] = pub
-	}
-	c.Signers = signers
 
 	return c, nil
 }
