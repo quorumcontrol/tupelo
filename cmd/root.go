@@ -135,11 +135,7 @@ func Execute() {
 }
 
 func loadTomlConfig(path string) error {
-	tomlBits, err := ioutil.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("error reading %s: %v", path, err)
-	}
-	c, err := nodebuilder.TomlToConfig(string(tomlBits))
+	c, err := nodebuilder.TomlToConfig(path)
 	if err != nil {
 		return fmt.Errorf("error getting config from toml: %v", err)
 	}
