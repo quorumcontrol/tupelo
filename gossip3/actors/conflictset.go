@@ -68,7 +68,7 @@ type ConflictSetConfig struct {
 	CommitValidator    *commitValidator
 }
 
-func NewConflictSet(id string) *ConflictSet {
+func newConflictSet(id string) *ConflictSet {
 	return &ConflictSet{
 		ID:                 id,
 		signatures:         make(signatureByTransaction),
@@ -166,9 +166,11 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context) {
 	defer sp.Finish()
 	csw.Log.Debug("activate")
 
+	csw.Log.Debugw("activating conflict set", "ID", cs.ID)
 	cs.active = true
 
 	if cs.snoozedCommit != nil {
+		csw.Log.Debugw("handling snoozed commit/current state wrapper")
 		if err := csw.handleCurrentStateWrapper(cs, context, cs.snoozedCommit); err != nil {
 			panic(fmt.Errorf("error processing snoozed commit: %v", err))
 		}
@@ -176,10 +178,12 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context) {
 
 	if cs.done {
 		// We had a valid commit already, so we're done
+		csw.Log.Debugw("finishing activation since we're done already")
 		return
 	}
 
 	// no (valid) commit, so let's start validating any snoozed transactions
+	csw.Log.Debugw("validating snoozed transactions", "numTransactions", len(cs.transactions))
 	for _, transaction := range cs.transactions {
 		context.Send(csw.router, &messages.ValidateTransaction{
 			Transaction: transaction.Transaction,
@@ -206,7 +210,10 @@ func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context acto
 		sp.SetTag("accepted", true)
 		sp.SetTag("active", true)
 		transSpan.SetTag("accepted", true)
+		csw.Log.Debugw("marking conflict set as active since message is accepted")
 		cs.active = true
+	} else {
+		csw.Log.Debugw("not marking conflict set as active since message is in preflight")
 	}
 
 	cs.transactions[string(msg.TransactionId)] = msg
@@ -215,11 +222,13 @@ func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context acto
 	} else {
 		sp.SetTag("snoozing", true)
 		transSpan.SetTag("snoozing", true)
-		csw.Log.Debugw("snoozing transaction", "t", msg.TransactionId, "height", msg.Transaction.Height)
+		csw.Log.Debugw("snoozing conflict set since inactive", "t", msg.TransactionId,
+			"height", msg.Transaction.Height)
 	}
 }
 
 func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor.Context) {
+	csw.Log.Debugw("processing transactions of conflict set", "ID", cs.ID)
 	sp := cs.NewSpan("processTransactions")
 	defer sp.Finish()
 
@@ -299,7 +308,7 @@ func (csw *ConflictSetWorker) checkState(cs *ConflictSet, context actor.Context,
 
 	csw.Log.Debugw("check state")
 	if msg.atUpdate < cs.updates {
-		csw.Log.Debugw("old update")
+		csw.Log.Debugw("old update, ignoring until later")
 		sp.SetTag("oldUpdate", true)
 		// we know there will be another check state message with a higher update
 		return
@@ -366,6 +375,8 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 
 	sp.SetTag("winner", trans.TransactionId)
 
+	csw.Log.Debugw("creating current state from a conflict set", "ID", cs.ID)
+
 	currState := &signatures.CurrentState{
 		Signature: cs.signatures[string(trans.TransactionId)].Signature,
 	}
@@ -376,18 +387,16 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 		CurrentState: currState,
 		Metadata:     messages.MetadataMap{"seen": time.Now()},
 	}
-	if currStateWrapper.Verified {
-		setupCurrStateCtx(currStateWrapper, cs)
-		return csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
-	}
-	csw.Log.Errorw("invalid current state wrapper created internally!")
-
-	return nil
+	setupCurrStateCtx(currStateWrapper, cs)
+	return csw.handleCurrentStateWrapper(cs, actorContext, currStateWrapper)
 }
 
 func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context actor.Context, currWrapper *messages.CurrentStateWrapper) error {
 	sp := cs.NewSpan("handleCurrentStateWrapper")
 	defer sp.Finish()
+
+	csw.Log.Debugw("handling current state wrapper", "csID", cs.ID, "csActive", cs.active,
+		"currWrapperVerified", currWrapper.Verified)
 
 	if !cs.active && (currWrapper.CurrentState.Signature.Height == currWrapper.NextHeight) {
 		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
@@ -406,7 +415,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 			if cs.snoozedCommit != nil {
 				return fmt.Errorf("received new commit with one already snoozed")
 			}
-			csw.Log.Debugw("snoozing commit")
+			csw.Log.Debugw("snoozing commit since conflict set inactive")
 			cs.snoozedCommit = currWrapper
 			return nil
 		}
@@ -422,7 +431,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 
 		cs.done = true
 		sp.SetTag("done", true)
-		csw.Log.Debugw("conflict set is done")
+		csw.Log.Debugw("conflict set is done, sending current state wrapper on to conflict set router")
 
 		context.Send(csw.router, currWrapper)
 		return nil
@@ -434,7 +443,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 	return nil
 }
 
-// returns a transaction with enough signatures or nil if none yet exist
+// returns a transaction with enough signatures or nil if none yet exists
 func (csw *ConflictSetWorker) possiblyDone(cs *ConflictSet) *messages.TransactionWrapper {
 	sp := cs.NewSpan("possiblyDone")
 	defer sp.Finish()

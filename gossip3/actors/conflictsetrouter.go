@@ -106,10 +106,10 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *actor.Stopping:
 		csr.cfg.PubSubSystem.UnregisterTopicValidator(csr.commitTopic())
 	case *messages.TransactionWrapper:
+		csr.Log.Debugw("received TransactionWrapper message")
 		sp := msg.NewSpan("conflictset-router")
 		defer sp.Finish()
-		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectId,
-			msg.Transaction.Height)
+		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectId, msg.Transaction.Height)
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
 		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectId, msg.Signature.Height)
@@ -217,14 +217,18 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 }
 
 func (csr *ConflictSetRouter) forwardOrIgnore(context actor.Context, msg interface{},
-	ObjectId []byte, height uint64) {
-	cs := csr.getOrCreateCS(ObjectId, height)
-	if cs != nil {
-		context.Send(csr.pool, &csWorkerRequest{
-			msg: msg,
-			cs:  cs,
-		})
+	objectId []byte, height uint64) {
+	cs := csr.getOrCreateCS(objectId, height)
+	if cs == nil {
+		csr.Log.Debugw("ignoring message")
+		return
 	}
+
+	csr.Log.Debugw("sending conflict set worker request to pool")
+	context.Send(csr.pool, &csWorkerRequest{
+		msg: msg,
+		cs:  cs,
+	})
 }
 
 func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver *messages.SignatureVerification) error {
@@ -250,28 +254,28 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 // if there is already a conflict set, then forward the message there
 // if there isn't then, look at the recently done and if it's done, return nil
 // if it's not in either set, then create the actor
-func (csr *ConflictSetRouter) getOrCreateCS(ObjectId []byte, height uint64) *ConflictSet {
-	idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(ObjectId, height)))
+func (csr *ConflictSetRouter) getOrCreateCS(objectId []byte, height uint64) *ConflictSet {
+	idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(objectId, height)))
 	csr.Log.Debugw("determining whether or not to create another conflict set", "numExistingSets",
-		csr.conflictSets.Len(), "ObjectId", ObjectId, "height", height)
-	nodeID := []byte(fmt.Sprintf("%s/%d", ObjectId, height))
+		csr.conflictSets.Len(), "objectId", objectId, "height", height)
+	nodeID := []byte(fmt.Sprintf("%s/%d", objectId, height))
 	csI, ok := csr.conflictSets.Get(nodeID)
 	if ok {
-		csr.Log.Debugw("got existing conflict set", "ObjectId", ObjectId, "height", height)
+		csr.Log.Debugw("got existing conflict set", "objectId", objectId, "height", height)
 		return csI.(*ConflictSet)
 	}
 
 	if _, ok = csr.recentlyDone.Get(idS); ok {
-		csr.Log.Debugw("conflict set is already done", "ObjectId", ObjectId, "height", height)
+		csr.Log.Debugw("conflict set is already done", "objectId", objectId, "height", height)
 		return nil
 	}
 
-	csr.Log.Debugw("creating conflict set", "ObjectId", ObjectId, "height", height)
+	csr.Log.Debugw("creating conflict set", "objectId", objectId, "height", height)
 	cfg := csr.cfg
-	cs := NewConflictSet(idS)
+	cs := newConflictSet(idS)
 	sp := cs.StartTrace("conflictset")
 	sp.SetTag("csid", idS)
-	sp.SetTag("ObjectId", ObjectId)
+	sp.SetTag("objectId", objectId)
 	sp.SetTag("height", height)
 	sp.SetTag("signer", cfg.Signer.ID)
 	sets, _, _ := csr.conflictSets.Insert(nodeID, cs)
