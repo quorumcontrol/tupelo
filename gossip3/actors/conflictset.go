@@ -21,6 +21,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/metrics"
 )
 
 type signatureByTransaction map[string]*messages.SignatureWrapper
@@ -69,6 +70,7 @@ type ConflictSetConfig struct {
 }
 
 func newConflictSet(id string) *ConflictSet {
+	metrics.IncInactiveConflictSets()
 	return &ConflictSet{
 		ID:                 id,
 		signatures:         make(signatureByTransaction),
@@ -167,6 +169,7 @@ func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context) {
 	csw.Log.Debug("activate")
 
 	csw.Log.Debugw("activating conflict set", "ID", cs.ID)
+	metrics.DecInactiveConflictSets()
 	cs.active = true
 
 	if cs.snoozedCommit != nil {
@@ -211,6 +214,7 @@ func (csw *ConflictSetWorker) handleNewTransaction(cs *ConflictSet, context acto
 		sp.SetTag("active", true)
 		transSpan.SetTag("accepted", true)
 		csw.Log.Debugw("marking conflict set as active since message is accepted")
+		metrics.DecInactiveConflictSets()
 		cs.active = true
 	} else {
 		csw.Log.Debugw("not marking conflict set as active since message is in preflight")
@@ -401,6 +405,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 	if !cs.active && (currWrapper.CurrentState.Signature.Height == currWrapper.NextHeight) {
 		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
 		sp.SetTag("activating", true)
+		metrics.DecInactiveConflictSets()
 		cs.active = true
 	}
 

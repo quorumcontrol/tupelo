@@ -84,7 +84,8 @@ var rpcServerCmd = &cobra.Command{
 
 			config := nodebuilderConfig
 			if config == nil {
-				config, err = nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
+				config, err = nodebuilder.LegacyConfig(configNamespace, 0, enableElasticTracing,
+					enableJaegerTracing, overrideKeysFile)
 				if err != nil {
 					panic(fmt.Errorf("error generating legacy config: %v", err))
 				}

@@ -19,10 +19,18 @@ type HumanPrivateKeySet struct {
 }
 
 func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
-	signKeyBytes, err := hexutil.Decode(hpks.SignKeyHex)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding sign key: %v", err)
+	var signKey *bls.SignKey
+	if len(hpks.SignKeyHex) > 0 {
+		signKeyBytes, err := hexutil.Decode(hpks.SignKeyHex)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding sign key: %v", err)
+		}
+		signKey = bls.BytesToSignKey(signKeyBytes)
+		if signKey == nil {
+			return nil, fmt.Errorf("couldn't unmarshal sign key")
+		}
 	}
+
 	destKeyBytes, err := hexutil.Decode(hpks.DestKeyHex)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding dest key: %v", err)
@@ -31,7 +39,7 @@ func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("couldn't unmarshal ECDSA private key: %v", err)
 	}
-	signKey := bls.BytesToSignKey(signKeyBytes)
+
 	return &PrivateKeySet{
 		SignKey: signKey,
 		DestKey: ecdsaPrivate,
@@ -39,7 +47,7 @@ func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 }
 
 // HumanConfig is used for parsing an ondisk configuration into the application-used Config
-// struct. At the time of this comment, it also uses the types.HumanConfig for notary groups
+// struct. At the time of this comment, it uses the types.HumanConfig for notary groups
 // defined in the tupelo-go-sdk as well.
 type HumanConfig struct {
 	Namespace string

@@ -31,7 +31,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.0.6
 	github.com/libp2p/go-libp2p-pubsub v0.1.0
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/prometheus/common v0.6.0 // indirect
+	github.com/prometheus/client_golang v0.9.3
 	github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190723140659-c8a3565a7c72
 	github.com/quorumcontrol/tupelo-go-sdk v0.5.3-rc1
@@ -41,11 +41,9 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
-	go.opencensus.io v0.22.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
-	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1
 )
 

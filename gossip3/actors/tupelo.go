@@ -16,6 +16,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/metrics"
 )
 
 // TupeloNode is the main logic of the entire system,
@@ -83,6 +84,14 @@ func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *m
 		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "ObjectId", msg.CurrentState.Signature.ObjectId)
 		// un-snooze waiting conflict sets
 		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectId: msg.CurrentState.Signature.ObjectId})
+
+		metrics.IncTotalCommittedTransactions()
+		if msg.CurrentState.Signature.Height == 0 {
+			tn.Log.Debugw("increasing the current number of chain trees")
+			metrics.IncNumChainTrees()
+		} else {
+			tn.Log.Debugw("not increasing the current number of chain trees")
+		}
 
 		// if we are the ones creating this current state then broadcast
 		if msg.Internal {

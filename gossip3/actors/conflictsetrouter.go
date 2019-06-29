@@ -23,6 +23,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/metrics"
 	"go.uber.org/zap"
 )
 
@@ -213,6 +214,7 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 	})
 	csr.conflictSets = txn.Commit()
 
+	metrics.SetNumConflictSets(int64(csr.conflictSets.Len()))
 	csr.Log.Debugw("finished cleaning up conflict sets", "numRemaining", csr.conflictSets.Len())
 }
 
@@ -280,6 +282,7 @@ func (csr *ConflictSetRouter) getOrCreateCS(objectId []byte, height uint64) *Con
 	sp.SetTag("signer", cfg.Signer.ID)
 	sets, _, _ := csr.conflictSets.Insert(nodeID, cs)
 	csr.conflictSets = sets
+	metrics.SetNumConflictSets(int64(csr.conflictSets.Len()))
 	return cs
 }
 

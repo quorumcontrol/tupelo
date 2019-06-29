@@ -27,6 +27,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
+	"github.com/quorumcontrol/tupelo/metrics"
 )
 
 type stateTransaction struct {
@@ -120,6 +121,7 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 			tv.Log.Debugw("transaction is for expected height")
 			currTip = currentState.Signature.NewTip
 		} else if expectedHeight < t.Height {
+			metrics.IncPreflightTxns()
 			tv.Log.Debugw("transaction has higher than expected height, marking as preflight",
 				"height", t.Height, "expectedHeight", expectedHeight)
 			wrapper.PreFlight = true
@@ -127,11 +129,13 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 			return
 		} else {
 			tv.Log.Debugf("transaction height %d is lower than current state height %d; ignoring", t.Height, expectedHeight)
+			metrics.IncStaleTxns()
 			wrapper.Stale = true
 			actorCtx.Respond(wrapper)
 			return
 		}
 	} else if t.Height > 0 {
+		metrics.IncPreflightTxns()
 		tv.Log.Debugw("object corresponding to transaction not found, marking as preflight",
 			"height", t.Height)
 		wrapper.PreFlight = true

@@ -46,21 +46,25 @@ var testnodeCmd = &cobra.Command{
 		config := nodebuilderConfig
 		if config == nil {
 			var err error
-			config, err = nodebuilder.LegacyConfig(configNamespace, testnodePort, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
+			config, err = nodebuilder.LegacyConfig(configNamespace, testnodePort, enableElasticTracing,
+				enableJaegerTracing, overrideKeysFile)
 			if err != nil {
 				panic(fmt.Errorf("error getting legacy config: %v", err))
 			}
 		}
 
 		nb := &nodebuilder.NodeBuilder{Config: config}
-		err := nb.Start(ctx)
-		if err != nil {
+		if err := nb.Start(ctx); err != nil {
 			panic(fmt.Errorf("error starting: %v", err))
 		}
-		err = nb.Host().WaitForBootstrap(len(config.NotaryGroupConfig.Signers)/2, 30*time.Second)
-		if err != nil {
+		if err := nb.Host().WaitForBootstrap(len(config.NotaryGroupConfig.Signers)/2, 30*time.Second); err != nil {
 			panic(fmt.Errorf("error starting: %v", err))
 		}
+
+		if err := startPromServer(); err != nil {
+			panic(err)
+		}
+
 		fmt.Printf("started signer host %s on %v\n", nb.Host().Identity(), nb.Host().Addresses())
 		select {}
 	},

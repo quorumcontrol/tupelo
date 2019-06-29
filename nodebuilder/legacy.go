@@ -126,7 +126,6 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 	if err != nil {
 		return nil, fmt.Errorf("error getting bootstrap keys: %v", err)
 	}
-
 	signers := make([]types.PublicKeySet, len(legacyKeys))
 
 	for i, legacy := range legacyKeys {
