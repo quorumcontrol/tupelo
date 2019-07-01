@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +23,7 @@ import (
 )
 
 func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
-	cborNodes, err := dagTree.Nodes()
+	cborNodes, err := dagTree.Nodes(context.TODO())
 	require.Nil(t, err)
 	nodes := make([][]byte, len(cborNodes))
 	for i, node := range cborNodes {
@@ -39,6 +39,9 @@ func newTransactionValidator() TransactionValidator {
 }
 
 func TestChainTreeStateHandler(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
@@ -55,7 +58,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		},
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 
 	nodes := dagToByteNodes(t, emptyTree)
@@ -84,10 +87,10 @@ func TestChainTreeStateHandler(t *testing.T) {
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
@@ -138,7 +141,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	assert.Nil(t, err)
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
@@ -183,7 +186,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	valid, err := testTree.ProcessBlock(blockWithHeaders)
+	valid, err := testTree.ProcessBlock(ctx, blockWithHeaders)
 	assert.True(t, valid)
 	assert.Nil(t, err)
 
@@ -247,13 +250,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	valid, err = testTree.ProcessBlock(blockWithHeaders)
+	valid, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	assert.True(t, valid)
 	assert.Nil(t, err)
 
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-	val, _, err := testTree.Dag.Resolve([]string{"tree", "data", "another", "path"})
+	val, _, err := testTree.Dag.Resolve(ctx, []string{"tree", "data", "another", "path"})
 	assert.Nil(t, err)
 	assert.Equal(t, "test", val)
 }
@@ -273,6 +276,9 @@ func transToStateTrans(t *testing.T, did string, tip cid.Cid, trans *services.Ad
 }
 
 func TestSigner_TokenTransactions(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
@@ -292,7 +298,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		},
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 
 	nodes := dagToByteNodes(t, emptyTree)
@@ -313,10 +319,10 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	require.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
@@ -355,12 +361,12 @@ func TestSigner_TokenTransactions(t *testing.T) {
 		assert.Nil(t, err)
 		assert.True(t, isAccepted)
 
-		_, err = testTree.ProcessBlock(blockWithHeaders)
+		_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 		assert.Nil(t, err)
 
 		assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
-		mintAmount, _, err := testTree.Dag.Resolve([]string{"tree", "_tupelo", "tokens", tokenFullName.String(), consensus.TokenMintLabel, fmt.Sprint(testIndex), "amount"})
+		mintAmount, _, err := testTree.Dag.Resolve(ctx, []string{"tree", "_tupelo", "tokens", tokenFullName.String(), consensus.TokenMintLabel, fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
 		assert.Equal(t, mintAmount, testAmount)
 	}
@@ -423,12 +429,15 @@ func TestSigner_TokenTransactions(t *testing.T) {
 }
 
 func TestSigner_NextBlockValidation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	treeKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
 	savedcid := emptyTree.Tip
@@ -461,7 +470,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 
@@ -494,7 +503,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, isAccepted)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders2)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders2)
 	assert.Nil(t, err)
 	assert.Equal(t, newState, testTree.Dag.Tip.Bytes())
 

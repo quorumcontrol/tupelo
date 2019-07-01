@@ -69,7 +69,7 @@ func newValidTransaction(t *testing.T) services.AddBlockRequest {
 		},
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(context.TODO())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 	emptyTip := emptyTree.Tip
 	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)

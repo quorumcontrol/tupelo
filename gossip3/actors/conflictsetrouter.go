@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	datastore "github.com/ipfs/go-datastore"
 
 	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
@@ -18,7 +19,6 @@ import (
 	iradix "github.com/hashicorp/go-immutable-radix"
 	lru "github.com/hashicorp/golang-lru"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -43,7 +43,7 @@ type ConflictSetRouterConfig struct {
 	SignatureGenerator *actor.PID
 	SignatureChecker   *actor.PID
 	SignatureSender    *actor.PID
-	CurrentStateStore  storage.Reader
+	CurrentStateStore  datastore.Read
 	PubSubSystem       remote.PubSub
 }
 
@@ -299,10 +299,10 @@ func conflictSetIDToInternalID(id []byte) string {
 	return hexutil.Encode(id)
 }
 
-func nextHeight(log *zap.SugaredLogger, currentStateStore storage.Reader, ObjectId []byte) uint64 {
+func nextHeight(log *zap.SugaredLogger, currentStateStore datastore.Read, ObjectId []byte) uint64 {
 	log.Debugw("calculating next height", "ObjectId", string(ObjectId))
-	currStateBits, err := currentStateStore.Get(ObjectId)
-	if err != nil {
+	currStateBits, err := currentStateStore.Get(datastore.NewKey(string(ObjectId)))
+	if err != nil && err != datastore.ErrNotFound {
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 	if len(currStateBits) > 0 {

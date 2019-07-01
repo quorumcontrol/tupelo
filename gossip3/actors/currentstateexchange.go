@@ -8,14 +8,16 @@ import (
 	"io"
 	"time"
 
+	query "github.com/ipfs/go-datastore/query"
+
 	"github.com/golang/protobuf/proto"
+	datastore "github.com/ipfs/go-datastore"
 
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
@@ -30,7 +32,7 @@ type CurrentStateExchange struct {
 
 type CurrentStateExchangeConfig struct {
 	ConflictSetRouter *actor.PID
-	CurrentStateStore storage.Storage
+	CurrentStateStore datastore.Batching
 }
 
 func NewCurrentStateExchangeProps(config *CurrentStateExchangeConfig) *actor.Props {
@@ -80,20 +82,25 @@ func (e *CurrentStateExchange) gzipExport() []byte {
 
 	e.Log.Debugw("gzipExport started")
 
-	err := e.cfg.CurrentStateStore.ForEach([]byte{}, func(key, value []byte) error {
+	result, err := e.cfg.CurrentStateStore.Query(query.Query{})
+	if err != nil {
+		panic(fmt.Errorf("error creating query: %v", err))
+	}
+
+	for entry := range result.Next() {
 		wroteCount++
 		prefix := make([]byte, 4)
-		binary.BigEndian.PutUint32(prefix, uint32(len(value)))
+		binary.BigEndian.PutUint32(prefix, uint32(len(entry.Value)))
 		_, err := w.Write(prefix)
 		if err != nil {
-			return err
+			panic(fmt.Sprintf("Error creating gzip export %v", err))
 		}
-		_, err = w.Write(value)
-		return err
-	})
-	if err != nil {
-		panic(fmt.Sprintf("Error creating gzip export %v", err))
+		_, err = w.Write(entry.Value)
+		if err != nil {
+			panic(fmt.Sprintf("Error creating gzip export %v", err))
+		}
 	}
+
 	w.Close()
 
 	if wroteCount == 0 {
