@@ -86,6 +86,7 @@ func (e *CurrentStateExchange) gzipExport() []byte {
 	if err != nil {
 		panic(fmt.Errorf("error creating query: %v", err))
 	}
+	defer result.Close()
 
 	for entry := range result.Next() {
 		wroteCount++

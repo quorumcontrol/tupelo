@@ -2,18 +2,19 @@ package wallet
 
 import (
 	"context"
-	"github.com/quorumcontrol/messages/build/go/signatures"
 	"os"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/quorumcontrol/messages/build/go/signatures"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -49,14 +50,15 @@ func SubtestAll(t *testing.T, storageConfig *adapters.Config) {
 	SubtestWallet_GetChainIds(t, storageConfig)
 	SubtestWallet_ChainExists(t, storageConfig)
 	SubtestWallet_GetKey(t, storageConfig)
+	SubtestWallet_ListKeys(t, storageConfig)
 	SubtestWallet_ChainExists(t, storageConfig)
 }
 
 func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
+	w := NewWallet(&WalletConfig{Storage: storage.NewDefaultMemory()})
 	defer w.Close()
 
 	key, err := w.GenerateKey()
@@ -99,10 +101,10 @@ func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
 }
 
 func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
+	w := NewWallet(&WalletConfig{Storage: storage.NewDefaultMemory()})
 	defer w.Close()
 
 	key, err := w.GenerateKey()
@@ -200,7 +202,6 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	_, err = signedTree.ChainTree.Dag.Update(ctx, []string{chaintree.ChainLabel}, newChainNode)
 	require.Nil(t, err)
 
-
 	err = w.SaveChain(signedTree)
 	require.Nil(t, err)
 
@@ -214,7 +215,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 }
 
 func SubtestWallet_GetChainIds(t *testing.T, storageConfig *adapters.Config) {
-	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
+	w := NewWallet(&WalletConfig{Storage: storage.NewDefaultMemory()})
 	defer w.Close()
 
 	createdChains := make([]string, 3)
@@ -225,8 +226,8 @@ func SubtestWallet_GetChainIds(t *testing.T, storageConfig *adapters.Config) {
 
 		keyAddr := crypto.PubkeyToAddress(key.PublicKey).String()
 		signedTree, err := w.CreateChain(keyAddr, storageConfig)
-		createdChains[i] = signedTree.MustId()
 		require.Nil(t, err)
+		createdChains[i] = signedTree.MustId()
 	}
 
 	ids, err := w.GetChainIds()
@@ -236,7 +237,7 @@ func SubtestWallet_GetChainIds(t *testing.T, storageConfig *adapters.Config) {
 }
 
 func SubtestWallet_GetKey(t *testing.T, storageConfig *adapters.Config) {
-	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
+	w := NewWallet(&WalletConfig{Storage: storage.NewDefaultMemory()})
 	defer w.Close()
 
 	key, err := w.GenerateKey()
@@ -247,8 +248,26 @@ func SubtestWallet_GetKey(t *testing.T, storageConfig *adapters.Config) {
 	assert.Equal(t, retKey, key)
 }
 
+func SubtestWallet_ListKeys(t *testing.T, storageConfig *adapters.Config) {
+	w := NewWallet(&WalletConfig{Storage: storage.NewDefaultMemory()})
+	defer w.Close()
+
+	keyCount := 3
+	// generatedKeys := make([]*ecdsa.PrivateKey, keyCount)
+	addrs := make([]string, keyCount)
+	for i:=0;i<keyCount;i++ {
+		key, err := w.GenerateKey()
+		require.Nil(t, err)
+		// generatedKeys[i] = key
+		addrs[i] = crypto.PubkeyToAddress(key.PublicKey).String()
+	}
+	keys,err := w.ListKeys()
+	require.Nil(t,err)
+	assert.ElementsMatch(t, addrs, keys)
+}
+
 func SubtestWallet_ChainExists(t *testing.T, storageConfig *adapters.Config) {
-	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
+	w := NewWallet(&WalletConfig{Storage: storage.NewDefaultMemory()})
 	defer w.Close()
 
 	key, err := w.GenerateKey()

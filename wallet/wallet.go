@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"log"
 
+	datastore "github.com/ipfs/go-datastore"
+	query "github.com/ipfs/go-datastore/query"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
@@ -15,7 +18,6 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
@@ -25,12 +27,12 @@ var _ consensus.Wallet = (*Wallet)(nil)
 
 // Wallet stores keys and metadata about a chaintree (id, signatures, storage adapter / config)
 type Wallet struct {
-	storage  storage.Storage
+	storage  datastore.Datastore
 	adapters *adapters.AdapterSingletonFactory
 }
 
 type WalletConfig struct {
-	Storage storage.Storage
+	Storage datastore.Datastore
 }
 
 type ExistingChainError struct {
@@ -49,7 +51,7 @@ func NewWallet(config *WalletConfig) *Wallet {
 	}
 }
 
-func (w *Wallet) Storage() storage.Storage {
+func (w *Wallet) Storage() datastore.Datastore {
 	return w.storage
 }
 
@@ -59,7 +61,7 @@ func (w *Wallet) Close() {
 }
 
 func (w *Wallet) GetTip(chainId string) ([]byte, error) {
-	tip, err := w.storage.Get(chainStorageKey([]byte(chainId)))
+	tip, err := w.storage.Get(chainStorageKey(chainId))
 	if err != nil {
 		return nil, fmt.Errorf("error getting tip for chain id %v: %v", chainId, err)
 	}
@@ -75,7 +77,7 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 		return nil, fmt.Errorf("error getting chain: %v", err)
 	}
 
-	signatures, err := w.storage.Get(signatureStorageKey([]byte(chainId)))
+	signatures, err := w.storage.Get(signatureStorageKey(chainId))
 	if err != nil {
 		return nil, fmt.Errorf("error getting signatures: %v", err)
 	}
@@ -148,7 +150,7 @@ func (w *Wallet) ConfigureChainStorage(chainId string, storageConfig *adapters.C
 	if err != nil {
 		return err
 	}
-	return w.storage.Set(datastoreConfigStorageKey([]byte(chainId)), storageConfigBytes)
+	return w.storage.Put(datastoreConfigStorageKey(chainId), storageConfigBytes)
 }
 
 func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
@@ -193,12 +195,12 @@ func (w *Wallet) SaveChainMetadata(signedChain *consensus.SignedChainTree) error
 		return fmt.Errorf("error wrapping signatures: %v", sw.Err)
 	}
 
-	if err = w.storage.Set(signatureStorageKey([]byte(chainId)), signatureNode.RawData()); err != nil {
+	if err = w.storage.Put(signatureStorageKey(chainId), signatureNode.RawData()); err != nil {
 		log.Printf("failed to store node data")
 		// TODO: Enable
 		// return fmt.Errorf("failed to store node data: %s", err)
 	}
-	if err = w.storage.Set(chainStorageKey([]byte(chainId)), signedChain.ChainTree.Dag.Tip.Bytes()); err != nil {
+	if err = w.storage.Put(chainStorageKey(chainId), signedChain.ChainTree.Dag.Tip.Bytes()); err != nil {
 		log.Printf("failed to store chain tree tip")
 		// TODO: Enable
 		// return fmt.Errorf("failed to store chain tree tip: %s", err)
@@ -222,21 +224,25 @@ func (w *Wallet) ChainExists(chainId string) bool {
 }
 
 func (w *Wallet) GetChainIds() ([]string, error) {
-	chainIds, err := w.storage.GetKeysByPrefix(chainPrefix)
+	result, err := w.storage.Query(query.Query{
+		Prefix: datastore.NewKey(chainPrefix).String(),
+	})
+
 	if err != nil {
 		return nil, fmt.Errorf("error getting saved chain tree ids; %v", err)
 	}
+	defer result.Close()
 
-	stringIds := make([]string, len(chainIds))
-	for i, k := range chainIds {
-		stringIds[i] = string(k[len(chainPrefix):])
+	var stringIds []string
+	for entry := range result.Next() {
+		stringIds = append(stringIds, datastore.NewKey(entry.Key).BaseNamespace())
 	}
 
 	return stringIds, nil
 }
 
 func (w *Wallet) GetKey(addr string) (*ecdsa.PrivateKey, error) {
-	keyBytes, err := w.storage.Get(keyStorageKey(common.HexToAddress(addr).Bytes()))
+	keyBytes, err := w.storage.Get(keyStorageKey(common.HexToAddress(addr).String()))
 	if err != nil {
 		return nil, fmt.Errorf("error getting key: %v", err)
 	}
@@ -250,7 +256,7 @@ func (w *Wallet) GenerateKey() (*ecdsa.PrivateKey, error) {
 		return nil, fmt.Errorf("error generating key: %v", err)
 	}
 
-	err = w.storage.Set(keyStorageKey(crypto.PubkeyToAddress(key.PublicKey).Bytes()), crypto.FromECDSA(key))
+	err = w.storage.Put(keyStorageKey(crypto.PubkeyToAddress(key.PublicKey).String()), crypto.FromECDSA(key))
 	if err != nil {
 		return nil, fmt.Errorf("error generating key: %v", err)
 	}
@@ -259,19 +265,25 @@ func (w *Wallet) GenerateKey() (*ecdsa.PrivateKey, error) {
 }
 
 func (w *Wallet) ListKeys() ([]string, error) {
-	keys, err := w.storage.GetKeysByPrefix(keyPrefix)
+	result, err := w.storage.Query(query.Query{
+		Prefix: datastore.NewKey(keyPrefix).String(),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("error getting keys; %v", err)
+		return nil, fmt.Errorf("error getting saved chain tree ids; %v", err)
 	}
-	addrs := make([]string, len(keys))
-	for i, k := range keys {
-		addrs[i] = common.BytesToAddress(k[len(keyPrefix):]).String()
+	defer result.Close()
+
+	var addrs []string
+
+	for entry := range result.Next() {
+		addrs = append(addrs, datastore.NewKey(entry.Key).BaseNamespace())
 	}
+
 	return addrs, nil
 }
 
 func (w *Wallet) storageAdapterForChain(chainId string) (adapters.Adapter, error) {
-	configB, err := w.storage.Get(datastoreConfigStorageKey([]byte(chainId)))
+	configB, err := w.storage.Get(datastoreConfigStorageKey(chainId))
 
 	if err != nil {
 		return nil, fmt.Errorf("Could not fetch storage adapter %v", err)
@@ -289,23 +301,25 @@ func (w *Wallet) storageAdapterForChain(chainId string) (adapters.Adapter, error
 	return w.adapters.New(&config)
 }
 
-var chainPrefix = []byte("-c-")
-var keyPrefix = []byte("-k-")
-var signaturePrefix = []byte("-s-")
-var datastorePrefix = []byte("-d-")
+const (
+	chainPrefix     = "-c-"
+	keyPrefix       = "-k-"
+	signaturePrefix = "-s-"
+	datastorePrefix = "-d-"
+)
 
-func chainStorageKey(chainID []byte) []byte {
-	return append(chainPrefix, chainID...)
+func chainStorageKey(chainID string) datastore.Key {
+	return datastore.KeyWithNamespaces([]string{chainPrefix, chainID})
 }
 
-func signatureStorageKey(chainID []byte) []byte {
-	return append(signaturePrefix, chainID...)
+func signatureStorageKey(chainID string) datastore.Key {
+	return datastore.KeyWithNamespaces([]string{signaturePrefix, chainID})
 }
 
-func datastoreConfigStorageKey(chainID []byte) []byte {
-	return append(datastorePrefix, chainID...)
+func datastoreConfigStorageKey(chainID string) datastore.Key {
+	return datastore.KeyWithNamespaces([]string{datastorePrefix, chainID})
 }
 
-func keyStorageKey(addr []byte) []byte {
-	return append(keyPrefix, addr...)
+func keyStorageKey(addr string) datastore.Key {
+	return datastore.KeyWithNamespaces([]string{keyPrefix, addr})
 }
