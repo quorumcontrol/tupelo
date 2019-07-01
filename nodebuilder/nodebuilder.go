@@ -26,7 +26,7 @@ import (
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/storage"
 	"github.com/shibukawa/configdir"
 )
 
@@ -117,7 +117,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 
 	currentPath := signerCurrentPath(nb.Config.StoragePath, localSigner)
 
-	badgerCurrent, err := storage.NewBadgerStorage(currentPath)
+	badgerCurrent, err := storage.NewDefaultBadger(currentPath)
 	if err != nil {
 		return fmt.Errorf("error creating storage: %v", err)
 	}

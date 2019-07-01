@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
@@ -67,6 +68,8 @@ func (w *Wallet) GetTip(chainId string) ([]byte, error) {
 }
 
 func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
+	ctx := context.TODO()
+
 	tip, err := w.GetTip(chainId)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chain: %v", err)
@@ -94,9 +97,9 @@ func (w *Wallet) GetChain(chainId string) (*consensus.SignedChainTree, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error fetching adapter: %v", err)
 	}
-	storedTree := dag.NewDag(tipCid, adapter.Store())
+	storedTree := dag.NewDag(ctx, tipCid, adapter.Store())
 
-	tree, err := chaintree.NewChainTree(storedTree, nil, consensus.DefaultTransactors)
+	tree, err := chaintree.NewChainTree(ctx, storedTree, nil, consensus.DefaultTransactors)
 	if err != nil {
 		return nil, fmt.Errorf("error creating tree: %v", err)
 	}
@@ -117,7 +120,7 @@ func (w *Wallet) CreateChain(keyAddr string, storageConfig *adapters.Config) (*c
 		return nil, ExistingChainError{publicKey: &key.PublicKey}
 	}
 
-	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodestore.NewStorageBasedStore(storage.NewMemStorage()))
+	chain, err := consensus.NewSignedChainTree(key.PublicKey, nodestore.MustMemoryStore(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +152,8 @@ func (w *Wallet) ConfigureChainStorage(chainId string, storageConfig *adapters.C
 }
 
 func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
+	ctx := context.TODO()
+
 	chainId, err := signedChain.Id()
 	if err != nil {
 		return fmt.Errorf("error getting signedChain id: %v", err)
@@ -159,14 +164,14 @@ func (w *Wallet) SaveChain(signedChain *consensus.SignedChainTree) error {
 		return fmt.Errorf("error fetching adapter: %v", err)
 	}
 
-	nodes, err := signedChain.ChainTree.Dag.Nodes()
+	nodes, err := signedChain.ChainTree.Dag.Nodes(ctx)
 	if err != nil {
 		log.Printf("error getting nodes: %s", err)
 		// TODO: Enable
 		// return fmt.Errorf("error getting nodes: %s", err)
 	}
 	for _, node := range nodes {
-		if err = adapter.Store().StoreNode(node); err != nil {
+		if err = adapter.Store().Add(ctx, node); err != nil {
 			log.Printf("failed to store cbor node: %s", err)
 			// TODO: Enable
 			// return fmt.Errorf("failed to store cbor node: %s", err)

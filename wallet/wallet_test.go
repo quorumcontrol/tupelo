@@ -1,26 +1,17 @@
 package wallet
 
 import (
+	"context"
 	"github.com/quorumcontrol/messages/build/go/signatures"
-	"fmt"
 	"net"
 	"os"
 	"sort"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	ipfsConfig "github.com/ipfs/go-ipfs-config"
-	ipfsCmds "github.com/ipfs/go-ipfs/commands"
-	ipfsCore "github.com/ipfs/go-ipfs/core"
-	ipfsCoreHttp "github.com/ipfs/go-ipfs/core/corehttp"
-	ipfsMock "github.com/ipfs/go-ipfs/core/mock"
-	ipfsFsRepo "github.com/ipfs/go-ipfs/repo/fsrepo"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/transactions"
 	"github.com/quorumcontrol/storage"
@@ -28,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	"github.com/quorumcontrol/tupelo/ipfs"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
 )
 
@@ -54,82 +44,6 @@ func TestBadgerWallet(t *testing.T) {
 	SubtestAll(t, storageConfig)
 }
 
-func TestIpldHttpWallet(t *testing.T) {
-	node, err := ipfsMock.NewMockNode()
-	require.Nil(t, err)
-	defer node.Close()
-
-	freePort, err := getFreePort()
-	require.Nil(t, err)
-
-	apiMaddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", freePort))
-	require.Nil(t, err)
-
-	cfg, err := node.Repo.Config()
-	require.Nil(t, err)
-
-	cfg.Addresses.API = []string{apiMaddr.String()}
-
-	cmdContext := ipfsCmds.Context{
-		ConfigRoot: "/tmp/.mockipfsconfig",
-		ReqLog:     &ipfsCmds.ReqLog{},
-		LoadConfig: func(path string) (*ipfsConfig.Config, error) {
-			return cfg, nil
-		},
-		ConstructNode: func() (*ipfsCore.IpfsNode, error) {
-			return node, nil
-		},
-	}
-
-	go func() {
-		err := ipfsCoreHttp.ListenAndServe(node, apiMaddr.String(), []ipfsCoreHttp.ServeOption{ipfsCoreHttp.CommandsOption(cmdContext)}...)
-		require.Nil(t, err)
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-
-	SubtestAll(t, &adapters.Config{
-		Adapter: "ipld",
-		Arguments: map[string]interface{}{
-			"address": apiMaddr.String(),
-		},
-	})
-}
-
-func TestIpldWallet(t *testing.T) {
-	err := os.RemoveAll("testtmp")
-	require.Nil(t, err)
-	err = os.MkdirAll("testtmp", 0700)
-	require.Nil(t, err)
-	defer os.RemoveAll("testtmp")
-
-	storageConfig := &adapters.Config{
-		Adapter: "ipld",
-		Arguments: map[string]interface{}{
-			"path": "testtmp/ipld",
-		},
-	}
-
-	err = ipfs.InjectPlugins()
-	require.Nil(t, err)
-
-	conf, err := ipfsConfig.Init(os.Stdout, 2048)
-	require.Nil(t, err, "error initializing IPFS")
-
-	for _, profile := range []string{"server", "badgerds"} {
-		transformer, ok := ipfsConfig.Profiles[profile]
-		require.True(t, ok, "error fetching IPFS profile")
-
-		err := transformer.Transform(conf)
-		require.Nil(t, err, "error transforming IPFS profile")
-	}
-
-	err = ipfsFsRepo.Init("testtmp/ipld", conf)
-	require.Nil(t, err, "error initializing IPFS repo")
-
-	SubtestAll(t, storageConfig)
-}
-
 func SubtestAll(t *testing.T, storageConfig *adapters.Config) {
 	SubtestWallet_GetChain(t, storageConfig)
 	SubtestWallet_SaveChain(t, storageConfig)
@@ -140,6 +54,9 @@ func SubtestAll(t *testing.T, storageConfig *adapters.Config) {
 }
 
 func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
+	ctx,cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
 
@@ -159,10 +76,10 @@ func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
 
 	assert.Equal(t, newChain.Tip(), savedChain.Tip())
 
-	origNodes, err := newChain.ChainTree.Dag.Nodes()
+	origNodes, err := newChain.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
-	savedNodes, err := savedChain.ChainTree.Dag.Nodes()
+	savedNodes, err := savedChain.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 	assert.Equal(t, len(origNodes), len(savedNodes))
 
@@ -183,6 +100,9 @@ func SubtestWallet_GetChain(t *testing.T, storageConfig *adapters.Config) {
 }
 
 func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
+	ctx,cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	w := NewWallet(&WalletConfig{Storage: storage.NewMemStorage()})
 	defer w.Close()
 
@@ -199,10 +119,10 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	savedTree, err := w.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
-	signedNodes, err := signedTree.ChainTree.Dag.Nodes()
+	signedNodes, err := signedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
-	savedNodes, err := savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err := savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 	assert.Equal(t, len(signedNodes), len(savedNodes))
 
@@ -225,7 +145,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	savedTree, err = w.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
 
-	savedNodes, err = savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err = savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
 	assert.Equal(t, len(signedNodes), len(savedNodes))
@@ -244,7 +164,7 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	newTree := signedTree.ChainTree.Dag.WithNewTip(signedTree.ChainTree.Dag.Tip)
 
-	unmarshaledRoot, err := newTree.Get(newTree.Tip)
+	unmarshaledRoot, err := newTree.Get(ctx, newTree.Tip)
 	require.Nil(t, err)
 	require.NotNil(t, unmarshaledRoot)
 
@@ -257,15 +177,15 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 
 	newTree.Tip = *root.Tree
 
-	_, err = newTree.Set(strings.Split("something", "/"), "hi")
+	_, err = newTree.Set(ctx, strings.Split("something", "/"), "hi")
 	require.Nil(t, err)
-	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree.Tip)
+	_, err = signedTree.ChainTree.Dag.SetAsLink(ctx, []string{chaintree.TreeLabel}, newTree.Tip)
 	require.Nil(t, err)
 
-	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
+	chainNode, err := signedTree.ChainTree.Dag.Get(ctx, *root.Chain)
 	require.Nil(t, err)
-	chainData, err := nodestore.CborNodeToObj(chainNode)
-	chainMap := chainData.(map[string]interface{})
+	chainMap := make(map[string]interface{})
+	err = cbornode.DecodeInto(chainNode.RawData(), &chainMap)
 	require.Nil(t, err)
 
 	sw := &safewrap.SafeWrap{}
@@ -276,19 +196,18 @@ func SubtestWallet_SaveChain(t *testing.T, storageConfig *adapters.Config) {
 	chainMap["end"] = wrappedBlock.Cid()
 	newChainNode := sw.WrapObject(chainMap)
 
-	err = signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
+	err = signedTree.ChainTree.Dag.AddNodes(ctx, wrappedBlock)
 	require.Nil(t, err)
-	_, err = signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
+	_, err = signedTree.ChainTree.Dag.Update(ctx, []string{chaintree.ChainLabel}, newChainNode)
 	require.Nil(t, err)
 
-	t.Log(signedTree.ChainTree.Dag.Dump())
 
 	err = w.SaveChain(signedTree)
 	require.Nil(t, err)
 
 	savedTree, err = w.GetChain(signedTree.MustId())
 	require.Nil(t, err)
-	savedNodes, err = savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err = savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
 	assert.Equal(t, len(signedNodes), len(savedNodes))
