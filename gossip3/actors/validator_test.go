@@ -7,8 +7,8 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	datastore "github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
+	"github.com/quorumcontrol/tupelo/storage"
+
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
@@ -23,7 +23,7 @@ import (
 )
 
 func TestValidator(t *testing.T) {
-	currentState := dsync.MutexWrap(datastore.NewMapDatastore())
+	currentState := storage.NewDefaultMemory()
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
@@ -62,7 +62,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	// genesis transaction and get the notary group to approve your first
 	// transaction.
 
-	currentState := dsync.MutexWrap(datastore.NewMapDatastore())
+	currentState := storage.NewDefaultMemory()
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
 		NotaryGroup:       types.NewNotaryGroup("testcannotfakeoldhistory"),
@@ -143,7 +143,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 }
 
 func BenchmarkValidator(b *testing.B) {
-	currentState := dsync.MutexWrap(datastore.NewMapDatastore())
+	currentState := storage.NewDefaultMemory()
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,

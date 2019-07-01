@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	datastore "github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
+	"github.com/quorumcontrol/tupelo/storage"
+
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -22,7 +22,7 @@ func TestSignatureGenerator(t *testing.T) {
 	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
-	currentState := dsync.MutexWrap(datastore.NewMapDatastore())
+	currentState := storage.NewDefaultMemory()
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
@@ -67,7 +67,7 @@ func BenchmarkSignatureGenerator(b *testing.B) {
 	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
-	currentState := dsync.MutexWrap(datastore.NewMapDatastore())
+	currentState := storage.NewDefaultMemory()
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,

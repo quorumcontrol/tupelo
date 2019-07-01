@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	datastore "github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
+	"github.com/quorumcontrol/tupelo/storage"
+
 	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
@@ -32,7 +32,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       ng,
-			CurrentStateStore: dsync.MutexWrap(datastore.NewMapDatastore()),
+			CurrentStateStore: storage.NewDefaultMemory(),
 			PubSubSystem:      simulatedPubSub,
 		}), "tupelo-"+signer.ID)
 		if err != nil {

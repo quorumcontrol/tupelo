@@ -12,8 +12,8 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	datastore "github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
+	"github.com/quorumcontrol/tupelo/storage"
+
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
@@ -50,7 +50,7 @@ func TestCurrentStateExchange(t *testing.T) {
 		syncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       notaryGroup,
-			CurrentStateStore: dsync.MutexWrap(datastore.NewMapDatastore()),
+			CurrentStateStore: storage.NewDefaultMemory(),
 			PubSubSystem:      pubsub,
 		}), "tupelo-"+signer.ID)
 		require.Nil(t, err)
@@ -102,7 +102,7 @@ func TestCurrentStateExchange(t *testing.T) {
 	newSyncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       notaryGroup,
-		CurrentStateStore: dsync.MutexWrap(datastore.NewMapDatastore()),
+		CurrentStateStore: storage.NewDefaultMemory(),
 		PubSubSystem:      pubsub,
 	}), "tupelo-"+signer.ID+"-2")
 	require.Nil(t, err)

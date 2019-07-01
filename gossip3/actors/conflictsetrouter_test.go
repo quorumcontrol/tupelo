@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"github.com/quorumcontrol/tupelo/storage"
 	"fmt"
 	"strconv"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	datastore "github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -53,7 +53,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
-		CurrentStateStore:  dsync.MutexWrap(datastore.NewMapDatastore()),
+		CurrentStateStore:  storage.NewDefaultMemory(),
 		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
@@ -120,7 +120,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
-		CurrentStateStore:  dsync.MutexWrap(datastore.NewMapDatastore()),
+		CurrentStateStore:  storage.NewDefaultMemory(),
 		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
@@ -218,7 +218,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
-		CurrentStateStore:  dsync.MutexWrap(datastore.NewMapDatastore()),
+		CurrentStateStore:  storage.NewDefaultMemory(),
 		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
@@ -411,7 +411,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	sender := actor.Spawn(NewNullActorProps())
 	defer ctx.Poison(sender)
 
-	currentStateStore := dsync.MutexWrap(datastore.NewMapDatastore())
+	currentStateStore := storage.NewDefaultMemory()
 
 	cswChan0, conflictSetRouter0, parent0 := spawnCSR(t, "testCUSCSOC", 0, currentStateStore, ng,
 		alwaysChecker,
