@@ -79,7 +79,7 @@ type HumanConfig struct {
 	Signers        []HumanPublicKeySet
 	BootstrapNodes []string
 
-	BoostrapOnly  bool
+	BootstrapOnly bool
 	TracingSystem string
 }
 
@@ -90,7 +90,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		PublicIP:       hc.PublicIP,
 		Port:           hc.Port,
 		BootstrapNodes: hc.BootstrapNodes,
-		BootstrapOnly:  hc.BoostrapOnly,
+		BootstrapOnly:  hc.BootstrapOnly,
 	}
 
 	ngConfig, err := types.HumanConfigToConfig(&hc.NotaryGroup)
