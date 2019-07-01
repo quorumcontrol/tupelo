@@ -23,16 +23,19 @@ func NewBadgerNodestoreService(config *Config) (*BadgerNodestoreService, error) 
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	if config.Path == "" {
+		cancel()
 		return nil, fmt.Errorf("Error initializing badger storage: missing path")
 	}
 
 	db, err := storage.NewDefaultBadger(config.Path)
 
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("Error initializing badger storage: %v", err)
 	}
 	store, err := chaintreeNodestore.FromDatastoreOffline(ctx, db)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("error creating dag store: %v", err)
 	}
 

@@ -23,18 +23,21 @@ func NewBadgerStorage(config map[string]interface{}) (*BadgerStorageAdapter, err
 	path, ok := config["path"]
 
 	if !ok {
+		cancel()
 		return nil, fmt.Errorf("Badger requires path in StorageConfig")
 	}
 
 	db, err := storage.NewDefaultBadger(path.(string))
 
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("Error initializing badger storage: %v", err)
 	}
 	
 
 	store, err := nodestore.FromDatastoreOffline(ctx, db)
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("error creating dagstore: %v", err)
 	}
 
