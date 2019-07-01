@@ -33,10 +33,9 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.1.0
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/common v0.6.0 // indirect
-	github.com/quorumcontrol/chaintree v0.0.0-20190624152451-1b5147271beb2d334c262493abf9f6dd26a48227
+	github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca
-	github.com/quorumcontrol/storage v1.1.4
-	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190701000000-637133866695898450dc44d4512714e248bc5b3f
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.0
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
@@ -45,6 +44,7 @@ require (
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.opencensus.io v0.22.0 // indirect
 	go.uber.org/zap v1.10.0
+	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1
