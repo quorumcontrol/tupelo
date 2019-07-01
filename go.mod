@@ -21,10 +21,12 @@ require (
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/improbable-eng/grpc-web v0.9.0
 	github.com/ipfs/go-cid v0.0.2
+	github.com/ipfs/go-datastore v0.0.5
 	github.com/ipfs/go-ipfs v0.0.0-20190627000000-8e5ea5f // 0.4.21 + badger fix ( https://github.com/ipfs/go-ipfs/pull/6473 )
 	github.com/ipfs/go-ipfs-config v0.0.6
 	github.com/ipfs/go-ipfs-http-client v0.0.3
 	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
+	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-log v0.0.1
 	github.com/libp2p/go-libp2p v0.2.0
 	github.com/libp2p/go-libp2p-circuit v0.1.0
@@ -34,7 +36,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/common v0.6.0 // indirect
-	github.com/quorumcontrol/chaintree v0.0.0-20190628111909-7fcc00a16764
+	github.com/quorumcontrol/chaintree v0.0.0-20190624152451-1b5147271beb2d334c262493abf9f6dd26a48227
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca
 	github.com/quorumcontrol/storage v1.1.4
 	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190701000000-637133866695898450dc44d4512714e248bc5b3f

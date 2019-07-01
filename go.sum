@@ -776,16 +776,13 @@ github.com/prometheus/procfs v0.0.2 h1:6LJUbpNm42llc4HRCuvApCSWB/WfhuNo9K98Q9sNG
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
+github.com/quorumcontrol/chaintree v0.0.0-20190624152451-1b5147271beb2d334c262493abf9f6dd26a48227 h1:6VkCqdgeA2cX3nck0mfHwXdcW1YOt43svHTHN9sqpFU=
 github.com/quorumcontrol/chaintree v0.0.0-20190624152451-1b5147271beb2d334c262493abf9f6dd26a48227/go.mod h1:r2SpNLYY5YB9VFxnsJQJOOqPsvMu7LYqS4pJKeVmb0w=
-github.com/quorumcontrol/chaintree v0.0.0-20190628111909-7fcc00a16764 h1:SWWmktchXhZ3q54NNP4MqBefYbDCcCZ2Njjk6Mdit+w=
-github.com/quorumcontrol/chaintree v0.0.0-20190628111909-7fcc00a16764/go.mod h1:82LGbSfWlhcddvffGqpXKFRXUMjt8DGtNrkLH5tycgs=
 github.com/quorumcontrol/go-libp2p-pubsub v0.0.4-0.20190528094025-e4e719f73e7a h1:XDXN6yY9PODqRMHFupyf44BQOTvCetoTG0ypXPOQzqs=
 github.com/quorumcontrol/go-libp2p-pubsub v0.0.4-0.20190528094025-e4e719f73e7a/go.mod h1:ZwlKzRSe1eGvSIdU5bD7+8RZN/Uzw0t1Bp9R1znpR/Q=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190530182608-30c127bffefb/go.mod h1:b8jDN8PulcGcRJ2pQc0lbC3tPaOspGHoBIbPxfB7Jqg=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca h1:BOFMjEPmEk07alkYO+OtmjqvZtr0MSbJX0cR8Pf/i/g=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca/go.mod h1:QLQVe/V3WcoFNglaJXmoRNs8u+KbsNd5MXeOaa77zgw=
-github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1 h1:FglNF7FTLpcl171qo5MFvbKjrLEsLtcKF72uQpefiPM=
-github.com/quorumcontrol/namedlocker v0.0.0-20180808140020-3f797c8b12b1/go.mod h1:7JSFW45PpKoXFaUpaJ8YtCNIwQWut0+Huo9ugBnKVe4=
 github.com/quorumcontrol/storage v1.1.4 h1:4bNJAXkHbq9AzcEyBkCafxcDeo9AkOdRAftDxUtJ+pw=
 github.com/quorumcontrol/storage v1.1.4/go.mod h1:SvzzH9/MMVcDVokuk02bi5Y9dmKsCetDOyReXEsprJw=
 github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190701000000-637133866695898450dc44d4512714e248bc5b3f h1:aFMdoZE1iQpfEZebKRSuIsD0OjRoZYi+AWqdX53WekU=
