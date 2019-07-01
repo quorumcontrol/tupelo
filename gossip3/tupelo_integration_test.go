@@ -43,7 +43,7 @@ const (
 )
 
 func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
-	cborNodes, err := dagTree.Nodes()
+	cborNodes, err := dagTree.Nodes(context.TODO())
 	require.Nil(t, err)
 	nodes := make([][]byte, len(cborNodes))
 	for i, node := range cborNodes {
@@ -53,6 +53,8 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 }
 
 func newValidTransaction(t *testing.T) services.AddBlockRequest {
+	ctx := context.TODO()
+
 	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -72,13 +74,13 @@ func newValidTransaction(t *testing.T) services.AddBlockRequest {
 	nodeStore := nodestore.MustMemoryStore(context.TODO())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 	emptyTip := emptyTree.Tip
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	require.Nil(t, err)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	require.Nil(t, err)
 	nodes := dagToByteNodes(t, emptyTree)
 	return services.AddBlockRequest{
@@ -104,7 +106,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 		return nil, nil, err
 	}
 
-	currentStore, err := storage.DefaultBadger(currentPath)
+	currentStore, err := storage.NewDefaultBadger(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
