@@ -154,14 +154,14 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 	case *checkStateMsg:
 		csw.checkState(cs, context, msg)
 	case *messages.ActivateSnoozingConflictSets:
-		csw.activate(cs, context, msg)
+		csw.activate(cs, context)
 	default:
 		csw.Log.Warnw("received unhandled message type for conflict set", "type",
 			reflect.TypeOf(sentMsg).Name())
 	}
 }
 
-func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context, msg *messages.ActivateSnoozingConflictSets) {
+func (csw *ConflictSetWorker) activate(cs *ConflictSet, context actor.Context) {
 	sp := cs.NewSpan("activate")
 	defer sp.Finish()
 	csw.Log.Debug("activate")
