@@ -1,6 +1,7 @@
 package walletshell
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -237,18 +238,17 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 		Name: "print-chain",
 		Help: "print an entire chain tree",
 		Func: func(c *ishell.Context) {
-			// if len(c.Args) < 1 {
-			// 	c.Println("not enough arguments passed to print-chain")
-			// 	return
-			// }
+			if len(c.Args) < 1 {
+				c.Println("not enough arguments passed to print-chain")
+				return
+			}
 
-			// chain, err := session.GetChain(c.Args[0])
-			// if err != nil {
-			// 	c.Printf("error getting chain: %v\n", err)
-			// 	return
-			// }
-			c.Println("print unsupported ATM")
-			// c.Println(chain.ChainTree.Dag.Dump())
+			chain, err := session.GetChain(c.Args[0])
+			if err != nil {
+				c.Printf("error getting chain: %v\n", err)
+				return
+			}
+			c.Println(chain.ChainTree.Dag.Dump(context.TODO()))
 		},
 	})
 
