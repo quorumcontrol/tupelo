@@ -105,7 +105,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 	return c, nil
 }
 
-// TomlToConfig will load a config from a toml string
+// TomlToConfig will load a config from a path to a toml file
 func TomlToConfig(path string) (*Config, error) {
 	tomlBits, err := ioutil.ReadFile(path)
 	if err != nil {
