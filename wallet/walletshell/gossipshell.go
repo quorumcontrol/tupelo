@@ -1,6 +1,7 @@
 package walletshell
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -247,7 +248,7 @@ func RunGossip(name string, storagePath string, notaryGroup *types.NotaryGroup, 
 				c.Printf("error getting chain: %v\n", err)
 				return
 			}
-			c.Println(chain.ChainTree.Dag.Dump())
+			c.Println(chain.ChainTree.Dag.Dump(context.TODO()))
 		},
 	})
 

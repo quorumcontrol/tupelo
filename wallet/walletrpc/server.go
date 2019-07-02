@@ -120,15 +120,6 @@ func (s *server) parseStorageAdapter(c *services.StorageAdapterConfig) (*adapter
 				"path": config.Badger.Path,
 			},
 		}, nil
-	case *services.StorageAdapterConfig_Ipld:
-		return &adapters.Config{
-			Adapter: adapters.IpldStorageAdapterName,
-			Arguments: map[string]interface{}{
-				"path":    config.Ipld.Path,
-				"address": config.Ipld.Address,
-				"online":  !config.Ipld.Offline,
-			},
-		}, nil
 	default:
 		return nil, fmt.Errorf("Unsupported storage adapter specified")
 	}

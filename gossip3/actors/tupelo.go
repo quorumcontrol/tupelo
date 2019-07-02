@@ -6,12 +6,12 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	"github.com/golang/protobuf/proto"
+	datastore "github.com/ipfs/go-datastore"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -35,7 +35,7 @@ type TupeloNode struct {
 type TupeloConfig struct {
 	Self              *types.Signer
 	NotaryGroup       *types.NotaryGroup
-	CurrentStateStore storage.Storage
+	CurrentStateStore datastore.Batching
 	PubSubSystem      remote.PubSub
 }
 
@@ -76,7 +76,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
 		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionId, "seen", msg.Metadata["seen"])
-		err := tn.cfg.CurrentStateStore.Set(msg.CurrentState.Signature.ObjectId, msg.MustMarshal())
+		err := tn.cfg.CurrentStateStore.Put(datastore.NewKey(string(msg.CurrentState.Signature.ObjectId)), msg.MustMarshal())
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
@@ -132,8 +132,8 @@ func (tn *TupeloNode) validateTransaction(context actor.Context, msg *messages.V
 
 func (tn *TupeloNode) handleGetTip(context actor.Context, msg *services.GetTipRequest) {
 	tn.Log.Debugw("handleGetTip", "chainId", msg.ChainId)
-	currStateBits, err := tn.cfg.CurrentStateStore.Get([]byte(msg.ChainId))
-	if err != nil {
+	currStateBits, err := tn.cfg.CurrentStateStore.Get(datastore.NewKey(msg.ChainId))
+	if err != nil && err != datastore.ErrNotFound {
 		tn.Log.Errorw("error getting tip", "chainId", msg.ChainId, "err", err)
 		return
 	}

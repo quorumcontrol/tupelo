@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"github.com/quorumcontrol/tupelo/storage"
 	"fmt"
 	"strconv"
 	"testing"
@@ -10,8 +11,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	datastore "github.com/ipfs/go-datastore"
 	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
@@ -52,7 +53,7 @@ func TestConflictSetRouterQuorum(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
-		CurrentStateStore:  storage.NewMemStorage(),
+		CurrentStateStore:  storage.NewDefaultMemory(),
 		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
@@ -119,7 +120,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
-		CurrentStateStore:  storage.NewMemStorage(),
+		CurrentStateStore:  storage.NewDefaultMemory(),
 		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
@@ -217,7 +218,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 		SignatureChecker:   alwaysChecker,
 		SignatureSender:    sender,
 		SignatureGenerator: sigGeneratorActors[0],
-		CurrentStateStore:  storage.NewMemStorage(),
+		CurrentStateStore:  storage.NewDefaultMemory(),
 		PubSubSystem:       remote.NewSimulatedPubSub(),
 	}
 
@@ -338,7 +339,7 @@ func NewNullActorProps() *actor.Props {
 	return actor.PropsFromFunc(nullActorFunc)
 }
 
-func spawnCSR(t *testing.T, prefix string, i int, currentStateStore storage.Reader,
+func spawnCSR(t *testing.T, prefix string, i int, currentStateStore datastore.Read,
 	ng *types.NotaryGroup, checker, sender *actor.PID, sigGenerators []*actor.PID) (
 	chan *messages.CurrentStateWrapper, *actor.PID, *actor.PID) {
 	ctx := actor.EmptyRootContext
@@ -410,7 +411,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	sender := actor.Spawn(NewNullActorProps())
 	defer ctx.Poison(sender)
 
-	currentStateStore := storage.NewMemStorage()
+	currentStateStore := storage.NewDefaultMemory()
 
 	cswChan0, conflictSetRouter0, parent0 := spawnCSR(t, "testCUSCSOC", 0, currentStateStore, ng,
 		alwaysChecker,
@@ -438,7 +439,7 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 
 	// Store current state in store so that second CSR knows the current state height
 	t.Logf("storing current state in store, ObjectId: %s", trans0.ObjectId)
-	err = currentStateStore.Set(trans0.ObjectId, currentStateWrapper0.MustMarshal())
+	err = currentStateStore.Put(datastore.NewKey(string(trans0.ObjectId)), currentStateWrapper0.MustMarshal())
 	require.Nil(t, err)
 
 	// Send a transaction to first CSR, to get stale on receipt of the commit notification

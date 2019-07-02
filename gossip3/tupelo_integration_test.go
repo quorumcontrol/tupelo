@@ -23,7 +23,7 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -43,7 +43,7 @@ const (
 )
 
 func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
-	cborNodes, err := dagTree.Nodes()
+	cborNodes, err := dagTree.Nodes(context.TODO())
 	require.Nil(t, err)
 	nodes := make([][]byte, len(cborNodes))
 	for i, node := range cborNodes {
@@ -53,6 +53,8 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 }
 
 func newValidTransaction(t *testing.T) services.AddBlockRequest {
+	ctx := context.TODO()
+
 	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
@@ -69,16 +71,16 @@ func newValidTransaction(t *testing.T) services.AddBlockRequest {
 		},
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(context.TODO())
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
 	emptyTip := emptyTree.Tip
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	require.Nil(t, err)
 
-	_, err = testTree.ProcessBlock(blockWithHeaders)
+	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
 	require.Nil(t, err)
 	nodes := dagToByteNodes(t, emptyTree)
 	return services.AddBlockRequest{
@@ -104,7 +106,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 		return nil, nil, err
 	}
 
-	currentStore, err := storage.NewBadgerStorage(currentPath)
+	currentStore, err := storage.NewDefaultBadger(currentPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error badgering: %v", err)
 	}
@@ -334,6 +336,9 @@ func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(
 
 // Test successive transactions on a single chaintree.
 func TestSuccessiveTransactionsSingleTree(t *testing.T) {
+	ctx,cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	pubSub, group, cleanUp, err := setUpSystem(t)
 	defer cleanUp()
 	require.Nil(t, err)
@@ -341,9 +346,9 @@ func TestSuccessiveTransactionsSingleTree(t *testing.T) {
 	treeKey, err := crypto.GenerateKey()
 	require.Nil(t, err)
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
-	testTree, err := chaintree.NewChainTree(emptyTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 	signedTree := &consensus.SignedChainTree{
 		ChainTree:  testTree,

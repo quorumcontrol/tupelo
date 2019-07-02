@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/storage"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo/wallet/adapters"
@@ -56,11 +56,11 @@ func (fw *FileWallet) Path() string {
 // CreateIfNotExists creates a new wallet at the path specified by `fw` if one
 // hasn't already been created at that path.
 func (fw *FileWallet) CreateIfNotExists(passphrase string) {
-	store, err := storage.NewBadgerStorage(fw.path)
+	store, err := storage.NewDefaultBadger(fw.path)
 	if err != nil {
 		panic(fmt.Sprintf("error creating badger store: %v", err))
 	}
-	encryptedStore := storage.NewEncryptedStore(store)
+	encryptedStore := storage.EncryptedWrapper(store)
 	encryptedStore.Unlock(passphrase)
 	fw.wallet = NewWallet(&WalletConfig{Storage: encryptedStore})
 }

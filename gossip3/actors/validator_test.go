@@ -1,17 +1,19 @@
 package actors
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/tupelo/storage"
+
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -21,7 +23,7 @@ import (
 )
 
 func TestValidator(t *testing.T) {
-	currentState := storage.NewMemStorage()
+	currentState := storage.NewDefaultMemory()
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
@@ -54,11 +56,13 @@ func TestValidator(t *testing.T) {
 }
 
 func TestCannotFakeOldHistory(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	// this test makes sure that you can't send in old history on the
 	// genesis transaction and get the notary group to approve your first
 	// transaction.
 
-	currentState := storage.NewMemStorage()
+	currentState := storage.NewDefaultMemory()
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,
 		NotaryGroup:       types.NewNotaryGroup("testcannotfakeoldhistory"),
@@ -87,7 +91,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 		},
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 	evilTree := consensus.NewEmptyTree(treeDID, nodeStore)
 
 	path, err := consensus.DecodePath("tree/" + consensus.TreePathForTokens)
@@ -96,23 +100,23 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	tokenPath := append(path, tokenFullName.String())
 	monetaryPolicyPath := append(tokenPath, "monetaryPolicy")
 
-	evilTree, err = evilTree.SetAsLink(monetaryPolicyPath, &transactions.TokenMonetaryPolicy{
+	evilTree, err = evilTree.SetAsLink(ctx, monetaryPolicyPath, &transactions.TokenMonetaryPolicy{
 		Maximum: 5000,
 	})
 	require.Nil(t, err)
 
 	balancePath := append(tokenPath, "balance")
 
-	evilTree, err = evilTree.Set(balancePath, uint64(0))
+	evilTree, err = evilTree.Set(ctx, balancePath, uint64(0))
 	require.Nil(t, err)
 
-	testTree, err := chaintree.NewChainTree(evilTree, nil, consensus.DefaultTransactors)
+	testTree, err := chaintree.NewChainTree(ctx, evilTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
 	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
 	require.Nil(t, err)
 
-	valid, err := testTree.ProcessBlock(blockWithHeaders)
+	valid, err := testTree.ProcessBlock(ctx, blockWithHeaders)
 	require.Nil(t, err)
 	require.True(t, valid)
 	nodes := dagToByteNodes(t, evilTree)
@@ -139,7 +143,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 }
 
 func BenchmarkValidator(b *testing.B) {
-	currentState := storage.NewMemStorage()
+	currentState := storage.NewDefaultMemory()
 	rootContext := actor.EmptyRootContext
 	cfg := &TransactionValidatorConfig{
 		CurrentStateStore: currentState,

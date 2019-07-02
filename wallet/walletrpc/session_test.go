@@ -1,6 +1,7 @@
 package walletrpc
 
 import (
+	"context"
 	"encoding/base64"
 	"os"
 	"testing"
@@ -8,7 +9,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
+	"github.com/quorumcontrol/tupelo/storage"
 
 	"github.com/quorumcontrol/chaintree/safewrap"
 
@@ -40,7 +41,7 @@ func TestImportExport(t *testing.T) {
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       ng,
-		CurrentStateStore: storage.NewMemStorage(),
+		CurrentStateStore: storage.NewDefaultMemory(),
 		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
@@ -118,6 +119,9 @@ func TestImportExport(t *testing.T) {
 }
 
 func TestSendAndReceiveToken(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	path := ".tmp/test-send-token"
 	err := os.RemoveAll(path)
 	require.Nil(t, err)
@@ -132,7 +136,7 @@ func TestSendAndReceiveToken(t *testing.T) {
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       ng,
-		CurrentStateStore: storage.NewMemStorage(),
+		CurrentStateStore: storage.NewDefaultMemory(),
 		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
@@ -194,13 +198,13 @@ func TestSendAndReceiveToken(t *testing.T) {
 	destChain, err = sess.GetChain(destChain.MustId())
 	require.Nil(t, err)
 
-	destChainTree, err := destChain.ChainTree.At(receiveTokensTip)
+	destChainTree, err := destChain.ChainTree.At(ctx, receiveTokensTip)
 	require.Nil(t, err)
 
-	destTree, err := destChainTree.Tree()
+	destTree, err := destChainTree.Tree(ctx)
 	require.Nil(t, err)
 
-	senderTree, err := chain.ChainTree.Tree()
+	senderTree, err := chain.ChainTree.Tree(ctx)
 	require.Nil(t, err)
 	canonicalTokenName, err := consensus.CanonicalTokenName(senderTree, chain.MustId(), "test-token", true)
 	require.Nil(t, err)
@@ -229,7 +233,7 @@ func TestGetTip(t *testing.T) {
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       ng,
-		CurrentStateStore: storage.NewMemStorage(),
+		CurrentStateStore: storage.NewDefaultMemory(),
 		PubSubSystem:      pubSubSystem,
 	}), "tupelo-"+signer.ID)
 	require.Nil(t, err)
@@ -288,6 +292,7 @@ func TestTokens(t *testing.T) {
 		{"get existing token balance", testGetTokenBalance},
 		{"get non-existent token balance", testGetNonExistentTokenBalance},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			path := ".tmp/test-tokens"
@@ -305,7 +310,7 @@ func TestTokens(t *testing.T) {
 			syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 				Self:              signer,
 				NotaryGroup:       ng,
-				CurrentStateStore: storage.NewMemStorage(),
+				CurrentStateStore: storage.NewDefaultMemory(),
 				PubSubSystem:      pubSubSystem,
 			}), "tupelo-"+signer.ID)
 			require.Nil(t, err)

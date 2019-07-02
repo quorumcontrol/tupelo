@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"context"
 	"github.com/quorumcontrol/messages/build/go/signatures"
 	"crypto/ecdsa"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +23,7 @@ import (
 )
 
 func newSavedChain(t *testing.T, fw *FileWallet, key ecdsa.PublicKey) *consensus.SignedChainTree {
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(context.TODO())
 
 	signedTree, err := consensus.NewSignedChainTree(key, nodeStore)
 	require.Nil(t, err)
@@ -73,6 +73,9 @@ func TestFileWallet_Unlock(t *testing.T) {
 }
 
 func TestFileWallet_GetChain(t *testing.T) {
+	ctx,cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	err := os.RemoveAll("testtmp")
 	require.Nil(t, err)
 	err = os.MkdirAll("testtmp", 0700)
@@ -90,10 +93,10 @@ func TestFileWallet_GetChain(t *testing.T) {
 
 	savedTree, err := fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
-	signedNodes, err := signedTree.ChainTree.Dag.Nodes()
+	signedNodes, err := signedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
-	savedNodes, err := savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err := savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 	assert.Equal(t, len(signedNodes), len(savedNodes))
 
@@ -114,6 +117,9 @@ func TestFileWallet_GetChain(t *testing.T) {
 }
 
 func TestFileWallet_SaveChain(t *testing.T) {
+	ctx,cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	err := os.RemoveAll("testtmp")
 	require.Nil(t, err)
 	err = os.MkdirAll("testtmp", 0700)
@@ -131,10 +137,10 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	savedTree, err := fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
-	signedNodes, err := signedTree.ChainTree.Dag.Nodes()
+	signedNodes, err := signedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
-	savedNodes, err := savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err := savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 	assert.Equal(t, len(signedNodes), len(savedNodes))
 
@@ -157,7 +163,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	savedTree, err = fw.GetChain(signedTree.MustId())
 	assert.Nil(t, err)
 
-	savedNodes, err = savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err = savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
 	assert.Equal(t, len(signedNodes), len(savedNodes))
@@ -181,7 +187,7 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	newTree := signedTree.ChainTree.Dag.WithNewTip(signedTree.ChainTree.Dag.Tip)
 
-	unmarshaledRoot, err := newTree.Get(newTree.Tip)
+	unmarshaledRoot, err := newTree.Get(ctx, newTree.Tip)
 	require.Nil(t, err)
 	require.NotNil(t, unmarshaledRoot)
 
@@ -194,16 +200,16 @@ func TestFileWallet_SaveChain(t *testing.T) {
 
 	newTree.Tip = *root.Tree
 
-	_, err = newTree.Set(strings.Split("something", "/"), "hi")
+	_, err = newTree.Set(ctx, strings.Split("something", "/"), "hi")
 	require.Nil(t, err)
-	_, err = signedTree.ChainTree.Dag.SetAsLink([]string{chaintree.TreeLabel}, newTree.Tip)
+	_, err = signedTree.ChainTree.Dag.SetAsLink(ctx, []string{chaintree.TreeLabel}, newTree.Tip)
 	require.Nil(t, err)
 
-	chainNode, err := signedTree.ChainTree.Dag.Get(*root.Chain)
+	chainNode, err := signedTree.ChainTree.Dag.Get(ctx, *root.Chain)
 	require.Nil(t, err)
-	chainData, err := nodestore.CborNodeToObj(chainNode)
-	chainMap := chainData.(map[string]interface{})
-	require.Nil(t, err)
+	chainMap := make(map[string]interface{})
+	err = cbornode.DecodeInto(chainNode.RawData(), &chainMap)
+	require.Nil(t,err)
 
 	sw := &safewrap.SafeWrap{}
 
@@ -213,19 +219,17 @@ func TestFileWallet_SaveChain(t *testing.T) {
 	chainMap["end"] = wrappedBlock.Cid()
 	newChainNode := sw.WrapObject(chainMap)
 
-	err = signedTree.ChainTree.Dag.AddNodes(wrappedBlock)
+	err = signedTree.ChainTree.Dag.AddNodes(ctx, wrappedBlock)
 	require.Nil(t, err)
-	_, err = signedTree.ChainTree.Dag.Update([]string{chaintree.ChainLabel}, newChainNode)
+	_, err = signedTree.ChainTree.Dag.Update(ctx, []string{chaintree.ChainLabel}, newChainNode)
 	require.Nil(t, err)
-
-	t.Log(signedTree.ChainTree.Dag.Dump())
 
 	err = fw.SaveChain(signedTree)
 	require.Nil(t, err)
 
 	savedTree, err = fw.GetChain(signedTree.MustId())
 	require.Nil(t, err)
-	savedNodes, err = savedTree.ChainTree.Dag.Nodes()
+	savedNodes, err = savedTree.ChainTree.Dag.Nodes(ctx)
 	require.Nil(t, err)
 
 	assert.Equal(t, len(signedNodes), len(savedNodes))

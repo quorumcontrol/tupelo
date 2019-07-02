@@ -1,6 +1,8 @@
 package walletrpc
 
 import (
+	format "github.com/ipfs/go-ipld-format"
+	"context"
 	"crypto/ecdsa"
 	"encoding/base64"
 	"errors"
@@ -19,7 +21,6 @@ import (
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/storage"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
@@ -79,8 +80,8 @@ func NewSession(storagePath string, walletName string, notaryGroup *types.Notary
 	}, nil
 }
 
-func decodeDag(encodedDag [][]byte, store nodestore.NodeStore) (*dag.Dag, error) {
-	dagNodes := make([]*cbornode.Node, len(encodedDag))
+func decodeDag(encodedDag [][]byte, store nodestore.DagStore) (*dag.Dag, error) {
+	dagNodes := make([]format.Node, len(encodedDag))
 
 	sw := &safewrap.SafeWrap{}
 	for i, rawNode := range encodedDag {
@@ -90,11 +91,11 @@ func decodeDag(encodedDag [][]byte, store nodestore.NodeStore) (*dag.Dag, error)
 		return nil, fmt.Errorf("error decoding: %v", sw.Err)
 	}
 
-	return dag.NewDagWithNodes(store, dagNodes...)
+	return dag.NewDagWithNodes(context.TODO(), store, dagNodes...)
 }
 
 func serializeDag(dag *dag.Dag) ([][]byte, error) {
-	dagNodes, err := dag.Nodes()
+	dagNodes, err := dag.Nodes(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +249,8 @@ func (rpcs *RPCSession) ExportChain(chainId string) (string, error) {
 }
 
 func (rpcs *RPCSession) ImportChain(serializedChain string, shouldValidate bool, storageAdapterConfig *adapters.Config) (*consensus.SignedChainTree, error) {
+	ctx := context.TODO()
+
 	if rpcs.IsStopped() {
 		return nil, StoppedError
 	}
@@ -263,7 +266,7 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, shouldValidate bool,
 		return nil, err
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 
 	chainDAG, err := decodeDag(unmarshalledChain.Dag, nodeStore)
 	if err != nil {
@@ -277,7 +280,7 @@ func (rpcs *RPCSession) ImportChain(serializedChain string, shouldValidate bool,
 
 	chainDAG = chainDAG.WithNewTip(tip)
 
-	chainTree, err := chaintree.NewChainTree(chainDAG, nil, consensus.DefaultTransactors)
+	chainTree, err := chaintree.NewChainTree(ctx, chainDAG, nil, consensus.DefaultTransactors)
 	if err != nil {
 		return nil, fmt.Errorf("error getting new chaintree: %v", err)
 	}
@@ -371,6 +374,8 @@ func (rpcs *RPCSession) Resolve(chainId string, path []string) (interface{}, []s
 
 func (rpcs *RPCSession) resolveAt(chainId string, path []string, tip *cid.Cid) (interface{},
 	[]string, error) {
+	ctx := context.TODO()
+
 	if rpcs.IsStopped() {
 		return nil, nil, StoppedError
 	}
@@ -384,10 +389,11 @@ func (rpcs *RPCSession) resolveAt(chainId string, path []string, tip *cid.Cid) (
 		tip = &chain.ChainTree.Dag.Tip
 	}
 
-	return chain.ChainTree.Dag.ResolveAt(*tip, path)
+	return chain.ChainTree.Dag.ResolveAt(ctx, *tip, path)
 }
 
 func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
+	ctx := context.TODO()
 	tokensPath, err := consensus.DecodePath("tree/_tupelo/tokens")
 	if err != nil {
 		return "", err
@@ -419,7 +425,7 @@ func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		tokenNode, err := chain.ChainTree.Dag.Get(tokenCid)
+		tokenNode, err := chain.ChainTree.Dag.Get(ctx, tokenCid)
 		if err != nil {
 			return "", err
 		}
@@ -440,6 +446,7 @@ func (rpcs *RPCSession) ListTokens(chainId string) (string, error) {
 
 // GetTokenBalance gets the balance for a certain token in the tree.
 func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
+	ctx := context.TODO()
 	if rpcs.IsStopped() {
 		return 0, StoppedError
 	}
@@ -449,7 +456,7 @@ func (rpcs *RPCSession) GetTokenBalance(chainId, token string) (uint64, error) {
 		return 0, err
 	}
 
-	tree, err := chain.ChainTree.Tree()
+	tree, err := chain.ChainTree.Tree(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -546,6 +553,8 @@ func (rpcs *RPCSession) MintToken(chainId, keyAddr, name string, amount uint64) 
 }
 
 func (rpcs *RPCSession) SendToken(chainId, keyAddr, name, destination string, amount uint64) (string, error) {
+	ctx := context.TODO()
+
 	if rpcs.IsStopped() {
 		return "", StoppedError
 	}
@@ -571,7 +580,7 @@ func (rpcs *RPCSession) SendToken(chainId, keyAddr, name, destination string, am
 		return "", err
 	}
 
-	sendTree, err := chain.ChainTree.At(resp.Tip)
+	sendTree, err := chain.ChainTree.At(ctx, resp.Tip)
 	if err != nil {
 		return "", err
 	}

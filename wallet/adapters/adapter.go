@@ -11,7 +11,7 @@ import (
 
 type Adapter interface {
 	Close() error
-	Store() nodestore.NodeStore
+	Store() nodestore.DagStore
 }
 
 type Config struct {
@@ -25,8 +25,6 @@ func New(config *Config) (Adapter, error) {
 	switch config.Adapter {
 	case BadgerStorageAdapterName:
 		return NewBadgerStorage(config.Arguments)
-	case IpldStorageAdapterName:
-		return NewIpldStorage(config.Arguments)
 	case MockStorageAdapterName:
 		return NewMockStorage(config.Arguments)
 	default:

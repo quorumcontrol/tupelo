@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	datastore "github.com/ipfs/go-datastore"
+	format "github.com/ipfs/go-ipld-format"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"
@@ -19,7 +22,6 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -38,7 +40,7 @@ type stateTransaction struct {
 
 type TransactionValidator struct {
 	middleware.LogAwareHolder
-	reader           storage.Reader
+	reader           datastore.Read
 	signatureChecker *actor.PID
 	notaryGroup      *types.NotaryGroup
 }
@@ -46,7 +48,7 @@ type TransactionValidator struct {
 type TransactionValidatorConfig struct {
 	NotaryGroup       *types.NotaryGroup
 	SignatureChecker  *actor.PID
-	CurrentStateStore storage.Reader
+	CurrentStateStore datastore.Read
 }
 
 type validationRequest struct {
@@ -101,8 +103,8 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 	parentSpan.SetTag("TransactionId", string(wrapper.TransactionId))
 
 	var currTip []byte
-	objectIDBits, err := tv.reader.Get(t.ObjectId)
-	if err != nil {
+	objectIDBits, err := tv.reader.Get(datastore.NewKey(string(t.ObjectId)))
+	if err != nil && err != datastore.ErrNotFound {
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 
@@ -182,6 +184,8 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 }
 
 func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, stateTrans *stateTransaction) (nextState []byte, accepted bool, err error) {
+	ctx := context.TODO()
+
 	var currentTip cid.Cid
 	if len(stateTrans.CurrentState) > 1 {
 		currentTip, err = cid.Cast(stateTrans.CurrentState)
@@ -200,7 +204,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, &consensus.ErrorCode{Memo: "unknown tip", Code: consensus.ErrInvalidTip}
 	}
 
-	cborNodes := make([]*cbornode.Node, len(stateTrans.Transaction.State))
+	cborNodes := make([]format.Node, len(stateTrans.Transaction.State))
 
 	sw := &safewrap.SafeWrap{}
 
@@ -211,17 +215,17 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, fmt.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
 	}
 
-	nodeStore := nodestore.NewStorageBasedStore(storage.NewMemStorage())
+	nodeStore := nodestore.MustMemoryStore(ctx)
 
 	var tree *dag.Dag
 
 	if currentTip.Defined() {
-		tree = dag.NewDag(currentTip, nodeStore)
+		tree = dag.NewDag(ctx, currentTip, nodeStore)
 	} else {
 		tree = consensus.NewEmptyTree(string(stateTrans.ObjectId), nodeStore)
 	}
 
-	if err = tree.AddNodes(cborNodes...); err != nil {
+	if err = tree.AddNodes(ctx, cborNodes...); err != nil {
 		return nil, false, err
 	}
 
@@ -268,6 +272,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, fmt.Errorf("error getting block validators: %v", err)
 	}
 	chainTree, err := chaintree.NewChainTree(
+		ctx,
 		tree,
 		// sigVerifier is special cased here because it doesn't follow the pattern of other block validators and instead
 		// relies on some other data in the closure here.
@@ -279,7 +284,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, fmt.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", currentTip.String(), len(cborNodes), err)
 	}
 
-	isValid, err := chainTree.ProcessBlock(stateTrans.Block)
+	isValid, err := chainTree.ProcessBlock(ctx, stateTrans.Block)
 	if !isValid || err != nil {
 		var errMsg string
 		if err == nil {

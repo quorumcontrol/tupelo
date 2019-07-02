@@ -1,29 +1,27 @@
 package adapters
 
 import (
+	"context"
+
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
 )
 
 const MockStorageAdapterName = "mock"
 
 type MockStorageAdapter struct {
-	store *nodestore.StorageBasedStore
+	store nodestore.DagStore
 }
 
 func NewMockStorage(config map[string]interface{}) (*MockStorageAdapter, error) {
-	db := storage.NewMemStorage()
-
 	return &MockStorageAdapter{
-		store: nodestore.NewStorageBasedStore(db),
+		store: nodestore.MustMemoryStore(context.TODO()),
 	}, nil
 }
 
-func (a *MockStorageAdapter) Store() nodestore.NodeStore {
+func (a *MockStorageAdapter) Store() nodestore.DagStore {
 	return a.store
 }
 
 func (a *MockStorageAdapter) Close() error {
-	a.store.Close()
 	return nil
 }

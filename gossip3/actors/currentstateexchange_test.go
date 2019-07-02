@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -11,9 +12,10 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/tupelo/storage"
+
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/storage"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -25,6 +27,9 @@ import (
 )
 
 func TestCurrentStateExchange(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	notaryGroupSize := 2
 	testSet := testnotarygroup.NewTestSet(t, notaryGroupSize)
 	pubsub := remote.NewSimulatedPubSub()
@@ -45,7 +50,7 @@ func TestCurrentStateExchange(t *testing.T) {
 		syncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       notaryGroup,
-			CurrentStateStore: storage.NewMemStorage(),
+			CurrentStateStore: storage.NewDefaultMemory(),
 			PubSubSystem:      pubsub,
 		}), "tupelo-"+signer.ID)
 		require.Nil(t, err)
@@ -64,7 +69,7 @@ func TestCurrentStateExchange(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		keys[i] = key
 		require.Nil(t, err)
-		chain, err := consensus.NewSignedChainTree(key.PublicKey, nodestore.NewStorageBasedStore(storage.NewMemStorage()))
+		chain, err := consensus.NewSignedChainTree(key.PublicKey, nodestore.MustMemoryStore(ctx))
 		require.Nil(t, err)
 		chains[i] = chain
 
@@ -97,7 +102,7 @@ func TestCurrentStateExchange(t *testing.T) {
 	newSyncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 		Self:              signer,
 		NotaryGroup:       notaryGroup,
-		CurrentStateStore: storage.NewMemStorage(),
+		CurrentStateStore: storage.NewDefaultMemory(),
 		PubSubSystem:      pubsub,
 	}), "tupelo-"+signer.ID+"-2")
 	require.Nil(t, err)
