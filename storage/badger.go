@@ -10,6 +10,8 @@ import (
 	dsbadger "github.com/ipfs/go-ds-badger"
 )
 
+// NewDefaultBadger is a convenience function to produce our "standard"
+// badger with the optional low memory mode
 func NewDefaultBadger(path string) (datastore.Batching, error) {
 	opts := badger.DefaultOptions("")
 	opts.Dir = path
