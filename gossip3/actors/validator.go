@@ -85,6 +85,7 @@ func (tv *TransactionValidator) nextHeight(ObjectId []byte) uint64 {
 func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *validationRequest) {
 	t := msg.transaction
 
+	tv.Log.Debugw("handling validation request")
 	wrapper := &messages.TransactionWrapper{
 		Transaction: t,
 		PreFlight:   false,
@@ -116,8 +117,11 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
 		if expectedHeight == t.Height {
+			tv.Log.Debugw("transaction is for expected height")
 			currTip = currentState.Signature.NewTip
 		} else if expectedHeight < t.Height {
+			tv.Log.Debugw("transaction has higher than expected height, marking as preflight",
+				"height", t.Height, "expectedHeight", expectedHeight)
 			wrapper.PreFlight = true
 			actorCtx.Respond(wrapper)
 			return
@@ -127,18 +131,18 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 			actorCtx.Respond(wrapper)
 			return
 		}
-	} else {
-		if t.Height != 0 {
-			wrapper.PreFlight = true
-			actorCtx.Respond(wrapper)
-			return
-		}
+	} else if t.Height > 0 {
+		tv.Log.Debugw("object corresponding to transaction not found, marking as preflight",
+			"height", t.Height)
+		wrapper.PreFlight = true
+		actorCtx.Respond(wrapper)
+		return
 	}
 
 	block := &chaintree.BlockWithHeaders{}
 	err = cbornode.DecodeInto(t.Payload, block)
 	if err != nil {
-		tv.Log.Errorw("invalid transaction: payload is not a block")
+		tv.Log.Errorw("invalid transaction: payload is not a block", "err", err)
 		actorCtx.Respond(wrapper)
 		return
 	}

@@ -106,18 +106,16 @@ var rootCmd = &cobra.Command{
 			panic(err.Error())
 		}
 		log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), log.StreamHandler(os.Stderr, log.TerminalFormat(true))))
-		err = ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName))
-		if err != nil {
+		if err := ipfslogging.SetLogLevel("*", strings.ToUpper(logLvlName)); err != nil {
 			fmt.Println("unknown ipfs log level")
 		}
 
-		if err = gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
+		if err := gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
 			panic(err)
 		}
 
 		if configFilePath != "" {
-			err = loadTomlConfig(configFilePath)
-			if err != nil {
+			if err := loadTomlConfig(configFilePath); err != nil {
 				panic(err)
 			}
 		}

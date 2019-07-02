@@ -123,9 +123,9 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	remote.NewRouter(node)
 
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              localSigner,
-		NotaryGroup:       ng,
-		CurrentStateStore: currentStore,
+		Self:                     localSigner,
+		NotaryGroup:              ng,
+		CurrentStateStore:        currentStore,
 		PubSubSystem:      remote.NewNetworkPubSub(node),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
