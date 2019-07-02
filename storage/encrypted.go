@@ -1,17 +1,18 @@
 package storage
 
 import (
-	datastore "github.com/ipfs/go-datastore"
 	"crypto/rand"
 	"fmt"
 	"io"
+
+	datastore "github.com/ipfs/go-datastore"
 
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/scrypt"
 )
 
-// EncryptedStorage is the encrypted twin of Storage
-// it supports unlocking the storage with a passphrase
+// EncryptedStorage encrypts and decrypts
+// values before writing them to the underlying datastore.Datastore
 type EncryptedStorage interface {
 	datastore.Datastore
 	// Unlock takes a passphrase to use to decrypt values in the database
@@ -25,14 +26,14 @@ var _ EncryptedStorage = (*EncryptedStore)(nil)
 var saltKey = datastore.NewKey("_qcstorage_encrypted_badger_salt")
 
 // EncryptedStore is an implementation of the EncryptedStorage interface
-// using any underlying type that implements Storage interface
+// using any underlying type that implements datastore.Datastore
 type EncryptedStore struct {
 	datastore.Datastore
 	secretKey  *[32]byte
 	isUnlocked bool
 }
 
-// NewEncryptedStore takes an underlying store
+// EncryptedWrapper takes an underlying store
 // and uses encryption on the values being set
 // it implements the EncryptedStorage interface
 func EncryptedWrapper(store datastore.Batching) *EncryptedStore {
@@ -49,11 +50,12 @@ func (es *EncryptedStore) Unlock(passphrase string) {
 	es.isUnlocked = true
 }
 
+// Close implements the datastore.Datastore interface
 func (es *EncryptedStore) Close() error {
 	return es.Datastore.Close()
 }
 
-// Set implements the Storage interface
+// Put implements the datastore.Datastore interface
 func (es *EncryptedStore) Put(key datastore.Key, value []byte) error {
 	if !es.isUnlocked {
 		return fmt.Errorf("you must unlock this storage before using")
@@ -66,7 +68,7 @@ func (es *EncryptedStore) Put(key datastore.Key, value []byte) error {
 	return es.Datastore.Put(key, encrypted)
 }
 
-// Get implements the Storage interface
+// Get implements the datastore.Datastore interface
 func (es *EncryptedStore) Get(key datastore.Key) ([]byte, error) {
 	if !es.isUnlocked {
 		return nil, fmt.Errorf("you must unlock this storage before using")
@@ -85,7 +87,6 @@ func (es *EncryptedStore) Get(key datastore.Key) ([]byte, error) {
 
 	return decrypted, nil
 }
-
 
 func (es *EncryptedStore) passphraseToKey(passphrase string) []byte {
 	dk, err := scrypt.Key([]byte(passphrase), es.getSalt(), 32768, 8, 1, 32)

@@ -1,9 +1,10 @@
 package adapters
 
 import (
-	datastore "github.com/ipfs/go-datastore"
 	"context"
 	"fmt"
+
+	datastore "github.com/ipfs/go-datastore"
 
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/tupelo/storage"
@@ -13,7 +14,7 @@ const BadgerStorageAdapterName = "badger"
 
 type BadgerStorageAdapter struct {
 	store  nodestore.DagStore
-	db datastore.Batching
+	db     datastore.Batching
 	cancel context.CancelFunc
 }
 
@@ -33,7 +34,6 @@ func NewBadgerStorage(config map[string]interface{}) (*BadgerStorageAdapter, err
 		cancel()
 		return nil, fmt.Errorf("Error initializing badger storage: %v", err)
 	}
-	
 
 	store, err := nodestore.FromDatastoreOffline(ctx, db)
 	if err != nil {
@@ -44,7 +44,7 @@ func NewBadgerStorage(config map[string]interface{}) (*BadgerStorageAdapter, err
 	return &BadgerStorageAdapter{
 		store:  store,
 		cancel: cancel,
-		db: db,
+		db:     db,
 	}, nil
 }
 

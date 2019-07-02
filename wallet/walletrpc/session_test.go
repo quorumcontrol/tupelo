@@ -119,7 +119,7 @@ func TestImportExport(t *testing.T) {
 }
 
 func TestSendAndReceiveToken(t *testing.T) {
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	path := ".tmp/test-send-token"
@@ -292,6 +292,7 @@ func TestTokens(t *testing.T) {
 		{"get existing token balance", testGetTokenBalance},
 		{"get non-existent token balance", testGetNonExistentTokenBalance},
 	}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			path := ".tmp/test-tokens"
