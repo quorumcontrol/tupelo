@@ -57,7 +57,7 @@ var testnodeCmd = &cobra.Command{
 		if err != nil {
 			panic(fmt.Errorf("error starting: %v", err))
 		}
-		err = nb.Host().WaitForBootstrap(len(config.Signers)/2, 30*time.Second)
+		err = nb.Host().WaitForBootstrap(len(config.NotaryGroupConfig.Signers)/2, 30*time.Second)
 		if err != nil {
 			panic(fmt.Errorf("error starting: %v", err))
 		}

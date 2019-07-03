@@ -1,15 +1,12 @@
 package nodebuilder
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 
@@ -41,8 +38,8 @@ func (nb *NodeBuilder) Host() p2p.Node {
 	return nb.host
 }
 
-func (nb *NodeBuilder) NotaryGroup() *types.NotaryGroup {
-	return nb.setupNotaryGroup(nil)
+func (nb *NodeBuilder) NotaryGroup() (*types.NotaryGroup, error) {
+	return nb.Config.NotaryGroupConfig.NotaryGroup(nil)
 }
 
 func (nb *NodeBuilder) BootstrappedP2PNode(ctx context.Context, opts ...p2p.Option) (p2p.Node, error) {
@@ -124,7 +121,10 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 		return fmt.Errorf("error creating storage: %v", err)
 	}
 
-	group := nb.setupNotaryGroup(localSigner)
+	group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
+	if err != nil {
+		return fmt.Errorf("error generating notary group: %v", err)
+	}
 
 	var pubsub remote.PubSub
 	remote.Start()
@@ -166,29 +166,6 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	nb.actorToStop = act
 
 	return nil
-}
-
-func (nb *NodeBuilder) setupNotaryGroup(local *types.Signer) *types.NotaryGroup {
-
-	group := types.NewNotaryGroupFromConfig(nb.Config.NotaryGroupConfig)
-
-	if local != nil {
-		group.AddSigner(local)
-	}
-
-	for _, keySet := range nb.Config.Signers {
-		if local != nil && bytes.Equal(crypto.FromECDSAPub(local.DstKey), crypto.FromECDSAPub(keySet.DestKey)) {
-			continue
-		}
-
-		signer := types.NewRemoteSigner(keySet.DestKey, keySet.VerKey)
-		if local != nil {
-			signer.Actor = actor.NewPID(signer.ActorAddress(local.DstKey), syncerActorName(signer))
-		}
-		group.AddSigner(signer)
-	}
-
-	return group
 }
 
 func syncerActorName(signer *types.Signer) string {

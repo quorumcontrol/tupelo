@@ -2,6 +2,8 @@ package nodebuilder
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -36,47 +38,18 @@ func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 	}, nil
 }
 
-type HumanPublicKeySet struct {
-	VerKeyHex  string
-	DestKeyHex string
-}
-
-func (hpubset *HumanPublicKeySet) ToPublicKeySet() (pubset PublicKeySet, err error) {
-	blsBits, err := hexutil.Decode(hpubset.VerKeyHex)
-	if err != nil {
-		return pubset, fmt.Errorf("error decoding verkey: %v", err)
-	}
-	ecdsaBits, err := hexutil.Decode(hpubset.DestKeyHex)
-	if err != nil {
-		return pubset, fmt.Errorf("error decoding destkey: %v", err)
-	}
-
-	ecdsaPub, err := crypto.UnmarshalPubkey(ecdsaBits)
-	if err != nil {
-		return pubset, fmt.Errorf("couldn't unmarshal ECDSA pub key: %v", err)
-	}
-
-	verKey := bls.BytesToVerKey(blsBits)
-
-	return PublicKeySet{
-		DestKey: ecdsaPub,
-		VerKey:  verKey,
-	}, nil
-}
-
 // HumanConfig is used for parsing an ondisk configuration into the application-used Config
 // struct. At the time of this comment, it also uses the types.HumanConfig for notary groups
 // defined in the tupelo-go-sdk as well.
 type HumanConfig struct {
 	Namespace string
 
-	NotaryGroup types.HumanConfig
-	StoragePath string
-	PublicIP    string
-	Port        int
+	NotaryGroupConfig string
+	StoragePath       string
+	PublicIP          string
+	Port              int
 
 	PrivateKeySet  *HumanPrivateKeySet
-	Signers        []HumanPublicKeySet
 	BootstrapNodes []string
 
 	BootstrapOnly bool
@@ -93,7 +66,18 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		BootstrapOnly:  hc.BootstrapOnly,
 	}
 
-	ngConfig, err := types.HumanConfigToConfig(&hc.NotaryGroup)
+	tomlBits, err := ioutil.ReadFile(hc.NotaryGroupConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error reading %s: %v", hc.NotaryGroupConfig, err)
+	}
+
+	var humanNG types.HumanConfig
+	_, err = toml.Decode(string(tomlBits), &humanNG)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding toml: %v", err)
+	}
+
+	ngConfig, err := types.HumanConfigToConfig(&humanNG)
 	if err != nil {
 		return nil, fmt.Errorf("error getting notary group config: %v", err)
 	}
@@ -118,25 +102,28 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		c.PrivateKeySet = privSet
 	}
 
-	signers := make([]PublicKeySet, len(hc.Signers))
-	for i, humanPub := range hc.Signers {
-		pub, err := humanPub.ToPublicKeySet()
-		if err != nil {
-			return nil, fmt.Errorf("error getting signer from human: %v", err)
-		}
-		signers[i] = pub
-	}
-	c.Signers = signers
-
 	return c, nil
 }
 
-// TomlToConfig will load a config from a toml string
-func TomlToConfig(tomlStr string) (*Config, error) {
+// TomlToConfig will load a config from a path to a toml file
+func TomlToConfig(path string) (*Config, error) {
+	tomlBits, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("error reading %s: %v", path, err)
+	}
+
 	var hc HumanConfig
-	_, err := toml.Decode(tomlStr, &hc)
+	_, err = toml.Decode(string(tomlBits), &hc)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding toml: %v", err)
 	}
+
+	if hc.NotaryGroupConfig == "" {
+		return nil, fmt.Errorf("missing notary group config path")
+	}
+
+	newPath := filepath.Join(filepath.Dir(path), hc.NotaryGroupConfig)
+	hc.NotaryGroupConfig = newPath
+
 	return HumanConfigToConfig(hc)
 }

@@ -37,21 +37,21 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 		BootstrapAddrrs: BootstrapAddresses(boot),
 	}
 
-	signers := make([]PublicKeySet, len(keys))
+	signers := make([]types.PublicKeySet, len(keys))
 	for i, keySet := range keys {
-		public := PublicKeySet{
+		public := types.PublicKeySet{
 			DestKey: &keySet.DestKey.PublicKey,
 			VerKey:  keySet.SignKey.MustVerKey(),
 		}
 		signers[i] = public
 	}
+	ngConfig.Signers = signers
 
 	configs := make([]*Config, len(signers))
 	for i, keySet := range keys {
 		configs[i] = &Config{
 			NotaryGroupConfig: ngConfig,
 			PrivateKeySet:     keySet,
-			Signers:           signers,
 			BootstrapNodes:    ln.BootstrapAddrrs,
 			StoragePath:       configDir(namespace, localConfigName),
 		}
