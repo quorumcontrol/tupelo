@@ -85,7 +85,7 @@ $(FIRSTGOPATH)/bin/modvendor:
 install: $(packr) $(generated) $(gosources) go.mod go.sum
 	go install -a -gcflags=-trimpath=$(CURDIR) -asmflags=-trimpath=$(CURDIR)
 
-clean:
+clean: $(FIRSTGOPATH)/bin/packr2 
 	$(FIRSTGOPATH)/bin/packr2 clean
 	go clean
 	rm -rf vendor
