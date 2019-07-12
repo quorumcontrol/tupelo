@@ -7,7 +7,8 @@ jobs:
       SOURCE_MOUNT: --volumes-from=source
     steps:
       - checkout
-      - setup_remote_docker
+      - setup_remote_docker:
+          resource_class: large
       - add_ssh_keys:
           fingerprints:
             - "06:4a:76:ba:0c:08:2f:ee:d6:2c:0f:7f:fa:f0:28:45"
