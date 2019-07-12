@@ -48,9 +48,7 @@ $(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserv
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/*.proto
 	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/badger/*.proto
 
-# TODO: remove mkdir -p for go-libp2p-pubsub once fork is no longer needed
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
-	mkdir -p $(FIRSTGOPATH)/pkg/mod/github.com/libp2p/go-libp2p-pubsub@v0.0.3
 	go mod vendor
 	modvendor -copy="**/*.c **/*.h"
 
