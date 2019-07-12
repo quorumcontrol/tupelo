@@ -89,7 +89,7 @@ clean: $(FIRSTGOPATH)/bin/packr2
 	$(FIRSTGOPATH)/bin/packr2 clean
 	go clean
 	rm -rf vendor
-	rm $(generated)
+	rm -f $(generated)
 
 github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
