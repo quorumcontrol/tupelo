@@ -34,8 +34,8 @@ $(call GUARD,VERSION):
 	rm -rf VERSION_GUARD_*
 	touch $@
 
-$(FIRSTGOPATH)/bin/protoc-gen-go:
-	go get -u github.com/golang/protobuf/protoc-gen-go
+${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf:
+	go get github.com/gogo/protobuf/...
 
 $(FIRSTGOPATH)/bin/packr2:
 	go get -u github.com/gobuffalo/packr/v2/packr2
@@ -43,10 +43,10 @@ $(FIRSTGOPATH)/bin/packr2:
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
-$(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserver/nodestore/badger/badger.proto $(FIRSTGOPATH)/bin/protoc-gen-go
-	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. *.proto
-	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/*.proto
-	cd rpcserver && protoc --proto_path=. --go_out=paths=source_relative,plugins=grpc:. nodestore/badger/*.proto
+$(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserver/nodestore/badger/badger.proto ${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf
+	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. *.proto
+	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. nodestore/*.proto
+	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. nodestore/badger/*.proto
 
 # TODO: remove mkdir -p for go-libp2p-pubsub once fork is no longer needed
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
@@ -71,6 +71,8 @@ SOURCE_MOUNT ?= -v ${CURDIR}:/src/tupelo
 integration-test: .tupelo-integration.yml
 	docker pull quorumcontrol/tupelo-integration-runner || true
 	docker run -v /var/run/docker.sock:/var/run/docker.sock $(SOURCE_MOUNT) quorumcontrol/tupelo-integration-runner
+
+generate: $(generated)
 
 ci-test: $(packr) $(generated) $(gosources) go.mod go.sum
 	mkdir -p test_results/tests
@@ -97,4 +99,4 @@ github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
 	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
 
-.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare
+.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare generate

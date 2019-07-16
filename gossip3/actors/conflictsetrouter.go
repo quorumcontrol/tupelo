@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	datastore "github.com/ipfs/go-datastore"
 
 	"github.com/quorumcontrol/messages/build/go/signatures"

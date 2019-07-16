@@ -1,10 +1,11 @@
 package messages
 
 import (
-	"github.com/golang/protobuf/proto"
+	"fmt"
+
+	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"
-	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"

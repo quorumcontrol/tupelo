@@ -14,7 +14,6 @@ require (
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gogo/protobuf v1.2.1
-	github.com/golang/protobuf v1.3.1
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
@@ -34,8 +33,8 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b
-	github.com/quorumcontrol/messages/build/go v0.0.0-20190603192428-dcb5ad7a31ca
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.0
+	github.com/quorumcontrol/messages/build/go v0.0.0-20190716095704-9acdbae78c93
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.1
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
