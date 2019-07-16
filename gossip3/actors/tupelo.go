@@ -5,7 +5,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	datastore "github.com/ipfs/go-datastore"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"

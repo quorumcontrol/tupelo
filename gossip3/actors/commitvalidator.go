@@ -3,7 +3,7 @@ package actors
 import (
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/messages/build/go/signatures"
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"context"
 	"fmt"
 	"time"

@@ -9,7 +9,7 @@ import (
 	datastore "github.com/ipfs/go-datastore"
 	format "github.com/ipfs/go-ipld-format"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"
 
