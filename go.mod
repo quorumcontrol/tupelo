@@ -34,7 +34,7 @@ require (
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190716095704-9acdbae78c93
-	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190716000000-0cbb016537df585d93b1492c513f2053e71d1b80
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.1
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
