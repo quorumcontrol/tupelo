@@ -48,9 +48,7 @@ $(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserv
 	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. nodestore/*.proto
 	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. nodestore/badger/*.proto
 
-# TODO: remove mkdir -p for go-libp2p-pubsub once fork is no longer needed
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
-	mkdir -p $(FIRSTGOPATH)/pkg/mod/github.com/libp2p/go-libp2p-pubsub@v0.0.3
 	go mod vendor
 	modvendor -copy="**/*.c **/*.h"
 
@@ -89,11 +87,11 @@ $(FIRSTGOPATH)/bin/modvendor:
 install: $(packr) $(generated) $(gosources) go.mod go.sum
 	go install -a -gcflags=-trimpath=$(CURDIR) -asmflags=-trimpath=$(CURDIR)
 
-clean:
+clean: $(FIRSTGOPATH)/bin/packr2 
 	$(FIRSTGOPATH)/bin/packr2 clean
 	go clean
 	rm -rf vendor
-	rm $(generated)
+	rm -f $(generated)
 
 github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
