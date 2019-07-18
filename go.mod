@@ -40,17 +40,20 @@ require (
 	github.com/quorumcontrol/storage v1.1.2
 	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190604010000-234618cf102bcfea05d6d73476c7fb5344cd61d7
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
-	github.com/spf13/cobra v0.0.3
-	github.com/spf13/viper v1.3.1
+	github.com/spf13/cobra v0.0.5
+	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.9.1
 	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f // indirect
-	golang.org/x/net v0.0.0-20190509222800-a4d6f7feada5
-	golang.org/x/sys v0.0.0-20190509141414-a5b02f93d862 // indirect
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20190513233021-7d589f28aaf4 // indirect
 	google.golang.org/grpc v1.20.0
 )
 
 replace github.com/libp2p/go-libp2p-pubsub v0.0.3 => github.com/quorumcontrol/go-libp2p-pubsub v0.0.0-20190515123400-58d894b144ff864d212cf4b13c42e8fdfe783aba
+
+replace github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190604010000-234618cf102bcfea05d6d73476c7fb5344cd61d7 => github.com/quorumcontrol/tupelo-go-sdk v0.4.0-badger-patch
+
+replace github.com/dgraph-io/badger v2.0.0-rc.2+incompatible => github.com/dgraph-io/badger v1.5.5-0.20190512072421-223783212966
