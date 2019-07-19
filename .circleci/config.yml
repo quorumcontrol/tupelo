@@ -19,7 +19,10 @@ jobs:
           docker create -v /src/tupelo --name source alpine /bin/true
           make vendor
           docker cp . source:/src/tupelo
-      - run: ./scripts/build-within-docker.sh
+      - run:
+          name: Integration Tests
+          command: ./scripts/build-within-docker.sh
+          no_output_timeout: 30m
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
