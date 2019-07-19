@@ -126,7 +126,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 		Self:                     localSigner,
 		NotaryGroup:              ng,
 		CurrentStateStore:        currentStore,
-		PubSubSystem:      remote.NewNetworkPubSub(node),
+		PubSubSystem:      remote.NewNetworkPubSub(node.GetPubSub()),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error spawning: %v", err)
@@ -198,7 +198,7 @@ func TestLibP2PSigning(t *testing.T) {
 	err = clientHost.WaitForBootstrap(2, 1*time.Second)
 	require.Nil(t, err)
 
-	pubSub := remote.NewNetworkPubSub(clientHost)
+	pubSub := remote.NewNetworkPubSub(clientHost.GetPubSub())
 
 	remote.NewRouter(clientHost)
 
@@ -329,7 +329,7 @@ func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(
 	}
 
 	remote.NewRouter(clientHost)
-	pubSub := remote.NewNetworkPubSub(clientHost)
+	pubSub := remote.NewNetworkPubSub(clientHost.GetPubSub())
 
 	return pubSub, systems[0], cleanUp, nil
 }

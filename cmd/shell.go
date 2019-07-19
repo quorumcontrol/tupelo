@@ -42,7 +42,7 @@ var shellCmd = &cobra.Command{
 			if err != nil {
 				panic(fmt.Errorf("error creating host: %v", err))
 			}
-			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
+			pubSubSystem = remote.NewNetworkPubSub(p2pHost.GetPubSub())
 			group = ln.NotaryGroup
 		} else {
 			gossip3remote.Start()
@@ -61,7 +61,7 @@ var shellCmd = &cobra.Command{
 			if err != nil {
 				panic(fmt.Errorf("error creating host: %v", err))
 			}
-			pubSubSystem = remote.NewNetworkPubSub(p2pHost)
+			pubSubSystem = remote.NewNetworkPubSub(p2pHost.GetPubSub())
 
 			gossip3remote.NewRouter(p2pHost)
 
