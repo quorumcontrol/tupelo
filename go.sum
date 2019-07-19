@@ -346,6 +346,8 @@ github.com/libp2p/go-libp2p-peerstore v0.1.2-0.20190621130618-cfa9bb890c1a h1:xW
 github.com/libp2p/go-libp2p-peerstore v0.1.2-0.20190621130618-cfa9bb890c1a/go.mod h1:DAchSrPUuksotuxrqPcvk5jvifXlxC3oH/65iHFmBns=
 github.com/libp2p/go-libp2p-pnet v0.1.0 h1:kRUES28dktfnHNIRW4Ro78F7rKBHBiw5MJpl0ikrLIA=
 github.com/libp2p/go-libp2p-pnet v0.1.0/go.mod h1:ZkyZw3d0ZFOex71halXRihWf9WH/j3OevcJdTmD0lyE=
+github.com/libp2p/go-libp2p-pubsub v0.1.0 h1:SmQeMa7IUv5vadh0fYgYsafWCBA1sCy5d/68kIYqGcU=
+github.com/libp2p/go-libp2p-pubsub v0.1.0/go.mod h1:ZwlKzRSe1eGvSIdU5bD7+8RZN/Uzw0t1Bp9R1znpR/Q=
 github.com/libp2p/go-libp2p-record v0.1.0 h1:wHwBGbFzymoIl69BpgwIu0O6ta3TXGcMPvHUAcodzRc=
 github.com/libp2p/go-libp2p-record v0.1.0/go.mod h1:ujNc8iuE5dlKWVy6wuL6dd58t0n7xI4hAIl8pE6wu5Q=
 github.com/libp2p/go-libp2p-routing v0.1.0 h1:hFnj3WR3E2tOcKaGpyzfP4gvFZ3t8JkQmbapN0Ct+oU=
@@ -507,8 +509,12 @@ github.com/quorumcontrol/go-libp2p-pubsub v0.0.4-0.20190528094025-e4e719f73e7a/g
 github.com/quorumcontrol/messages/build/go v0.0.0-20190530182608-30c127bffefb/go.mod h1:b8jDN8PulcGcRJ2pQc0lbC3tPaOspGHoBIbPxfB7Jqg=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190722093818-0def9b3a6501 h1:+ye7Fu4SfzFZFzFAPzXFfjHndQbIYB6BMvXG3Bm34x0=
 github.com/quorumcontrol/messages/build/go v0.0.0-20190722093818-0def9b3a6501/go.mod h1:QLQVe/V3WcoFNglaJXmoRNs8u+KbsNd5MXeOaa77zgw=
+github.com/quorumcontrol/messages/build/go v0.0.0-20190723140659-c8a3565a7c72 h1:qwwsvUXKWX61goPIFIaUU8YlpU9RqlH1wqO97TlD+gc=
+github.com/quorumcontrol/messages/build/go v0.0.0-20190723140659-c8a3565a7c72/go.mod h1:QLQVe/V3WcoFNglaJXmoRNs8u+KbsNd5MXeOaa77zgw=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.2 h1:eDsshQ/FQF85adofDSLXETwXOKfsua6Jm2/79x1+NwA=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.2/go.mod h1:nDi093vRZ1FZxue5UiMRgx+6YG/aMfxX7wih8gZ3OO0=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.3-rc1 h1:sfTVH/BZacRWpUNU6NvK5fKmTw8OfN21zl/HOZ/RG7k=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.3-rc1/go.mod h1:VY2n56lrSVcIEYg8dPZGaI58ssJe/g3fuQnmEcUcer4=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0 h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
