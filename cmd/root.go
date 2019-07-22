@@ -31,7 +31,8 @@ import (
 )
 
 const (
-	bootstrapKeyFile = "bootstrap-keys.json"
+	bootstrapKeyFile      = "bootstrap-keys.json"
+	defaultLocalNodeCount = 3
 )
 
 var (
@@ -97,10 +98,6 @@ var rootCmd = &cobra.Command{
 	Short: "Tupelo interface",
 	Long:  `Tupelo is a distributed ledger optimized for ownership`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		if localNetworkNodeCount > 0 && remoteNetwork {
-			panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
-		}
-
 		logLevel, err := getLogLevel(logLvlName)
 		if err != nil {
 			panic(err.Error())
@@ -114,12 +111,21 @@ var rootCmd = &cobra.Command{
 			panic(err)
 		}
 
+		if remoteNetwork {
+			if localNetworkNodeCount > 0 {
+				panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
+			}
+		} else {
+			if localNetworkNodeCount < 0 {
+				localNetworkNodeCount = defaultLocalNodeCount
+			}
+		}
+
 		if configFilePath != "" {
 			if err := loadTomlConfig(configFilePath); err != nil {
 				panic(err)
 			}
 		}
-
 	},
 }
 
@@ -144,7 +150,8 @@ func loadTomlConfig(path string) error {
 func init() {
 	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "path to a toml config file")
 	rootCmd.PersistentFlags().StringVarP(&logLvlName, "log-level", "L", "error", "Log level")
-	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", 3, "Run local network with randomly generated keys, specifying number of nodes as argument.")
+	rootCmd.PersistentFlags().IntVarP(&localNetworkNodeCount, "local-network", "l", -1, fmt.Sprintf(
+		"Run local network with randomly generated keys, specifying number of nodes as argument (default: %d).", defaultLocalNodeCount))
 	rootCmd.PersistentFlags().BoolVarP(&remoteNetwork, "remote-network", "r", false, "Connect to a remote network. Mutually exclusive with -l / --local-network.")
 	rootCmd.PersistentFlags().StringVarP(&overrideKeysFile, "override-keys", "k", "", "Path to notary group bootstrap keys file.")
 	rootCmd.PersistentFlags().StringVar(&configNamespace, "namespace", "default", "a global config namespace (useful for tests). All configs will be separated using this")
