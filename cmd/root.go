@@ -115,6 +115,13 @@ var rootCmd = &cobra.Command{
 			if localNetworkNodeCount > 0 {
 				panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
 			}
+		} else if overrideKeysFile != "" {
+			if localNetworkNodeCount > 0 {
+				panic("cannot supply both --local-network N (greater than 0) and --override-keys; " +
+					"please use one or the other")
+			}
+
+			remoteNetwork = true
 		} else {
 			if localNetworkNodeCount < 0 {
 				localNetworkNodeCount = defaultLocalNodeCount
