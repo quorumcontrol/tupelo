@@ -1,6 +1,3 @@
-BootstrapNodes = [
-    "/ip4/172.16.238.10/tcp/34001/ipfs/16Uiu2HAm3TGSEKEjagcCojSJeaT5rypaeJMKejijvYSnAjviWwV5"
-]
 NotaryGroupConfig = "../localdocker.toml"
 
 [PrivateKeySet]
