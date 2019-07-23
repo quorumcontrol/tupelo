@@ -49,8 +49,7 @@ type HumanConfig struct {
 	PublicIP          string
 	Port              int
 
-	PrivateKeySet  *HumanPrivateKeySet
-	BootstrapNodes []string
+	PrivateKeySet *HumanPrivateKeySet
 
 	BootstrapOnly bool
 	TracingSystem string
@@ -58,12 +57,11 @@ type HumanConfig struct {
 
 func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 	c := &Config{
-		Namespace:      hc.Namespace,
-		StoragePath:    hc.StoragePath,
-		PublicIP:       hc.PublicIP,
-		Port:           hc.Port,
-		BootstrapNodes: hc.BootstrapNodes,
-		BootstrapOnly:  hc.BootstrapOnly,
+		Namespace:     hc.Namespace,
+		StoragePath:   hc.StoragePath,
+		PublicIP:      hc.PublicIP,
+		Port:          hc.Port,
+		BootstrapOnly: hc.BootstrapOnly,
 	}
 
 	tomlBits, err := ioutil.ReadFile(hc.NotaryGroupConfig)
@@ -71,17 +69,13 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		return nil, fmt.Errorf("error reading %s: %v", hc.NotaryGroupConfig, err)
 	}
 
-	var humanNG types.HumanConfig
-	_, err = toml.Decode(string(tomlBits), &humanNG)
+	ngConfig, err := types.TomlToConfig(string(tomlBits))
 	if err != nil {
-		return nil, fmt.Errorf("error decoding toml: %v", err)
-	}
-
-	ngConfig, err := types.HumanConfigToConfig(&humanNG)
-	if err != nil {
-		return nil, fmt.Errorf("error getting notary group config: %v", err)
+		return nil, fmt.Errorf("error loading notary group config")
 	}
 	c.NotaryGroupConfig = ngConfig
+
+	c.BootstrapNodes = ngConfig.BootstrapAddresses
 
 	switch hc.TracingSystem {
 	case "":
