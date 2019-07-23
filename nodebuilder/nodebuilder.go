@@ -150,7 +150,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 
 	nb.host = p2pHost
 
-	pubsub = remote.NewNetworkPubSub(p2pHost)
+	pubsub = remote.NewNetworkPubSub(p2pHost.GetPubSub())
 
 	act, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              localSigner,

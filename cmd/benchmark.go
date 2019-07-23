@@ -174,7 +174,7 @@ var benchmark = &cobra.Command{
 		}
 		group.SetupAllRemoteActors(&key.PublicKey)
 
-		pubSubSystem := remote.NewNetworkPubSub(p2pHost)
+		pubSubSystem := remote.NewNetworkPubSub(p2pHost.GetPubSub())
 
 		if err = p2pHost.WaitForBootstrap(1+len(group.Signers)/2, 15*time.Second); err != nil {
 			panic(err)

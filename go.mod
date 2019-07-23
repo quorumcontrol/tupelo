@@ -33,8 +33,8 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b
-	github.com/quorumcontrol/messages/build/go v0.0.0-20190722093818-0def9b3a6501
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.2
+	github.com/quorumcontrol/messages/build/go v0.0.0-20190723140659-c8a3565a7c72
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.3-rc1
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
