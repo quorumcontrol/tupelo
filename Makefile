@@ -35,10 +35,10 @@ $(call GUARD,VERSION):
 	touch $@
 
 ${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf:
-	go get github.com/gogo/protobuf/...
+	GO111MODULES=off go get -u github.com/gogo/protobuf/...
 
 $(FIRSTGOPATH)/bin/packr2:
-	go get -u github.com/gobuffalo/packr/v2/packr2
+	GO111MODULES=off go get -u github.com/gobuffalo/packr/v2/packr2
 
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
