@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/spf13/cobra"
 )
@@ -41,8 +40,8 @@ func generateKeySets(numberOfKeys int) (privateKeys []*nodebuilder.LegacyPrivate
 		})
 
 		publicKeys = append(publicKeys, &nodebuilder.LegacyPublicKeySet{
-			BlsHexPublicKey:   hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
-			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).PublicKey),
+			BlsHexPublicKey:   hexutil.Encode(blsKey.MustVerKey().Bytes()),
+			EcdsaHexPublicKey: hexutil.Encode(crypto.FromECDSAPub(&ecdsaKey.PublicKey)),
 			PeerIDBase58Key:   peerID.Pretty(),
 		})
 	}

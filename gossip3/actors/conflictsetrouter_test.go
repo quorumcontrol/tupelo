@@ -188,7 +188,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
 	assert.True(t, wrap.Verified)
-	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.Signature.NewTip)
+	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.NewTip)
 }
 
 func TestHandlesCommitsBeforeTransactions(t *testing.T) {
@@ -288,7 +288,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
 	assert.True(t, wrap.Verified)
-	assert.Equal(t, trans.NewTip, wrap.CurrentState.Signature.NewTip)
+	assert.Equal(t, trans.NewTip, wrap.CurrentState.NewTip)
 }
 
 func fakeValidateTransaction(t testing.TB, trans *services.AddBlockRequest) *messages.TransactionWrapper {
@@ -308,7 +308,7 @@ func newActorlessSystem(testSet *testnotarygroup.TestSet) (*types.NotaryGroup, e
 	ng := types.NewNotaryGroup("actorless")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
-		signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), sk)
+		signer := types.NewLocalSigner(testSet.PubKeys[i], sk)
 		ng.AddSigner(signer)
 	}
 	return ng, nil
@@ -436,8 +436,8 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	t.Logf("got current state wrapper #1 from parent actor #1: %+v",
 		currentStateWrapper0.CurrentState.Signature)
 	require.True(t, currentStateWrapper0.Verified)
-	require.Equal(t, trans0.NewTip, currentStateWrapper0.CurrentState.Signature.NewTip)
-	require.Equal(t, uint64(1), currentStateWrapper0.CurrentState.Signature.Height)
+	require.Equal(t, trans0.NewTip, currentStateWrapper0.CurrentState.NewTip)
+	require.Equal(t, uint64(1), currentStateWrapper0.CurrentState.Height)
 
 	// Store current state in store so that second CSR knows the current state height
 	t.Logf("storing current state in store, ObjectId: %s", trans0.ObjectId)
@@ -473,9 +473,9 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	currentStateWrapper1 := <-cswChan1
 	t.Logf("got current state wrapper #2 from parent actor #2")
 	require.True(t, currentStateWrapper1.Verified)
-	require.Equal(t, trans3.NewTip, currentStateWrapper1.CurrentState.Signature.NewTip)
-	require.Equal(t, uint64(trans3.Height), currentStateWrapper1.CurrentState.Signature.Height)
-	require.Equal(t, trans0.ObjectId, currentStateWrapper1.CurrentState.Signature.ObjectId)
+	require.Equal(t, trans3.NewTip, currentStateWrapper1.CurrentState.NewTip)
+	require.Equal(t, uint64(trans3.Height), currentStateWrapper1.CurrentState.Height)
+	require.Equal(t, trans0.ObjectId, currentStateWrapper1.CurrentState.ObjectId)
 
 	t.Logf("sending commit notification to conflict set router #1")
 	ctx.Send(conflictSetRouter0, currentStateWrapper1.CurrentState)
@@ -484,8 +484,8 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	currentStateWrapper2 := <-cswChan0
 	t.Logf("got current state wrapper #3 from parent actor #1")
 	require.True(t, currentStateWrapper2.Verified)
-	require.Equal(t, uint64(trans3.Height), currentStateWrapper2.CurrentState.Signature.Height)
-	require.Equal(t, trans3.NewTip, currentStateWrapper2.CurrentState.Signature.NewTip)
+	require.Equal(t, uint64(trans3.Height), currentStateWrapper2.CurrentState.Height)
+	require.Equal(t, trans3.NewTip, currentStateWrapper2.CurrentState.NewTip)
 
 	numConflictSets, err := ctx.RequestFuture(conflictSetRouter0,
 		messages.GetNumConflictSets{}, 1*time.Second).Result()
