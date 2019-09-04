@@ -35,7 +35,7 @@ func TestImportExport(t *testing.T) {
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("importtest")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+	signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -130,7 +130,7 @@ func TestSendAndReceiveToken(t *testing.T) {
 	defer os.RemoveAll(path)
 	ng := types.NewNotaryGroup("send-token-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+	signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -227,7 +227,7 @@ func TestGetTip(t *testing.T) {
 
 	ng := types.NewNotaryGroup("get-tip-test")
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+	signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 	pubSubSystem := remote.NewSimulatedPubSub()
 
 	syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
@@ -304,7 +304,7 @@ func TestTokens(t *testing.T) {
 
 			ng := types.NewNotaryGroup("test-tokens")
 			ts := testnotarygroup.NewTestSet(t, 1)
-			signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+			signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 			pubSubSystem := remote.NewSimulatedPubSub()
 
 			syncer, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
