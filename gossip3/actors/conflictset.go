@@ -256,7 +256,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 	sp := cs.NewSpan("handleNewSignature")
 	defer sp.Finish()
 
-	csw.Log.Debugw("handle new signature", "t", msg.Signature.TransactionId)
+	csw.Log.Debugw("handle new signature", "t", msg.State.TransactionId)
 	if msg.Internal {
 		context.Send(csw.signatureSender, msg)
 	}
@@ -269,7 +269,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 	}
 	//TODO: verify this new sig
 
-	existingSig, ok := cs.signatures[string(msg.Signature.TransactionId)]
+	existingSig, ok := cs.signatures[string(msg.State.TransactionId)]
 	if ok {
 		// if the new sig doesn't have any new signatures, then just drop it
 		hasNewSigs := false
@@ -288,13 +288,13 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 				csw.Log.Infow("error combigning sigs", "err", err)
 			}
 			csw.Log.Debugw("newsig", "signerCount", len(newSig.Signers), "newSig", newSig)
-			cs.signatures[string(msg.Signature.TransactionId)] = newSig
+			cs.signatures[string(msg.State.TransactionId)] = newSig
 			//TODO: broadcast this new sig
 		}
 		// else no one cares about this sig, drop it
 
 	} else {
-		cs.signatures[string(msg.Signature.TransactionId)] = msg
+		cs.signatures[string(msg.State.TransactionId)] = msg
 	}
 
 	cs.updates++
@@ -377,9 +377,7 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 
 	csw.Log.Debugw("creating current state from a conflict set", "ID", cs.ID)
 
-	currState := &signatures.CurrentState{
-		Signature: cs.signatures[string(trans.TransactionId)].Signature,
-	}
+	currState := cs.signatures[string(trans.TransactionId)].State
 
 	currStateWrapper := &messages.CurrentStateWrapper{
 		Internal:     true,
@@ -398,7 +396,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 	csw.Log.Debugw("handling current state wrapper", "csID", cs.ID, "csActive", cs.active,
 		"currWrapperVerified", currWrapper.Verified)
 
-	if !cs.active && (currWrapper.CurrentState.Signature.Height == currWrapper.NextHeight) {
+	if !cs.active && (currWrapper.CurrentState.Height == currWrapper.NextHeight) {
 		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
 		sp.SetTag("activating", true)
 		cs.active = true
@@ -423,7 +421,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 		for _, t := range cs.transactions {
 			transSpan := t.NewSpan("handleCurrentStateWrapper")
 			transSpan.SetTag("done", true)
-			if !bytes.Equal(t.Transaction.NewTip, currWrapper.CurrentState.Signature.NewTip) {
+			if !bytes.Equal(t.Transaction.NewTip, currWrapper.CurrentState.NewTip) {
 				transSpan.SetTag("error", true)
 			}
 			transSpan.Finish()

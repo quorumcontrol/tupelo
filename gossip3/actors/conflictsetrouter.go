@@ -116,15 +116,15 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 	case *signatures.Signature:
 		csr.Log.Debugw("forwarding signature to conflict set", "cs", consensus.ConflictSetID(msg.ObjectId, msg.Height))
 		csr.forwardOrIgnore(context, msg, msg.ObjectId, msg.Height)
-	case *signatures.CurrentState:
+	case *signatures.TreeState:
 		wrapper := &messages.CurrentStateWrapper{
 			CurrentState: msg,
 			Verified:     true, // because it came in through a validated pubsub channel
 			Metadata:     messages.MetadataMap{"seen": time.Now()},
-			NextHeight:   csr.nextHeight(msg.Signature.ObjectId),
+			NextHeight:   csr.nextHeight(msg.ObjectId),
 		}
 
-		csr.forwardOrIgnore(context, wrapper, msg.Signature.ObjectId, msg.Signature.Height)
+		csr.forwardOrIgnore(context, wrapper, msg.ObjectId, msg.Height)
 	case *messages.CurrentStateWrapper:
 		csr.handleCurrentStateWrapper(context, msg)
 	case *messages.ImportCurrentState:
@@ -155,7 +155,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 
 func (csr *ConflictSetRouter) handleCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
-		"height", msg.CurrentState.Signature.Height)
+		"height", msg.CurrentState.Height)
 
 	if msg.Internal {
 		if err := csr.cfg.PubSubSystem.Broadcast(csr.commitTopic(), msg.CurrentState); err != nil {
@@ -178,15 +178,15 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 		return
 	}
 
-	curHeight := msg.CurrentState.Signature.Height
-	ObjectId := msg.CurrentState.Signature.ObjectId
+	curHeight := msg.CurrentState.Height
+	objectID := msg.CurrentState.ObjectId
 	csr.Log.Debugw("cleaning up conflict sets", "numSets", numConflictSets, "ObjectId",
-		string(ObjectId), "currentHeight", curHeight)
+		string(objectID), "currentHeight", curHeight)
 
 	// Delete conflict sets for object ID and with height <= current one
 	txn := csr.conflictSets.Txn()
 	root := csr.conflictSets.Root()
-	root.WalkPrefix([]byte(fmt.Sprintf("%s/", ObjectId)), func(k []byte, v interface{}) bool {
+	root.WalkPrefix([]byte(fmt.Sprintf("%s/", objectID)), func(k []byte, v interface{}) bool {
 		kS := string(k)
 		splitKey := strings.SplitN(kS, "/", 2)
 		heightS := splitKey[len(splitKey)-1]
@@ -204,8 +204,8 @@ func (csr *ConflictSetRouter) cleanupConflictSets(msg *messages.CurrentStateWrap
 
 		// Prune as of height less than or equal to current height
 		cs := v.(*ConflictSet)
-		csr.Log.Debugw("deleting conflict set", "ObjectId", string(ObjectId), "height", height)
-		idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(ObjectId, uint64(height))))
+		csr.Log.Debugw("deleting conflict set", "ObjectId", string(objectID), "height", height)
+		idS := conflictSetIDToInternalID([]byte(consensus.ConflictSetID(objectID, uint64(height))))
 		csr.recentlyDone.Add(idS, true)
 		cs.StopTrace()
 		txn.Delete(k)
@@ -238,8 +238,8 @@ func (csr *ConflictSetRouter) handleSignatureResponse(context actor.Context, ver
 	if ver.Verified {
 		sp.SetTag("verified", true)
 		wrapper.Verified = true
-		csr.forwardOrIgnore(context, wrapper, wrapper.CurrentState.Signature.ObjectId,
-			wrapper.CurrentState.Signature.Height)
+		csr.forwardOrIgnore(context, wrapper, wrapper.CurrentState.ObjectId,
+			wrapper.CurrentState.Height)
 		sp.Finish()
 		return nil
 	}
@@ -303,19 +303,19 @@ func conflictSetIDToInternalID(id []byte) string {
 	return hexutil.Encode(id)
 }
 
-func nextHeight(log *zap.SugaredLogger, currentStateStore datastore.Read, ObjectId []byte) uint64 {
-	log.Debugw("calculating next height", "ObjectId", string(ObjectId))
-	currStateBits, err := currentStateStore.Get(datastore.NewKey(string(ObjectId)))
+func nextHeight(log *zap.SugaredLogger, currentStateStore datastore.Read, objectId []byte) uint64 {
+	log.Debugw("calculating next height", "ObjectId", string(objectId))
+	currStateBits, err := currentStateStore.Get(datastore.NewKey(string(objectId)))
 	if err != nil && err != datastore.ErrNotFound {
 		panic(fmt.Errorf("error getting current state: %v", err))
 	}
 	if len(currStateBits) > 0 {
-		currState := &signatures.CurrentState{}
+		currState := &signatures.TreeState{}
 		err = proto.Unmarshal(currStateBits, currState)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling: %v", err))
 		}
-		nh := currState.Signature.Height + 1
+		nh := currState.Height + 1
 		log.Debugw("got object from current state store", "nextHeight", nh)
 		return nh
 	}

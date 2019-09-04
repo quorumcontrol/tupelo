@@ -233,7 +233,7 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, err
 	}
 
-	sigVerifier := types.GenerateIsValidSignature(func(sig *signatures.Signature) (bool, error) {
+	sigVerifier := types.GenerateIsValidSignature(func(state *signatures.TreeState) (bool, error) {
 
 		var verKeys [][]byte
 
@@ -255,8 +255,8 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		}
 
 		resp, err := actorCtx.RequestFuture(tv.signatureChecker, &messages.SignatureVerification{
-			Message:   consensus.GetSignable(sig),
-			Signature: sig.Signature,
+			Message:   consensus.GetSignable(state),
+			Signature: state.Signature.Signature,
 			VerKeys:   verKeys,
 		}, 2*time.Second).Result()
 		if err != nil {

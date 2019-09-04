@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/signatures"
+
 	"github.com/quorumcontrol/messages/build/go/services"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -149,12 +151,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	newOwnerKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	newOwner := consensus.EcdsaToPublicKey(&newOwnerKey.PublicKey)
-	newOwnerAddr := consensus.PublicKeyToAddr(&newOwner)
+	newOwner := signatures.EcdsaToOwnership(&newOwnerKey.PublicKey)
+	newOwnerAddr, err := signatures.Address(newOwner)
+	require.Nil(t, err)
 
 	transHeight++
 
-	setOwnerTxn, err := chaintree.NewSetOwnershipTransaction([]string{newOwnerAddr})
+	setOwnerTxn, err := chaintree.NewSetOwnershipTransaction([]string{newOwnerAddr.String()})
 	assert.Nil(t, err)
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{

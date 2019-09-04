@@ -54,22 +54,27 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		panic(fmt.Sprintf("error getting committee: %v", err))
 	}
 
-	signature := &signatures.Signature{
+	state := &signatures.TreeState{
 		TransactionId: msg.TransactionId,
 		ObjectId:      msg.Transaction.ObjectId,
 		PreviousTip:   msg.Transaction.PreviousTip,
 		NewTip:        msg.Transaction.NewTip,
-		Signers:       signers,
 		Height:        msg.Transaction.Height,
+		Signature: &signatures.Signature{
+			Ownership: &signatures.Ownership{
+				Type: signatures.Ownership_KeyTypeBLSGroupSig,
+			},
+			Signers: signers,
+		},
 	}
 
 	sg.Log.Debugw("signing", "t", msg.TransactionId)
-	sig, err := sg.signer.SignKey.Sign(consensus.GetSignable(signature))
+	sig, err := sg.signer.SignKey.Sign(consensus.GetSignable(state))
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
 	}
 
-	signature.Signature = sig
+	state.Signature.Signature = sig
 
 	context.Respond(&messages.SignatureWrapper{
 		Internal:         true,
