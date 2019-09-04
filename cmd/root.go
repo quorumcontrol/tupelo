@@ -44,7 +44,8 @@ var (
 
 	configNamespace string
 
-	remoteConfigName = "remote-network"
+	remoteConfigName      = "remote-network"
+	localNetworkNodeCount int
 )
 
 var logLevels = map[string]log.Lvl{
