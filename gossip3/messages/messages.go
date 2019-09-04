@@ -24,7 +24,7 @@ type SignatureWrapper struct {
 	ConflictSetID    string
 	RewardsCommittee []*types.Signer
 	Signers          SignerMap
-	Signature        *signatures.Signature
+	State            *signatures.TreeState
 	Metadata         MetadataMap
 }
 
@@ -41,7 +41,7 @@ type CurrentStateWrapper struct {
 
 	Internal     bool
 	Verified     bool
-	CurrentState *signatures.CurrentState
+	CurrentState *signatures.TreeState
 	Metadata     MetadataMap
 	NextHeight   uint64
 }

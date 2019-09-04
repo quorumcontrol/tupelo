@@ -46,7 +46,7 @@ func TestCurrentStateExchange(t *testing.T) {
 
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
-		signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), sk)
+		signer := types.NewLocalSigner(testSet.PubKeys[i], sk)
 		syncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       notaryGroup,

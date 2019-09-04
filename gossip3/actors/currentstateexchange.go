@@ -141,7 +141,7 @@ func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte)
 			panic(fmt.Sprintf("Error reading kv pair %v", err))
 		}
 
-		currentState := &signatures.CurrentState{}
+		currentState := &signatures.TreeState{}
 		err = proto.Unmarshal(currentStateBits, currentState)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling CurrentState: %v", err))

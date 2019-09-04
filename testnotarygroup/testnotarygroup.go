@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/signatures"
+
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/stretchr/testify/require"
 )
@@ -41,14 +41,14 @@ type TestSet struct {
 	SignKeys          []*bls.SignKey
 	VerKeys           []*bls.VerKey
 	EcdsaKeys         []*ecdsa.PrivateKey
-	PubKeys           []signatures.PublicKey
+	PubKeys           []*ecdsa.PublicKey
 	SignKeysByAddress map[string]*bls.SignKey
 }
 
 func NewTestSet(t testing.TB, size int) *TestSet {
 	signKeys := blsKeys(size)
 	verKeys := make([]*bls.VerKey, len(signKeys))
-	pubKeys := make([]signatures.PublicKey, len(signKeys))
+	pubKeys := make([]*ecdsa.PublicKey, len(signKeys))
 	ecdsaKeys := make([]*ecdsa.PrivateKey, len(signKeys))
 	signKeysByAddress := make(map[string]*bls.SignKey)
 	for i, signKey := range signKeys {
@@ -57,9 +57,11 @@ func NewTestSet(t testing.TB, size int) *TestSet {
 			t.Fatalf("error generating key: %v", err)
 		}
 		verKeys[i] = signKey.MustVerKey()
-		pubKeys[i] = consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey)
+		pubKeys[i] = &ecdsaKey.PublicKey
 		ecdsaKeys[i] = ecdsaKey
-		signKeysByAddress[consensus.BlsVerKeyToAddress(verKeys[i].Bytes()).String()] = signKey
+		addr, err := signatures.Address(signatures.BLSToOwnership(verKeys[i]))
+		require.Nil(t, err)
+		signKeysByAddress[addr.String()] = signKey
 
 	}
 

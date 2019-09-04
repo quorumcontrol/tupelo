@@ -7,13 +7,11 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/abiosoft/ishell v2.0.0+incompatible
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
-	github.com/chzyer/logex v1.1.10 // indirect
-	github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1 // indirect
 	github.com/dgraph-io/badger v1.6.0-rc1
-	github.com/ethereum/go-ethereum v1.8.25
+	github.com/ethereum/go-ethereum v1.9.3
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
-	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.3.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
@@ -32,9 +30,9 @@ require (
 	github.com/libp2p/go-libp2p-pubsub v0.1.0
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/common v0.6.0 // indirect
-	github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b
-	github.com/quorumcontrol/messages/build/go v0.0.0-20190723140659-c8a3565a7c72
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.3-rc1
+	github.com/quorumcontrol/chaintree v0.0.0-20190904000000-e8f1e15ac12c9dc5017557bb8c02198a1f7a6f9f
+	github.com/quorumcontrol/messages/build/go v0.0.0-20190904000000-3d2df74aa512889ad7d1f7b665e9c74d754a7ad5
+	github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190904000000-11db138d5b69d45db589a8c1edac1e0d1e12f73e
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
@@ -43,7 +41,7 @@ require (
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.opencensus.io v0.22.0 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
+	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1

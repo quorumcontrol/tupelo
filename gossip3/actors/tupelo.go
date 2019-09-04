@@ -75,19 +75,19 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 
 func (tn *TupeloNode) handleNewCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	if msg.Verified {
-		tn.Log.Infow("commit", "tx", msg.CurrentState.Signature.TransactionId, "seen", msg.Metadata["seen"])
-		err := tn.cfg.CurrentStateStore.Put(datastore.NewKey(string(msg.CurrentState.Signature.ObjectId)), msg.MustMarshal())
+		tn.Log.Infow("commit", "tx", msg.CurrentState.TransactionId, "seen", msg.Metadata["seen"])
+		err := tn.cfg.CurrentStateStore.Put(datastore.NewKey(string(msg.CurrentState.ObjectId)), msg.MustMarshal())
 		if err != nil {
 			panic(fmt.Errorf("error setting current state: %v", err))
 		}
-		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "ObjectId", msg.CurrentState.Signature.ObjectId)
+		tn.Log.Debugw("tupelo node sending activatesnoozingconflictsets", "ObjectId", msg.CurrentState.ObjectId)
 		// un-snooze waiting conflict sets
-		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectId: msg.CurrentState.Signature.ObjectId})
+		context.Send(tn.conflictSetRouter, &messages.ActivateSnoozingConflictSets{ObjectId: msg.CurrentState.ObjectId})
 
 		// if we are the ones creating this current state then broadcast
 		if msg.Internal {
-			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.Signature.ObjectId))
-			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.Signature.ObjectId), msg.CurrentState); err != nil {
+			tn.Log.Debugw("publishing new current state", "topic", string(msg.CurrentState.ObjectId))
+			if err := tn.cfg.PubSubSystem.Broadcast(string(msg.CurrentState.ObjectId), msg.CurrentState); err != nil {
 				tn.Log.Errorw("error publishing", "err", err)
 			}
 		}
@@ -139,7 +139,7 @@ func (tn *TupeloNode) handleGetTip(context actor.Context, msg *services.GetTipRe
 		return
 	}
 
-	currState := &signatures.CurrentState{}
+	currState := &signatures.TreeState{}
 	if len(currStateBits) > 0 {
 		tn.Log.Debugw("could get current state for chain tree", "chainId", msg.ChainId)
 		err = proto.Unmarshal(currStateBits, currState)
