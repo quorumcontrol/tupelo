@@ -22,7 +22,7 @@ func TestSendSigs(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	subscriberFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *signatures.Signature:
+		case *signatures.TreeState:
 			context.Send(fut.PID(), msg)
 		}
 	}

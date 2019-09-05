@@ -167,8 +167,8 @@ func TestHandlesDeadlocks(t *testing.T) {
 	// it's known that trans[1] is the lowest transaction,
 	// this is just a sanity check
 	require.True(t, string(trans[1].TransactionId) < string(trans[2].TransactionId))
-	require.True(t, string(trans[1].TransactionId) < string(trans[0].TransactionId))
-	// [1,0,2] is the order
+	require.True(t, string(trans[1].TransactionId) > string(trans[0].TransactionId))
+	// [0,1,2] is the order
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
@@ -180,7 +180,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	// at this point the first signer should have 3 transactions with 1 signature each and be in a deadlocked state
 	// which means it should sign the lowest transaction (a different one than it did before)
 	// one more signature on that same transaction should get it to quorum in the new view
-	sig, err := rootContext.RequestFuture(sigGeneratorActors[1], trans[1], 1*time.Second).Result()
+	sig, err := rootContext.RequestFuture(sigGeneratorActors[1], trans[0], 1*time.Second).Result()
 	require.Nil(t, err)
 	rootContext.Send(conflictSetRouter, sig)
 
@@ -188,7 +188,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 	require.Nil(t, err)
 	wrap := msg.(*messages.CurrentStateWrapper)
 	assert.True(t, wrap.Verified)
-	assert.Equal(t, trans[1].Transaction.NewTip, wrap.CurrentState.NewTip)
+	assert.Equal(t, trans[0].Transaction.NewTip, wrap.CurrentState.NewTip)
 }
 
 func TestHandlesCommitsBeforeTransactions(t *testing.T) {
@@ -251,7 +251,6 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 
 	rootContext.Send(conflictSetRouter0, transWrapper)
 
-	// note skipping first signer here
 	signTransaction(t, transWrapper, conflictSetRouter0, sigGeneratorActors)
 
 	msg, err := fut0.Result()
@@ -282,7 +281,7 @@ func TestHandlesCommitsBeforeTransactions(t *testing.T) {
 	require.Nil(t, err)
 	conflictSetRouter1 := csInterface1.(*actor.PID)
 
-	rootContext.Send(conflictSetRouter1, currentStateWrapper.CurrentState)
+	rootContext.Send(conflictSetRouter1, currentStateWrapper)
 
 	msg, err = fut1.Result()
 	require.Nil(t, err)
@@ -478,10 +477,10 @@ func TestCleansUpStaleConflictSetsOnCommit(t *testing.T) {
 	require.Equal(t, trans0.ObjectId, currentStateWrapper1.CurrentState.ObjectId)
 
 	t.Logf("sending commit notification to conflict set router #1")
-	ctx.Send(conflictSetRouter0, currentStateWrapper1.CurrentState)
+	ctx.Send(conflictSetRouter0, currentStateWrapper1)
 
 	t.Log("waiting for current state wrapper #3 from parent actor #1")
-	currentStateWrapper2 := <-cswChan0
+	currentStateWrapper2 := <-cswChan1
 	t.Logf("got current state wrapper #3 from parent actor #1")
 	require.True(t, currentStateWrapper2.Verified)
 	require.Equal(t, uint64(trans3.Height), currentStateWrapper2.CurrentState.Height)
