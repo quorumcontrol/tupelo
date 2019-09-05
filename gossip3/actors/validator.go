@@ -46,6 +46,7 @@ type TransactionValidator struct {
 	signatureChecker *actor.PID
 	notaryGroup      *types.NotaryGroup
 	verKeys          []*bls.VerKey
+	validators []chaintree.BlockValidatorFunc
 }
 
 type TransactionValidatorConfig struct {
@@ -66,6 +67,7 @@ func NewTransactionValidatorProps(cfg *TransactionValidatorConfig) *actor.Props 
 	for i, signer := range signers {
 		verKeys[i] = signer.VerKey
 	}
+
 	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
 			reader:           cfg.CurrentStateStore,
@@ -81,10 +83,49 @@ func NewTransactionValidatorProps(cfg *TransactionValidatorConfig) *actor.Props 
 
 func (tv *TransactionValidator) Receive(actorCtx actor.Context) {
 	switch msg := actorCtx.Message().(type) {
+	case *actor.Started:
+		err := tv.setupBlockValidators(actorCtx)
+		if err != nil {
+			panic(err)
+		}
 	case *validationRequest:
 		tv.Log.Debugw("transactionValidator initial", "key", msg.transaction.ObjectId)
 		tv.handleRequest(actorCtx, msg)
 	}
+}
+
+func (tv *TransactionValidator) setupBlockValidators(actorCtx actor.Context) error {
+	quorumCount := tv.notaryGroup.QuorumCount()
+
+	sigVerifier := types.GenerateIsValidSignature(func(state *signatures.TreeState) (bool, error) {
+
+		if uint64(sigfuncs.SignerCount(state.Signature)) < quorumCount {
+			return false, nil
+		}
+
+		resp, err := actorCtx.RequestFuture(tv.signatureChecker, &messages.SignatureVerification{
+			Message:   consensus.GetSignable(state),
+			Signature: state.Signature,
+			VerKeys:   tv.verKeys,
+		}, 2*time.Second).Result()
+		if err != nil {
+			return false, fmt.Errorf("error verifying signature: %v", err)
+		}
+
+		sigResult, ok := resp.(*messages.SignatureVerification)
+		if !ok {
+			return false, fmt.Errorf("error casting sig verify response; was a %T, expected a SignatureVerification", resp)
+		}
+
+		return sigResult.Verified, nil
+	})
+
+	blockValidators, err := tv.notaryGroup.BlockValidators(context.TODO())
+	if err != nil {
+		return fmt.Errorf("error getting block validators: %v", err)
+	}
+	tv.validators = append(blockValidators, sigVerifier)
+	return nil
 }
 
 func (tv *TransactionValidator) nextHeight(ObjectId []byte) uint64 {
@@ -242,39 +283,11 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 		return nil, false, err
 	}
 
-	sigVerifier := types.GenerateIsValidSignature(func(state *signatures.TreeState) (bool, error) {
-
-		if uint64(sigfuncs.SignerCount(state.Signature)) < tv.notaryGroup.QuorumCount() {
-			return false, nil
-		}
-
-		resp, err := actorCtx.RequestFuture(tv.signatureChecker, &messages.SignatureVerification{
-			Message:   consensus.GetSignable(state),
-			Signature: state.Signature,
-			VerKeys:   tv.verKeys,
-		}, 2*time.Second).Result()
-		if err != nil {
-			return false, fmt.Errorf("error verifying signature: %v", err)
-		}
-
-		sigResult, ok := resp.(*messages.SignatureVerification)
-		if !ok {
-			return false, fmt.Errorf("error casting sig verify response; was a %T, expected a SignatureVerification", resp)
-		}
-
-		return sigResult.Verified, nil
-	})
-
-	blockValidators, err := tv.notaryGroup.BlockValidators(context.TODO())
-	if err != nil {
-		return nil, false, fmt.Errorf("error getting block validators: %v", err)
-	}
+	
 	chainTree, err := chaintree.NewChainTree(
 		ctx,
 		tree,
-		// sigVerifier is special cased here because it doesn't follow the pattern of other block validators and instead
-		// relies on some other data in the closure here.
-		append(blockValidators, sigVerifier),
+		tv.validators,
 		tv.notaryGroup.Config().Transactions,
 	)
 
