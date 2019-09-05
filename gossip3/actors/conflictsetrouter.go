@@ -167,7 +167,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 
 func (csr *ConflictSetRouter) handleCurrentStateWrapper(context actor.Context, msg *messages.CurrentStateWrapper) {
 	csr.Log.Debugw("received current state wrapper message", "verified", msg.Verified,
-		"height", msg.CurrentState.Height)
+		"height", msg.CurrentState.Height, "internal", msg.Internal)
 
 	if msg.Internal {
 		if err := csr.cfg.PubSubSystem.Broadcast(csr.commitTopic(), msg.CurrentState); err != nil {
