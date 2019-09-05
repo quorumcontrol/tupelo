@@ -286,7 +286,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 			if err != nil {
 				csw.Log.Infow("error combigning sigs", "err", err)
 			}
-			csw.Log.Debugw("newsig", "signerCount", len(newSig.Signers), "newSig", newSig)
+			csw.Log.Debugw("newsig", "signerCount", len(newSig.Signers))
 			cs.signatures[string(msg.State.TransactionId)] = newSig
 			//TODO: broadcast this new sig
 		}
@@ -515,7 +515,7 @@ func setupCurrStateCtx(wrapper *messages.CurrentStateWrapper, cs *ConflictSet) {
 }
 
 func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b *messages.SignatureWrapper) (*messages.SignatureWrapper, error) {
-	csw.Log.Debugw("combining signatures", "signersA", a.Signers, "signersB", b.Signers)
+	csw.Log.Debugw("combining signatures", "signersA", len(a.Signers), "signersB", len(b.Signers))
 
 	aggregateSig, err := sigfuncs.AggregateBLSSignatures([]*signatures.Signature{a.State.Signature, b.State.Signature})
 	if err != nil {
@@ -547,6 +547,5 @@ func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b 
 		State:            newState,
 		Signers:          newSignersMap,
 		RewardsCommittee: a.RewardsCommittee,
-		// TODO: what about metadata?
 	}, nil
 }
