@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"reflect"
 	"time"
 
 	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/bls"
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -139,7 +138,7 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 	case *messages.TransactionWrapper:
 		csw.handleNewTransaction(cs, context, msg)
 	// this will be an external signature
-	case *signatures.Signature:
+	case *signatures.TreeState:
 		wrapper, err := sigToWrapper(msg, csw.notaryGroup, csw.signer, false)
 		if err != nil {
 			panic(fmt.Sprintf("error wrapping sig: %v", err))
@@ -478,20 +477,20 @@ func (csw *ConflictSetWorker) deadlocked(cs *ConflictSet) bool {
 	return true
 }
 
-func sigToWrapper(sig *signatures.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
+func sigToWrapper(state *signatures.TreeState, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
 	signerMap := make(messages.SignerMap)
 
 	allSigners := ng.AllSigners()
 	for i, signer := range allSigners {
-		cnt := sig.Signers[i]
+		cnt := state.Signature.Signers[i]
 		if cnt > 0 {
 			signerMap[signer.ID] = signer
 		}
 	}
 
-	conflictSetID := consensus.ConflictSetID(sig.ObjectId, sig.Height)
+	conflictSetID := consensus.ConflictSetID(state.ObjectId, state.Height)
 
-	committee, err := ng.RewardsCommittee([]byte(sig.NewTip), self)
+	committee, err := ng.RewardsCommittee([]byte(state.NewTip), self)
 	if err != nil {
 		return nil, fmt.Errorf("error getting committee: %v", err)
 	}
@@ -501,7 +500,7 @@ func sigToWrapper(sig *signatures.Signature, ng *types.NotaryGroup, self *types.
 		ConflictSetID:    conflictSetID,
 		RewardsCommittee: committee,
 		Signers:          signerMap,
-		Signature:        sig,
+		State:            state,
 		Metadata:         messages.MetadataMap{"seen": time.Now()},
 	}, nil
 }
@@ -517,12 +516,10 @@ func setupCurrStateCtx(wrapper *messages.CurrentStateWrapper, cs *ConflictSet) {
 
 func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b *messages.SignatureWrapper) (*messages.SignatureWrapper, error) {
 	csw.Log.Debugw("combining signatures", "signersA", a.Signers, "signersB", b.Signers)
-	newSignerCnt := make([]uint32, len(csw.notaryGroup.Signers))
-	for i, cnt := range a.Signature.Signers {
-		if right := b.Signature.Signers[i]; cnt > math.MaxUint32-right || right > math.MaxUint32-cnt {
-			return nil, fmt.Errorf("error would overflow: %d %d", cnt, right)
-		}
-		newSignerCnt[i] = cnt + b.Signature.Signers[i]
+
+	aggregateSig, err := sigfuncs.AggregateBLSSignatures([]*signatures.Signature{a.State.Signature, b.State.Signature})
+	if err != nil {
+		return nil, fmt.Errorf("error aggregating sigs: %v", err)
 	}
 
 	newSignersMap := make(messages.SignerMap)
@@ -534,26 +531,20 @@ func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b 
 		newSignersMap[id] = signer
 	}
 
-	aggregatedSig, err := bls.SumSignatures([][]byte{a.Signature.Signature, b.Signature.Signature})
-	if err != nil {
-		return nil, fmt.Errorf("error aggregating signatures: %v", err)
-	}
-	newSig := &signatures.Signature{
-		TransactionId: a.Signature.TransactionId,
-		ObjectId:      a.Signature.ObjectId,
-		PreviousTip:   a.Signature.PreviousTip,
-		Height:        a.Signature.Height,
-		NewTip:        a.Signature.NewTip,
-		View:          a.Signature.View,
-		Cycle:         a.Signature.Cycle,
-		Type:          a.Signature.Type,
-		Signers:       newSignerCnt,
-		Signature:     aggregatedSig,
+	newState := &signatures.TreeState{
+		TransactionId: a.State.TransactionId,
+		ObjectId:      a.State.ObjectId,
+		PreviousTip:   a.State.PreviousTip,
+		Height:        a.State.Height,
+		NewTip:        a.State.NewTip,
+		View:          a.State.View,
+		Cycle:         a.State.Cycle,
+		Signature:     aggregateSig,
 	}
 
 	return &messages.SignatureWrapper{
 		Internal:         a.Internal || b.Internal,
-		Signature:        newSig,
+		State:            newState,
 		Signers:          newSignersMap,
 		RewardsCommittee: a.RewardsCommittee,
 		// TODO: what about metadata?

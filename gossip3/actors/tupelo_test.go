@@ -88,8 +88,8 @@ func TestCommits(t *testing.T) {
 		resp, err := fut.Result()
 
 		require.Nil(t, err)
-		assert.Equal(t, resp.(*signatures.CurrentState).Signature.NewTip, trans.NewTip)
-		assert.Equal(t, resp.(*signatures.CurrentState).Signature.ObjectId, trans.ObjectId)
+		assert.Equal(t, resp.(*signatures.TreeState).NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*signatures.TreeState).ObjectId, trans.ObjectId)
 	})
 
 }

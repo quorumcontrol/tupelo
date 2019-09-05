@@ -60,7 +60,7 @@ func (tn *TupeloNode) Receive(context actor.Context) {
 		tn.handleGetTip(context, msg)
 	case *messages.CurrentStateWrapper:
 		tn.handleNewCurrentStateWrapper(context, msg)
-	case *signatures.Signature:
+	case *signatures.TreeState:
 		context.Forward(tn.conflictSetRouter)
 	case *services.AddBlockRequest:
 		tn.handleNewTransaction(context)
