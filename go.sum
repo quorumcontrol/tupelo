@@ -536,6 +536,10 @@ github.com/quorumcontrol/messages/build/go v0.0.0-20190904000000-3d2df74aa512889
 github.com/quorumcontrol/messages/build/go v0.0.0-20190904000000-3d2df74aa512889ad7d1f7b665e9c74d754a7ad5/go.mod h1:qw2lFojipAoSngsC0orDPd6ELEEL/WD3IcMmTRZv5NY=
 github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190904000000-11db138d5b69d45db589a8c1edac1e0d1e12f73e h1:hWGq8S4dQRk0fW9NTpKzp3g7jf9nSse/quXYqOS2a8M=
 github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190904000000-11db138d5b69d45db589a8c1edac1e0d1e12f73e/go.mod h1:sWNYRzNEhsik/YjbEbDw1I/FjO/oKlxMsFY/WxEWTkE=
+github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190905000000-3264d34ba34b3d86a9e021f598d70678e43814d6 h1:B+EmTzUS12fYNj2syA7KRSv2wCdiEAYMAQOH/y9mEiw=
+github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190905000000-3264d34ba34b3d86a9e021f598d70678e43814d6/go.mod h1:sWNYRzNEhsik/YjbEbDw1I/FjO/oKlxMsFY/WxEWTkE=
+github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190905000000-993f03525eb15b16a6f0fefa55822abfb3e0f89e h1:aBspJBwwbIz4aSVchrYNlM5rvhPjh7QsFFVilUgdkCE=
+github.com/quorumcontrol/tupelo-go-sdk v0.0.0-20190905000000-993f03525eb15b16a6f0fefa55822abfb3e0f89e/go.mod h1:sWNYRzNEhsik/YjbEbDw1I/FjO/oKlxMsFY/WxEWTkE=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.2 h1:eDsshQ/FQF85adofDSLXETwXOKfsua6Jm2/79x1+NwA=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.2/go.mod h1:nDi093vRZ1FZxue5UiMRgx+6YG/aMfxX7wih8gZ3OO0=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.3-rc1 h1:sfTVH/BZacRWpUNU6NvK5fKmTw8OfN21zl/HOZ/RG7k=
