@@ -84,7 +84,7 @@ func measureTransaction(cli *client.Client, trans *services.AddBlockRequest) {
 	resp, err := subscriptionFuture.Result()
 	if err == nil {
 		switch msg := resp.(type) {
-		case *signatures.CurrentState:
+		case *signatures.TreeState:
 			elapsed := time.Since(startTime)
 			result.Duration = int(elapsed / time.Millisecond)
 		case nil:
