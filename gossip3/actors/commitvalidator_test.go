@@ -30,7 +30,7 @@ func TestCommitValidator(t *testing.T) {
 		defer actor.EmptyRootContext.Stop(alwaysVerifier)
 
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
-		currentState := &signatures.CurrentState{
+		currentState := &signatures.TreeState{
 			Signature: &signatures.Signature{
 				Signers: []uint32{1, 1, 0},
 			},
@@ -46,7 +46,7 @@ func TestCommitValidator(t *testing.T) {
 
 		validator := newCommitValidator(notaryGroup, neverVerifier)
 
-		currentState := &signatures.CurrentState{
+		currentState := &signatures.TreeState{
 			Signature: &signatures.Signature{
 				Signers: []uint32{1, 1, 0},
 			},
@@ -62,7 +62,7 @@ func TestCommitValidator(t *testing.T) {
 
 		validator := newCommitValidator(notaryGroup, alwaysVerifier)
 
-		currentState := &signatures.CurrentState{
+		currentState := &signatures.TreeState{
 			Signature: &signatures.Signature{
 				Signers: []uint32{1, 0, 0},
 			},

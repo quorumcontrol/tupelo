@@ -34,11 +34,11 @@ func TestSendSigs(t *testing.T) {
 	signer.Actor = subscriber
 
 	rootContext.Send(ss, &messages.SignatureWrapper{
-		Signature:        &signatures.Signature{TransactionId: []byte("testonly")},
+		State:            &signatures.TreeState{TransactionId: []byte("testonly")},
 		RewardsCommittee: []*types.Signer{signer},
 	})
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
-	assert.Equal(t, []byte("testonly"), msg.(*signatures.Signature).TransactionId)
+	assert.Equal(t, []byte("testonly"), msg.(*signatures.TreeState).TransactionId)
 }
