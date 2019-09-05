@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
+
 	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
@@ -46,9 +48,6 @@ func (sg *SignatureGenerator) Receive(context actor.Context) {
 func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
 	ng := sg.notaryGroup
 
-	signers := make([]uint32, len(ng.Signers))
-	signers[ng.IndexOfSigner(sg.signer)] = 1
-
 	committee, err := ng.RewardsCommittee([]byte(msg.Transaction.NewTip), sg.signer)
 	if err != nil {
 		panic(fmt.Sprintf("error getting committee: %v", err))
@@ -60,21 +59,16 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		PreviousTip:   msg.Transaction.PreviousTip,
 		NewTip:        msg.Transaction.NewTip,
 		Height:        msg.Transaction.Height,
-		Signature: &signatures.Signature{
-			Ownership: &signatures.Ownership{
-				Type: signatures.Ownership_KeyTypeBLSGroupSig,
-			},
-			Signers: signers,
-		},
 	}
 
 	sg.Log.Debugw("signing", "t", msg.TransactionId)
-	sig, err := sg.signer.SignKey.Sign(consensus.GetSignable(state))
+	sig, err := sigfuncs.BLSSign(sg.signer.SignKey, consensus.GetSignable(state), len(ng.Signers), int(ng.IndexOfSigner(sg.signer)))
+
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
 	}
 
-	state.Signature.Signature = sig
+	state.Signature = sig
 
 	context.Respond(&messages.SignatureWrapper{
 		Internal:         true,
@@ -82,6 +76,6 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 		Signers:          messages.SignerMap{sg.signer.ID: sg.signer},
 		Metadata:         messages.MetadataMap{"seen": time.Now()},
 		RewardsCommittee: committee,
-		Signature:        signature,
+		State:            state,
 	})
 }
