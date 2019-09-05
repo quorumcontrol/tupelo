@@ -22,9 +22,11 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
@@ -43,6 +45,7 @@ type TransactionValidator struct {
 	reader           datastore.Read
 	signatureChecker *actor.PID
 	notaryGroup      *types.NotaryGroup
+	verKeys          []*bls.VerKey
 }
 
 type TransactionValidatorConfig struct {
@@ -58,11 +61,17 @@ type validationRequest struct {
 const maxValidatorConcurrency = 10
 
 func NewTransactionValidatorProps(cfg *TransactionValidatorConfig) *actor.Props {
+	signers := cfg.NotaryGroup.AllSigners()
+	verKeys := make([]*bls.VerKey, len(signers))
+	for i, signer := range signers {
+		verKeys[i] = signer.VerKey
+	}
 	return router.NewRoundRobinPool(maxValidatorConcurrency).WithProducer(func() actor.Actor {
 		return &TransactionValidator{
 			reader:           cfg.CurrentStateStore,
 			signatureChecker: cfg.SignatureChecker,
 			notaryGroup:      cfg.NotaryGroup,
+			verKeys:          verKeys,
 		}
 	}).WithReceiverMiddleware(
 		middleware.LoggingMiddleware,
@@ -111,14 +120,14 @@ func (tv *TransactionValidator) handleRequest(actorCtx actor.Context, msg *valid
 
 	if len(objectIDBits) > 0 {
 		expectedHeight := tv.nextHeight(t.ObjectId)
-		currentState := &signatures.CurrentState{}
+		currentState := &signatures.TreeState{}
 		err := proto.Unmarshal(objectIDBits, currentState)
 		if err != nil {
 			panic(fmt.Sprintf("error unmarshaling: %v", err))
 		}
 		if expectedHeight == t.Height {
 			tv.Log.Debugw("transaction is for expected height")
-			currTip = currentState.Signature.NewTip
+			currTip = currentState.NewTip
 		} else if expectedHeight < t.Height {
 			tv.Log.Debugw("transaction has higher than expected height, marking as preflight",
 				"height", t.Height, "expectedHeight", expectedHeight)
@@ -235,29 +244,14 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 
 	sigVerifier := types.GenerateIsValidSignature(func(state *signatures.TreeState) (bool, error) {
 
-		var verKeys [][]byte
-
-		signers := tv.notaryGroup.AllSigners()
-		var signerCount uint64
-		for i, cnt := range sig.Signers {
-			if cnt > 0 {
-				signerCount++
-				verKey := signers[i].VerKey.Bytes()
-				newKeys := make([][]byte, cnt)
-				for j := uint32(0); j < cnt; j++ {
-					newKeys[j] = verKey
-				}
-				verKeys = append(verKeys, newKeys...)
-			}
-		}
-		if signerCount < tv.notaryGroup.QuorumCount() {
+		if uint64(sigfuncs.SignerCount(state.Signature)) < tv.notaryGroup.QuorumCount() {
 			return false, nil
 		}
 
 		resp, err := actorCtx.RequestFuture(tv.signatureChecker, &messages.SignatureVerification{
 			Message:   consensus.GetSignable(state),
-			Signature: state.Signature.Signature,
-			VerKeys:   verKeys,
+			Signature: state.Signature,
+			VerKeys:   tv.verKeys,
 		}, 2*time.Second).Result()
 		if err != nil {
 			return false, fmt.Errorf("error verifying signature: %v", err)

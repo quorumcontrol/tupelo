@@ -8,6 +8,7 @@ import (
 	"github.com/quorumcontrol/messages/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 )
@@ -31,8 +32,8 @@ type SignatureWrapper struct {
 type SignatureVerification struct {
 	Verified  bool
 	Message   []byte
-	Signature []byte
-	VerKeys   [][]byte
+	Signature *signatures.Signature
+	VerKeys   []*bls.VerKey
 	Memo      interface{}
 }
 
@@ -84,7 +85,7 @@ type GzipImport struct {
 }
 
 type ImportCurrentState struct {
-	CurrentState *signatures.CurrentState
+	CurrentState *signatures.TreeState
 }
 
 type DoCurrentStateExchange struct {

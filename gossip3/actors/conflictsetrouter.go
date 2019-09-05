@@ -72,12 +72,12 @@ func (csr *ConflictSetRouter) commitTopic() string {
 	return csr.cfg.NotaryGroup.Config().CommitTopic
 }
 
-func (csr *ConflictSetRouter) Receive(context actor.Context) {
+// this function is its own actor
+func (csr *ConflictSetRouter) commitopicHandler(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
-		csr.Log.Debugw("spawning", "self", context.Self().String())
-		cfg := csr.cfg
 		commitTopic := csr.commitTopic()
+		cfg := csr.cfg
 
 		topicValidator := newCommitValidator(cfg.NotaryGroup, cfg.SignatureChecker)
 		err := cfg.PubSubSystem.RegisterTopicValidator(commitTopic, topicValidator.validate, pubsub.WithValidatorTimeout(1500*time.Millisecond))
@@ -90,6 +90,28 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		if err != nil {
 			panic(fmt.Sprintf("error spawning commit receiver: %v", err))
 		}
+	case *actor.Stopping:
+		csr.cfg.PubSubSystem.UnregisterTopicValidator(csr.commitTopic())
+	case *signatures.TreeState:
+		wrapper := &messages.CurrentStateWrapper{
+			CurrentState: msg,
+			Verified:     true, // because it came in through a validated pubsub channel
+			Metadata:     messages.MetadataMap{"seen": time.Now()},
+			NextHeight:   csr.nextHeight(msg.ObjectId),
+		}
+
+		context.Send(context.Parent(), wrapper)
+	}
+}
+
+func (csr *ConflictSetRouter) Receive(context actor.Context) {
+	switch msg := context.Message().(type) {
+	case *actor.Started:
+		csr.Log.Debugw("spawning", "self", context.Self().String())
+		cfg := csr.cfg
+
+		// handle the incoming confirmed TreeStates differently
+		context.Spawn(actor.PropsFromFunc(csr.commitopicHandler))
 
 		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(&ConflictSetConfig{
 			ConflictSetRouter:  context.Self(),
@@ -103,8 +125,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 			panic(fmt.Errorf("error spawning csrPool: %v", err))
 		}
 		csr.pool = pool
-	case *actor.Stopping:
-		csr.cfg.PubSubSystem.UnregisterTopicValidator(csr.commitTopic())
+
 	case *messages.TransactionWrapper:
 		csr.Log.Debugw("received TransactionWrapper message")
 		sp := msg.NewSpan("conflictset-router")
@@ -112,19 +133,10 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		csr.forwardOrIgnore(context, msg, msg.Transaction.ObjectId, msg.Transaction.Height)
 	case *messages.SignatureWrapper:
 		csr.Log.Debugw("forwarding signature wrapper to conflict set", "cs", msg.ConflictSetID)
-		csr.forwardOrIgnore(context, msg, msg.Signature.ObjectId, msg.Signature.Height)
-	case *signatures.Signature:
-		csr.Log.Debugw("forwarding signature to conflict set", "cs", consensus.ConflictSetID(msg.ObjectId, msg.Height))
-		csr.forwardOrIgnore(context, msg, msg.ObjectId, msg.Height)
+		csr.forwardOrIgnore(context, msg, msg.State.ObjectId, msg.State.Height)
 	case *signatures.TreeState:
-		wrapper := &messages.CurrentStateWrapper{
-			CurrentState: msg,
-			Verified:     true, // because it came in through a validated pubsub channel
-			Metadata:     messages.MetadataMap{"seen": time.Now()},
-			NextHeight:   csr.nextHeight(msg.ObjectId),
-		}
-
-		csr.forwardOrIgnore(context, wrapper, msg.ObjectId, msg.Height)
+		csr.Log.Debugw("forwarding TreeState to conflict set", "cs", consensus.ConflictSetID(msg.ObjectId, msg.Height))
+		csr.forwardOrIgnore(context, msg, msg.ObjectId, msg.Height)
 	case *messages.CurrentStateWrapper:
 		csr.handleCurrentStateWrapper(context, msg)
 	case *messages.ImportCurrentState:

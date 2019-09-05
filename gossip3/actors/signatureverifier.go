@@ -7,8 +7,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/plugin"
 	"github.com/AsynkronIT/protoactor-go/router"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 )
@@ -52,7 +52,15 @@ func (sv *SignatureVerifier) handleSignatureVerification(context actor.Context) 
 		defer sp.Finish()
 
 		sv.Log.Debugw("handle signature verification")
-		isVerified, err := bls.VerifyMultiSig(msg.Signature, msg.Message, msg.VerKeys)
+
+		err := sigfuncs.RestoreBLSPublicKey(msg.Signature, msg.VerKeys)
+		if err != nil {
+			sp.SetTag("error", true)
+			sv.Log.Errorw("error restoring public key", "err", err)
+			panic(fmt.Sprintf("error verifying: %v", err)) // TODO: do we need to panic here?
+		}
+
+		isVerified, err := sigfuncs.Valid(msg.Signature, msg.Message, nil)
 		if err != nil {
 			sp.SetTag("error", true)
 			sv.Log.Errorw("error verifying", "err", err)
