@@ -368,7 +368,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 		mintAmount, _, err := testTree.Dag.Resolve(ctx, []string{"tree", "_tupelo", "tokens", tokenFullName.String(), consensus.TokenMintLabel, fmt.Sprint(testIndex), "amount"})
 		assert.Nil(t, err)
-		assert.Equal(t, mintAmount, testAmount)
+		assert.Equal(t, uint64(mintAmount.(int)), testAmount)
 	}
 
 	// Can't mint more than the monetary policy maximum
