@@ -1,0 +1,15 @@
+on: delete
+name: Docker Tag Deletion
+jobs:
+  dockerDeleteTag:
+    name: Docker Delete Tag
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Docker Delete Tag
+      uses: ./.github/actions/docker-delete-tag
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      with:
+        args: quorumcontrol/tupelo
