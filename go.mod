@@ -13,7 +13,7 @@ require (
 	github.com/ethereum/go-ethereum v1.8.25
 	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
-	github.com/gogo/protobuf v1.2.1
+	github.com/gogo/protobuf v1.3.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
