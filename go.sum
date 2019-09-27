@@ -525,6 +525,9 @@ github.com/quorumcontrol/chaintree v0.0.0-20190701175144-f8f44c3e6d4b/go.mod h1:
 github.com/quorumcontrol/chaintree v0.8.3/go.mod h1:44bFGFfyV9CFMGNRfVQGjQBeQcTjkSzIomXpRhKfK3A=
 github.com/quorumcontrol/chaintree v0.8.4-0.20190917094057-ee67adc23862 h1:GR9GbSer9/1Qby+eHRVgiL/Z+dCPfS5ioEU4klYeSiA=
 github.com/quorumcontrol/chaintree v0.8.4-0.20190917094057-ee67adc23862/go.mod h1:skFar/FIivzUKnC5/Ndmjehc7ZeAeQHimJCCWZbbW9g=
+github.com/quorumcontrol/chaintree v0.8.4/go.mod h1:skFar/FIivzUKnC5/Ndmjehc7ZeAeQHimJCCWZbbW9g=
+github.com/quorumcontrol/chaintree v0.8.5 h1:qnU5FmGY2sekZEEakmwD+BmLKvOUwRMAe6/dwpoIhp8=
+github.com/quorumcontrol/chaintree v0.8.5/go.mod h1:skFar/FIivzUKnC5/Ndmjehc7ZeAeQHimJCCWZbbW9g=
 github.com/quorumcontrol/chaintree v1.0.2-0.20190917094057-ee67adc23862 h1:7hR/tYoDapC0JomjJBQeHsjAD+ru83FSAhWgFVC7Pgs=
 github.com/quorumcontrol/chaintree v1.0.2-0.20190917094057-ee67adc23862/go.mod h1:skFar/FIivzUKnC5/Ndmjehc7ZeAeQHimJCCWZbbW9g=
 github.com/quorumcontrol/chaintree v5.1.1+incompatible h1:bAvhEuWCIsHq98SRdJ7EaKxL8uw+ceZnASt55mqHHGI=
@@ -549,6 +552,8 @@ github.com/quorumcontrol/tupelo-go-sdk v0.5.5 h1:85LKDpltAe8tH2fRLiuhH/TOwXJk0C+
 github.com/quorumcontrol/tupelo-go-sdk v0.5.5/go.mod h1:LN6sJRN33ykyErgfli3ADAd19DMBMYSkLkHSSi8QTzc=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.6-0.20190923073253-36c6eda59f64 h1:Ghl8rfNUXV47lg2d5yGWhhbyUXa7OfSivzGg+WYZdIA=
 github.com/quorumcontrol/tupelo-go-sdk v0.5.6-0.20190923073253-36c6eda59f64/go.mod h1:kCxGQfRuvQgdoFukRMu/hu+eQYByPJDrUMwmcIK4XZw=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.6-0.20190924212204-7a51b39b27bb h1:YcJYkXnSo+eyOV/GudUFJ0nrOvtYUYO447TFdEoiaok=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.6-0.20190924212204-7a51b39b27bb/go.mod h1:hk73RZ7/4nRrcwSr73FIYevC5gkm0d76s/HyFj6k10k=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0 h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
