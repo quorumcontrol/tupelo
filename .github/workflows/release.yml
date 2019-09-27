@@ -1,0 +1,43 @@
+on: release
+name: Docker Build & Push Latest
+jobs:
+  privateGoMod:
+    name: Private Go Mod
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Private Go Mod
+      uses: ./.github/actions/make
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      with:
+        args: vendor
+    - name: Prepare Build Environment
+      uses: ./.github/actions/make
+      env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      with:
+        args: github-prepare
+    - name: Docker Login
+      uses: actions/docker/login@8cdf801b322af5f369e00d85e9cf3a7122f49108
+      env:
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    - name: Docker Build Container
+      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
+      with:
+        args: build -t imagebuild .
+    - name: Docker Tag Images
+      uses: actions/docker/tag@8cdf801b322af5f369e00d85e9cf3a7122f49108
+      with:
+        args: imagebuild quorumcontrol/tupelo
+    - name: On Latest Release
+      uses: ./.github/actions/filters
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        args: latest-release
+    - name: Docker Push Latest Image
+      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
+      with:
+        args: push quorumcontrol/tupelo:latest
