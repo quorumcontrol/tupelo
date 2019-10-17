@@ -48,7 +48,7 @@ $(generated): rpcserver/tupelo.proto rpcserver/nodestore/nodestore.proto rpcserv
 	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. nodestore/*.proto
 	cd rpcserver && protoc -I=. -I=${FIRSTGOPATH}/src/github.com/gogo/protobuf/protobuf --gogofaster_out=Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,paths=source_relative,plugins=grpc:. nodestore/badger/*.proto
 
-vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
+vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor $(generated)
 	go mod vendor
 	modvendor -copy="**/*.c **/*.h"
 
