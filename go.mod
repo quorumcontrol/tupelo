@@ -7,8 +7,6 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/abiosoft/ishell v2.0.0+incompatible
 	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db // indirect
-	github.com/chzyer/logex v1.1.10 // indirect
-	github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1 // indirect
 	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/elastic/go-sysinfo v1.0.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.3
@@ -19,7 +17,7 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
 	github.com/hashicorp/golang-lru v0.5.3
-	github.com/improbable-eng/grpc-web v0.9.0
+	github.com/improbable-eng/grpc-web v0.11.0
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-badger v0.0.5
@@ -31,23 +29,21 @@ require (
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
 	github.com/libp2p/go-libp2p-core v0.2.3
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
-	github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223 // indirect
+	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/procfs v0.0.2 // indirect
-	github.com/quorumcontrol/chaintree v0.8.6-0.20191007111216-51a819c15c38
-	github.com/quorumcontrol/messages/build/go v0.0.0-20190916172743-fed64641cd55
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.7
-	github.com/rs/cors v1.6.0 // indirect
-	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
+	github.com/quorumcontrol/chaintree v0.8.6-0.20191027150236-fceff392da5f
+	github.com/quorumcontrol/messages/build/go v0.0.0-20191027145955-5f00dfa59832
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.10-0.20191027152447-f44e2c1d7832
+	github.com/rs/cors v1.7.0 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190923035154-9ee001bba392
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
-	google.golang.org/appengine v1.4.0 // indirect
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1
 )
