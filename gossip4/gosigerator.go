@@ -16,7 +16,7 @@ type gosigerator struct {
 func (gs *gosigerator) validate(ctx context.Context, p peer.ID, msg proto.Message) bool {
 	// decode the message into a TreeState
 	treeState := &signatures.TreeState
-
+	err := treeState.Unmarshal(msg.)
 
 	// compare the signer counts
 	// if the new message is strictly better than what we have:
