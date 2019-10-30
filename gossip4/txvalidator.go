@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	format "github.com/ipfs/go-ipld-format"
 
-	peer "github.com/libp2p/go-libp2p-peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
