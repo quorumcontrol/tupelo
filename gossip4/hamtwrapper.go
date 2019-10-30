@@ -14,11 +14,11 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 )
 
+// dsWrapper implements the blocks interface needed for the go-hamt-ipld
 // type blocks interface {
 // 	GetBlock(context.Context, cid.Cid) (block.Block, error)
 // 	AddBlock(block.Block) error
 // }
-
 type dsWrapper struct {
 	store nodestore.DagStore
 }
