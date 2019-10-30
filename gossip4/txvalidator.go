@@ -91,6 +91,11 @@ func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 	}
 
 	nodeStore := nodestore.MustMemoryStore(ctx)
+	err = nodeStore.AddMany(ctx, cborNodes)
+	if err != nil {
+		logger.Errorf("error adding nodes: %v", err)
+		return false
+	}
 
 	transPreviousTip, err := cid.Cast(abr.PreviousTip)
 	if err != nil {

@@ -3,6 +3,10 @@ package gossip4
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"strconv"
+
+	cbornode "github.com/ipfs/go-ipld-cbor"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -21,6 +25,10 @@ import (
 var logger = logging.Logger("dagcoms")
 
 const transactionTopic = "g4-transactions"
+
+func init() {
+	cbornode.RegisterCborType(services.AddBlockRequest{})
+}
 
 type Node struct {
 	p2pNode     p2p.Node
@@ -121,9 +129,125 @@ func (n *Node) Start(ctx context.Context) error {
 func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *services.AddBlockRequest:
+		ctx, cancel := context.WithCancel(context.TODO())
+		defer cancel()
+
 		logger.Debugf("handling message: %v", msg)
-		//
+		// look into the hamt, and get the current ABR
+		// if this is the next height then replace it
+		// if this is older drop it
+		// if this is in the future, keep it in flight
+
+		current, err := n.getCurrent(ctx, string(msg.ObjectId))
+		if err != nil {
+			logger.Errorf("error getting current: %v", err)
+			return
+		}
+
+		// if the current is nil, then this ABR is acceptable if its height is 0
+		if current == nil {
+			if msg.Height == 0 {
+				err = n.storeAbr(ctx, msg)
+				if err != nil {
+					logger.Errorf("error getting current: %v", err)
+					return
+				}
+				err = n.handlePostSave(ctx, msg, current)
+				if err != nil {
+					logger.Errorf("error handling postSave: %v", err)
+				}
+				return
+			}
+			n.storeAsInFlight(ctx, msg)
+			return
+		}
+
+		// if this msg height is lower htan curreent then just drop it
+		if current.Height > msg.Height {
+			return
+		}
+
+		// Is this the next height ABR?
+		if current.Height+1 == msg.Height {
+			// then this is the next height, let's save it!
+			err = n.storeAbr(ctx, msg)
+			if err != nil {
+				logger.Errorf("error getting current: %v", err)
+				return
+			}
+			err = n.handlePostSave(ctx, msg, current)
+			if err != nil {
+				logger.Errorf("error handling postSave: %v", err)
+			}
+			return
+		}
+
+		if msg.Height > current.Height+1 {
+			// this is in the future so just queue it up
+			n.storeAsInFlight(ctx, msg)
+			return
+		}
+
 	}
+}
+
+func (n *Node) handlePostSave(ctx context.Context, saved *services.AddBlockRequest, overwritten *services.AddBlockRequest) error {
+	// Is this a checkpoint?
+	id, err := n.hamtStore.Put(ctx, n.inprogressCheckpoint.node)
+	if err != nil {
+		return fmt.Errorf("error putting checkpoint: %v", err)
+	}
+
+	num := big.NewInt(0)
+	num.SetBytes(id.Bytes())
+
+	if num.TrailingZeroBits() > 2 {
+		logger.Debugf("SHOULD CONSENNSE: %d", num.TrailingZeroBits())
+	} else {
+		logger.Debugf("trailing zeros: %d", num.TrailingZeroBits())
+	}
+
+	return nil
+}
+
+func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
+	n.inFlight[string(abr.ObjectId)+"-"+strconv.FormatUint(abr.Height, 10)] = abr
+}
+
+func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {
+	id, err := n.hamtStore.Put(ctx, abr)
+	if err != nil {
+		logger.Errorf("error putting abr: %v", err)
+		return err
+	}
+	logger.Debugf("saved %s", id.String())
+	err = n.inprogressCheckpoint.node.Set(ctx, string(abr.ObjectId), id)
+	if err != nil {
+		logger.Errorf("error setting hamt: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBlockRequest, error) {
+	var abrCid cid.Cid
+	var abr *services.AddBlockRequest
+	err := n.inprogressCheckpoint.node.Find(ctx, objectID, &abrCid)
+	if err != nil {
+		if err == hamt.ErrNotFound {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error getting abrCID: %v", err)
+	}
+
+	if !abrCid.Equals(cid.Undef) {
+		err = n.hamtStore.Get(ctx, abrCid, abr)
+		if err != nil {
+			return nil, fmt.Errorf("error getting abr: %v", err)
+		}
+	}
+
+	return abr, nil
 }
 
 /**

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
+
+	logging "github.com/ipfs/go-log"
 
 	dsync "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/require"
@@ -13,6 +16,7 @@ import (
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
@@ -51,6 +55,8 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 }
 
 func TestNewNode(t *testing.T) {
+	logging.SetLogLevel("dagcoms", "debug")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -62,4 +68,16 @@ func TestNewNode(t *testing.T) {
 	n := nodes[0]
 	err = n.Start(ctx)
 	require.Nil(t, err)
+
+	abr, err := n.getCurrent(ctx, "no way")
+	require.Nil(t, abr)
+	require.Nil(t, err)
+
+	trans := testhelpers.NewValidTransaction(t)
+
+	bits, err := trans.Marshal()
+	require.Nil(t, err)
+	err = n.pubsub.Publish(transactionTopic, bits)
+	require.Nil(t, err)
+	time.Sleep(2 * time.Second)
 }
