@@ -1,10 +1,14 @@
 package gossip4
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync"
+
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	cbornode "github.com/ipfs/go-ipld-cbor"
 
@@ -16,34 +20,45 @@ import (
 	"github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 )
 
-var logger = logging.Logger("dagcoms")
+var genesis cid.Cid
 
 const transactionTopic = "g4-transactions"
+const commitTopic = "g4-commits"
+
+const difficultyThreshold = 0
 
 func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
+	sw := &safewrap.SafeWrap{}
+	genesis = sw.WrapObject("genesis").Cid()
 }
 
 type Node struct {
 	p2pNode     p2p.Node
 	signKey     *bls.SignKey
 	notaryGroup *types.NotaryGroup
-	// pubsub    remote.PubSub
-	dagStore  nodestore.DagStore
-	kVStore   datastore.Batching
-	hamtStore *hamt.CborIpldStore
-	pubsub    *pubsub.PubSub
+	dagStore    nodestore.DagStore
+	kVStore     datastore.Batching
+	hamtStore   *hamt.CborIpldStore
+	pubsub      *pubsub.PubSub
+
+	logger logging.EventLogger
 
 	latestCheckpoint     *Checkpoint
 	inprogressCheckpoint *Checkpoint
 
 	inFlight map[string]*services.AddBlockRequest
+
+	signerIndex int
+
+	lock *sync.RWMutex
 }
 
 type NewNodeOptions struct {
@@ -64,9 +79,9 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		n := hamt.NewNode(hamtStore, hamt.UseTreeBitWidth(5))
 
 		latest = &Checkpoint{
-			CurrentState: cid.Undef,
+			CurrentState: genesis,
 			Height:       0,
-			Previous:     cid.Undef,
+			Previous:     genesis,
 			node:         n,
 		}
 	} else {
@@ -79,6 +94,19 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 
 	// then clone for the inprogress
 	inProgress := latest.Copy()
+	inProgress.CurrentState = cid.Undef
+
+	var signerIndex int
+	for i, s := range opts.NotaryGroup.AllSigners() {
+		if bytes.Equal(s.VerKey.Bytes(), opts.SignKey.MustVerKey().Bytes()) {
+			signerIndex = i
+			break
+		}
+	}
+
+	logger := logging.Logger(fmt.Sprintf("node-%d", signerIndex))
+
+	logger.Debugf("signerIndex: %d", signerIndex)
 
 	return &Node{
 		p2pNode:              opts.P2PNode,
@@ -90,6 +118,9 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		latestCheckpoint:     latest,
 		inprogressCheckpoint: inProgress,
 		inFlight:             make(map[string]*services.AddBlockRequest),
+		signerIndex:          signerIndex,
+		logger:               logger,
+		lock:                 &sync.RWMutex{},
 	}, nil
 }
 
@@ -100,14 +131,11 @@ func (n *Node) Start(ctx context.Context) error {
 		actor.EmptyRootContext.Poison(pid)
 	}()
 
-	validator := &transactionValidator{
-		group: n.notaryGroup,
-		node:  pid,
-	}
-	err := validator.setup()
+	validator, err := newTransactionValidator(n.logger, n.notaryGroup, pid)
 	if err != nil {
 		return fmt.Errorf("error setting up: %v", err)
 	}
+
 	n.pubsub = n.p2pNode.GetPubSub()
 	n.pubsub.RegisterTopicValidator(transactionTopic, validator.validate)
 	sub, err := n.pubsub.Subscribe(transactionTopic)
@@ -118,77 +146,115 @@ func (n *Node) Start(ctx context.Context) error {
 		for {
 			_, err := sub.Next(ctx)
 			if err != nil {
-				logger.Warningf("error getting sub message: %v", err)
+				n.logger.Warningf("error getting sub message: %v", err)
 				return
 			}
 		}
 	}()
+
+	commitValidator, err := newCheckpointVerifier(n, pid, n.notaryGroup)
+	if err != nil {
+		return fmt.Errorf("error setting commitValidator: %v", err)
+	}
+
+	n.pubsub.RegisterTopicValidator(commitTopic, commitValidator.validate)
+	commitSub, err := n.pubsub.Subscribe(commitTopic)
+	if err != nil {
+		return fmt.Errorf("error subscribing to commitTopic %v", err)
+	}
+	go func() {
+		for {
+			_, err := commitSub.Next(ctx)
+			if err != nil {
+				n.logger.Warningf("error getting sub message: %v", err)
+				return
+			}
+		}
+	}()
+
 	return nil
 }
 
 func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *services.AddBlockRequest:
-		ctx, cancel := context.WithCancel(context.TODO())
-		defer cancel()
-
-		logger.Debugf("handling message: %v", msg)
-		// look into the hamt, and get the current ABR
-		// if this is the next height then replace it
-		// if this is older drop it
-		// if this is in the future, keep it in flight
-
-		current, err := n.getCurrent(ctx, string(msg.ObjectId))
-		if err != nil {
-			logger.Errorf("error getting current: %v", err)
-			return
-		}
-
-		// if the current is nil, then this ABR is acceptable if its height is 0
-		if current == nil {
-			if msg.Height == 0 {
-				err = n.storeAbr(ctx, msg)
-				if err != nil {
-					logger.Errorf("error getting current: %v", err)
-					return
-				}
-				err = n.handlePostSave(ctx, msg, current)
-				if err != nil {
-					logger.Errorf("error handling postSave: %v", err)
-				}
-				return
-			}
-			n.storeAsInFlight(ctx, msg)
-			return
-		}
-
-		// if this msg height is lower htan curreent then just drop it
-		if current.Height > msg.Height {
-			return
-		}
-
-		// Is this the next height ABR?
-		if current.Height+1 == msg.Height {
-			// then this is the next height, let's save it!
-			err = n.storeAbr(ctx, msg)
-			if err != nil {
-				logger.Errorf("error getting current: %v", err)
-				return
-			}
-			err = n.handlePostSave(ctx, msg, current)
-			if err != nil {
-				logger.Errorf("error handling postSave: %v", err)
-			}
-			return
-		}
-
-		if msg.Height > current.Height+1 {
-			// this is in the future so just queue it up
-			n.storeAsInFlight(ctx, msg)
-			return
-		}
-
+		n.handleAddBlockRequest(actorContext, msg)
+	case *Checkpoint:
+		n.handleCheckpoint(actorContext, msg)
 	}
+}
+
+func (n *Node) handleCheckpoint(actorContext actor.Context, cp *Checkpoint) {
+	n.logger.Debugf("handling a committed checkpoint!")
+}
+
+func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	n.logger.Debugf("handling message: %v", abr)
+	// look into the hamt, and get the current ABR
+	// if this is the next height then replace it
+	// if this is older drop it
+	// if this is in the future, keep it in flight
+
+	current, err := n.getCurrent(ctx, string(abr.ObjectId))
+	if err != nil {
+		n.logger.Errorf("error getting current: %v", err)
+		return
+	}
+
+	// if the current is nil, then this ABR is acceptable if its height is 0
+	if current == nil {
+		if abr.Height == 0 {
+			err = n.storeAbr(ctx, abr)
+			if err != nil {
+				n.logger.Errorf("error getting current: %v", err)
+				return
+			}
+			err = n.handlePostSave(ctx, abr, current)
+			if err != nil {
+				n.logger.Errorf("error handling postSave: %v", err)
+			}
+			return
+		}
+		n.storeAsInFlight(ctx, abr)
+		return
+	}
+
+	// if this msg height is lower than curreent then just drop it
+	if current.Height > abr.Height {
+		return
+	}
+
+	// Is this the next height ABR?
+	if current.Height+1 == abr.Height {
+		// then this is the next height, let's save it if the tips match
+
+		if !bytes.Equal(current.PreviousTip, abr.PreviousTip) {
+			n.logger.Warningf("tips did not match")
+			return
+		}
+
+		err = n.storeAbr(ctx, abr)
+		if err != nil {
+			n.logger.Errorf("error getting current: %v", err)
+			return
+		}
+		err = n.handlePostSave(ctx, abr, current)
+		if err != nil {
+			n.logger.Errorf("error handling postSave: %v", err)
+		}
+		return
+	}
+
+	if abr.Height > current.Height+1 {
+		// this is in the future so just queue it up
+		n.storeAsInFlight(ctx, abr)
+		return
+	}
+
+	// TODO: handle byzantine case of msg.Height == current.Height
 }
 
 func (n *Node) handlePostSave(ctx context.Context, saved *services.AddBlockRequest, overwritten *services.AddBlockRequest) error {
@@ -198,34 +264,54 @@ func (n *Node) handlePostSave(ctx context.Context, saved *services.AddBlockReque
 		return fmt.Errorf("error putting checkpoint: %v", err)
 	}
 
+	n.inprogressCheckpoint.CurrentState = id
+
 	num := big.NewInt(0)
 	num.SetBytes(id.Bytes())
 
-	if num.TrailingZeroBits() > 2 {
-		logger.Debugf("SHOULD CONSENNSE: %d", num.TrailingZeroBits())
+	if num.TrailingZeroBits() >= difficultyThreshold {
+		sig, err := sigfuncs.BLSSign(n.signKey, id.Bytes(), int(n.notaryGroup.Size()), n.signerIndex)
+		if err != nil {
+			return fmt.Errorf("error signing: %v", err)
+		}
+		n.inprogressCheckpoint.Signature = *sig
+		sw := &safewrap.SafeWrap{}
+		// spew.Dump(n.inprogressCheckpoint)
+		wrapped := sw.WrapObject(n.inprogressCheckpoint)
+		if sw.Err != nil {
+			return fmt.Errorf("error wrapping object: %v", sw.Err)
+		}
+		n.logger.Debugf("publishing to commit topic")
+		err = n.pubsub.Publish(commitTopic, wrapped.RawData())
+
+		if err != nil {
+			return fmt.Errorf("error publishing: %v", err)
+		}
 	} else {
-		logger.Debugf("trailing zeros: %d", num.TrailingZeroBits())
+		n.logger.Debugf("trailing zeros: %d", num.TrailingZeroBits())
 	}
 
 	return nil
 }
 
 func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
-	n.inFlight[string(abr.ObjectId)+"-"+strconv.FormatUint(abr.Height, 10)] = abr
+	n.inFlight["FH"+string(abr.ObjectId)+"-"+strconv.FormatUint(abr.Height, 10)] = abr
 }
 
 func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {
 	id, err := n.hamtStore.Put(ctx, abr)
 	if err != nil {
-		logger.Errorf("error putting abr: %v", err)
+		n.logger.Errorf("error putting abr: %v", err)
 		return err
 	}
-	logger.Debugf("saved %s", id.String())
+	n.logger.Debugf("saved %s", id.String())
 	err = n.inprogressCheckpoint.node.Set(ctx, string(abr.ObjectId), id)
 	if err != nil {
-		logger.Errorf("error setting hamt: %v", err)
+		n.logger.Errorf("error setting hamt: %v", err)
 		return err
 	}
+	n.inFlight[id.String()] = abr // this is useful because we can just easily confirm we have this transaction
+	n.inprogressCheckpoint.Transactions = append(n.inprogressCheckpoint.Transactions, id)
 	return nil
 }
 

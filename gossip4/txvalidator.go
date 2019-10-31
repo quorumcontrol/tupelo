@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	format "github.com/ipfs/go-ipld-format"
+	logging "github.com/ipfs/go-log"
 
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/quorumcontrol/chaintree/chaintree"
@@ -29,6 +30,20 @@ type transactionValidator struct {
 	group      *types.NotaryGroup
 	validators []chaintree.BlockValidatorFunc
 	node       *actor.PID
+	logger     logging.EventLogger
+}
+
+func newTransactionValidator(logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*transactionValidator, error) {
+	tv := &transactionValidator{
+		group:  group,
+		node:   node,
+		logger: logger,
+	}
+	err := tv.setup()
+	if err != nil {
+		return nil, fmt.Errorf("error setting up transaction validator: %v", err)
+	}
+	return tv, nil
 }
 
 func (tv *transactionValidator) setup() error {
@@ -68,13 +83,26 @@ func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, 
 func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
 	abr, err := pubsubMsgToAddBlockRequest(ctx, msg)
 	if err != nil {
-		logger.Errorf("error converting message to abr: %v", err)
+		tv.logger.Errorf("error converting message to abr: %v", err)
 		return false
 	}
+	validated := tv.validateAbr(ctx, abr)
+	if validated {
+		// we do something a bit odd here and send the ABR through an actor notification rather
+		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
+
+		actor.EmptyRootContext.Send(tv.node, abr)
+		return true
+	}
+
+	return false
+}
+
+func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.AddBlockRequest) bool {
 	block := &chaintree.BlockWithHeaders{}
-	err = cbornode.DecodeInto(abr.Payload, block)
+	err := cbornode.DecodeInto(abr.Payload, block)
 	if err != nil {
-		logger.Errorf("invalid transaction: payload is not a block: %v", err)
+		tv.logger.Errorf("invalid transaction: payload is not a block: %v", err)
 		return false
 	}
 
@@ -86,20 +114,20 @@ func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 		cborNodes[i] = sw.Decode(node)
 	}
 	if sw.Err != nil {
-		logger.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
+		tv.logger.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
 		return false
 	}
 
 	nodeStore := nodestore.MustMemoryStore(ctx)
 	err = nodeStore.AddMany(ctx, cborNodes)
 	if err != nil {
-		logger.Errorf("error adding nodes: %v", err)
+		tv.logger.Errorf("error adding nodes: %v", err)
 		return false
 	}
 
 	transPreviousTip, err := cid.Cast(abr.PreviousTip)
 	if err != nil {
-		logger.Errorf("error casting CID: %v", err)
+		tv.logger.Errorf("error casting CID: %v", err)
 		return false
 	}
 
@@ -113,7 +141,7 @@ func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 	)
 
 	if err != nil {
-		logger.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
+		tv.logger.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
 		return false
 	}
 
@@ -125,14 +153,9 @@ func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 		} else {
 			errMsg = err.Error()
 		}
-		logger.Errorf("error processing: %v", errMsg)
+		tv.logger.Errorf("error processing: %v", errMsg)
 		return false
 	}
-
-	// we do something a bit odd here and send the ABR through an actor notification rather
-	// then just letting a pubsub subscribe happen, because we've already done the decoding work.
-
-	actor.EmptyRootContext.Send(tv.node, abr)
 
 	return true
 }
