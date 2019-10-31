@@ -19,19 +19,13 @@ jobs:
       with:
         args: github-prepare
     - name: Docker Login
-      uses: actions/docker/login@8cdf801b322af5f369e00d85e9cf3a7122f49108
+      run: docker login --username $DOCKER_USERNAME --password $DOCKER_PASSWORD
       env:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
     - name: Docker Build Container
-      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: build -t imagebuild .
+      run: docker build -t imagebuild .
     - name: Docker Tag Images
-      uses: actions/docker/tag@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: imagebuild quorumcontrol/tupelo
+      run: docker tag imagebuild quorumcontrol/tupelo
     - name: Docker Push Ref Image
-      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: push quorumcontrol/tupelo:${IMAGE_REF}
+      run: docker push quorumcontrol/tupelo:${IMAGE_REF}
