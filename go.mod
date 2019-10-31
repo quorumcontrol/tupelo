@@ -29,7 +29,7 @@ require (
 	github.com/libp2p/go-libp2p v0.4.0
 	github.com/libp2p/go-libp2p-circuit v0.1.3
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
-	github.com/libp2p/go-libp2p-core v0.2.3
+	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
 	github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223 // indirect
 	github.com/opentracing/opentracing-go v1.1.0
@@ -45,7 +45,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190923035154-9ee001bba392
+	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1
