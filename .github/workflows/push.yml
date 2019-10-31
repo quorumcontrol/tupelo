@@ -19,13 +19,11 @@ jobs:
       with:
         args: github-prepare
     - name: Docker Login
-      run: docker login --username $DOCKER_USERNAME --password $DOCKER_PASSWORD
+      run: docker login --username "$DOCKER_USERNAME" --password "$DOCKER_PASSWORD"
       env:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-    - name: Docker Build Container
-      run: docker build -t imagebuild .
-    - name: Docker Tag Images
-      run: docker tag imagebuild quorumcontrol/tupelo
-    - name: Docker Push Ref Image
-      run: docker push quorumcontrol/tupelo:${IMAGE_REF}
+    - name: Build & Push
+      run: scripts/ci-dockerbuildpush.sh
+      env:
+        GITHUB_REF: ${{ github.ref }}
