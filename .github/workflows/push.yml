@@ -5,6 +5,10 @@ jobs:
     name: Private Go Mod
     runs-on: ubuntu-latest
     steps:
+    - name: Install protobuf compiler
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
     - uses: actions/checkout@master
     - name: git setup
       run: scripts/ci-gitsetup.sh
