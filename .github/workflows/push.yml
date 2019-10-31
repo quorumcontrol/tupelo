@@ -6,16 +6,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-    - name: Private Go Mod
-      uses: ./.github/actions/make
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      with:
-        args: vendor
+    - name: git setup
+      run: scripts/ci-gitsetup.sh
     - name: Prepare Build Environment
       uses: ./.github/actions/make
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        GITHUB_REF: ${{ github.ref }}
       with:
         args: github-prepare
     - name: Docker Login
@@ -26,4 +23,5 @@ jobs:
     - name: Build & Push
       run: scripts/ci-dockerbuildpush.sh
       env:
+        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         GITHUB_REF: ${{ github.ref }}
