@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.12.6
+      - image: circleci/golang:1.13.1
     environment:
       SOURCE_MOUNT: --volumes-from=source
     steps:
@@ -11,6 +11,9 @@ jobs:
       - add_ssh_keys:
           fingerprints:
             - "06:4a:76:ba:0c:08:2f:ee:d6:2c:0f:7f:fa:f0:28:45"
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
