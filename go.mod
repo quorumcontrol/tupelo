@@ -36,7 +36,7 @@ require (
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v0.8.7
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190916172743-fed64641cd55
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.10
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.11
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
