@@ -24,13 +24,13 @@ require (
 	github.com/libp2p/go-libp2p v0.4.0
 	github.com/libp2p/go-libp2p-circuit v0.1.3
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
-	github.com/libp2p/go-libp2p-core v0.2.3
+	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v0.8.6-0.20191027150236-fceff392da5f
 	github.com/quorumcontrol/messages/build/go v0.0.0-20191027145955-5f00dfa59832
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.10-0.20191027152447-f44e2c1d7832
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.10-rc1
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/objx v0.2.0 // indirect

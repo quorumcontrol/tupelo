@@ -5,8 +5,11 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
@@ -90,6 +93,11 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error getting latest: %v", err)
 		}
+		n, err := loadNode(ctx, hamtStore, latest.CurrentState)
+		if err != nil {
+			return nil, fmt.Errorf("error loading node: %v", err)
+		}
+		latest.node = n
 	}
 
 	// then clone for the inprogress
@@ -122,6 +130,10 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		logger:               logger,
 		lock:                 &sync.RWMutex{},
 	}, nil
+}
+
+func loadNode(ctx context.Context, store *hamt.CborIpldStore, id cid.Cid) (*hamt.Node, error) {
+	return hamt.LoadNode(ctx, store, id, hamt.UseTreeBitWidth(5))
 }
 
 func (n *Node) Start(ctx context.Context) error {
@@ -186,6 +198,41 @@ func (n *Node) Receive(actorContext actor.Context) {
 
 func (n *Node) handleCheckpoint(actorContext actor.Context, cp *Checkpoint) {
 	n.logger.Debugf("handling a committed checkpoint!")
+	// don't do anything with an old checkpoint
+	if cp.Height < n.latestCheckpoint.Height {
+		return
+	}
+
+	node, err := loadNode(context.TODO(), n.hamtStore, cp.CurrentState)
+	if err != nil {
+		n.logger.Errorf("error getting node: %v", err)
+	}
+	cp.node = node
+
+	n.logger.Debugf("resetting the inprogress checkpoints")
+	// otherwise let's jump to that checkpoint
+	n.latestCheckpoint = cp
+	n.inprogressCheckpoint = n.latestCheckpoint.Copy()
+	n.inprogressCheckpoint.Height++
+	n.inprogressCheckpoint.Previous = cp.CurrentState
+	n.inprogressCheckpoint.PreviousSignature = cp.Signature
+
+	n.logger.Debugf("deleting inflight transactions that have been committed")
+	for _, txID := range cp.Transactions {
+		abr, ok := n.inFlight[txID.String()]
+		if ok {
+			delete(n.inFlight, txID.String())
+			delete(n.inFlight, heightKey(string(abr.ObjectId), abr.Height))
+		}
+	}
+
+	for k, abr := range n.inFlight {
+		if strings.HasPrefix(k, "FH") {
+			continue // don't do anything with the height ones
+		}
+		n.logger.Debugf("requeing tx: %s", k)
+		actorContext.Send(actorContext.Self(), abr)
+	}
 }
 
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
@@ -281,12 +328,17 @@ func (n *Node) handlePostSave(ctx context.Context, saved *services.AddBlockReque
 		if sw.Err != nil {
 			return fmt.Errorf("error wrapping object: %v", sw.Err)
 		}
-		n.logger.Debugf("publishing to commit topic")
-		err = n.pubsub.Publish(commitTopic, wrapped.RawData())
 
-		if err != nil {
-			return fmt.Errorf("error publishing: %v", err)
-		}
+		go func() {
+			jitter := rand.Intn(10)
+			n.logger.Debugf("publishing to commit topic in %d", jitter)
+			time.Sleep(time.Duration(jitter) * time.Millisecond)
+			err = n.pubsub.Publish(commitTopic, wrapped.RawData())
+			if err != nil {
+				n.logger.Errorf("error publishing: %v", err)
+			}
+		}()
+
 	} else {
 		n.logger.Debugf("trailing zeros: %d", num.TrailingZeroBits())
 	}
@@ -294,8 +346,12 @@ func (n *Node) handlePostSave(ctx context.Context, saved *services.AddBlockReque
 	return nil
 }
 
+func heightKey(objectId string, height uint64) string {
+	return "FH" + objectId + "-" + strconv.FormatUint(height, 10)
+}
+
 func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
-	n.inFlight["FH"+string(abr.ObjectId)+"-"+strconv.FormatUint(abr.Height, 10)] = abr
+	n.inFlight[heightKey(string(abr.ObjectId), abr.Height)] = abr
 }
 
 func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {

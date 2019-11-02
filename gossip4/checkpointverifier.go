@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
@@ -18,7 +19,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
@@ -47,6 +47,8 @@ type checkpointVerifier struct {
 	lock          *sync.RWMutex
 	logger        logging.EventLogger
 	recentCommits *lru.Cache
+	verifyAct     *actor.PID
+	rebroadcaster *actor.PID
 }
 
 func newCheckpointVerifier(node *Node, nodeActor *actor.PID, group *types.NotaryGroup) (*checkpointVerifier, error) {
@@ -65,7 +67,7 @@ func newCheckpointVerifier(node *Node, nodeActor *actor.PID, group *types.Notary
 		verKeys[i] = s.VerKey
 	}
 
-	return &checkpointVerifier{
+	cv := &checkpointVerifier{
 		node:          node,
 		nodeActor:     nodeActor,
 		group:         group,
@@ -75,12 +77,17 @@ func newCheckpointVerifier(node *Node, nodeActor *actor.PID, group *types.Notary
 		lock:          new(sync.RWMutex),
 		logger:        node.logger,
 		recentCommits: recentCache,
-	}, nil
+	}
+
+	act := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(cv.Receive))
+	cv.verifyAct = act
+	return cv, nil
 }
 
 func (cv *checkpointVerifier) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
 	// TODO: should we we do more checks here?
 	// like: verify that it came from a signer? (maybe we don't care)
+	// should we just return true if it's our own CP?
 	cv.logger.Debugf("checkpoint verifier running")
 
 	cp := &Checkpoint{}
@@ -90,42 +97,80 @@ func (cv *checkpointVerifier) validate(ctx context.Context, pID peer.ID, msg *pu
 		return false
 	}
 
-	if cv.recentCommits.Contains(cp.CurrentState.String()) {
-		cv.logger.Debugf("already committed, skipping")
-		return true
-	}
-
-	// If the height of the checkpoint is lower than the checkpoint we are already at
-	// then we can just ignore this checkpoint
-	cv.node.lock.RLock()
-	height := cv.node.latestCheckpoint.Height
-	cv.node.lock.RUnlock()
-	if height > 0 && cp.Height <= height {
-		cv.logger.Debugf("received lower height checkpoint, ignoring")
-		return false
-	}
-
-	cv.logger.Debugf("verifying signatures")
-	sigVerified, err := verifySignature(ctx, cp.CurrentState.Bytes(), &cp.Signature, cv.verKeys)
-	if !sigVerified || err != nil {
-		cv.logger.Warningf("unverified signature (err: %v)", err)
-		return false
-	}
-
-	var signerCount int
-	for _, cnt := range cp.Signature.Signers {
-		if cnt > 0 {
-			signerCount++
+	if cv.node.p2pNode.Identity() == pID.Pretty() {
+		cv.logger.Debugf("received own message %d %v", cp.Height, cp.Signature.Signers)
+		if cv.inFlight == nil {
+			cv.inFlight = cp
+		}
+		// if we've already signed it we can just return true
+		if cp.Signature.Signers[cv.node.signerIndex] > 0 {
+			return true
 		}
 	}
 
-	// if we have reached consensus already, then pass it to the node actor
-	// and still let pubsub forward the message out to the other subscribers
-	if uint64(signerCount) >= cv.group.QuorumCount() {
-		// then commit!
-		cv.commit(ctx, cp)
-		return true
+	return cv.validateCheckpoint(ctx, cp)
+}
+
+func (cv *checkpointVerifier) validateCheckpoint(ctx context.Context, cp *Checkpoint) bool {
+	cv.logger.Debugf("running checkpoint for: (%d): %s", cp.Height, cp.CurrentState.String())
+
+	// If the height of the checkpoint is lower than the checkpoint we are already at
+	// then we can just ignore this checkpoint
+	height := cv.node.latestCheckpoint.Height
+	if height > 0 && cp.Height < height {
+		cv.logger.Debugf("received lower height checkpoint, ignoring %d", cp.Height)
+		return false
 	}
+
+	cv.logger.Debugf("verifying signatures %d %v", cp.Height, cp.Signature.Signers)
+	sigVerified, err := verifySignature(ctx, cp.CurrentState.Bytes(), &cp.Signature, cv.verKeys)
+	if !sigVerified || err != nil {
+		cv.logger.Warningf("unverified signature %d (err: %v)", cp.Height, err)
+		return false
+	}
+
+	if cv.recentCommits.Contains(cp.Height) {
+		cv.logger.Debugf("already committed %d, stopping", cp.Height)
+		return false
+	}
+
+	fut := cv.verifyAct.RequestFuture(&cpMessage{ctx: ctx, cp: cp}, 5*time.Second)
+	resp, err := fut.Result()
+	if err != nil {
+		cv.logger.Warningf("error getting request: %v", err)
+		return false
+	}
+	return resp.(bool)
+}
+
+type cpMessage struct {
+	cp  *Checkpoint
+	ctx context.Context
+}
+
+func (cv *checkpointVerifier) Receive(actorContext actor.Context) {
+	switch msg := actorContext.Message().(type) {
+	case *actor.Started:
+		cv.rebroadcaster = actorContext.Spawn(actor.PropsFromProducer(func() actor.Actor {
+			return &rebroadcaster{
+				logger: cv.logger,
+				pubsub: cv.node.pubsub,
+			}
+		}))
+	case *cpMessage:
+		valid := cv.actorValidation(msg.ctx, msg.cp, actorContext)
+		actorContext.Respond(valid)
+	}
+}
+
+func (cv *checkpointVerifier) actorValidation(ctx context.Context, cp *Checkpoint, actorContext actor.Context) bool {
+	cv.logger.Debugf("actorValidator running: %d %v", cp.Height, cp.Signature.Signers)
+	if cv.recentCommits.Contains(cp.Height) {
+		cv.logger.Debugf("already committed %d", cp.Height)
+		return false
+	}
+
+	height := cv.node.latestCheckpoint.Height
 
 	// if this checkpoint isn't the next in the sequence then just queue it up
 	// TODO: do we really want to propogate this to the network here since we havne't
@@ -133,24 +178,32 @@ func (cv *checkpointVerifier) validate(ctx context.Context, pID peer.ID, msg *pu
 	// internally consistent at least, but have to wait to see if they are valid
 	// as a state transition
 	if height > 0 && cp.Height != height+1 {
-		cv.logger.Debugf("queueing up checkpoint")
+		cv.logger.Debugf("queueing up checkpoint %d", cp.Height)
 		cv.queued[cp.Height] = cp
 		return true
 	}
 
-	cv.lock.Lock()
-	defer cv.lock.Unlock()
+	// if we have reached consensus already, then pass it to the node actor
+	// and still let pubsub forward the message out to the other subscribers
+	if uint64(cp.SignerCount()) >= cv.group.QuorumCount() {
+		// then commit!
+		cv.commit(ctx, cp)
+		return true
+	}
+	if cv.inFlight != nil && !cv.inFlight.Equals(cp) {
+		return false // TODO: for now we will ignore... really we'll need deadlock detection here
+	}
 
 	if cv.inFlight != nil && cv.inFlight.Equals(cp) {
-		cv.logger.Debugf("already have a checkpoint in flight, checking signatures")
+		cv.logger.Debugf("already have this checkpoint (%d %s) in flight, checking signatures", cp.Height, cv.inFlight.CurrentState.String())
 		// do signature stuff and return
 		oursCount, theirsCount := signerDiff(cv.inFlight.Signature, cp.Signature)
 		if oursCount == 0 && theirsCount == 0 {
-			cv.logger.Debugf("no new signatures: %v", cv.inFlight.Signature.Signers)
+			cv.logger.Debugf("no new signatures %d: %v", cp.Height, cv.inFlight.Signature.Signers)
 			return true // TODO: really? do we want to to this?
 		}
 		if theirsCount > 0 {
-			cv.logger.Debugf("theirs has a new signature, combining and rebroadcasting (ours: %v) (theirs: %v)", cv.inFlight.Signature.Signers, cp.Signature.Signers)
+			cv.logger.Debugf("theirs has a new signature, combining and rebroadcasting %d (ours: %v) (theirs: %v)", cp.Height, cv.inFlight.Signature.Signers, cp.Signature.Signers)
 			// that means if we combine these sigs, we'll end up with a better sig
 			// so do that and queue up the combined sig
 			newSig, err := sigfuncs.AggregateBLSSignatures([]*signatures.Signature{&cv.inFlight.Signature, &cp.Signature})
@@ -160,31 +213,26 @@ func (cv *checkpointVerifier) validate(ctx context.Context, pID peer.ID, msg *pu
 			}
 			cv.inFlight.Signature = *newSig
 
-			var signerCount int
-			for _, cnt := range newSig.Signers {
-				if cnt > 0 {
-					signerCount++
-				}
-			}
+			actorContext.Send(cv.rebroadcaster, cv.inFlight)
 
 			// if we have reached consensus , then pass it to the node actor
-			if uint64(signerCount) >= cv.group.QuorumCount() {
+			if uint64(cp.SignerCount()) >= cv.group.QuorumCount() {
 				// then commit!
 				cv.commit(ctx, cp)
 			}
 
-			go func() {
-				sw := &safewrap.SafeWrap{}
-				cv.node.pubsub.Publish(commitTopic, sw.WrapObject(cv.inFlight).RawData())
-			}()
 			return false
 		}
-		// otherwise we have a strictly better signature, so we can just rebroadcast ours
-		cv.logger.Debugf("ours is a strictly better signature: %v", cv.inFlight.Signature.Signers)
+		// otherwise we have a strictly better signature, so we can just rebroadcast ours (maybe?)
+		cv.logger.Debugf("ours is a strictly better signature %d: %v", cp.Height, cv.inFlight.Signature.Signers)
+
+		actorContext.Send(cv.rebroadcaster, cv.inFlight)
+
+		return false // ignoring this strictly worse signature for now
 	}
 
-	cv.logger.Debugf("validating checkpoint")
-	valid := cv.validateCheckpoint(ctx, cp)
+	cv.logger.Debugf("validating checkpoint %d", cp.Height)
+	valid := cv.verify(ctx, cp)
 	if valid {
 		cv.logger.Debugf("checkpoint valid, setting inflight to true")
 		cv.inFlight = cp
@@ -193,12 +241,19 @@ func (cv *checkpointVerifier) validate(ctx context.Context, pID peer.ID, msg *pu
 	return true
 }
 
-func (cv *checkpointVerifier) commit(_ context.Context, cp *Checkpoint) {
-	cv.logger.Debugf("committing checkpoint")
-	cv.recentCommits.Add(cp.CurrentState.String(), struct{}{})
+func (cv *checkpointVerifier) commit(ctx context.Context, cp *Checkpoint) {
+	cv.logger.Debugf("committing checkpoint %d", cp.Height)
+	cv.recentCommits.Add(cp.Height, struct{}{})
 	actor.EmptyRootContext.Send(cv.nodeActor, cp)
-	if cv.inFlight.Equals(cp) {
+
+	if cv.inFlight != nil && cv.inFlight.Equals(cp) {
 		cv.inFlight = nil
+	}
+
+	next, ok := cv.queued[cp.Height+1]
+	if ok {
+		cv.logger.Debugf("found queued cp, running")
+		go cv.validateCheckpoint(ctx, next)
 	}
 }
 
@@ -216,7 +271,7 @@ func signerDiff(ourSig signatures.Signature, theirSig signatures.Signature) (our
 	return
 }
 
-func (cv *checkpointVerifier) validateCheckpoint(ctx context.Context, cp *Checkpoint) bool {
+func (cv *checkpointVerifier) verify(ctx context.Context, cp *Checkpoint) bool {
 
 	// check the difficulty and if it's not enough
 	// we can just drop the checkpoint
@@ -227,7 +282,13 @@ func (cv *checkpointVerifier) validateCheckpoint(ctx context.Context, cp *Checkp
 		return false
 	}
 
-	// othwerwise lets verify the transactions
+	// Does the previous match?
+	if !cp.Previous.Equals(cv.node.latestCheckpoint.CurrentState) {
+		cv.logger.Warningf("checkpoint previous isn't consistent %d", cp.Height)
+		return false
+	}
+
+	// verify all the transactions are ok and build off previous
 	checkpointVerified, err := cv.validateTransactions(ctx, cp)
 	if !checkpointVerified || err != nil {
 		cv.logger.Warningf("unverified checkpoint (err: %v)", err)
@@ -241,12 +302,6 @@ func (cv *checkpointVerifier) validateTransactions(ctx context.Context, cp *Chec
 	// does its previosuTip match the current previous
 	// do the new transactions create the same tip
 	// are all the new Txs valid
-
-	// Does the previous match?
-	if !cp.Previous.Equals(cv.node.latestCheckpoint.CurrentState) {
-		cv.logger.Warningf("checkpoint previous isn't consistent")
-		return false, nil
-	}
 
 	txs, err := cv.cidsToAbrs(ctx, cp.Transactions)
 	if err != nil {

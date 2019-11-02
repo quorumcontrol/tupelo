@@ -36,3 +36,13 @@ func (c *Checkpoint) Equals(other *Checkpoint) bool {
 		c.Height == other.Height &&
 		c.Previous.Equals(other.Previous) // purposely don't compare signatures
 }
+
+func (c *Checkpoint) SignerCount() int {
+	var signerCount int
+	for _, cnt := range c.Signature.Signers {
+		if cnt > 0 {
+			signerCount++
+		}
+	}
+	return signerCount
+}

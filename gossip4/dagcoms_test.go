@@ -75,15 +75,17 @@ func TestNewNode(t *testing.T) {
 }
 
 func TestEndToEnd(t *testing.T) {
+	// logging.SetLogLevel("pubsub", "debug")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	numMembers := 3
+	numMembers := 7
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	_, nodes, err := newTupeloSystem(ctx, ts)
+	ng, nodes, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
-
+	fmt.Println("quorum count: ", ng.QuorumCount())
 	n := nodes[0]
 	bootAddrs := testnotarygroup.BootstrapAddresses(n.p2pNode)
 
@@ -102,12 +104,15 @@ func TestEndToEnd(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	trans := testhelpers.NewValidTransaction(t)
+	for i := 0; i < 2; i++ {
+		trans := testhelpers.NewValidTransaction(t)
 
-	bits, err := trans.Marshal()
-	require.Nil(t, err)
+		bits, err := trans.Marshal()
+		require.Nil(t, err)
 
-	err = n.pubsub.Publish(transactionTopic, bits)
-	require.Nil(t, err)
+		err = n.pubsub.Publish(transactionTopic, bits)
+		require.Nil(t, err)
+	}
+
 	time.Sleep(2 * time.Second)
 }
