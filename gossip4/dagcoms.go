@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
@@ -25,6 +24,7 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -43,6 +43,9 @@ func init() {
 	genesis = sw.WrapObject("genesis").Cid()
 }
 
+type checkpointConflictSet map[string]*Checkpoint
+type inflightCheckpoints map[uint64]checkpointConflictSet
+
 type Node struct {
 	p2pNode     p2p.Node
 	signKey     *bls.SignKey
@@ -57,11 +60,10 @@ type Node struct {
 	latestCheckpoint     *Checkpoint
 	inprogressCheckpoint *Checkpoint
 
-	inFlight map[string]*services.AddBlockRequest
+	inFlightAbrs        map[string]*services.AddBlockRequest
+	inFlightCheckpoints inflightCheckpoints
 
 	signerIndex int
-
-	lock *sync.RWMutex
 }
 
 type NewNodeOptions struct {
@@ -125,10 +127,9 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		hamtStore:            hamtStore,
 		latestCheckpoint:     latest,
 		inprogressCheckpoint: inProgress,
-		inFlight:             make(map[string]*services.AddBlockRequest),
+		inFlightAbrs:         make(map[string]*services.AddBlockRequest),
 		signerIndex:          signerIndex,
 		logger:               logger,
-		lock:                 &sync.RWMutex{},
 	}, nil
 }
 
@@ -197,11 +198,25 @@ func (n *Node) Receive(actorContext actor.Context) {
 }
 
 func (n *Node) handleCheckpoint(actorContext actor.Context, cp *Checkpoint) {
-	n.logger.Debugf("handling a committed checkpoint!")
+	n.logger.Debugf("handling a checkpoint %d", cp.Height)
 	// don't do anything with an old checkpoint
 	if cp.Height < n.latestCheckpoint.Height {
 		return
 	}
+	checkpointConflict, ok := n.inFlightCheckpoints[cp.Height]
+	if !ok {
+		checkpointConflict = make(checkpointConflictSet)
+	}
+	existing, ok := checkpointConflict[cp.CurrentState.String()]
+	if ok {
+		// combine signatures
+	}
+	// check signatures and decide if committing
+	// decide whether we should broadcast our new updated signature
+}
+
+func (n *Node) commitCheckpoint(actorContext actor.Context, cp *Checkpoint) {
+	n.logger.Debugf("committing a checkpoint %d", cp.Height)
 
 	node, err := loadNode(context.TODO(), n.hamtStore, cp.CurrentState)
 	if err != nil {
@@ -219,14 +234,14 @@ func (n *Node) handleCheckpoint(actorContext actor.Context, cp *Checkpoint) {
 
 	n.logger.Debugf("deleting inflight transactions that have been committed")
 	for _, txID := range cp.Transactions {
-		abr, ok := n.inFlight[txID.String()]
+		abr, ok := n.inFlightAbrs[txID.String()]
 		if ok {
-			delete(n.inFlight, txID.String())
-			delete(n.inFlight, heightKey(string(abr.ObjectId), abr.Height))
+			delete(n.inFlightAbrs, txID.String())
+			delete(n.inFlightAbrs, heightKey(string(abr.ObjectId), abr.Height))
 		}
 	}
 
-	for k, abr := range n.inFlight {
+	for k, abr := range n.inFlightAbrs {
 		if strings.HasPrefix(k, "FH") {
 			continue // don't do anything with the height ones
 		}
@@ -351,7 +366,7 @@ func heightKey(objectId string, height uint64) string {
 }
 
 func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
-	n.inFlight[heightKey(string(abr.ObjectId), abr.Height)] = abr
+	n.inFlightAbrs[heightKey(string(abr.ObjectId), abr.Height)] = abr
 }
 
 func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {
@@ -366,7 +381,7 @@ func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) erro
 		n.logger.Errorf("error setting hamt: %v", err)
 		return err
 	}
-	n.inFlight[id.String()] = abr // this is useful because we can just easily confirm we have this transaction
+	n.inFlightAbrs[id.String()] = abr // this is useful because we can just easily confirm we have this transaction
 	n.inprogressCheckpoint.Transactions = append(n.inprogressCheckpoint.Transactions, id)
 	return nil
 }
@@ -408,3 +423,17 @@ On receiving a CheckPoint...
 	* publish out the updated signature
 
 */
+
+func signerDiff(ourSig signatures.Signature, theirSig signatures.Signature) (ours int, theirs int) {
+	for i, cnt := range ourSig.Signers {
+		if cnt > 0 && theirSig.Signers[i] == 0 {
+			ours++
+			continue
+		}
+		if cnt == 0 && theirSig.Signers[i] > 0 {
+			theirs++
+			continue
+		}
+	}
+	return
+}
