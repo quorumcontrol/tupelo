@@ -24,7 +24,7 @@ uname_arch() {
 }
 
 TARGET="golangci-lint.tar.gz"
-VERSION=1.15.0
+VERSION=1.21.0
 OS=$(uname_os)
 ARCH=$(uname_arch)
 PLATFORM="${OS}/${ARCH}"

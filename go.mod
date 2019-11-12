@@ -23,7 +23,7 @@ require (
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-badger v0.0.5
-	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
+	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-log v0.0.1
 	github.com/libp2p/go-libp2p v0.4.0
@@ -31,12 +31,13 @@ require (
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
+	github.com/multiformats/go-multihash v0.0.9 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223 // indirect
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/procfs v0.0.2 // indirect
-	github.com/quorumcontrol/chaintree v0.8.6-0.20191007111216-51a819c15c38
+	github.com/quorumcontrol/chaintree v0.8.7
 	github.com/quorumcontrol/messages/build/go v0.0.0-20190916172743-fed64641cd55
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.7
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.11
 	github.com/rs/cors v1.6.0 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
@@ -45,8 +46,9 @@ require (
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
+	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+	golang.org/x/sys v0.0.0-20191110163157-d32e6e3b99c4 // indirect
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
 	google.golang.org/grpc v1.21.1
 )
