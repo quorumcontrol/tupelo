@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo/nodebuilder"
 
 	"github.com/ethereum/go-ethereum/crypto"

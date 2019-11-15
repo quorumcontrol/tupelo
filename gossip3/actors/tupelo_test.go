@@ -10,7 +10,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/storage"
 
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"

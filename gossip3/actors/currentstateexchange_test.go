@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/transactions"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	"crypto/ecdsa"

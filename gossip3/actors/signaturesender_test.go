@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"

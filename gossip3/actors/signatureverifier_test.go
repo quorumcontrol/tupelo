@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"

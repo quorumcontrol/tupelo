@@ -10,8 +10,8 @@ import (
 	format "github.com/ipfs/go-ipld-format"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"

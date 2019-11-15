@@ -7,8 +7,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	datastore "github.com/ipfs/go-datastore"
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"

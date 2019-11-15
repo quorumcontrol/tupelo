@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
