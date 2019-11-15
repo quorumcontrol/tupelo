@@ -15,7 +15,7 @@ require (
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-badger v0.0.5
-	github.com/ipfs/go-ipld-cbor v1.5.1-0.20190302174746-59d816225550
+	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-log v0.0.1
 	github.com/libp2p/go-libp2p v0.4.0
