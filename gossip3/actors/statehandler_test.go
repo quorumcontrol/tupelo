@@ -7,7 +7,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
-	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
@@ -16,7 +16,7 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/build/go/transactions"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

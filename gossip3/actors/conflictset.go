@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"

@@ -7,7 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/storage"
 
-	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"

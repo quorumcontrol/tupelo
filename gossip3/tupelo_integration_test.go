@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -23,7 +23,7 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/build/go/transactions"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"

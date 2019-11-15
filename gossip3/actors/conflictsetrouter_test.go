@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	datastore "github.com/ipfs/go-datastore"
-	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"

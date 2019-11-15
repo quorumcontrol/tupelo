@@ -6,7 +6,7 @@ import (
 
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
