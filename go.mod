@@ -1,6 +1,6 @@
 module github.com/quorumcontrol/tupelo
 
-go 1.12
+go 1.13
 
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
@@ -13,9 +13,11 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
 	github.com/hashicorp/golang-lru v0.5.3
+	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-badger v0.0.5
+	github.com/ipfs/go-hamt-ipld v0.0.13
 	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-log v0.0.1
