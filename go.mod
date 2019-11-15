@@ -6,6 +6,7 @@ require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
 	github.com/BurntSushi/toml v0.3.1
 	github.com/dgraph-io/badger v1.6.0-rc1
+	github.com/elastic/go-sysinfo v1.1.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gogo/protobuf v1.3.1
