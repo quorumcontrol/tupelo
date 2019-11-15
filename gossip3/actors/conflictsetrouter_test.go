@@ -166,9 +166,9 @@ func TestHandlesDeadlocks(t *testing.T) {
 	}
 	// it's known that trans[1] is the lowest transaction,
 	// this is just a sanity check
-	require.True(t, string(trans[1].TransactionId) < string(trans[2].TransactionId))
+	require.True(t, string(trans[1].TransactionId) > string(trans[2].TransactionId))
 	require.True(t, string(trans[1].TransactionId) > string(trans[0].TransactionId))
-	// [0,1,2] is the order
+	// [0,2,1] is the order
 
 	// note skipping first signer here
 	for i := 1; i < len(sigGeneratorActors); i++ {
