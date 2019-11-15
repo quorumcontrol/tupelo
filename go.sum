@@ -543,8 +543,8 @@ github.com/quorumcontrol/chaintree v1.0.2-0.20191115091534-2786ceaf7ce0/go.mod h
 github.com/quorumcontrol/go-hamt-ipld v0.0.2-0.20190913132514-52eecd11b85f/go.mod h1:ZusHxzOPfi9rUsQ0/MW6+FMcZsRvwBf2H09vE2mhT10=
 github.com/quorumcontrol/messages/v2 v2.0.2 h1:goA2ha47cXjMsJS9XZt+b+i/uqnTb0EUYmFDIJCUn/E=
 github.com/quorumcontrol/messages/v2 v2.0.2/go.mod h1:x/L7gA9XvVpipH/VQ1SX3/WXEf5Jf9b4u8dhJ/AsKEY=
-github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115093104-0aeae0c9fb36 h1:6aRehJW5iFxpuB+Ajrmz03wZOcW/is9JEP+apu9moNM=
-github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115093104-0aeae0c9fb36/go.mod h1:uX/59VOUodhHjFV8DizR+hM0qt6HZyTmGJU7oL4NY1s=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115095334-06f95d23f9c8 h1:QXWzjXIR50p3+1E7FpZ9GGIG/JRc5UIfihU3ps2BfaY=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115095334-06f95d23f9c8/go.mod h1:nI86YtZ8MNGpWpjPo/I2qhepyhiEwqurYkYW5IieE3M=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0 h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
@@ -582,8 +582,8 @@ github.com/spf13/jwalterweatherman v1.0.0/go.mod h1:cQK4TGJAtQXfYWX+Ddv3mKDzgVb6
 github.com/spf13/pflag v1.0.3 h1:zPAT6CGy6wXeQ7NtTnaTerfKOsV6V6F8agHXFiazDkg=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
-github.com/spy16/parens v0.0.0-20190827000000-75a4133 h1:1f+meHwsoXdI6pwEA2dnx/DmChSMIXmFHN7knxOwUXU=
-github.com/spy16/parens v0.0.0-20190827000000-75a4133/go.mod h1:tuPaFuEJRts5JGEhTUJFe6IPfb7HHTuFyYzOtk/029Y=
+github.com/spy16/parens v0.0.8 h1:jADCAJFxPvyrifxi7cmr4MPIyCrlSfrkesoA2QNCHRI=
+github.com/spy16/parens v0.0.8/go.mod h1:eFeAFLSd0XeJan0hmlNhhD2QNQ/PdN1NviW4FqXHACU=
 github.com/src-d/envconfig v1.0.0/go.mod h1:Q9YQZ7BKITldTBnoxsE5gOeB5y66RyPXeue/R4aaNBc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1 h1:2vfRuCMp5sSVIDSqO8oNnWJq7mPa6KVP3iPIwFBuy8A=

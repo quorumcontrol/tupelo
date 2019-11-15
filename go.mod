@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v1.0.2-0.20191115091534-2786ceaf7ce0
 	github.com/quorumcontrol/messages/v2 v2.0.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115093104-0aeae0c9fb36
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115095334-06f95d23f9c8
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/objx v0.2.0 // indirect
