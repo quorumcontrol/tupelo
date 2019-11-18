@@ -28,12 +28,11 @@ require (
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v1.0.2-0.20191115091534-2786ceaf7ce0
 	github.com/quorumcontrol/messages/v2 v2.0.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191115095334-06f95d23f9c8
+	github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191118110644-d6af250023e5
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
-	go.dedis.ch/protobuf v1.0.6 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
