@@ -20,5 +20,5 @@ export PATH="${GOPATH}/bin:${PATH}"
 
 make vendor
 
-docker build -t quorumcontrol/tupelo-go-sdk:${IMAGE_REF} .
-docker push quorumcontrol/tupelo-go-sdk:${IMAGE_REF}
+docker build -t quorumcontrol/tupelo:${IMAGE_REF} .
+docker push quorumcontrol/tupelo:${IMAGE_REF}
