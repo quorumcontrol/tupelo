@@ -54,16 +54,9 @@ test: $(packr) $(gosources) go.mod go.sum
 
 SOURCE_MOUNT ?= -v ${CURDIR}:/src/tupelo
 
-integration-test: .tupelo-integration.yml
-	docker pull quorumcontrol/tupelo-integration-runner || true
-	docker run -v /var/run/docker.sock:/var/run/docker.sock $(SOURCE_MOUNT) quorumcontrol/tupelo-integration-runner
-
-
 ci-test: $(packr) $(gosources) go.mod go.sum
 	mkdir -p test_results/tests
 	gotestsum --junitfile=test_results/tests/results.xml -- -tags=integration ./...
-
-ci-integration-test: ci-test integration-test
 
 docker-image: vendor $(packr) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
@@ -83,4 +76,4 @@ github-prepare:
 	# mimic https://github.com/actions/docker/blob/b12ae68bebbb2781edb562c0260881a3f86963b4/tag/tag.rb#L39
 	VERSION=$(shell { echo $(GITHUB_REF) | rev | cut -d / -f 1 | rev; }) $(MAKE) $(packr)
 
-.PHONY: all test integration-test ci-test ci-integration-test docker-image clean install lint github-prepare generate
+.PHONY: all test ci-test docker-image clean install lint github-prepare generate
