@@ -543,13 +543,13 @@ github.com/prometheus/procfs v0.0.2 h1:6LJUbpNm42llc4HRCuvApCSWB/WfhuNo9K98Q9sNG
 github.com/prometheus/procfs v0.0.2 h1:6LJUbpNm42llc4HRCuvApCSWB/WfhuNo9K98Q9sNGfs=
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
-github.com/quorumcontrol/chaintree v1.0.2-0.20191115091534-2786ceaf7ce0 h1:U7DuOkOV0eVFov8jRUDSIVP9jVXwDwQiWuLCVQzkQp8=
-github.com/quorumcontrol/chaintree v1.0.2-0.20191115091534-2786ceaf7ce0/go.mod h1:s+65o7S7ys0umrIw7dTHV/sR7R7xcVChTr/+844P21M=
+github.com/quorumcontrol/chaintree v0.9.1 h1:6u1Ptwlf6s1uGnWqnV/gUQdLIuccE6q79u1nKLQygh8=
+github.com/quorumcontrol/chaintree v0.9.1/go.mod h1:s+65o7S7ys0umrIw7dTHV/sR7R7xcVChTr/+844P21M=
 github.com/quorumcontrol/go-hamt-ipld v0.0.2-0.20190913132514-52eecd11b85f/go.mod h1:ZusHxzOPfi9rUsQ0/MW6+FMcZsRvwBf2H09vE2mhT10=
 github.com/quorumcontrol/messages/v2 v2.0.2 h1:goA2ha47cXjMsJS9XZt+b+i/uqnTb0EUYmFDIJCUn/E=
 github.com/quorumcontrol/messages/v2 v2.0.2/go.mod h1:x/L7gA9XvVpipH/VQ1SX3/WXEf5Jf9b4u8dhJ/AsKEY=
-github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191118110644-d6af250023e5 h1:YLnDz+X0A9zexaFNjNKhHaVXO2jeO0zb+upNb3zvB8Y=
-github.com/quorumcontrol/tupelo-go-sdk v0.5.12-0.20191118110644-d6af250023e5/go.mod h1:yz1jRMvbLLPolmdwNrsDSO2mMK7rcc5sHLVpDELfqJA=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.13-0.20191120122823-2579989670b5 h1:iz1y7taPDyZNJu7nGRUcSCD3ZyR6S1ya1tunUbw4ShU=
+github.com/quorumcontrol/tupelo-go-sdk v0.5.13-0.20191120122823-2579989670b5/go.mod h1:7A343Oz2jCnW1L7GouhwGP5Na0OODUV6Cz2Og5ZD5tc=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0 h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
