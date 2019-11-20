@@ -29,6 +29,10 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewLocalSigner(testSet.PubKeys[i], sk)
+		ng.AddSigner(signer)
+	}
+
+	for _, signer := range ng.AllSigners() {
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       ng,
@@ -43,7 +47,6 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 			<-ctx.Done()
 			actor.EmptyRootContext.Poison(syncer)
 		}()
-		ng.AddSigner(signer)
 	}
 
 	return ng, simulatedPubSub, nil
