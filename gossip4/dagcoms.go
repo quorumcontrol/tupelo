@@ -282,16 +282,25 @@ func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, s
 
 	n.inprogressCheckpoint.CurrentState = id
 
-	num := big.NewInt(0)
-	num.SetBytes(id.Bytes())
+	numberOfZeros := cidToDifficulty(id)
 
-	if num.TrailingZeroBits() >= difficultyThreshold {
+	if numberOfZeros >= difficultyThreshold {
+		err := n.inprogressCheckpoint.node.Flush(ctx)
+		if err != nil {
+			return fmt.Errorf("error flushing: %v", err)
+		}
 		n.commitCheckpoint(actorContext, n.inprogressCheckpoint)
 	}
 
-	n.logger.Debugf("trailing zeros: %d", num.TrailingZeroBits())
+	n.logger.Debugf("trailing zeros: %d", numberOfZeros)
 
 	return nil
+}
+
+func cidToDifficulty(id cid.Cid) uint {
+	num := big.NewInt(0)
+	num.SetBytes(id.Bytes())
+	return num.TrailingZeroBits()
 }
 
 func heightKey(objectId string, height uint64) string {
