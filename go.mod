@@ -39,5 +39,5 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
-	google.golang.org/grpc v1.21.1
+	google.golang.org/grpc v1.21.1 // indirect
 )
