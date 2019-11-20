@@ -14,6 +14,8 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 )
 
+var hamtAddTimeout = 10 * time.Second
+
 // dsWrapper implements the blocks interface needed for the go-hamt-ipld
 // type blocks interface {
 // 	GetBlock(context.Context, cid.Cid) (block.Block, error)
@@ -28,7 +30,7 @@ func (dw *dsWrapper) GetBlock(ctx context.Context, id cid.Cid) (block.Block, err
 }
 
 func (dw *dsWrapper) AddBlock(blk block.Block) error {
-	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), hamtAddTimeout)
 	defer cancel()
 	nd, err := format.Decode(blk) // this can probably be made an unnecessary step
 	if err != nil {

@@ -30,7 +30,7 @@ var genesis cid.Cid
 const transactionTopic = "g4-transactions"
 const commitTopic = "g4-commits"
 
-const difficultyThreshold = 0
+const difficultyThreshold = 4 // require 4 zeros at the end
 
 func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
@@ -146,6 +146,9 @@ func (n *Node) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error subscribing %v", err)
 	}
+
+	// don't do anything with these messages because we actually get them
+	// fully decoded in the actor spun up above
 	go func() {
 		for {
 			_, err := sub.Next(ctx)
