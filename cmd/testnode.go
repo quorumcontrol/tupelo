@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This (i.e. `test-node`) is the gossip3 node command. Gossip4 is just `node`.
+
 package cmd
 
 import (
@@ -34,8 +36,8 @@ var (
 
 // testnodeCmd represents the test-node command
 var testnodeCmd = &cobra.Command{
-	Use:   "test-node [index of key]",
-	Short: "Run a tupelo node",
+	Use:   "test-node",
+	Short: "Run a tupelo node (gossip3)",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
