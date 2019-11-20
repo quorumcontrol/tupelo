@@ -46,7 +46,7 @@ type TransactionValidator struct {
 	signatureChecker *actor.PID
 	notaryGroup      *types.NotaryGroup
 	verKeys          []*bls.VerKey
-	validators []chaintree.BlockValidatorFunc
+	validators       []chaintree.BlockValidatorFunc
 }
 
 type TransactionValidatorConfig struct {
@@ -276,14 +276,13 @@ func (tv *TransactionValidator) chainTreeStateHandler(actorCtx actor.Context, st
 	if currentTip.Defined() {
 		tree = dag.NewDag(ctx, currentTip, nodeStore)
 	} else {
-		tree = consensus.NewEmptyTree(string(stateTrans.ObjectId), nodeStore)
+		tree = consensus.NewEmptyTree(ctx, string(stateTrans.ObjectId), nodeStore)
 	}
 
 	if err = tree.AddNodes(ctx, cborNodes...); err != nil {
 		return nil, false, err
 	}
 
-	
 	chainTree, err := chaintree.NewChainTree(
 		ctx,
 		tree,

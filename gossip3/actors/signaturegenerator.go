@@ -45,7 +45,7 @@ func (sg *SignatureGenerator) Receive(context actor.Context) {
 	}
 }
 
-func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *messages.TransactionWrapper) {
+func (sg *SignatureGenerator) handleNewTransaction(actorContext actor.Context, msg *messages.TransactionWrapper) {
 	ng := sg.notaryGroup
 
 	committee, err := ng.RewardsCommittee([]byte(msg.Transaction.NewTip), sg.signer)
@@ -62,7 +62,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 	}
 
 	sg.Log.Debugw("signing", "t", msg.TransactionId)
-	sig, err := sigfuncs.BLSSign(sg.signer.SignKey, consensus.GetSignable(state), len(ng.Signers), int(ng.IndexOfSigner(sg.signer)))
+	sig, err := sigfuncs.BLSSign(msg.GetContext(), sg.signer.SignKey, consensus.GetSignable(state), len(ng.Signers), int(ng.IndexOfSigner(sg.signer)))
 
 	if err != nil {
 		panic(fmt.Sprintf("error signing: %v", err))
@@ -70,7 +70,7 @@ func (sg *SignatureGenerator) handleNewTransaction(context actor.Context, msg *m
 
 	state.Signature = sig
 
-	context.Respond(&messages.SignatureWrapper{
+	actorContext.Respond(&messages.SignatureWrapper{
 		Internal:         true,
 		ConflictSetID:    msg.ConflictSetID,
 		Signers:          messages.SignerMap{sg.signer.ID: sg.signer},

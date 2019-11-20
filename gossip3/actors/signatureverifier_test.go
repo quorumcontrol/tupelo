@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"strconv"
 	"testing"
 	"time"
@@ -18,13 +19,16 @@ import (
 )
 
 func TestVerification(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	ts := testnotarygroup.NewTestSet(t, 1)
 	rootContext := actor.EmptyRootContext
 	ss := rootContext.Spawn(NewSignatureVerifier())
 	defer rootContext.Poison(ss)
 
 	msg := crypto.Keccak256([]byte("hi"))
-	sig, err := sigfuncs.BLSSign(ts.SignKeys[0], msg, 1, 0)
+	sig, err := sigfuncs.BLSSign(ctx, ts.SignKeys[0], msg, 1, 0)
 	require.Nil(t, err)
 
 	resp, err := rootContext.RequestFuture(ss, &messages.SignatureVerification{
@@ -43,6 +47,9 @@ type benchTestSigHolder struct {
 }
 
 func BenchmarkVerification(b *testing.B) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	ts := testnotarygroup.NewTestSet(b, 1)
 	rootContext := actor.EmptyRootContext
 	ss := rootContext.Spawn(NewSignatureVerifier())
@@ -53,7 +60,7 @@ func BenchmarkVerification(b *testing.B) {
 	sigs := make([]*benchTestSigHolder, b.N)
 	for i := 0; i < b.N; i++ {
 		msg := crypto.Keccak256([]byte("hi" + strconv.Itoa(i)))
-		sig, err := sigfuncs.BLSSign(ts.SignKeys[0], msg, 1, 0)
+		sig, err := sigfuncs.BLSSign(ctx, ts.SignKeys[0], msg, 1, 0)
 		require.Nil(b, err)
 		sigs[i] = &benchTestSigHolder{
 			msg: msg,

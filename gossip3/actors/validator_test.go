@@ -92,7 +92,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	}
 
 	nodeStore := nodestore.MustMemoryStore(ctx)
-	evilTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	evilTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
 
 	path, err := consensus.DecodePath("tree/" + consensus.TreePathForTokens)
 	require.Nil(t, err)
@@ -113,7 +113,7 @@ func TestCannotFakeOldHistory(t *testing.T) {
 	testTree, err := chaintree.NewChainTree(ctx, evilTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err := consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	require.Nil(t, err)
 
 	valid, err := testTree.ProcessBlock(ctx, blockWithHeaders)

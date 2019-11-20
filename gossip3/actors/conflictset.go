@@ -251,13 +251,14 @@ func (csw *ConflictSetWorker) processTransactions(cs *ConflictSet, context actor
 	context.Send(context.Self(), &csWorkerRequest{cs: cs, msg: &checkStateMsg{atUpdate: cs.updates}})
 }
 
-func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.Context, msg *messages.SignatureWrapper) {
+func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, actorContext actor.Context, msg *messages.SignatureWrapper) {
 	sp := cs.NewSpan("handleNewSignature")
 	defer sp.Finish()
+	ctx := opentracing.ContextWithSpan(context.Background(), sp)
 
 	csw.Log.Debugw("handle new signature", "t", msg.State.TransactionId)
 	if msg.Internal {
-		context.Send(csw.signatureSender, msg)
+		actorContext.Send(csw.signatureSender, msg)
 	}
 	if len(msg.Signers) > 1 {
 		panic(fmt.Sprintf("currently we don't handle multi signer signatures here"))
@@ -282,7 +283,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 		}
 		if hasNewSigs {
 			csw.Log.Debugw("combining signatures")
-			newSig, err := csw.combineSignatures(existingSig, msg)
+			newSig, err := csw.combineSignatures(ctx, existingSig, msg)
 			if err != nil {
 				csw.Log.Infow("error combigning sigs", "err", err)
 			}
@@ -297,8 +298,8 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 	}
 
 	cs.updates++
-	csw.Log.Debugw("sending checkstate", "self", context.Self().String())
-	context.Send(context.Self(), &csWorkerRequest{cs: cs, msg: &checkStateMsg{atUpdate: cs.updates}})
+	csw.Log.Debugw("sending checkstate", "self", actorContext.Self().String())
+	actorContext.Send(actorContext.Self(), &csWorkerRequest{cs: cs, msg: &checkStateMsg{atUpdate: cs.updates}})
 }
 
 func (csw *ConflictSetWorker) checkState(cs *ConflictSet, context actor.Context, msg *checkStateMsg) {
@@ -514,10 +515,10 @@ func setupCurrStateCtx(wrapper *messages.CurrentStateWrapper, cs *ConflictSet) {
 	wrapper.SetContext(wrapperCtx)
 }
 
-func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b *messages.SignatureWrapper) (*messages.SignatureWrapper, error) {
+func (csw *ConflictSetWorker) combineSignatures(ctx context.Context, a *messages.SignatureWrapper, b *messages.SignatureWrapper) (*messages.SignatureWrapper, error) {
 	csw.Log.Debugw("combining signatures", "signersA", len(a.Signers), "signersB", len(b.Signers))
 
-	aggregateSig, err := sigfuncs.AggregateBLSSignatures([]*signatures.Signature{a.State.Signature, b.State.Signature})
+	aggregateSig, err := sigfuncs.AggregateBLSSignatures(ctx, []*signatures.Signature{a.State.Signature, b.State.Signature})
 	if err != nil {
 		return nil, fmt.Errorf("error aggregating sigs: %v", err)
 	}

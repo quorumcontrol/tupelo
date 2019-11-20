@@ -64,11 +64,11 @@ func TestChainTreeStateHandler(t *testing.T) {
 	}
 
 	nodeStore := nodestore.MustMemoryStore(ctx)
-	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
 
 	nodes := dagToByteNodes(t, emptyTree)
 
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err := consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
 	transHeight := uint64(0)
@@ -125,7 +125,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 
 	nodes = dagToByteNodes(t, testTree.Dag)
 
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err = consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
 	trans = &services.AddBlockRequest{
@@ -170,7 +170,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		},
 	}
 
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err = consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	assert.Nil(t, err)
 	nodes = dagToByteNodes(t, testTree.Dag)
 
@@ -212,7 +212,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 		},
 	}
 
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err = consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
 	nodes = dagToByteNodes(t, testTree.Dag)
@@ -235,7 +235,7 @@ func TestChainTreeStateHandler(t *testing.T) {
 	assert.NotNil(t, err)
 
 	// however if we sign it with the new owner, it should be accepted.
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, newOwnerKey)
+	blockWithHeaders, err = consensus.SignBlock(ctx, unsignedBlock, newOwnerKey)
 	assert.Nil(t, err)
 
 	trans = &services.AddBlockRequest{
@@ -305,11 +305,11 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	}
 
 	nodeStore := nodestore.MustMemoryStore(ctx)
-	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
 
 	nodes := dagToByteNodes(t, emptyTree)
 
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err := consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	require.Nil(t, err)
 
 	sw := &safewrap.SafeWrap{}
@@ -353,7 +353,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 		nodes = dagToByteNodes(t, testTree.Dag)
 
-		blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+		blockWithHeaders, err = consensus.SignBlock(ctx, unsignedBlock, treeKey)
 		assert.Nil(t, err)
 
 		trans = &services.AddBlockRequest{
@@ -390,7 +390,7 @@ func TestSigner_TokenTransactions(t *testing.T) {
 
 	nodes = dagToByteNodes(t, testTree.Dag)
 
-	blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err = consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
 	trans = &services.AddBlockRequest{
@@ -412,7 +412,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 	assert.Nil(t, err)
 	nodeStore := nodestore.MustMemoryStore(ctx)
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
-	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
 	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	assert.Nil(t, err)
 
@@ -429,7 +429,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	nodes1 := dagToByteNodes(t, emptyTree)
 
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err := consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	assert.Nil(t, err)
 
 	sw := &safewrap.SafeWrap{}
@@ -465,7 +465,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 
 	nodes2 := dagToByteNodes(t, testTree.Dag)
 
-	blockWithHeaders2, err := consensus.SignBlock(unsignedBlock2, treeKey)
+	blockWithHeaders2, err := consensus.SignBlock(ctx, unsignedBlock2, treeKey)
 	assert.Nil(t, err)
 
 	trans2 := &services.AddBlockRequest{
@@ -497,7 +497,7 @@ func TestSigner_NextBlockValidation(t *testing.T) {
 		},
 	}
 
-	blockWithHeaders3, err := consensus.SignBlock(unsignedBlock3, treeKey)
+	blockWithHeaders3, err := consensus.SignBlock(ctx, unsignedBlock3, treeKey)
 	assert.Nil(t, err)
 
 	nodesCombined := append(append(nodes1, nodes2...), nodes3...)

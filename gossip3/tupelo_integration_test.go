@@ -54,7 +54,8 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 }
 
 func newValidTransaction(t *testing.T) services.AddBlockRequest {
-	ctx := context.TODO()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	sw := safewrap.SafeWrap{}
 	treeKey, err := crypto.GenerateKey()
@@ -72,13 +73,13 @@ func newValidTransaction(t *testing.T) services.AddBlockRequest {
 		},
 	}
 
-	nodeStore := nodestore.MustMemoryStore(context.TODO())
-	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	nodeStore := nodestore.MustMemoryStore(ctx)
+	emptyTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
 	emptyTip := emptyTree.Tip
 	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 
-	blockWithHeaders, err := consensus.SignBlock(unsignedBlock, treeKey)
+	blockWithHeaders, err := consensus.SignBlock(ctx, unsignedBlock, treeKey)
 	require.Nil(t, err)
 
 	_, err = testTree.ProcessBlock(ctx, blockWithHeaders)
@@ -348,7 +349,7 @@ func TestSuccessiveTransactionsSingleTree(t *testing.T) {
 	require.Nil(t, err)
 	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
 	nodeStore := nodestore.MustMemoryStore(ctx)
-	emptyTree := consensus.NewEmptyTree(treeDID, nodeStore)
+	emptyTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
 	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
 	require.Nil(t, err)
 	signedTree := &consensus.SignedChainTree{

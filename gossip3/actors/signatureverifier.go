@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -40,27 +41,29 @@ func (sv *SignatureVerifier) Receive(context actor.Context) {
 	}
 }
 
-func (sv *SignatureVerifier) handleSignatureVerification(context actor.Context) {
-	switch msg := context.Message().(type) {
+func (sv *SignatureVerifier) handleSignatureVerification(actorContext actor.Context) {
+	switch msg := actorContext.Message().(type) {
 	case *messages.SignatureVerification:
 		var sp opentracing.Span
+		var ctx context.Context
 		if traceable, ok := msg.Memo.(tracing.Traceable); ok {
 			sp = traceable.NewSpan("signatureVerification")
+			ctx = traceable.GetContext()
 		} else {
-			sp = opentracing.StartSpan("signatureVerification")
+			sp, ctx = opentracing.StartSpanFromContext(context.Background(), "signatureVerification")
 		}
 		defer sp.Finish()
 
 		sv.Log.Debugw("handle signature verification")
 
-		err := sigfuncs.RestoreBLSPublicKey(msg.Signature, msg.VerKeys)
+		err := sigfuncs.RestoreBLSPublicKey(ctx, msg.Signature, msg.VerKeys)
 		if err != nil {
 			sp.SetTag("error", true)
 			sv.Log.Errorw("error restoring public key", "err", err)
 			panic(fmt.Sprintf("error verifying: %v", err)) // TODO: do we need to panic here?
 		}
 
-		isVerified, err := sigfuncs.Valid(msg.Signature, msg.Message, nil)
+		isVerified, err := sigfuncs.Valid(ctx, msg.Signature, msg.Message, nil)
 		if err != nil {
 			sp.SetTag("error", true)
 			sv.Log.Errorw("error verifying", "err", err)
@@ -68,7 +71,7 @@ func (sv *SignatureVerifier) handleSignatureVerification(context actor.Context) 
 		}
 		sp.SetTag("verified", isVerified)
 		msg.Verified = isVerified
-		context.Respond(msg)
+		actorContext.Respond(msg)
 	}
 
 }

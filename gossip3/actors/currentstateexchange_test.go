@@ -69,7 +69,7 @@ func TestCurrentStateExchange(t *testing.T) {
 		key, err := crypto.GenerateKey()
 		keys[i] = key
 		require.Nil(t, err)
-		chain, err := consensus.NewSignedChainTree(key.PublicKey, nodestore.MustMemoryStore(ctx))
+		chain, err := consensus.NewSignedChainTree(ctx, key.PublicKey, nodestore.MustMemoryStore(ctx))
 		require.Nil(t, err)
 		chains[i] = chain
 
