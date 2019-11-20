@@ -18,8 +18,10 @@ func TestFlushSimilarity(t *testing.T) {
 
 	hamtNode := hamt.NewNode(cborStore)
 
-	hamtNode.Set(ctx, "test", 1)
-	hamtNode.Set(ctx, "test2", 2)
+	err := hamtNode.Set(ctx, "test", 1)
+	require.Nil(t, err)
+	err = hamtNode.Set(ctx, "test2", 2)
+	require.Nil(t, err)
 
 	id, err := cborStore.Put(ctx, hamtNode)
 	require.Nil(t, err)

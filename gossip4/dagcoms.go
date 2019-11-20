@@ -19,7 +19,6 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -28,7 +27,6 @@ import (
 var genesis cid.Cid
 
 const transactionTopic = "g4-transactions"
-const commitTopic = "g4-commits"
 
 const difficultyThreshold = 4 // require 4 zeros at the end
 
@@ -37,9 +35,6 @@ func init() {
 	sw := &safewrap.SafeWrap{}
 	genesis = sw.WrapObject("genesis").Cid()
 }
-
-type checkpointConflictSet map[string]*Checkpoint
-type inflightCheckpoints map[uint64]checkpointConflictSet
 
 type Node struct {
 	p2pNode     p2p.Node
@@ -70,7 +65,7 @@ type NewNodeOptions struct {
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	hamtStore := dagStoreToCborIpld(opts.DagStore)
 
-	var latest *Checkpoint
+	latest := &Checkpoint{}
 	// if latestCheckpoint is undef then just make an empty hamt
 	if opts.latestCheckpoint.Equals(cid.Undef) {
 		n := hamt.NewNode(hamtStore, hamt.UseTreeBitWidth(5))
@@ -141,7 +136,12 @@ func (n *Node) Start(ctx context.Context) error {
 	}
 
 	n.pubsub = n.p2pNode.GetPubSub()
-	n.pubsub.RegisterTopicValidator(transactionTopic, validator.validate)
+
+	err = n.pubsub.RegisterTopicValidator(transactionTopic, validator.validate)
+	if err != nil {
+		return fmt.Errorf("error registering topic validator: %v", err)
+	}
+
 	sub, err := n.pubsub.Subscribe(transactionTopic)
 	if err != nil {
 		return fmt.Errorf("error subscribing %v", err)
@@ -356,17 +356,3 @@ On receiving a CheckPoint...
 	* publish out the updated signature
 
 */
-
-func signerDiff(ourSig signatures.Signature, theirSig signatures.Signature) (ours int, theirs int) {
-	for i, cnt := range ourSig.Signers {
-		if cnt > 0 && theirSig.Signers[i] == 0 {
-			ours++
-			continue
-		}
-		if cnt == 0 && theirSig.Signers[i] > 0 {
-			theirs++
-			continue
-		}
-	}
-	return
-}
