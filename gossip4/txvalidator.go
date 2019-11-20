@@ -99,17 +99,27 @@ func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 }
 
 func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.AddBlockRequest) bool {
+	newTip, err := cid.Cast(abr.NewTip)
+	if err != nil {
+		tv.logger.Errorf("error casting abr new tip: %v", err)
+		return false
+	}
+
+	transPreviousTip, err := cid.Cast(abr.PreviousTip)
+	if err != nil {
+		tv.logger.Errorf("error casting CID: %v", err)
+		return false
+	}
+
 	block := &chaintree.BlockWithHeaders{}
-	err := cbornode.DecodeInto(abr.Payload, block)
+	err = cbornode.DecodeInto(abr.Payload, block)
 	if err != nil {
 		tv.logger.Errorf("invalid transaction: payload is not a block: %v", err)
 		return false
 	}
 
-	cborNodes := make([]format.Node, len(abr.State))
-
 	sw := &safewrap.SafeWrap{}
-
+	cborNodes := make([]format.Node, len(abr.State))
 	for i, node := range abr.State {
 		cborNodes[i] = sw.Decode(node)
 	}
@@ -125,12 +135,6 @@ func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.A
 		return false
 	}
 
-	transPreviousTip, err := cid.Cast(abr.PreviousTip)
-	if err != nil {
-		tv.logger.Errorf("error casting CID: %v", err)
-		return false
-	}
-
 	tree := dag.NewDag(ctx, transPreviousTip, nodeStore)
 
 	chainTree, err := chaintree.NewChainTree(
@@ -139,9 +143,26 @@ func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.A
 		tv.validators,
 		tv.group.Config().Transactions,
 	)
-
 	if err != nil {
 		tv.logger.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
+		return false
+	}
+
+	root := &chaintree.RootNode{}
+
+	err = chainTree.Dag.ResolveInto(ctx, []string{}, root)
+	if err != nil {
+		tv.logger.Errorf("error decoding root: %v", err)
+		return false
+	}
+
+	if root.Id != string(abr.ObjectId) {
+		tv.logger.Warningf("abr did != chaintree did")
+		return false
+	}
+
+	if (root.Height == 0 && abr.Height != 0) || (root.Height > 0 && abr.Height != root.Height+1) {
+		tv.logger.Warningf("invalid height on ABR root: %d, abr: %d", root.Height, abr.Height)
 		return false
 	}
 
@@ -154,6 +175,10 @@ func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.A
 			errMsg = err.Error()
 		}
 		tv.logger.Errorf("error processing: %v", errMsg)
+		return false
+	}
+
+	if !chainTree.Dag.Tip.Equals(newTip) {
 		return false
 	}
 
