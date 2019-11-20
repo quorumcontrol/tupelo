@@ -73,7 +73,7 @@ func (csr *ConflictSetRouter) commitTopic() string {
 }
 
 // this function is its own actor
-func (csr *ConflictSetRouter) commitopicHandler(context actor.Context) {
+func (csr *ConflictSetRouter) commitTopicHandler(context actor.Context) {
 	switch msg := context.Message().(type) {
 	case *actor.Started:
 		commitTopic := csr.commitTopic()
@@ -111,7 +111,7 @@ func (csr *ConflictSetRouter) Receive(context actor.Context) {
 		cfg := csr.cfg
 
 		// handle the incoming confirmed TreeStates differently
-		context.Spawn(actor.PropsFromFunc(csr.commitopicHandler))
+		context.Spawn(actor.PropsFromFunc(csr.commitTopicHandler))
 
 		pool, err := context.SpawnNamed(NewConflictSetWorkerPool(&ConflictSetConfig{
 			ConflictSetRouter:  context.Self(),

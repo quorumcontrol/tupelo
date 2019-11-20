@@ -164,7 +164,7 @@ func TestHandlesDeadlocks(t *testing.T) {
 		trans[i] = fakeValidateTransaction(t, &tr)
 		rootContext.Send(conflictSetRouter, trans[i])
 	}
-	// it's known that trans[1] is the lowest transaction,
+	// it's known that trans[0] is the lowest transaction,
 	// this is just a sanity check
 	require.True(t, string(trans[1].TransactionId) > string(trans[2].TransactionId))
 	require.True(t, string(trans[1].TransactionId) > string(trans[0].TransactionId))
