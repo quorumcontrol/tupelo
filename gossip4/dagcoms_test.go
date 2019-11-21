@@ -3,12 +3,15 @@ package gossip4
 import (
 	"context"
 	"fmt"
+	logging "github.com/ipfs/go-log"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-hamt-ipld"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -68,9 +71,15 @@ func TestNewNode(t *testing.T) {
 
 func TestEndToEnd(t *testing.T) {
 	// logging.SetLogLevel("pubsub", "debug")
+	testLogger := logging.Logger("TestEndToEnd")
+	logging.SetLogLevel("node-0", "debug")
+	logging.SetLogLevel("TestEndToEnd", "debug")
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	defer func() {
+		testLogger.Infof("test finished")
+		cancel()
+	}()
 
 	numMembers := 7
 	ts := testnotarygroup.NewTestSet(t, numMembers)
@@ -96,14 +105,70 @@ func TestEndToEnd(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	for i := 0; i < 2; i++ {
+	cl, err := n.p2pNode.Bootstrap(testnotarygroup.BootstrapAddresses(nodes[1].p2pNode))
+	require.Nil(t, err)
+	defer cl.Close()
+	err = n.p2pNode.WaitForBootstrap(1, 2*time.Second)
+	require.Nil(t, err)
+
+	time.Sleep(1 * time.Second)
+
+	transCount := 30
+	dids := make([]string, transCount)
+
+	for i := 0; i < transCount; i++ {
 		trans := testhelpers.NewValidTransaction(t)
+		dids[i] = string(trans.ObjectId)
 
 		bits, err := trans.Marshal()
 		require.Nil(t, err)
 
+		testLogger.Infof("sending %d (%s)", i, string(trans.ObjectId))
 		err = n.pubsub.Publish(transactionTopic, bits)
 		require.Nil(t, err)
 	}
 
+	allIncluded := func() bool {
+		if n.latestCheckpoint == nil || n.latestCheckpoint.node == nil {
+			return false
+		}
+		for i, did := range dids {
+			var tip cid.Cid
+			err := n.latestCheckpoint.node.Find(ctx, did, &tip)
+			if err == hamt.ErrNotFound {
+				// then check if it's in the inprogress
+				err := n.inprogressCheckpoint.node.Find(ctx, did, &tip)
+				if err == hamt.ErrNotFound {
+					testLogger.Infof("couldn't find: %d", i)
+					return false
+				}
+				if err == nil {
+					continue
+				}
+			}
+			require.Nil(t, err)
+		}
+		return true
+	}
+
+	// wait for all transCount transactions to be included in the currentCommit
+	timer := time.NewTimer(5 * time.Second)
+looper:
+	for {
+		select {
+		case <-timer.C:
+			testLogger.Infof("failing on timeout")
+			t.Fatalf("timeout waiting for all transactions")
+		default:
+			// do nothing
+		}
+		if allIncluded() {
+			testLogger.Infof("found all transactions")
+			break looper
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	timer.Stop()
+
+	assert.Truef(t, n.inprogressCheckpoint.Height >= 1, "in progress checkpoint %d was not higher than 1", n.inprogressCheckpoint.Height)
 }

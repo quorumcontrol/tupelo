@@ -3,6 +3,7 @@ package gossip4
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -28,7 +29,7 @@ var genesis cid.Cid
 
 const transactionTopic = "g4-transactions"
 
-const difficultyThreshold = 4 // require 4 zeros at the end
+const difficultyThreshold = 3 // require 3 zeros at the end
 
 func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
@@ -127,6 +128,7 @@ func (n *Node) Start(ctx context.Context) error {
 	pid := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.Receive))
 	go func() {
 		<-ctx.Done()
+		n.logger.Debugf("node stopped")
 		actor.EmptyRootContext.Poison(pid)
 	}()
 
@@ -172,21 +174,22 @@ func (n *Node) Receive(actorContext actor.Context) {
 func (n *Node) commitCheckpoint(actorContext actor.Context, cp *Checkpoint) {
 	n.logger.Debugf("committing a checkpoint %d", cp.Height)
 
-	node, err := loadNode(context.TODO(), n.hamtStore, cp.CurrentState)
-	if err != nil {
-		n.logger.Errorf("error getting node: %v", err)
+	if cp.node == nil {
+		node, err := loadNode(context.TODO(), n.hamtStore, cp.CurrentState)
+		if err != nil {
+			n.logger.Errorf("error getting node: %v", err)
+		}
+		cp.node = node
 	}
-	cp.node = node
 
-	n.logger.Debugf("resetting the inprogress checkpoints")
-	// otherwise let's jump to that checkpoint
+	n.logger.Debugf("resetting the inprogress checkpoint")
 	n.latestCheckpoint = cp
-	n.inprogressCheckpoint = n.latestCheckpoint.Copy()
-	n.inprogressCheckpoint.Height++
+	n.inprogressCheckpoint = cp.Copy()
+	n.inprogressCheckpoint.Height = cp.Height + 1
 	n.inprogressCheckpoint.Previous = cp.CurrentState
 	n.inprogressCheckpoint.PreviousSignature = cp.Signature
 
-	n.logger.Debugf("deleting inflight transactions that have been committed")
+	n.logger.Debugf("deleting inflight transactions that have been committed (height now: %d)", n.inprogressCheckpoint.Height)
 	for _, txID := range cp.Transactions {
 		abr, ok := n.inFlightAbrs[txID.String()]
 		if ok {
@@ -208,7 +211,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	n.logger.Debugf("handling message: %v", abr)
+	n.logger.Debugf("handling message: ObjectId: %s, Height: %d", abr.ObjectId, abr.Height)
 	// look into the hamt, and get the current ABR
 	// if this is the next height then replace it
 	// if this is older drop it
@@ -282,7 +285,7 @@ func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, s
 
 	n.inprogressCheckpoint.CurrentState = id
 
-	numberOfZeros := cidToDifficulty(id)
+	numberOfZeros := n.cidToDifficulty(id)
 
 	if numberOfZeros >= difficultyThreshold {
 		err := n.inprogressCheckpoint.node.Flush(ctx)
@@ -297,9 +300,12 @@ func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, s
 	return nil
 }
 
-func cidToDifficulty(id cid.Cid) uint {
+func (n *Node) cidToDifficulty(id cid.Cid) uint {
+	binNum, _ := binary.Varint(id.Hash())
+	n.logger.Debugf("id: %s looks like %s in binary, base58 of whole: %s", id.String(), strconv.FormatInt(binNum, 2), id.Hash().B58String())
+
 	num := big.NewInt(0)
-	num.SetBytes(id.Bytes())
+	num.SetBytes(id.Hash())
 	return num.TrailingZeroBits()
 }
 
@@ -317,7 +323,7 @@ func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) erro
 		n.logger.Errorf("error putting abr: %v", err)
 		return err
 	}
-	n.logger.Debugf("saved %s", id.String())
+	n.logger.Debugf("saved abr with CID %s (objectId: %s, height: %d) in progress height: %d", id.String(), abr.ObjectId, abr.Height, n.inprogressCheckpoint.Height)
 	err = n.inprogressCheckpoint.node.Set(ctx, string(abr.ObjectId), id)
 	if err != nil {
 		n.logger.Errorf("error setting hamt: %v", err)
