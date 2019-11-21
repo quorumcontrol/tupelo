@@ -7,8 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/storage"
 
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -19,7 +18,7 @@ import (
 
 func TestSignatureGenerator(t *testing.T) {
 	ts := testnotarygroup.NewTestSet(t, 1)
-	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+	signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewDefaultMemory()
@@ -59,12 +58,12 @@ func TestSignatureGenerator(t *testing.T) {
 	require.Nil(t, err)
 
 	sigWrapper := msg.(*messages.SignatureWrapper)
-	assert.Equal(t, uint32(1), sigWrapper.Signature.Signers[0])
+	assert.Equal(t, uint32(1), sigWrapper.State.Signature.Signers[0])
 }
 
 func BenchmarkSignatureGenerator(b *testing.B) {
 	ts := testnotarygroup.NewTestSet(b, 1)
-	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+	signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 	ng := types.NewNotaryGroup("signatureGenerator")
 	ng.AddSigner(signer)
 	currentState := storage.NewDefaultMemory()

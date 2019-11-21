@@ -5,8 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
@@ -20,13 +24,13 @@ func TestVerification(t *testing.T) {
 	defer rootContext.Poison(ss)
 
 	msg := crypto.Keccak256([]byte("hi"))
-	sig, err := ts.SignKeys[0].Sign(msg)
+	sig, err := sigfuncs.BLSSign(ts.SignKeys[0], msg, 1, 0)
 	require.Nil(t, err)
 
 	resp, err := rootContext.RequestFuture(ss, &messages.SignatureVerification{
 		Message:   msg,
 		Signature: sig,
-		VerKeys:   [][]byte{ts.VerKeys[0].Bytes()},
+		VerKeys:   []*bls.VerKey{ts.VerKeys[0]},
 	}, 1*time.Second).Result()
 
 	require.Nil(t, err)
@@ -35,7 +39,7 @@ func TestVerification(t *testing.T) {
 
 type benchTestSigHolder struct {
 	msg []byte
-	sig []byte
+	sig *signatures.Signature
 }
 
 func BenchmarkVerification(b *testing.B) {
@@ -49,7 +53,7 @@ func BenchmarkVerification(b *testing.B) {
 	sigs := make([]*benchTestSigHolder, b.N)
 	for i := 0; i < b.N; i++ {
 		msg := crypto.Keccak256([]byte("hi" + strconv.Itoa(i)))
-		sig, err := ts.SignKeys[0].Sign(msg)
+		sig, err := sigfuncs.BLSSign(ts.SignKeys[0], msg, 1, 0)
 		require.Nil(b, err)
 		sigs[i] = &benchTestSigHolder{
 			msg: msg,
@@ -62,7 +66,7 @@ func BenchmarkVerification(b *testing.B) {
 		f := rootContext.RequestFuture(ss, &messages.SignatureVerification{
 			Message:   sigHolder.msg,
 			Signature: sigHolder.sig,
-			VerKeys:   [][]byte{ts.VerKeys[0].Bytes()},
+			VerKeys:   []*bls.VerKey{ts.VerKeys[0]},
 		}, 5*time.Second)
 		futures[i] = f
 	}

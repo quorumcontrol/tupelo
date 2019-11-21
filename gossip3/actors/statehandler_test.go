@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/quorumcontrol/messages/build/go/services"
+	"github.com/quorumcontrol/tupelo-go-sdk/signatures"
+
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
@@ -14,7 +16,7 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/build/go/transactions"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -33,8 +35,11 @@ func dagToByteNodes(t *testing.T, dagTree *dag.Dag) [][]byte {
 }
 
 func newTransactionValidator() TransactionValidator {
+	group := types.NewNotaryGroup("testnotarygroup")
+	validators, _ := group.BlockValidators(context.TODO())
 	return TransactionValidator{
-		notaryGroup: types.NewNotaryGroup("testnotarygroup"),
+		notaryGroup: group,
+		validators:  validators,
 	}
 }
 
@@ -149,12 +154,13 @@ func TestChainTreeStateHandler(t *testing.T) {
 	newOwnerKey, err := crypto.GenerateKey()
 	assert.Nil(t, err)
 
-	newOwner := consensus.EcdsaToPublicKey(&newOwnerKey.PublicKey)
-	newOwnerAddr := consensus.PublicKeyToAddr(&newOwner)
+	newOwner := signatures.EcdsaToOwnership(&newOwnerKey.PublicKey)
+	newOwnerAddr, err := signatures.Address(newOwner)
+	require.Nil(t, err)
 
 	transHeight++
 
-	setOwnerTxn, err := chaintree.NewSetOwnershipTransaction([]string{newOwnerAddr})
+	setOwnerTxn, err := chaintree.NewSetOwnershipTransaction([]string{newOwnerAddr.String()})
 	assert.Nil(t, err)
 	unsignedBlock = &chaintree.BlockWithHeaders{
 		Block: chaintree.Block{
@@ -396,36 +402,6 @@ func TestSigner_TokenTransactions(t *testing.T) {
 	_, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
 	assert.NotNil(t, err)
 	assert.False(t, isAccepted)
-
-	// TODO: remove commented test block. This test block is commented
-	// because it is possibly no longer necessary. Attempting to create a
-	// transaction with a negative amount results in a type error
-
-	// Can't mint a negative amount
-	// negMintTxn, err := chaintree.NewMintTokenTransaction(tokenName, -42)
-	// assert.Nil(t, err)
-
-	// unsignedBlock = &chaintree.BlockWithHeaders{
-	//	Block: chaintree.Block{
-	//		PreviousTip:  &testTree.Dag.Tip,
-	//		Transactions: []*transactions.Transaction{newMintTxn},
-	//	},
-	// }
-
-	// nodes = dagToByteNodes(t, testTree.Dag)
-
-	// blockWithHeaders, err = consensus.SignBlock(unsignedBlock, treeKey)
-	// assert.Nil(t, err)
-
-	// trans = &services.AddBlockRequest{
-	//	State:       nodes,
-	//	PreviousTip: testTree.Dag.Tip.Bytes(),
-	//	Payload:     sw.WrapObject(blockWithHeaders).RawData(),
-	// }
-
-	// _, isAccepted, err = validator.chainTreeStateHandler(nil, transToStateTrans(t, treeDID, testTree.Dag.Tip, trans))
-	// assert.NotNil(t, err)
-	// assert.False(t, isAccepted)
 }
 
 func TestSigner_NextBlockValidation(t *testing.T) {

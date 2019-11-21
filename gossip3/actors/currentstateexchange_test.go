@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/transactions"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
 	"crypto/ecdsa"
@@ -46,7 +46,7 @@ func TestCurrentStateExchange(t *testing.T) {
 
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
-		signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), sk)
+		signer := types.NewLocalSigner(testSet.PubKeys[i], sk)
 		syncer, err := rootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       notaryGroup,

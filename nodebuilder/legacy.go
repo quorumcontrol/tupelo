@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -277,8 +276,8 @@ func generateKeySets(numberOfKeys int) (privateKeys []*LegacyPrivateKeySet, publ
 		})
 
 		publicKeys = append(publicKeys, &LegacyPublicKeySet{
-			BlsHexPublicKey:   hexutil.Encode(consensus.BlsKeyToPublicKey(blsKey.MustVerKey()).PublicKey),
-			EcdsaHexPublicKey: hexutil.Encode(consensus.EcdsaToPublicKey(&ecdsaKey.PublicKey).PublicKey),
+			BlsHexPublicKey:   hexutil.Encode(blsKey.MustVerKey().Bytes()),
+			EcdsaHexPublicKey: hexutil.Encode(crypto.FromECDSAPub(&ecdsaKey.PublicKey)),
 			PeerIDBase58Key:   peerID.Pretty(),
 		})
 	}

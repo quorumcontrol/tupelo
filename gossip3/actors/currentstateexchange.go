@@ -13,8 +13,8 @@ import (
 	"github.com/gogo/protobuf/proto"
 	datastore "github.com/ipfs/go-datastore"
 
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -141,7 +141,7 @@ func (e *CurrentStateExchange) gzipImport(context actor.Context, payload []byte)
 			panic(fmt.Sprintf("Error reading kv pair %v", err))
 		}
 
-		currentState := &signatures.CurrentState{}
+		currentState := &signatures.TreeState{}
 		err = proto.Unmarshal(currentStateBits, currentState)
 		if err != nil {
 			panic(fmt.Errorf("error unmarshaling CurrentState: %v", err))

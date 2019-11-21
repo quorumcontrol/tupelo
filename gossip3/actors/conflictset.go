@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math"
 	"reflect"
 	"time"
 
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/bls"
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
@@ -139,7 +138,7 @@ func (csw *ConflictSetWorker) dispatchWithConflictSet(cs *ConflictSet, sentMsg i
 	case *messages.TransactionWrapper:
 		csw.handleNewTransaction(cs, context, msg)
 	// this will be an external signature
-	case *signatures.Signature:
+	case *signatures.TreeState:
 		wrapper, err := sigToWrapper(msg, csw.notaryGroup, csw.signer, false)
 		if err != nil {
 			panic(fmt.Sprintf("error wrapping sig: %v", err))
@@ -256,7 +255,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 	sp := cs.NewSpan("handleNewSignature")
 	defer sp.Finish()
 
-	csw.Log.Debugw("handle new signature", "t", msg.Signature.TransactionId)
+	csw.Log.Debugw("handle new signature", "t", msg.State.TransactionId)
 	if msg.Internal {
 		context.Send(csw.signatureSender, msg)
 	}
@@ -269,7 +268,7 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 	}
 	//TODO: verify this new sig
 
-	existingSig, ok := cs.signatures[string(msg.Signature.TransactionId)]
+	existingSig, ok := cs.signatures[string(msg.State.TransactionId)]
 	if ok {
 		// if the new sig doesn't have any new signatures, then just drop it
 		hasNewSigs := false
@@ -287,14 +286,14 @@ func (csw *ConflictSetWorker) handleNewSignature(cs *ConflictSet, context actor.
 			if err != nil {
 				csw.Log.Infow("error combigning sigs", "err", err)
 			}
-			csw.Log.Debugw("newsig", "signerCount", len(newSig.Signers), "newSig", newSig)
-			cs.signatures[string(msg.Signature.TransactionId)] = newSig
+			csw.Log.Debugw("newsig", "signerCount", len(newSig.Signers))
+			cs.signatures[string(msg.State.TransactionId)] = newSig
 			//TODO: broadcast this new sig
 		}
 		// else no one cares about this sig, drop it
 
 	} else {
-		cs.signatures[string(msg.Signature.TransactionId)] = msg
+		cs.signatures[string(msg.State.TransactionId)] = msg
 	}
 
 	cs.updates++
@@ -377,9 +376,7 @@ func (csw *ConflictSetWorker) createCurrentStateFromTrans(cs *ConflictSet, actor
 
 	csw.Log.Debugw("creating current state from a conflict set", "ID", cs.ID)
 
-	currState := &signatures.CurrentState{
-		Signature: cs.signatures[string(trans.TransactionId)].Signature,
-	}
+	currState := cs.signatures[string(trans.TransactionId)].State
 
 	currStateWrapper := &messages.CurrentStateWrapper{
 		Internal:     true,
@@ -398,7 +395,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 	csw.Log.Debugw("handling current state wrapper", "csID", cs.ID, "csActive", cs.active,
 		"currWrapperVerified", currWrapper.Verified)
 
-	if !cs.active && (currWrapper.CurrentState.Signature.Height == currWrapper.NextHeight) {
+	if !cs.active && (currWrapper.CurrentState.Height == currWrapper.NextHeight) {
 		csw.Log.Debugw("msg.height equals msg.nextHeight, activating conflict set")
 		sp.SetTag("activating", true)
 		cs.active = true
@@ -423,7 +420,7 @@ func (csw *ConflictSetWorker) handleCurrentStateWrapper(cs *ConflictSet, context
 		for _, t := range cs.transactions {
 			transSpan := t.NewSpan("handleCurrentStateWrapper")
 			transSpan.SetTag("done", true)
-			if !bytes.Equal(t.Transaction.NewTip, currWrapper.CurrentState.Signature.NewTip) {
+			if !bytes.Equal(t.Transaction.NewTip, currWrapper.CurrentState.NewTip) {
 				transSpan.SetTag("error", true)
 			}
 			transSpan.Finish()
@@ -480,20 +477,20 @@ func (csw *ConflictSetWorker) deadlocked(cs *ConflictSet) bool {
 	return true
 }
 
-func sigToWrapper(sig *signatures.Signature, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
+func sigToWrapper(state *signatures.TreeState, ng *types.NotaryGroup, self *types.Signer, isInternal bool) (*messages.SignatureWrapper, error) {
 	signerMap := make(messages.SignerMap)
 
 	allSigners := ng.AllSigners()
 	for i, signer := range allSigners {
-		cnt := sig.Signers[i]
+		cnt := state.Signature.Signers[i]
 		if cnt > 0 {
 			signerMap[signer.ID] = signer
 		}
 	}
 
-	conflictSetID := consensus.ConflictSetID(sig.ObjectId, sig.Height)
+	conflictSetID := consensus.ConflictSetID(state.ObjectId, state.Height)
 
-	committee, err := ng.RewardsCommittee([]byte(sig.NewTip), self)
+	committee, err := ng.RewardsCommittee([]byte(state.NewTip), self)
 	if err != nil {
 		return nil, fmt.Errorf("error getting committee: %v", err)
 	}
@@ -503,7 +500,7 @@ func sigToWrapper(sig *signatures.Signature, ng *types.NotaryGroup, self *types.
 		ConflictSetID:    conflictSetID,
 		RewardsCommittee: committee,
 		Signers:          signerMap,
-		Signature:        sig,
+		State:            state,
 		Metadata:         messages.MetadataMap{"seen": time.Now()},
 	}, nil
 }
@@ -518,13 +515,11 @@ func setupCurrStateCtx(wrapper *messages.CurrentStateWrapper, cs *ConflictSet) {
 }
 
 func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b *messages.SignatureWrapper) (*messages.SignatureWrapper, error) {
-	csw.Log.Debugw("combining signatures", "signersA", a.Signers, "signersB", b.Signers)
-	newSignerCnt := make([]uint32, len(csw.notaryGroup.Signers))
-	for i, cnt := range a.Signature.Signers {
-		if right := b.Signature.Signers[i]; cnt > math.MaxUint32-right || right > math.MaxUint32-cnt {
-			return nil, fmt.Errorf("error would overflow: %d %d", cnt, right)
-		}
-		newSignerCnt[i] = cnt + b.Signature.Signers[i]
+	csw.Log.Debugw("combining signatures", "signersA", len(a.Signers), "signersB", len(b.Signers))
+
+	aggregateSig, err := sigfuncs.AggregateBLSSignatures([]*signatures.Signature{a.State.Signature, b.State.Signature})
+	if err != nil {
+		return nil, fmt.Errorf("error aggregating sigs: %v", err)
 	}
 
 	newSignersMap := make(messages.SignerMap)
@@ -536,28 +531,21 @@ func (csw *ConflictSetWorker) combineSignatures(a *messages.SignatureWrapper, b 
 		newSignersMap[id] = signer
 	}
 
-	aggregatedSig, err := bls.SumSignatures([][]byte{a.Signature.Signature, b.Signature.Signature})
-	if err != nil {
-		return nil, fmt.Errorf("error aggregating signatures: %v", err)
-	}
-	newSig := &signatures.Signature{
-		TransactionId: a.Signature.TransactionId,
-		ObjectId:      a.Signature.ObjectId,
-		PreviousTip:   a.Signature.PreviousTip,
-		Height:        a.Signature.Height,
-		NewTip:        a.Signature.NewTip,
-		View:          a.Signature.View,
-		Cycle:         a.Signature.Cycle,
-		Type:          a.Signature.Type,
-		Signers:       newSignerCnt,
-		Signature:     aggregatedSig,
+	newState := &signatures.TreeState{
+		TransactionId: a.State.TransactionId,
+		ObjectId:      a.State.ObjectId,
+		PreviousTip:   a.State.PreviousTip,
+		Height:        a.State.Height,
+		NewTip:        a.State.NewTip,
+		View:          a.State.View,
+		Cycle:         a.State.Cycle,
+		Signature:     aggregateSig,
 	}
 
 	return &messages.SignatureWrapper{
 		Internal:         a.Internal || b.Internal,
-		Signature:        newSig,
+		State:            newState,
 		Signers:          newSignersMap,
 		RewardsCommittee: a.RewardsCommittee,
-		// TODO: what about metadata?
 	}, nil
 }

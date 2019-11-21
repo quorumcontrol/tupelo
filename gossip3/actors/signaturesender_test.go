@@ -5,8 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/messages/build/go/signatures"
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
@@ -23,7 +22,7 @@ func TestSendSigs(t *testing.T) {
 	fut := actor.NewFuture(5 * time.Second)
 	subscriberFunc := func(context actor.Context) {
 		switch msg := context.Message().(type) {
-		case *signatures.Signature:
+		case *signatures.TreeState:
 			context.Send(fut.PID(), msg)
 		}
 	}
@@ -31,15 +30,15 @@ func TestSendSigs(t *testing.T) {
 	subscriber := rootContext.Spawn(actor.PropsFromFunc(subscriberFunc))
 	defer rootContext.Poison(subscriber)
 
-	signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&ts.PubKeys[0]), ts.SignKeys[0])
+	signer := types.NewLocalSigner(ts.PubKeys[0], ts.SignKeys[0])
 	signer.Actor = subscriber
 
 	rootContext.Send(ss, &messages.SignatureWrapper{
-		Signature:        &signatures.Signature{TransactionId: []byte("testonly")},
+		State:            &signatures.TreeState{TransactionId: []byte("testonly")},
 		RewardsCommittee: []*types.Signer{signer},
 	})
 
 	msg, err := fut.Result()
 	require.Nil(t, err)
-	assert.Equal(t, []byte("testonly"), msg.(*signatures.Signature).TransactionId)
+	assert.Equal(t, []byte("testonly"), msg.(*signatures.TreeState).TransactionId)
 }

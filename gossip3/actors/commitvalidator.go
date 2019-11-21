@@ -1,16 +1,19 @@
 package actors
 
 import (
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	"github.com/quorumcontrol/messages/build/go/signatures"
-	"github.com/gogo/protobuf/proto"
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/gogo/protobuf/proto"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
+	"github.com/quorumcontrol/tupelo-go-sdk/bls"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo/gossip3/messages"
@@ -21,6 +24,8 @@ import (
 // a currentState message on this topic is valid
 type commitValidator struct {
 	notaryGroup      *types.NotaryGroup
+	verKeys          []*bls.VerKey
+	quorumCount      uint64
 	signatureChecker *actor.PID
 	log              *zap.SugaredLogger
 	seen             *lru.Cache
@@ -31,8 +36,15 @@ func newCommitValidator(group *types.NotaryGroup, sigChecker *actor.PID) *commit
 	if err != nil {
 		panic(fmt.Errorf("error creating commit cache for validator: %v", err))
 	}
+	signers := group.AllSigners()
+	verKeys := make([]*bls.VerKey, len(signers))
+	for i, signer := range signers {
+		verKeys[i] = signer.VerKey
+	}
 	return &commitValidator{
 		notaryGroup:      group,
+		verKeys:          verKeys,
+		quorumCount:      group.QuorumCount(),
 		signatureChecker: sigChecker,
 		log:              middleware.Log.Named("commitValidator"),
 		seen:             cache,
@@ -40,7 +52,7 @@ func newCommitValidator(group *types.NotaryGroup, sigChecker *actor.PID) *commit
 }
 
 func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg proto.Message) bool {
-	currState, ok := msg.(*signatures.CurrentState)
+	currState, ok := msg.(*signatures.TreeState)
 	if !ok {
 		cv.log.Errorw("received non-currentstate message")
 		return false
@@ -54,36 +66,20 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg proto.Me
 	}
 
 	sig := currState.Signature
-	
-	var verKeys [][]byte
 
-	signers := cv.notaryGroup.AllSigners()
-	var signerCount uint64
-	for i, cnt := range sig.Signers {
-		if cnt > 0 {
-			signerCount++
-			verKey := signers[i].VerKey.Bytes()
-			newKeys := make([][]byte, cnt)
-			for j := uint32(0); j < cnt; j++ {
-				newKeys[j] = verKey
-			}
-			verKeys = append(verKeys, newKeys...)
-		}
-	}
-
-	if signerCount < cv.notaryGroup.QuorumCount() {
-		cv.log.Infow("too few signatures on commit message", "lenVerKeys", len(verKeys), "quorumAt", cv.notaryGroup.QuorumCount())
+	if uint64(sigfuncs.SignerCount(sig)) < cv.quorumCount {
+		cv.log.Infow("too few signatures on commit message", "lenVerKeys", sigfuncs.SignerCount(sig), "quorumAt", cv.quorumCount)
 		cv.seen.Add(cacheKey(currState), false)
 		return false
 	}
 
-	cv.log.Debugw("checking signature", "numSigners", signerCount, "numVerKeys", len(verKeys))
+	cv.log.Debugw("checking signature")
 	actorContext := actor.EmptyRootContext
 
 	fut := actorContext.RequestFuture(cv.signatureChecker, &messages.SignatureVerification{
-		Message:   consensus.GetSignable(sig),
-		Signature: sig.Signature,
-		VerKeys:   verKeys,
+		Message:   consensus.GetSignable(currState),
+		Signature: sig,
+		VerKeys:   cv.verKeys,
 	}, 1*time.Second)
 
 	res, err := fut.Result()
@@ -105,6 +101,6 @@ func (cv *commitValidator) validate(ctx context.Context, p peer.ID, msg proto.Me
 	return false
 }
 
-func cacheKey(currState *signatures.CurrentState) string {
-	return string(currState.Signature.Signature)
+func cacheKey(currState *signatures.TreeState) string {
+	return string(currState.Signature.Signature) + string(consensus.GetSignable(currState))
 }

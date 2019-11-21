@@ -3,8 +3,6 @@
 package gossip3
 
 import (
-	"github.com/quorumcontrol/messages/build/go/signatures"
-	"github.com/quorumcontrol/messages/build/go/services"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
@@ -14,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
+
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
 	cid "github.com/ipfs/go-cid"
@@ -22,8 +23,7 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/build/go/transactions"
-	"github.com/quorumcontrol/tupelo/storage"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -31,6 +31,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo/gossip3/actors"
+	"github.com/quorumcontrol/tupelo/storage"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,7 +96,7 @@ func newValidTransaction(t *testing.T) services.AddBlockRequest {
 func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal int, testSet *testnotarygroup.TestSet) (*types.Signer, *types.NotaryGroup, error) {
 	ng := types.NewNotaryGroup("test notary")
 
-	localSigner := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[indexOfLocal]), testSet.SignKeys[indexOfLocal])
+	localSigner := types.NewLocalSigner(testSet.PubKeys[indexOfLocal], testSet.SignKeys[indexOfLocal])
 	commitPath := testCommitPath + "/" + localSigner.ID
 	currentPath := testCurrentPath + "/" + localSigner.ID
 	if err := os.MkdirAll(commitPath, 0755); err != nil {
@@ -123,9 +124,9 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	remote.NewRouter(node)
 
 	syncer, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:                     localSigner,
-		NotaryGroup:              ng,
-		CurrentStateStore:        currentStore,
+		Self:              localSigner,
+		NotaryGroup:       ng,
+		CurrentStateStore: currentStore,
 		PubSubSystem:      remote.NewNetworkPubSub(node.GetPubSub()),
 	}), "tupelo-"+localSigner.ID)
 	if err != nil {
@@ -141,7 +142,7 @@ func newSystemWithRemotes(ctx context.Context, bootstrap p2p.Node, indexOfLocal 
 	for i, verKey := range testSet.VerKeys {
 		if i != indexOfLocal {
 			// this is a remote signer
-			signer := types.NewRemoteSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), verKey)
+			signer := types.NewRemoteSigner(testSet.PubKeys[i], verKey)
 			signer.Actor = actor.NewPID(signer.ActorAddress(localSigner.DstKey), "tupelo-"+signer.ID)
 			ng.AddSigner(signer)
 		}
@@ -226,9 +227,9 @@ func TestLibP2PSigning(t *testing.T) {
 	resp, err := fut.Result()
 	require.Nil(t, err)
 	require.NotNil(t, resp)
-	require.IsType(t, &signatures.CurrentState{}, resp)
-	sigResp := resp.(*signatures.CurrentState)
-	assert.Equal(t, sigResp.Signature.NewTip, trans.NewTip)
+	require.IsType(t, &signatures.TreeState{}, resp)
+	sigResp := resp.(*signatures.TreeState)
+	assert.Equal(t, sigResp.NewTip, trans.NewTip)
 }
 
 func sendTransaction(t *testing.T, cli *client.Client, treeKey *ecdsa.PrivateKey,
@@ -336,7 +337,7 @@ func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(
 
 // Test successive transactions on a single chaintree.
 func TestSuccessiveTransactionsSingleTree(t *testing.T) {
-	ctx,cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	pubSub, group, cleanUp, err := setUpSystem(t)

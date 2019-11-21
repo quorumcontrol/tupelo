@@ -10,7 +10,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/storage"
 
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
@@ -28,7 +28,11 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	ng := types.NewNotaryGroup("testnotary")
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
-		signer := types.NewLocalSigner(consensus.PublicKeyToEcdsaPub(&testSet.PubKeys[i]), sk)
+		signer := types.NewLocalSigner(testSet.PubKeys[i], sk)
+		ng.AddSigner(signer)
+	}
+
+	for _, signer := range ng.AllSigners() {
 		syncer, err := actor.EmptyRootContext.SpawnNamed(NewTupeloNodeProps(&TupeloConfig{
 			Self:              signer,
 			NotaryGroup:       ng,
@@ -43,7 +47,6 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 			<-ctx.Done()
 			actor.EmptyRootContext.Poison(syncer)
 		}()
-		ng.AddSigner(signer)
 	}
 
 	return ng, simulatedPubSub, nil
@@ -88,8 +91,8 @@ func TestCommits(t *testing.T) {
 		resp, err := fut.Result()
 
 		require.Nil(t, err)
-		assert.Equal(t, resp.(*signatures.CurrentState).Signature.NewTip, trans.NewTip)
-		assert.Equal(t, resp.(*signatures.CurrentState).Signature.ObjectId, trans.ObjectId)
+		assert.Equal(t, resp.(*signatures.TreeState).NewTip, trans.NewTip)
+		assert.Equal(t, resp.(*signatures.TreeState).ObjectId, trans.ObjectId)
 	})
 
 }

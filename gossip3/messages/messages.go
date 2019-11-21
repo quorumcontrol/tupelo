@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/quorumcontrol/messages/build/go/services"
-	"github.com/quorumcontrol/messages/build/go/signatures"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 )
@@ -24,15 +25,15 @@ type SignatureWrapper struct {
 	ConflictSetID    string
 	RewardsCommittee []*types.Signer
 	Signers          SignerMap
-	Signature        *signatures.Signature
+	State            *signatures.TreeState
 	Metadata         MetadataMap
 }
 
 type SignatureVerification struct {
 	Verified  bool
 	Message   []byte
-	Signature []byte
-	VerKeys   [][]byte
+	Signature *signatures.Signature
+	VerKeys   []*bls.VerKey
 	Memo      interface{}
 }
 
@@ -41,7 +42,7 @@ type CurrentStateWrapper struct {
 
 	Internal     bool
 	Verified     bool
-	CurrentState *signatures.CurrentState
+	CurrentState *signatures.TreeState
 	Metadata     MetadataMap
 	NextHeight   uint64
 }
@@ -84,7 +85,7 @@ type GzipImport struct {
 }
 
 type ImportCurrentState struct {
-	CurrentState *signatures.CurrentState
+	CurrentState *signatures.TreeState
 }
 
 type DoCurrentStateExchange struct {
