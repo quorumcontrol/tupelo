@@ -301,11 +301,15 @@ func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, s
 }
 
 func (n *Node) cidToDifficulty(id cid.Cid) uint {
-	binNum, _ := binary.Varint(id.Hash())
-	n.logger.Debugf("id: %s looks like %s in binary, base58 of whole: %s", id.String(), strconv.FormatInt(binNum, 2), id.Hash().B58String())
+	hsh := id.Hash()
+	last9Bytes := hsh[len(hsh)-10 : len(hsh)]
+	binNum, _ := binary.Uvarint(last9Bytes)
 
 	num := big.NewInt(0)
 	num.SetBytes(id.Hash())
+
+	n.logger.Debugf("id: %s looks like %s in binary and bigBinary: %s, base58 of whole: %s", id.String(), strconv.FormatUint(binNum, 2), strconv.FormatInt(num.Int64(), 2), id.Hash().B58String())
+
 	return num.TrailingZeroBits()
 }
 
