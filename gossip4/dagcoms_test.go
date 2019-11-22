@@ -3,9 +3,11 @@ package gossip4
 import (
 	"context"
 	"fmt"
-	logging "github.com/ipfs/go-log"
 	"testing"
 	"time"
+
+	"github.com/AsynkronIT/protoactor-go/actor"
+	logging "github.com/ipfs/go-log"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,7 +74,6 @@ func TestNewNode(t *testing.T) {
 func TestEndToEnd(t *testing.T) {
 	// logging.SetLogLevel("pubsub", "debug")
 	testLogger := logging.Logger("TestEndToEnd")
-	logging.SetLogLevel("node-0", "debug")
 	logging.SetLogLevel("TestEndToEnd", "debug")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -87,7 +88,11 @@ func TestEndToEnd(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 	fmt.Println("quorum count: ", ng.QuorumCount())
+
 	n := nodes[0]
+	fmt.Println("signerIndex: ", n.signerIndex)
+	logging.SetLogLevel(fmt.Sprintf("node-%d", n.signerIndex), "debug")
+	testLogger.Infof("node logger: %v", n.logger)
 	bootAddrs := testnotarygroup.BootstrapAddresses(n.p2pNode)
 
 	for i, node := range nodes {
@@ -111,9 +116,7 @@ func TestEndToEnd(t *testing.T) {
 	err = n.p2pNode.WaitForBootstrap(1, 2*time.Second)
 	require.Nil(t, err)
 
-	time.Sleep(1 * time.Second)
-
-	transCount := 30
+	transCount := 24 // three times necessary
 	dids := make([]string, transCount)
 
 	for i := 0; i < transCount; i++ {
@@ -163,12 +166,21 @@ looper:
 			// do nothing
 		}
 		if allIncluded() {
-			testLogger.Infof("found all transactions")
+			testLogger.Infof("found all transactions at height %d", n.inprogressCheckpoint.Height)
 			break looper
 		}
+
+		testLogger.Infof("inprogress height %d", n.inprogressCheckpoint.Height)
 		time.Sleep(100 * time.Millisecond)
 	}
 	timer.Stop()
 
-	assert.Truef(t, n.inprogressCheckpoint.Height >= 1, "in progress checkpoint %d was not higher than 1", n.inprogressCheckpoint.Height)
+	// there was a weird syncronization bug where if you just do n.inProgressCheckpoint you might end up with a different
+	// height than what is in the actor. Requesting the checkpoint from the actor lets us bypass any locks, etc but still
+	// get the acutal height
+	fut := actor.EmptyRootContext.RequestFuture(n.pid, &getInProgressCheckpoint{}, 1*time.Second)
+	res, err := fut.Result()
+	require.Nil(t, err)
+
+	assert.Truef(t, res.(*Checkpoint).Height >= 1, "in progress checkpoint %d was not higher than 1", res.(*Checkpoint).Height)
 }

@@ -3,13 +3,13 @@ package gossip4
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
 
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -27,15 +27,32 @@ import (
 
 var genesis cid.Cid
 
-const transactionTopic = "g4-transactions"
+var biggest256BitNumber *big.Int
+var difficultyThreshold *big.Int
 
-const difficultyThreshold = 3 // require 3 zeros at the end
+const difficulty = 4 // checkpoint every X transactions or so
+
+const transactionTopic = "g4-transactions"
 
 func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
 	sw := &safewrap.SafeWrap{}
 	genesis = sw.WrapObject("genesis").Cid()
+	setupBiggest()
+	setupThreshold()
 }
+
+func setupThreshold() {
+	difficultyThreshold = big.NewInt(0)
+	difficultyThreshold.Div(biggest256BitNumber, big.NewInt(difficulty))
+}
+
+func setupBiggest() {
+	biggest256BitNumber = big.NewInt(0)
+	biggest256BitNumber.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10) // this is the largest 256bit number
+}
+
+type getInProgressCheckpoint struct{}
 
 type Node struct {
 	p2pNode     p2p.Node
@@ -53,6 +70,8 @@ type Node struct {
 	inprogressCheckpoint *Checkpoint
 
 	signerIndex int
+
+	pid *actor.PID
 }
 
 type NewNodeOptions struct {
@@ -60,6 +79,7 @@ type NewNodeOptions struct {
 	SignKey          *bls.SignKey
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
+	Logger           logging.EventLogger
 	latestCheckpoint cid.Cid
 }
 
@@ -73,8 +93,8 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 
 		latest = &Checkpoint{
 			CurrentState: genesis,
-			Height:       0,
 			Previous:     genesis,
+			Height:       0,
 			node:         n,
 		}
 	} else {
@@ -126,6 +146,7 @@ func loadNode(ctx context.Context, store *hamt.CborIpldStore, id cid.Cid) (*hamt
 
 func (n *Node) Start(ctx context.Context) error {
 	pid := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.Receive))
+	n.pid = pid
 	go func() {
 		<-ctx.Done()
 		n.logger.Debugf("node stopped")
@@ -161,6 +182,8 @@ func (n *Node) Start(ctx context.Context) error {
 		}
 	}()
 
+	n.logger.Debugf("node starting with difficulty: %0256b", difficultyThreshold)
+
 	return nil
 }
 
@@ -168,6 +191,9 @@ func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *services.AddBlockRequest:
 		n.handleAddBlockRequest(actorContext, msg)
+	case *getInProgressCheckpoint:
+		n.logger.Debugf("returning inprogress checkpoint of height: %d", n.inprogressCheckpoint.Height)
+		actorContext.Respond(n.inprogressCheckpoint)
 	}
 }
 
@@ -285,9 +311,7 @@ func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, s
 
 	n.inprogressCheckpoint.CurrentState = id
 
-	numberOfZeros := n.cidToDifficulty(id)
-
-	if numberOfZeros >= difficultyThreshold {
+	if n.isCidDifficultEnough(id) {
 		err := n.inprogressCheckpoint.node.Flush(ctx)
 		if err != nil {
 			return fmt.Errorf("error flushing: %v", err)
@@ -295,22 +319,19 @@ func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, s
 		n.commitCheckpoint(actorContext, n.inprogressCheckpoint)
 	}
 
-	n.logger.Debugf("trailing zeros: %d", numberOfZeros)
-
 	return nil
 }
 
-func (n *Node) cidToDifficulty(id cid.Cid) uint {
-	hsh := id.Hash()
-	last9Bytes := hsh[len(hsh)-10 : len(hsh)]
-	binNum, _ := binary.Uvarint(last9Bytes)
-
+// is the digest of the CID
+func (n *Node) isCidDifficultEnough(id cid.Cid) bool {
+	decoded, _ := multihash.Decode(id.Hash()) // can never error
+	hsh := decoded.Digest
 	num := big.NewInt(0)
-	num.SetBytes(id.Hash())
-
-	n.logger.Debugf("id: %s looks like %s in binary and bigBinary: %s, base58 of whole: %s", id.String(), strconv.FormatUint(binNum, 2), strconv.FormatInt(num.Int64(), 2), id.Hash().B58String())
-
-	return num.TrailingZeroBits()
+	num.SetBytes(hsh)
+	if cmpRet := num.Cmp(difficultyThreshold); cmpRet > 0 { // if the difficultyThreshold is bigger than the digest, it's not difficult enough
+		return false
+	}
+	return true
 }
 
 func heightKey(objectId string, height uint64) string {
