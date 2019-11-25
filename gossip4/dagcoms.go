@@ -30,7 +30,7 @@ var genesis cid.Cid
 var biggest256BitNumber *big.Int
 var difficultyThreshold *big.Int
 
-const difficulty = 4 // checkpoint every X transactions or so
+const difficulty = 8 // checkpoint every X transactions or so
 
 const transactionTopic = "g4-transactions"
 
@@ -214,6 +214,7 @@ func (n *Node) commitCheckpoint(actorContext actor.Context, cp *Checkpoint) {
 	n.inprogressCheckpoint.Height = cp.Height + 1
 	n.inprogressCheckpoint.Previous = cp.CurrentState
 	n.inprogressCheckpoint.PreviousSignature = cp.Signature
+	n.logger.Infof("committing %d %s", cp.Height, cp.CurrentState.String())
 
 	n.logger.Debugf("deleting inflight transactions that have been committed (height now: %d)", n.inprogressCheckpoint.Height)
 	for _, txID := range cp.Transactions {

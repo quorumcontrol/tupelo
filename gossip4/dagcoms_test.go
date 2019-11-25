@@ -74,11 +74,11 @@ func TestNewNode(t *testing.T) {
 func TestEndToEnd(t *testing.T) {
 	// logging.SetLogLevel("pubsub", "debug")
 	testLogger := logging.Logger("TestEndToEnd")
-	logging.SetLogLevel("TestEndToEnd", "debug")
+	logging.SetLogLevel("TestEndToEnd", "INFO")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		testLogger.Infof("test finished")
+		testLogger.Debugf("test finished")
 		cancel()
 	}()
 
@@ -91,12 +91,11 @@ func TestEndToEnd(t *testing.T) {
 
 	n := nodes[0]
 	fmt.Println("signerIndex: ", n.signerIndex)
-	logging.SetLogLevel(fmt.Sprintf("node-%d", n.signerIndex), "debug")
-	testLogger.Infof("node logger: %v", n.logger)
+	// logging.SetLogLevel(fmt.Sprintf("node-%d", n.signerIndex), "info")
 	bootAddrs := testnotarygroup.BootstrapAddresses(n.p2pNode)
 
 	for i, node := range nodes {
-		// logging.SetLogLevel(fmt.Sprintf("node-%d", i), "debug")
+		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "info")
 
 		if i > 0 {
 			cl, err := node.p2pNode.Bootstrap(bootAddrs)
@@ -126,7 +125,7 @@ func TestEndToEnd(t *testing.T) {
 		bits, err := trans.Marshal()
 		require.Nil(t, err)
 
-		testLogger.Infof("sending %d (%s)", i, string(trans.ObjectId))
+		testLogger.Debugf("sending %d (%s)", i, string(trans.ObjectId))
 		err = n.pubsub.Publish(transactionTopic, bits)
 		require.Nil(t, err)
 	}
@@ -142,7 +141,7 @@ func TestEndToEnd(t *testing.T) {
 				// then check if it's in the inprogress
 				err := n.inprogressCheckpoint.node.Find(ctx, did, &tip)
 				if err == hamt.ErrNotFound {
-					testLogger.Infof("couldn't find: %d", i)
+					testLogger.Debugf("couldn't find: %d", i)
 					return false
 				}
 				if err == nil {
@@ -160,17 +159,17 @@ looper:
 	for {
 		select {
 		case <-timer.C:
-			testLogger.Infof("failing on timeout")
+			testLogger.Debugf("failing on timeout")
 			t.Fatalf("timeout waiting for all transactions")
 		default:
 			// do nothing
 		}
 		if allIncluded() {
-			testLogger.Infof("found all transactions at height %d", n.inprogressCheckpoint.Height)
+			testLogger.Debugf("found all transactions at height %d", n.inprogressCheckpoint.Height)
 			break looper
 		}
 
-		testLogger.Infof("inprogress height %d", n.inprogressCheckpoint.Height)
+		testLogger.Debugf("inprogress height %d", n.inprogressCheckpoint.Height)
 		time.Sleep(100 * time.Millisecond)
 	}
 	timer.Stop()
