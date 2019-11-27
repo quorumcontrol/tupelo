@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-git config --global url."ssh://git@github.com/".insteadOf "https://github.com/"
+git config --global url."ssh://git@github.com/quorumcontrol".insteadOf "https://github.com/quorumcontrol"
 
 mkdir -p ~/.ssh
 ssh-keyscan -t rsa github.com > github.pub
