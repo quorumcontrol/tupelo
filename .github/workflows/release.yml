@@ -1,43 +1,50 @@
 on: release
 name: Docker Build & Push Latest
 jobs:
-  privateGoMod:
-    name: Private Go Mod
-    runs-on: ubuntu-latest
+  docker:
+    name: "docker build & push latest"
+    runs-on: ubuntu-18.04
+    env:
+      # ${{ runner.workspace }} is not available here, so hardcode for now
+      # setup-go is considering inject these env vars automatically
+      GOPATH: /home/runner/work/tupelo/go
+      GOBIN: /home/runner/work/tupelo/go/bin
     steps:
-    - uses: actions/checkout@master
-    - name: Private Go Mod
-      uses: ./.github/actions/make
+    - name: install go
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.13
+    - name: install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler make
+    - uses: actions/checkout@v1
+    - uses: actions/cache@v1
+      id: vendor-cache
+      with:
+        path: vendor/
+        key: go-vendor-${{ hashFiles('go.sum') }}
+        restore-keys: |
+          go-vendor-
+    - name: git setup
+      run: scripts/ci-gitsetup.sh
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      with:
-        args: vendor
-    - name: Prepare Build Environment
-      uses: ./.github/actions/make
+    - name: vendor dependencies
+      if: steps.vendor-cache.outputs.cache-hit != 'true'
+      run: make vendor
+    - name: run tests
+      run: scripts/test-suite.sh
+    - name: set version
+      run: make github-prepare
       env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      with:
-        args: github-prepare
-    - name: Docker Login
-      uses: actions/docker/login@8cdf801b322af5f369e00d85e9cf3a7122f49108
+        GITHUB_REF: ${{ github.ref }}
+    - name: docker login
+      run: docker login --username "$DOCKER_USERNAME" --password "$DOCKER_PASSWORD"
       env:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-    - name: Docker Build Container
-      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: build -t imagebuild .
-    - name: Docker Tag Images
-      uses: actions/docker/tag@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: imagebuild quorumcontrol/tupelo
-    - name: On Latest Release
-      uses: ./.github/actions/filters
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        args: latest-release
-    - name: Docker Push Latest Image
-      uses: actions/docker/cli@8cdf801b322af5f369e00d85e9cf3a7122f49108
-      with:
-        args: push quorumcontrol/tupelo:latest
+    - name: docker build and push
+      run: |
+        docker build -t quorumcontrol/tupelo:latest .
+        docker push quorumcontrol/tupelo:latest
