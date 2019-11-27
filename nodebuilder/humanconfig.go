@@ -116,8 +116,11 @@ func TomlToConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("missing notary group config path")
 	}
 
-	newPath := filepath.Join(filepath.Dir(path), hc.NotaryGroupConfig)
-	hc.NotaryGroupConfig = newPath
+	if filepath.IsAbs(hc.NotaryGroupConfig) {
+		hc.NotaryGroupConfig = hc.NotaryGroupConfig
+	} else {
+		hc.NotaryGroupConfig = filepath.Join(filepath.Dir(path), hc.NotaryGroupConfig)
+	}
 
 	return HumanConfigToConfig(hc)
 }
