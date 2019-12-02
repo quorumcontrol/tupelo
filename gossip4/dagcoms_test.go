@@ -115,7 +115,7 @@ func TestEndToEnd(t *testing.T) {
 	err = n.p2pNode.WaitForBootstrap(1, 2*time.Second)
 	require.Nil(t, err)
 
-	transCount := 24 // three times necessary
+	transCount := difficulty * 4 // four times necessary
 	dids := make([]string, transCount)
 
 	for i := 0; i < transCount; i++ {
