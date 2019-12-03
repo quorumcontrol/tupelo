@@ -152,7 +152,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 
 	pubsub = remote.NewNetworkPubSub(p2pHost.GetPubSub())
 
-	act, err := actor.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+	act, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
 		Self:              localSigner,
 		NotaryGroup:       group,
 		CurrentStateStore: badgerCurrent,
