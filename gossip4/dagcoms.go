@@ -218,6 +218,7 @@ func (n *Node) commitCheckpoint(actorContext actor.Context, cp *Checkpoint) {
 
 	n.logger.Debugf("deleting inflight transactions that have been committed (height now: %d)", n.inprogressCheckpoint.Height)
 	for _, txID := range cp.Transactions {
+		n.logger.Infof("committed %s", txID.String())
 		abr, ok := n.inFlightAbrs[txID.String()]
 		if ok {
 			delete(n.inFlightAbrs, txID.String())
@@ -349,7 +350,8 @@ func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) erro
 		n.logger.Errorf("error putting abr: %v", err)
 		return err
 	}
-	n.logger.Debugf("saved abr with CID %s (objectId: %s, height: %d) in progress height: %d", id.String(), abr.ObjectId, abr.Height, n.inprogressCheckpoint.Height)
+	n.logger.Infof("saved abr with CID %s ", id.String())
+	n.logger.Debugf("(objectId: %s, height: %d) in progress height: %d", abr.ObjectId, abr.Height, n.inprogressCheckpoint.Height)
 	err = n.inprogressCheckpoint.node.Set(ctx, string(abr.ObjectId), id)
 	if err != nil {
 		n.logger.Errorf("error setting hamt: %v", err)

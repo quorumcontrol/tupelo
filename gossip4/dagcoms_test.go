@@ -14,6 +14,8 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
+	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
@@ -116,12 +118,22 @@ func TestEndToEnd(t *testing.T) {
 	require.Nil(t, err)
 
 	transCount := difficulty * 4 // four times necessary
-	dids := make([]string, transCount)
+	trans := make([]*services.AddBlockRequest, transCount)
+
+	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
 
 	for i := 0; i < transCount; i++ {
-		trans := testhelpers.NewValidTransaction(t)
-		dids[i] = string(trans.ObjectId)
+		tran := testhelpers.NewValidTransaction(t)
 
+		// for examining the log only:
+		id, err := testStore.Put(ctx, tran)
+		require.Nil(t, err)
+		testLogger.Infof("transaction %d has cid %s", i, id.String())
+
+		trans[i] = &tran
+	}
+
+	for i, trans := range trans {
 		bits, err := trans.Marshal()
 		require.Nil(t, err)
 
@@ -134,7 +146,8 @@ func TestEndToEnd(t *testing.T) {
 		if n.latestCheckpoint == nil || n.latestCheckpoint.node == nil {
 			return false
 		}
-		for i, did := range dids {
+		for i, tx := range trans {
+			did := string(tx.ObjectId)
 			var tip cid.Cid
 			err := n.latestCheckpoint.node.Find(ctx, did, &tip)
 			if err == hamt.ErrNotFound {
