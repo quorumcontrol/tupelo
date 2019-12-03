@@ -1,6 +1,12 @@
 package gossip4
 
-import "sync"
+import (
+	"sync"
+
+	logging "github.com/ipfs/go-log"
+)
+
+var snowlog = logging.Logger("snowball")
 
 type Snowball struct {
 	sync.RWMutex
@@ -48,8 +54,6 @@ func (s *Snowball) Tick(votes []*Vote) {
 		return
 	}
 
-	votes = calculateTallies(votes)
-
 	var majority *Vote
 
 	for _, vote := range votes {
@@ -70,9 +74,12 @@ func (s *Snowball) Tick(votes []*Vote) {
 	}
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
+		snowlog.Debugf("resettitng count: %v", majority)
 		s.count = 0
 		return
 	}
+
+	// snowlog.Debugf("majority: (id: %s): %s", majority.ID(), spew.Sdump(majority))
 
 	s.counts[majority.ID()]++
 

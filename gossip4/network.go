@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
@@ -43,7 +44,13 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 		for i := 0; i < snb.snowball.k; i++ {
 			wg.Add(1)
 			go func() {
-				signer := snb.group.GetRandomSigner()
+				var signer *types.Signer
+				var signerPeer string
+				for signer == nil || signerPeer == snb.host.Identity() {
+					signer = snb.group.GetRandomSigner()
+					peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)
+					signerPeer = peerID.Pretty()
+				}
 				s, err := snb.host.NewStream(ctx, signer.DstKey, gossip4Protocol)
 				if err != nil {
 					snb.logger.Warningf("error creating stream to %s: %v", signer.ID, err)
@@ -86,30 +93,37 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 				respChan <- block
 				wg.Done()
 			}()
-			wg.Wait()
-			close(respChan)
-			votes := make([]*Vote, snb.snowball.k)
-			i := 0
-			for block := range respChan {
-				snb.logger.Debugf("received block: %v", block)
-				//TODO: here we should throw away blocks with Txs we don't know about.
-				votes[i] = &Vote{
-					Block: &block,
-				}
-				i++
-			}
-			snb.logger.Debugf("votes before padding: %v", votes)
-
-			if i < len(votes)-1 {
-				for j := i; j < len(votes); j++ {
-					v := &Vote{}
-					v.Nil()
-					votes[j] = v
-				}
-			}
-			snb.logger.Debugf("votes: %v", votes)
-			snb.snowball.Tick(votes)
 		}
+		wg.Wait()
+		close(respChan)
+		votes := make([]*Vote, snb.snowball.k)
+		i := 0
+		for block := range respChan {
+			snb.logger.Debugf("received block: %v", block)
+			//TODO: here we should throw away blocks with Txs we don't know about.
+			votes[i] = &Vote{
+				Block: &block,
+			}
+			if len(block.Transactions) == 0 {
+				votes[i].Nil()
+			}
+			i++
+		}
+
+		if i < len(votes) {
+			for j := i; j < len(votes); j++ {
+				v := &Vote{}
+				v.Nil()
+				votes[j] = v
+			}
+		}
+
+		votes = calculateTallies(votes)
+		snb.logger.Debugf("votes: %s", spew.Sdump(votes))
+
+		snb.snowball.Tick(votes)
+		snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 	}
+
 	done <- nil
 }

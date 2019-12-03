@@ -11,7 +11,7 @@ type round struct {
 func newRound(height uint64) *round {
 	return &round{
 		height:   height,
-		snowball: NewSnowball(0.8, 150, 2), // 2 is really low, should be 10 but this is just testing
+		snowball: NewSnowball(0.8, 150, 3), // 2 is really low, should be 10 but this is just testing
 		//TODO: should there be a state here? I think it should only be here after it's finalized
 	}
 }

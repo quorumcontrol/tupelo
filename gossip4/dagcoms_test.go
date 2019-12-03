@@ -30,7 +30,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	}
 
 	for i := range ng.AllSigners() {
-		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx) // TODO: options?
+		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i])) // TODO: options?
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
 		}
@@ -73,12 +73,16 @@ func TestEndToEnd(t *testing.T) {
 	// logging.SetLogLevel("pubsub", "debug")
 	testLogger := logging.Logger("TestEndToEnd")
 	logging.SetLogLevel("TestEndToEnd", "INFO")
+	logging.SetLogLevel("snowball", "DEBUG")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		testLogger.Debugf("test finished")
 		cancel()
 	}()
+
+	bootstrapper, err := p2p.NewHostFromOptions(ctx)
+	require.Nil(t, err)
 
 	numMembers := 7
 	ts := testnotarygroup.NewTestSet(t, numMembers)
@@ -90,7 +94,7 @@ func TestEndToEnd(t *testing.T) {
 	n := nodes[0]
 	fmt.Println("signerIndex: ", n.signerIndex)
 	// logging.SetLogLevel(fmt.Sprintf("node-%d", n.signerIndex), "info")
-	bootAddrs := testnotarygroup.BootstrapAddresses(n.p2pNode)
+	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrapper)
 
 	for i, node := range nodes {
 		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "debug")
@@ -109,15 +113,15 @@ func TestEndToEnd(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	cl, err := n.p2pNode.Bootstrap(testnotarygroup.BootstrapAddresses(nodes[1].p2pNode))
+	cl, err := n.p2pNode.Bootstrap(bootAddrs)
 	require.Nil(t, err)
 	defer cl.Close()
-	err = n.p2pNode.WaitForBootstrap(1, 2*time.Second)
+	err = n.p2pNode.WaitForBootstrap(len(nodes)-1, 2*time.Second)
 	require.Nil(t, err)
 	err = n.p2pNode.(*p2p.LibP2PHost).StartDiscovery("gossip4")
 	require.Nil(t, err)
 
-	n.p2pNode.(*p2p.LibP2PHost).WaitForDiscovery("gossip4", 1, 10*time.Second)
+	// n.p2pNode.(*p2p.LibP2PHost).WaitForDiscovery("gossip4", 1, 10*time.Second)
 
 	transCount := 20
 	trans := make([]*services.AddBlockRequest, transCount)
@@ -140,9 +144,9 @@ func TestEndToEnd(t *testing.T) {
 		require.Nil(t, err)
 
 		testLogger.Debugf("sending %d (%s)", i, string(trans.ObjectId))
-		err = n.pubsub.Publish(transactionTopic, bits)
+		err = bootstrapper.GetPubSub().Publish(transactionTopic, bits)
 		require.Nil(t, err)
 	}
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 }

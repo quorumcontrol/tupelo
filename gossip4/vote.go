@@ -17,7 +17,7 @@ func (v *Vote) ID() string {
 	if v.Block == nil {
 		return ZeroVoteID
 	}
-	if v.id != "" {
+	if v.id == "" {
 		v.id = v.Block.ID()
 	}
 	return v.id

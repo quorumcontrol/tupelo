@@ -34,6 +34,17 @@ const gossip4Protocol = "tupelo/v0.0.1"
 const transactionTopic = "g4-transactions"
 
 type mempool map[cid.Cid]*services.AddBlockRequest
+
+func (m mempool) Keys() []cid.Cid {
+	keys := make([]cid.Cid, len(m))
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
 type roundHolder map[uint64]*round
 
 func init() {
@@ -69,7 +80,8 @@ type Node struct {
 
 	signerIndex int
 
-	pid *actor.PID
+	pid         *actor.PID
+	snowballPid *actor.PID
 }
 
 type NewNodeOptions struct {
@@ -143,10 +155,14 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 func (n *Node) Start(ctx context.Context) error {
 	pid := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.Receive))
 	n.pid = pid
+
+	n.snowballPid = actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.SnowBallReceive))
+
 	go func() {
 		<-ctx.Done()
 		n.logger.Debugf("node stopped")
-		actor.EmptyRootContext.Poison(pid)
+		actor.EmptyRootContext.Poison(n.pid)
+		actor.EmptyRootContext.Poison(n.snowballPid)
 	}()
 
 	validator, err := newTransactionValidator(n.logger, n.notaryGroup, pid)
@@ -167,7 +183,7 @@ func (n *Node) Start(ctx context.Context) error {
 	}
 
 	n.p2pNode.SetStreamHandler(gossip4Protocol, func(s network.Stream) {
-		actor.EmptyRootContext.Send(n.pid, s)
+		actor.EmptyRootContext.Send(n.snowballPid, s)
 	})
 
 	// don't do anything with these messages because we actually get them
@@ -192,12 +208,18 @@ func (n *Node) Start(ctx context.Context) error {
 				return
 			case <-ticker.C:
 				if !n.snowballer.Started() && len(n.mempool) > 0 {
+					n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
 					done = make(chan error, 1)
+					n.snowballer.snowball.Prefer(&Vote{
+						Block: &Block{
+							Height:       n.currentRound,
+							Transactions: n.mempool.Keys(),
+						},
+					})
 					n.snowballer.start(ctx, done)
 				}
 			case err := <-done:
-				close(done)
-				actor.EmptyRootContext.Send(n.pid, &snowballerDone{err: err})
+				actor.EmptyRootContext.Send(n.snowballPid, &snowballerDone{err: err})
 			}
 		}
 	}()
@@ -211,9 +233,11 @@ func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *services.AddBlockRequest:
 		n.handleAddBlockRequest(actorContext, msg)
-	// case *getInProgressCheckpoint:
-	// 	n.logger.Debugf("returning inprogress checkpoint of height: %d", n.inprogressCheckpoint.Height)
-	// 	actorContext.Respond(n.inprogressCheckpoint)
+	}
+}
+
+func (n *Node) SnowBallReceive(actorContext actor.Context) {
+	switch msg := actorContext.Message().(type) {
 	case network.Stream:
 		go func() {
 			n.handleStream(msg)
@@ -224,6 +248,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 }
 
 func (n *Node) handleStream(s network.Stream) {
+	n.logger.Debugf("handling stream from")
 	s.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	s.SetReadDeadline(time.Now().Add(1 * time.Second))
 	reader := msgio.NewVarintReader(s)
@@ -247,18 +272,25 @@ func (n *Node) handleStream(s network.Stream) {
 		s.Close()
 		return
 	}
+	n.logger.Debugf("remote looking for height: %d", height)
 	// TODO: this is a concurrent read and so needs to be locked, ignoring for now
 	r, ok := n.rounds[height]
 	response := Block{Height: height}
 	if ok {
+		n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
 		if preferred != nil {
+			n.logger.Debugf("existing preferred; %v", preferred)
 			response = *preferred.Block
 		}
 	}
 	sw := &safewrap.SafeWrap{}
 	wrapped := sw.WrapObject(response)
-
+	if sw.Err != nil {
+		n.logger.Errorf("error wrapping: %v", err)
+		s.Close()
+		return
+	}
 	err = writer.WriteMsg(wrapped.RawData())
 	if err != nil {
 		n.logger.Warningf("error writing: %v", err)

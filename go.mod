@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
 	github.com/BurntSushi/toml v0.3.1
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/elastic/go-sysinfo v1.1.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.3
