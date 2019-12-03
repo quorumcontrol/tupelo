@@ -153,7 +153,7 @@ func (n *Node) Start(ctx context.Context) error {
 		actor.EmptyRootContext.Poison(pid)
 	}()
 
-	validator, err := newTransactionValidator(n.logger, n.notaryGroup, pid)
+	validator, err := newTransactionValidator(n.logger, n.notaryGroup, n.pid)
 	if err != nil {
 		return fmt.Errorf("error setting up: %v", err)
 	}
@@ -381,6 +381,10 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 	}
 
 	return abr, nil
+}
+
+func (n *Node) PID() *actor.PID {
+	return n.pid
 }
 
 /**
