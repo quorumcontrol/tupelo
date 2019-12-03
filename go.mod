@@ -30,7 +30,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v0.9.1
-	github.com/quorumcontrol/messages v0.5.1-0.20191126203401-dfbe92d6e5d3
+	github.com/quorumcontrol/messages v1.0.0
 	github.com/quorumcontrol/messages/v2 v2.0.2
 	github.com/quorumcontrol/tupelo-go-sdk v0.5.13-0.20191120122823-2579989670b5
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
