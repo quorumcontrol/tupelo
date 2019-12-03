@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math/big"
+	"io"
 	"strconv"
-	"strings"
+	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/multiformats/go-multihash"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-msgio"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -27,32 +29,25 @@ import (
 
 var genesis cid.Cid
 
-var biggest256BitNumber *big.Int
-var difficultyThreshold *big.Int
-
-const difficulty = 8 // checkpoint every X transactions or so
+const gossip4Protocol = "tupelo/v0.0.1"
 
 const transactionTopic = "g4-transactions"
+
+type mempool map[cid.Cid]*services.AddBlockRequest
+type roundHolder map[uint64]*round
 
 func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
 	sw := &safewrap.SafeWrap{}
 	genesis = sw.WrapObject("genesis").Cid()
-	setupBiggest()
-	setupThreshold()
+	if sw.Err != nil {
+		panic(fmt.Errorf("error setting up genesis: %w", sw.Err))
+	}
 }
 
-func setupThreshold() {
-	difficultyThreshold = big.NewInt(0)
-	difficultyThreshold.Div(biggest256BitNumber, big.NewInt(difficulty))
+type snowballerDone struct {
+	err error
 }
-
-func setupBiggest() {
-	biggest256BitNumber = big.NewInt(0)
-	biggest256BitNumber.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10) // this is the largest 256bit number
-}
-
-type getInProgressCheckpoint struct{}
 
 type Node struct {
 	p2pNode     p2p.Node
@@ -62,12 +57,15 @@ type Node struct {
 	hamtStore   *hamt.CborIpldStore
 	pubsub      *pubsub.PubSub
 
-	inFlightAbrs map[string]*services.AddBlockRequest
+	mempool  mempool
+	inflight *lru.Cache
 
 	logger logging.EventLogger
 
-	latestCheckpoint     *Checkpoint
-	inprogressCheckpoint *Checkpoint
+	rounds       roundHolder
+	currentRound uint64
+
+	snowballer *snowballer
 
 	signerIndex int
 
@@ -75,44 +73,17 @@ type Node struct {
 }
 
 type NewNodeOptions struct {
-	P2PNode          p2p.Node
-	SignKey          *bls.SignKey
-	NotaryGroup      *types.NotaryGroup
-	DagStore         nodestore.DagStore
-	Logger           logging.EventLogger
-	latestCheckpoint cid.Cid
+	P2PNode        p2p.Node
+	SignKey        *bls.SignKey
+	NotaryGroup    *types.NotaryGroup
+	DagStore       nodestore.DagStore
+	Logger         logging.EventLogger
+	PreviousRounds roundHolder
+	CurrentRound   uint64
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	hamtStore := dagStoreToCborIpld(opts.DagStore)
-
-	latest := &Checkpoint{}
-	// if latestCheckpoint is undef then just make an empty hamt
-	if opts.latestCheckpoint.Equals(cid.Undef) {
-		n := hamt.NewNode(hamtStore, hamt.UseTreeBitWidth(5))
-
-		latest = &Checkpoint{
-			CurrentState: genesis,
-			Previous:     genesis,
-			Height:       0,
-			node:         n,
-		}
-	} else {
-		// otherwise pull up the CheckPoint
-		err := hamtStore.Get(ctx, opts.latestCheckpoint, latest)
-		if err != nil {
-			return nil, fmt.Errorf("error getting latest: %v", err)
-		}
-		n, err := loadNode(ctx, hamtStore, latest.CurrentState)
-		if err != nil {
-			return nil, fmt.Errorf("error loading node: %v", err)
-		}
-		latest.node = n
-	}
-
-	// then clone for the inprogress
-	inProgress := latest.Copy()
-	inProgress.CurrentState = cid.Undef
 
 	var signerIndex int
 	for i, s := range opts.NotaryGroup.AllSigners() {
@@ -126,23 +97,48 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 
 	logger.Debugf("signerIndex: %d", signerIndex)
 
+	cache, err := lru.New(500)
+	if err != nil {
+		return nil, fmt.Errorf("error creating cache: %w", err)
+	}
+
+	if opts.PreviousRounds == nil {
+		opts.PreviousRounds = make(roundHolder)
+	}
+
+	r, ok := opts.PreviousRounds[opts.CurrentRound]
+	if !ok {
+		r = newRound(opts.CurrentRound)
+		opts.PreviousRounds[opts.CurrentRound] = r
+	}
+
+	networkedSnowball := &snowballer{
+		snowball: r.snowball,
+		height:   r.height,
+		host:     opts.P2PNode,
+		group:    opts.NotaryGroup,
+		logger:   logger,
+	}
+
 	return &Node{
-		p2pNode:              opts.P2PNode,
-		signKey:              opts.SignKey,
-		notaryGroup:          opts.NotaryGroup,
-		dagStore:             opts.DagStore,
-		hamtStore:            hamtStore,
-		latestCheckpoint:     latest,
-		inprogressCheckpoint: inProgress,
-		inFlightAbrs:         make(map[string]*services.AddBlockRequest),
-		signerIndex:          signerIndex,
-		logger:               logger,
+		p2pNode:      opts.P2PNode,
+		signKey:      opts.SignKey,
+		notaryGroup:  opts.NotaryGroup,
+		dagStore:     opts.DagStore,
+		hamtStore:    hamtStore,
+		rounds:       opts.PreviousRounds,
+		currentRound: opts.CurrentRound,
+		signerIndex:  signerIndex,
+		logger:       logger,
+		inflight:     cache,
+		snowballer:   networkedSnowball,
+		mempool:      make(mempool),
 	}, nil
 }
 
-func loadNode(ctx context.Context, store *hamt.CborIpldStore, id cid.Cid) (*hamt.Node, error) {
-	return hamt.LoadNode(ctx, store, id, hamt.UseTreeBitWidth(5))
-}
+// func loadNode(ctx context.Context, store *hamt.CborIpldStore, id cid.Cid) (*hamt.Node, error) {
+// 	return hamt.LoadNode(ctx, store, id, hamt.UseTreeBitWidth(5))
+// }
 
 func (n *Node) Start(ctx context.Context) error {
 	pid := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.Receive))
@@ -170,6 +166,10 @@ func (n *Node) Start(ctx context.Context) error {
 		return fmt.Errorf("error subscribing %v", err)
 	}
 
+	n.p2pNode.SetStreamHandler(gossip4Protocol, func(s network.Stream) {
+		actor.EmptyRootContext.Send(n.pid, s)
+	})
+
 	// don't do anything with these messages because we actually get them
 	// fully decoded in the actor spun up above
 	go func() {
@@ -182,7 +182,27 @@ func (n *Node) Start(ctx context.Context) error {
 		}
 	}()
 
-	n.logger.Debugf("node starting with difficulty: %0256b", difficultyThreshold)
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		done := make(chan error, 1)
+		for {
+			select {
+			case <-ctx.Done():
+				ticker.Stop()
+				return
+			case <-ticker.C:
+				if !n.snowballer.Started() && len(n.mempool) > 0 {
+					done = make(chan error, 1)
+					n.snowballer.start(ctx, done)
+				}
+			case err := <-done:
+				close(done)
+				actor.EmptyRootContext.Send(n.pid, &snowballerDone{err: err})
+			}
+		}
+	}()
+
+	n.logger.Debugf("node starting")
 
 	return nil
 }
@@ -191,48 +211,62 @@ func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *services.AddBlockRequest:
 		n.handleAddBlockRequest(actorContext, msg)
-	case *getInProgressCheckpoint:
-		n.logger.Debugf("returning inprogress checkpoint of height: %d", n.inprogressCheckpoint.Height)
-		actorContext.Respond(n.inprogressCheckpoint)
+	// case *getInProgressCheckpoint:
+	// 	n.logger.Debugf("returning inprogress checkpoint of height: %d", n.inprogressCheckpoint.Height)
+	// 	actorContext.Respond(n.inprogressCheckpoint)
+	case network.Stream:
+		go func() {
+			n.handleStream(msg)
+		}()
+	case *snowballerDone:
+		n.logger.Infof("round %d decided with err: %v", n.currentRound, msg.err)
 	}
 }
 
-func (n *Node) commitCheckpoint(actorContext actor.Context, cp *Checkpoint) {
-	n.logger.Debugf("committing a checkpoint %d", cp.Height)
+func (n *Node) handleStream(s network.Stream) {
+	s.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	s.SetReadDeadline(time.Now().Add(1 * time.Second))
+	reader := msgio.NewVarintReader(s)
+	writer := msgio.NewVarintWriter(s)
 
-	if cp.node == nil {
-		node, err := loadNode(context.TODO(), n.hamtStore, cp.CurrentState)
-		if err != nil {
-			n.logger.Errorf("error getting node: %v", err)
+	bits, err := reader.ReadMsg()
+	if err != nil {
+		if err != io.EOF {
+			_ = s.Reset()
 		}
-		cp.node = node
+		n.logger.Warningf("error reading from incoming stream: %v", err)
+		return
+	}
+	//TODO: I don't actually know what this does :)
+	reader.ReleaseMsg(bits)
+
+	var height uint64
+	err = cbornode.DecodeInto(bits, &height)
+	if err != nil {
+		n.logger.Warningf("error decoding incoming height: %v", err)
+		s.Close()
+		return
+	}
+	// TODO: this is a concurrent read and so needs to be locked, ignoring for now
+	r, ok := n.rounds[height]
+	response := Block{Height: height}
+	if ok {
+		preferred := r.snowball.Preferred()
+		if preferred != nil {
+			response = *preferred.Block
+		}
+	}
+	sw := &safewrap.SafeWrap{}
+	wrapped := sw.WrapObject(response)
+
+	err = writer.WriteMsg(wrapped.RawData())
+	if err != nil {
+		n.logger.Warningf("error writing: %v", err)
+		s.Close()
+		return
 	}
 
-	n.logger.Debugf("resetting the inprogress checkpoint")
-	n.latestCheckpoint = cp
-	n.inprogressCheckpoint = cp.Copy()
-	n.inprogressCheckpoint.Height = cp.Height + 1
-	n.inprogressCheckpoint.Previous = cp.CurrentState
-	n.inprogressCheckpoint.PreviousSignature = cp.Signature
-	n.logger.Infof("committing %d %s", cp.Height, cp.CurrentState.String())
-
-	n.logger.Debugf("deleting inflight transactions that have been committed (height now: %d)", n.inprogressCheckpoint.Height)
-	for _, txID := range cp.Transactions {
-		n.logger.Infof("committed %s", txID.String())
-		abr, ok := n.inFlightAbrs[txID.String()]
-		if ok {
-			delete(n.inFlightAbrs, txID.String())
-			delete(n.inFlightAbrs, heightKey(string(abr.ObjectId), abr.Height))
-		}
-	}
-
-	for k, abr := range n.inFlightAbrs {
-		if strings.HasPrefix(k, "FH") {
-			continue // don't do anything with the height ones
-		}
-		n.logger.Debugf("requeing tx: %s", k)
-		actorContext.Send(actorContext.Self(), abr)
-	}
+	return
 }
 
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
@@ -259,17 +293,17 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 				n.logger.Errorf("error getting current: %v", err)
 				return
 			}
-			err = n.handlePostSave(ctx, actorContext, abr, current)
-			if err != nil {
-				n.logger.Errorf("error handling postSave: %v", err)
-			}
+			// err = n.handlePostSave(ctx, actorContext, abr, current)
+			// if err != nil {
+			// 	n.logger.Errorf("error handling postSave: %v", err)
+			// }
 			return
 		}
 		n.storeAsInFlight(ctx, abr)
 		return
 	}
 
-	// if this msg height is lower than curreent then just drop it
+	// if this msg height is lower than current then just drop it
 	if current.Height > abr.Height {
 		return
 	}
@@ -288,10 +322,10 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 			n.logger.Errorf("error getting current: %v", err)
 			return
 		}
-		err = n.handlePostSave(ctx, actorContext, abr, current)
-		if err != nil {
-			n.logger.Errorf("error handling postSave: %v", err)
-		}
+		// err = n.handlePostSave(ctx, actorContext, abr, current)
+		// if err != nil {
+		// 	n.logger.Errorf("error handling postSave: %v", err)
+		// }
 		return
 	}
 
@@ -304,68 +338,56 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 	// TODO: handle byzantine case of msg.Height == current.Height
 }
 
-func (n *Node) handlePostSave(ctx context.Context, actorContext actor.Context, saved *services.AddBlockRequest, overwritten *services.AddBlockRequest) error {
-	// Is this a checkpoint?
-	id, err := n.hamtStore.Put(ctx, n.inprogressCheckpoint.node)
-	if err != nil {
-		return fmt.Errorf("error putting checkpoint: %v", err)
-	}
-
-	n.inprogressCheckpoint.CurrentState = id
-
-	if n.isCidDifficultEnough(id) {
-		err := n.inprogressCheckpoint.node.Flush(ctx)
-		if err != nil {
-			return fmt.Errorf("error flushing: %v", err)
-		}
-		n.commitCheckpoint(actorContext, n.inprogressCheckpoint)
-	}
-
-	return nil
-}
-
-// is the digest of the CID
-func (n *Node) isCidDifficultEnough(id cid.Cid) bool {
-	decoded, _ := multihash.Decode(id.Hash()) // can never error
-	hsh := decoded.Digest
-	num := big.NewInt(0)
-	num.SetBytes(hsh)
-	if cmpRet := num.Cmp(difficultyThreshold); cmpRet > 0 { // if the difficultyThreshold is bigger than the digest, it's not difficult enough
-		return false
-	}
-	return true
-}
-
-func heightKey(objectId string, height uint64) string {
-	return "FH" + objectId + "-" + strconv.FormatUint(height, 10)
-}
-
 func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
-	n.inFlightAbrs[heightKey(string(abr.ObjectId), abr.Height)] = abr
+	n.logger.Debugf("storing in inflight %s height: %d", string(abr.ObjectId), abr.Height)
+	n.inflight.Add(inFlightID(abr.ObjectId, abr.Height), abr)
+}
+
+func inFlightID(objectID []byte, height uint64) string {
+	return string(objectID) + strconv.FormatUint(height, 10)
 }
 
 func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {
-	id, err := n.hamtStore.Put(ctx, abr)
-	if err != nil {
-		n.logger.Errorf("error putting abr: %v", err)
-		return err
+	sw := &safewrap.SafeWrap{}
+	wrapped := sw.WrapObject(abr)
+	if sw.Err != nil {
+		return sw.Err
 	}
-	n.logger.Infof("saved abr with CID %s ", id.String())
-	n.logger.Debugf("(objectId: %s, height: %d) in progress height: %d", abr.ObjectId, abr.Height, n.inprogressCheckpoint.Height)
-	err = n.inprogressCheckpoint.node.Set(ctx, string(abr.ObjectId), id)
-	if err != nil {
-		n.logger.Errorf("error setting hamt: %v", err)
-		return err
+	n.logger.Debugf("storing in mempool %s", wrapped.Cid().String())
+	n.mempool[wrapped.Cid()] = abr
+
+	nextKey := inFlightID(abr.ObjectId, abr.Height+1)
+	// if the next height Tx is here we can also queue that up
+	next, ok := n.inflight.Get(nextKey)
+	if ok {
+		nextAbr := next.(*services.AddBlockRequest)
+		if bytes.Equal(nextAbr.PreviousTip, abr.NewTip) {
+			return n.storeAbr(ctx, nextAbr)
+		}
+		// This is commented out because I'm not sure exactly what we want to do here
+		// if there is a big tree of Txs that aren't going to make it in, we don't necessarily
+		// want to throw them away because we want the other nodes to know we have them.
+		// // otherwise we can just throw that one away
+		// n.inflight.Remove(nextKey)
 	}
-	n.inFlightAbrs[id.String()] = abr // this is useful because we can just easily confirm we have this transaction
-	n.inprogressCheckpoint.Transactions = append(n.inprogressCheckpoint.Transactions, id)
+
 	return nil
 }
 
 func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBlockRequest, error) {
+	if n.currentRound == 0 {
+		return nil, nil // this is the genesis round: we, by definition, have no state
+	}
+
 	var abrCid cid.Cid
 	var abr *services.AddBlockRequest
-	err := n.inprogressCheckpoint.node.Find(ctx, objectID, &abrCid)
+
+	lockedRound, ok := n.rounds[n.currentRound-1]
+	if !ok {
+		return nil, fmt.Errorf("we don't have the previous round")
+	}
+
+	err := lockedRound.state.Find(ctx, objectID, &abrCid)
 	if err != nil {
 		if err == hamt.ErrNotFound {
 			return nil, nil
@@ -382,20 +404,3 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 
 	return abr, nil
 }
-
-/**
-when a transaction comes in make sure it's internally consistent and the height is higher than current
-return true to the pubsub validator and pipe the tx to the node.
-
-At the node do the normal thing where if it's the next height, then it can go into the hamt as accepted.
-
-Put it in the transaction hamt, update the current state hamt. If the difficulty level has hit, publish out the CheckPoint
-
-On receiving a CheckPoint...
-	* confirm it meets the difficulty level
-	* confirm it's a height higher than where we are at
-	* confirm all transactions are valid
-	* sign it
-	* publish out the updated signature
-
-*/
