@@ -60,6 +60,10 @@ type snowballerDone struct {
 	err error
 }
 
+type snowballTicker struct {
+	ctx context.Context
+}
+
 type Node struct {
 	p2pNode     p2p.Node
 	signKey     *bls.SignKey
@@ -200,26 +204,13 @@ func (n *Node) Start(ctx context.Context) error {
 
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond)
-		done := make(chan error, 1)
 		for {
 			select {
 			case <-ctx.Done():
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				if !n.snowballer.Started() && len(n.mempool) > 0 {
-					n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
-					done = make(chan error, 1)
-					n.snowballer.snowball.Prefer(&Vote{
-						Block: &Block{
-							Height:       n.currentRound,
-							Transactions: n.mempool.Keys(),
-						},
-					})
-					n.snowballer.start(ctx, done)
-				}
-			case err := <-done:
-				actor.EmptyRootContext.Send(n.snowballPid, &snowballerDone{err: err})
+				actor.EmptyRootContext.Send(n.snowballPid, &snowballTicker{ctx: ctx})
 			}
 		}
 	}()
@@ -242,6 +233,26 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 		go func() {
 			n.handleStream(msg)
 		}()
+	case *snowballTicker:
+		if !n.snowballer.Started() && len(n.mempool) > 0 {
+			go func() {
+				n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
+				n.snowballer.snowball.Prefer(&Vote{
+					Block: &Block{
+						Height:       n.currentRound,
+						Transactions: n.mempool.Keys(),
+					},
+				})
+				done := make(chan error, 1)
+				n.snowballer.start(msg.ctx, done)
+				select {
+				case <-msg.ctx.Done():
+					return
+				case err := <-done:
+					actor.EmptyRootContext.Send(n.snowballPid, &snowballerDone{err: err})
+				}
+			}()
+		}
 	case *snowballerDone:
 		n.logger.Infof("round %d decided with err: %v", n.currentRound, msg.err)
 	}

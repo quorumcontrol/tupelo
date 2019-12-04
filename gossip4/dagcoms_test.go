@@ -73,7 +73,7 @@ func TestEndToEnd(t *testing.T) {
 	// logging.SetLogLevel("pubsub", "debug")
 	testLogger := logging.Logger("TestEndToEnd")
 	logging.SetLogLevel("TestEndToEnd", "INFO")
-	logging.SetLogLevel("snowball", "DEBUG")
+	logging.SetLogLevel("snowball", "INFO")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -97,7 +97,7 @@ func TestEndToEnd(t *testing.T) {
 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrapper)
 
 	for i, node := range nodes {
-		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "debug")
+		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
 
 		if i > 0 {
 			cl, err := node.p2pNode.Bootstrap(bootAddrs)
