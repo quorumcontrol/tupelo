@@ -30,6 +30,7 @@ require (
 	github.com/libp2p/go-msgio v0.0.4
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
+	github.com/polydawn/refmt v0.0.0-20190807091052-3d65705ee9f1
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v0.9.1
 	github.com/quorumcontrol/messages/v2 v2.0.2

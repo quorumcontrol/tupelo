@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
+	"github.com/multiformats/go-multihash"
 
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -26,7 +28,24 @@ type snowballer struct {
 	host     p2p.Node
 	group    *types.NotaryGroup
 	logger   logging.EventLogger
+	cache    *lru.Cache
 	started  bool
+}
+
+func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
+	cache, err := lru.New(50)
+	if err != nil {
+		panic(err)
+	}
+	return &snowballer{
+		node:     n,
+		snowball: snowball,
+		host:     n.p2pNode,
+		group:    n.notaryGroup,
+		logger:   n.logger,
+		cache:    cache,
+		height:   height,
+	}
 }
 
 func (snb *snowballer) Started() bool {
@@ -84,15 +103,34 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					wg.Done()
 					return
 				}
-				var block Block
-				err = cbornode.DecodeInto(bits, &block)
+
+				id, err := cidFromBits(bits)
 				if err != nil {
-					snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
+					snb.logger.Warningf("error creating bits to %s: %v", signer.ID, err)
 					s.Close()
 					wg.Done()
 					return
 				}
-				respChan <- block
+
+				var block *Block
+
+				blkInter, ok := snb.cache.Get(id)
+				if ok {
+					block = blkInter.(*Block)
+				} else {
+					blk := &Block{}
+					err = cbornode.DecodeInto(bits, blk)
+					if err != nil {
+						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
+						s.Close()
+						wg.Done()
+						return
+					}
+					block = blk
+					snb.cache.Add(id, block)
+				}
+
+				respChan <- *block
 				wg.Done()
 			}()
 		}
@@ -130,16 +168,25 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 	done <- nil
 }
 
+func cidFromBits(bits []byte) (cid.Cid, error) {
+	hash, err := multihash.Sum(bits, multihash.SHA2_256, -1)
+	if err != nil {
+		return cid.Undef, err
+	}
+	return cid.NewCidV1(cid.DagCBOR, hash), nil
+}
+
 func (snb *snowballer) mempoolHasAllTransactions(transactions []cid.Cid) bool {
 	snb.node.RLock()
 	defer snb.node.RUnlock()
+	hasAll := true
 	for _, txCID := range transactions {
 		_, ok := snb.node.mempool[txCID]
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", txCID.String())
 			actor.EmptyRootContext.Send(snb.node.pid, txCID)
-			return false
+			hasAll = false
 		}
 	}
-	return true
+	return hasAll
 }

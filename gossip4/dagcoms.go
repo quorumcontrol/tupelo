@@ -93,6 +93,7 @@ type Node struct {
 	pid         *actor.PID
 	snowballPid *actor.PID
 	syncerPid   *actor.PID
+	count       int
 }
 
 type NewNodeOptions struct {
@@ -153,14 +154,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		inflight:     cache,
 		mempool:      make(mempool),
 	}
-	networkedSnowball := &snowballer{
-		snowball: r.snowball,
-		height:   r.height,
-		host:     opts.P2PNode,
-		group:    opts.NotaryGroup,
-		logger:   logger,
-		node:     n,
-	}
+	networkedSnowball := newSnowballer(n, r.height, r.snowball)
 	n.snowballer = networkedSnowball
 	return n, nil
 }
@@ -191,7 +185,7 @@ func (n *Node) Start(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		n.logger.Debugf("node stopped")
+		n.logger.Infof("node stopped having received: %d", n.count)
 		actor.EmptyRootContext.Poison(n.pid)
 	}()
 
@@ -279,18 +273,11 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	// probably need to recheck what's left in the mempool too for now we're ignoring all that as a PoC
 	n.Lock() //TODO: WTF do I have locks in an actor?
 	defer n.Unlock()
-	n.logger.Debugf("lock acquired for done")
+	n.logger.Infof("lock acquired for done: %d", preferred.Block.Height)
 
 	round := newRound(n.currentRound + 1)
 	n.rounds[n.currentRound+1] = round
-	n.snowballer = &snowballer{
-		snowball: round.snowball,
-		height:   round.height,
-		host:     n.p2pNode,
-		group:    n.notaryGroup,
-		logger:   n.logger,
-		node:     n,
-	}
+	n.snowballer = newSnowballer(n, round.height, round.snowball)
 
 	var rootNode *hamt.Node
 	if n.currentRound == 0 {
@@ -396,13 +383,8 @@ func (n *Node) handleStream(s network.Stream) {
 			response = *preferred.Block
 		}
 	}
-	sw := &safewrap.SafeWrap{}
-	wrapped := sw.WrapObject(response)
-	if sw.Err != nil {
-		n.logger.Errorf("error wrapping: %v", err)
-		s.Close()
-		return
-	}
+	wrapped := response.Wrapped()
+
 	err = writer.WriteMsg(wrapped.RawData())
 	if err != nil {
 		n.logger.Warningf("error writing: %v", err)
@@ -418,6 +400,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 	defer cancel()
 	n.Lock()
 	defer n.Unlock()
+	n.count++
 
 	n.logger.Debugf("handling message: ObjectId: %s, Height: %d", abr.ObjectId, abr.Height)
 	// look into the hamt, and get the current ABR
@@ -485,7 +468,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 }
 
 func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
-	n.logger.Debugf("storing in inflight %s height: %d", string(abr.ObjectId), abr.Height)
+	n.logger.Infof("storing in inflight %s height: %d", string(abr.ObjectId), abr.Height)
 	n.inflight.Add(inFlightID(abr.ObjectId, abr.Height), abr)
 }
 

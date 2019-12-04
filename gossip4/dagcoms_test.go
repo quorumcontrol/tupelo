@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
 
 	"github.com/stretchr/testify/require"
@@ -74,10 +76,11 @@ func TestEndToEnd(t *testing.T) {
 	testLogger := logging.Logger("TestEndToEnd")
 	logging.SetLogLevel("TestEndToEnd", "INFO")
 	logging.SetLogLevel("snowball", "INFO")
+	logging.SetLogLevel("pubsub", "ERROR")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		testLogger.Debugf("test finished")
+		testLogger.Infof("test finished")
 		cancel()
 	}()
 
@@ -97,7 +100,7 @@ func TestEndToEnd(t *testing.T) {
 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrapper)
 
 	for i, node := range nodes {
-		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "DEBUG")
+		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
 
 		if i > 0 {
 			cl, err := node.p2pNode.Bootstrap(bootAddrs)
@@ -121,9 +124,7 @@ func TestEndToEnd(t *testing.T) {
 	err = n.p2pNode.(*p2p.LibP2PHost).StartDiscovery("gossip4")
 	require.Nil(t, err)
 
-	// n.p2pNode.(*p2p.LibP2PHost).WaitForDiscovery("gossip4", 1, 10*time.Second)
-
-	transCount := 100
+	transCount := 500
 	trans := make([]*services.AddBlockRequest, transCount)
 
 	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
@@ -135,18 +136,62 @@ func TestEndToEnd(t *testing.T) {
 		id, err := testStore.Put(ctx, tran)
 		require.Nil(t, err)
 		testLogger.Infof("transaction %d has cid %s", i, id.String())
-
+		time.Sleep(time.Duration((1000 / transCount)) * time.Millisecond)
 		trans[i] = &tran
 	}
+
+	// f, err := os.Create("endtoend.prof")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
 
 	for i, trans := range trans {
 		bits, err := trans.Marshal()
 		require.Nil(t, err)
 
 		testLogger.Debugf("sending %d (%s)", i, string(trans.ObjectId))
-		err = bootstrapper.GetPubSub().Publish(transactionTopic, bits)
+		nodes[i%(len(nodes)-1)].pubsub.Publish(transactionTopic, bits)
 		require.Nil(t, err)
 	}
 
-	time.Sleep(3 * time.Second)
+	allIncluded := func() bool {
+		n.RLock()
+		defer n.RUnlock()
+
+		if n.currentRound == 0 {
+			return false
+		}
+
+		for _, tx := range trans {
+			did := string(tx.ObjectId)
+			var tip cid.Cid
+			err := n.rounds[n.currentRound-1].state.Find(ctx, did, &tip)
+			if err == hamt.ErrNotFound {
+				return false
+			}
+			require.Nil(t, err)
+		}
+		return true
+	}
+
+	// wait for all transCount transactions to be included in the currentCommit
+	timer := time.NewTimer(10 * time.Second)
+looper:
+	for {
+		select {
+		case <-timer.C:
+			testLogger.Debugf("failing on timeout")
+			t.Fatalf("timeout waiting for all transactions")
+		default:
+			// do nothing
+		}
+		if allIncluded() {
+			testLogger.Debugf("found all transactions at height %d", n.currentRound-1)
+			break looper
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	timer.Stop()
 }
