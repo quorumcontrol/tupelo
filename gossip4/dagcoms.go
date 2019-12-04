@@ -69,6 +69,8 @@ type snowballTicker struct {
 type Node struct {
 	sync.RWMutex // it's weird to mix these synchronization primitives with actors, but it's expeditious at the moment - CODE CLEANUP please.
 
+	name string
+
 	p2pNode     p2p.Node
 	signKey     *bls.SignKey
 	notaryGroup *types.NotaryGroup
@@ -90,6 +92,7 @@ type Node struct {
 
 	pid         *actor.PID
 	snowballPid *actor.PID
+	syncerPid   *actor.PID
 }
 
 type NewNodeOptions struct {
@@ -97,7 +100,7 @@ type NewNodeOptions struct {
 	SignKey        *bls.SignKey
 	NotaryGroup    *types.NotaryGroup
 	DagStore       nodestore.DagStore
-	Logger         logging.EventLogger
+	Name           string
 	PreviousRounds roundHolder
 	CurrentRound   uint64
 }
@@ -113,7 +116,11 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		}
 	}
 
-	logger := logging.Logger(fmt.Sprintf("node-%d", signerIndex))
+	if opts.Name == "" {
+		opts.Name = fmt.Sprintf("node-%d", signerIndex)
+	}
+
+	logger := logging.Logger(opts.Name)
 
 	logger.Debugf("signerIndex: %d", signerIndex)
 
@@ -133,6 +140,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	}
 
 	n := &Node{
+		name:         opts.Name,
 		p2pNode:      opts.P2PNode,
 		signKey:      opts.SignKey,
 		notaryGroup:  opts.NotaryGroup,
@@ -161,19 +169,30 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 // 	return hamt.LoadNode(ctx, store, id, hamt.UseTreeBitWidth(5))
 // }
 
+func (n *Node) setupSnowball(actorContext actor.Context) {
+	snowballPid, err := actorContext.SpawnNamed(actor.PropsFromFunc(n.SnowBallReceive), "snowballProcess")
+	if err != nil {
+		panic(err)
+	}
+	n.snowballPid = snowballPid
+	n.p2pNode.SetStreamHandler(gossip4Protocol, func(s network.Stream) {
+		actor.EmptyRootContext.Send(snowballPid, s)
+	})
+}
+
 func (n *Node) Start(ctx context.Context) error {
-	pid := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.Receive))
+	pid, err := actor.EmptyRootContext.SpawnNamed(actor.PropsFromFunc(n.Receive), n.name)
+	if err != nil {
+		return fmt.Errorf("error starting actor: %w", err)
+	}
 	n.pid = pid
 
-	n.snowballPid = actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.SnowBallReceive))
-
-	n.logger.Debugf("pid: %s, snowballPid: %s", pid.Id, n.snowballPid.Id)
+	n.logger.Debugf("pid: %s", pid.Id)
 
 	go func() {
 		<-ctx.Done()
 		n.logger.Debugf("node stopped")
 		actor.EmptyRootContext.Poison(n.pid)
-		actor.EmptyRootContext.Poison(n.snowballPid)
 	}()
 
 	validator, err := newTransactionValidator(n.logger, n.notaryGroup, pid)
@@ -192,10 +211,6 @@ func (n *Node) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error subscribing %v", err)
 	}
-
-	n.p2pNode.SetStreamHandler(gossip4Protocol, func(s network.Stream) {
-		actor.EmptyRootContext.Send(n.snowballPid, s)
-	})
 
 	// don't do anything with these messages because we actually get them
 	// fully decoded in the actor spun up above
@@ -217,7 +232,9 @@ func (n *Node) Start(ctx context.Context) error {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				actor.EmptyRootContext.Send(n.snowballPid, &snowballTicker{ctx: ctx})
+				if n.snowballPid != nil {
+					actor.EmptyRootContext.Send(n.snowballPid, &snowballTicker{ctx: ctx})
+				}
 			}
 		}
 	}()
@@ -229,6 +246,21 @@ func (n *Node) Start(ctx context.Context) error {
 
 func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
+	case *actor.Started:
+		syncerPid, err := actorContext.SpawnNamed(actor.PropsFromProducer(func() actor.Actor {
+			return &transactionGetter{
+				nodeActor: actorContext.Self(),
+				logger:    n.logger,
+				store:     n.hamtStore,
+			}
+		}), "syncer")
+		if err != nil {
+			panic(err)
+		}
+		n.syncerPid = syncerPid
+		n.setupSnowball(actorContext)
+	case cid.Cid:
+		actorContext.Forward(n.syncerPid)
 	case *services.AddBlockRequest:
 		n.handleAddBlockRequest(actorContext, msg)
 	case *snowballerDone:
@@ -240,16 +272,17 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 
 	preferred := n.snowballer.snowball.Preferred()
 	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", n.currentRound, msg.err, preferred.ID(), len(preferred.Block.Transactions))
+	n.logger.Debugf("round %d transactions %v", n.currentRound, preferred.Block.Transactions)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
 	// increase the currentRound and create a new Round in the roundHolder
 	// state updating should be more robust here to make sure transactions don't stomp on each other and can probably happen in the background
 	// probably need to recheck what's left in the mempool too for now we're ignoring all that as a PoC
 	n.Lock() //TODO: WTF do I have locks in an actor?
 	defer n.Unlock()
+	n.logger.Debugf("lock acquired for done")
 
-	n.currentRound++
-	round := newRound(n.currentRound)
-	n.rounds[n.currentRound] = round
+	round := newRound(n.currentRound + 1)
+	n.rounds[n.currentRound+1] = round
 	n.snowballer = &snowballer{
 		snowball: round.snowball,
 		height:   round.height,
@@ -260,10 +293,10 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	}
 
 	var rootNode *hamt.Node
-	if n.currentRound == 1 {
+	if n.currentRound == 0 {
 		rootNode = hamt.NewNode(n.hamtStore, hamt.UseTreeBitWidth(5))
 	} else {
-		n.logger.Debugf("previous state: %v", n.rounds[n.currentRound-1].state)
+		n.logger.Debugf("previous state for %d: %v", n.currentRound-1, n.rounds[n.currentRound-1].state)
 		rootNode = n.rounds[n.currentRound-1].state.Copy()
 	}
 	n.logger.Debugf("current round: %d, node: %v", n.currentRound, rootNode)
@@ -274,11 +307,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
 			continue
 		}
-		id, err := n.hamtStore.Put(msg.ctx, abr)
-		if err != nil {
-			panic(fmt.Errorf("error putting abr: %w", err))
-		}
-		err = rootNode.Set(msg.ctx, string(abr.ObjectId), id)
+		err := rootNode.Set(msg.ctx, string(abr.ObjectId), txCID)
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
@@ -288,9 +317,10 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	if err != nil {
 		panic(fmt.Errorf("error flushing rootNode: %w", err))
 	}
-	r := n.rounds[n.currentRound-1]
-	r.state = rootNode
-	n.rounds[n.currentRound-1] = r
+	n.logger.Debugf("setting round at %d to rootNode: %v", n.currentRound, rootNode)
+	n.rounds[n.currentRound].state = rootNode
+	n.logger.Debugf("after setting: %v", n.rounds[n.currentRound].state)
+	n.currentRound++
 }
 
 func (n *Node) SnowBallReceive(actorContext actor.Context) {
@@ -327,7 +357,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 }
 
 func (n *Node) handleStream(s network.Stream) {
-	n.logger.Debugf("handling stream from")
+	// n.logger.Debugf("handling stream from")
 	s.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	s.SetReadDeadline(time.Now().Add(1 * time.Second))
 	reader := msgio.NewVarintReader(s)
@@ -351,15 +381,18 @@ func (n *Node) handleStream(s network.Stream) {
 		s.Close()
 		return
 	}
-	n.logger.Debugf("remote looking for height: %d", height)
-	// TODO: this is a concurrent read and so needs to be locked, ignoring for now
+	// n.logger.Debugf("remote looking for height: %d", height)
+
+	n.RLock()
 	r, ok := n.rounds[height]
+	n.RUnlock()
+
 	response := Block{Height: height}
 	if ok {
-		n.logger.Debugf("existing round %d", height)
+		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
 		if preferred != nil {
-			n.logger.Debugf("existing preferred; %v", preferred)
+			// n.logger.Debugf("existing preferred; %v", preferred)
 			response = *preferred.Block
 		}
 	}
@@ -461,13 +494,13 @@ func inFlightID(objectID []byte, height uint64) string {
 }
 
 func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {
-	sw := &safewrap.SafeWrap{}
-	wrapped := sw.WrapObject(abr)
-	if sw.Err != nil {
-		return sw.Err
+	id, err := n.hamtStore.Put(ctx, abr)
+	if err != nil {
+		return fmt.Errorf("error putting abr: %w", err)
 	}
-	n.logger.Debugf("storing in mempool %s", wrapped.Cid().String())
-	n.mempool[wrapped.Cid()] = abr
+
+	n.logger.Debugf("storing in mempool %s", id.String())
+	n.mempool[id] = abr
 	nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 	// if the next height Tx is here we can also queue that up
 	next, ok := n.inflight.Get(nextKey)

@@ -148,5 +148,5 @@ func TestEndToEnd(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(3 * time.Second)
 }

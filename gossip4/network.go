@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log"
@@ -136,6 +137,7 @@ func (snb *snowballer) mempoolHasAllTransactions(transactions []cid.Cid) bool {
 		_, ok := snb.node.mempool[txCID]
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", txCID.String())
+			actor.EmptyRootContext.Send(snb.node.pid, txCID)
 			return false
 		}
 	}
