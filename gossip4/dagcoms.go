@@ -59,6 +59,7 @@ func init() {
 
 type snowballerDone struct {
 	err error
+	ctx context.Context
 }
 
 type snowballTicker struct {
@@ -131,15 +132,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		opts.PreviousRounds[opts.CurrentRound] = r
 	}
 
-	networkedSnowball := &snowballer{
-		snowball: r.snowball,
-		height:   r.height,
-		host:     opts.P2PNode,
-		group:    opts.NotaryGroup,
-		logger:   logger,
-	}
-
-	return &Node{
+	n := &Node{
 		p2pNode:      opts.P2PNode,
 		signKey:      opts.SignKey,
 		notaryGroup:  opts.NotaryGroup,
@@ -150,9 +143,18 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		signerIndex:  signerIndex,
 		logger:       logger,
 		inflight:     cache,
-		snowballer:   networkedSnowball,
 		mempool:      make(mempool),
-	}, nil
+	}
+	networkedSnowball := &snowballer{
+		snowball: r.snowball,
+		height:   r.height,
+		host:     opts.P2PNode,
+		group:    opts.NotaryGroup,
+		logger:   logger,
+		node:     n,
+	}
+	n.snowballer = networkedSnowball
+	return n, nil
 }
 
 // func loadNode(ctx context.Context, store *hamt.CborIpldStore, id cid.Cid) (*hamt.Node, error) {
@@ -164,6 +166,8 @@ func (n *Node) Start(ctx context.Context) error {
 	n.pid = pid
 
 	n.snowballPid = actor.EmptyRootContext.Spawn(actor.PropsFromFunc(n.SnowBallReceive))
+
+	n.logger.Debugf("pid: %s, snowballPid: %s", pid.Id, n.snowballPid.Id)
 
 	go func() {
 		<-ctx.Done()
@@ -228,9 +232,65 @@ func (n *Node) Receive(actorContext actor.Context) {
 	case *services.AddBlockRequest:
 		n.handleAddBlockRequest(actorContext, msg)
 	case *snowballerDone:
-		preferred := n.snowballer.snowball.Preferred()
-		n.logger.Infof("round %d decided with err: %v: %s (len: %d)", n.currentRound, msg.err, preferred.ID(), len(preferred.Block.Transactions))
+		n.handleSnowballerDone(msg)
 	}
+}
+
+func (n *Node) handleSnowballerDone(msg *snowballerDone) {
+
+	preferred := n.snowballer.snowball.Preferred()
+	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", n.currentRound, msg.err, preferred.ID(), len(preferred.Block.Transactions))
+	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
+	// increase the currentRound and create a new Round in the roundHolder
+	// state updating should be more robust here to make sure transactions don't stomp on each other and can probably happen in the background
+	// probably need to recheck what's left in the mempool too for now we're ignoring all that as a PoC
+	n.Lock() //TODO: WTF do I have locks in an actor?
+	defer n.Unlock()
+
+	n.currentRound++
+	round := newRound(n.currentRound)
+	n.rounds[n.currentRound] = round
+	n.snowballer = &snowballer{
+		snowball: round.snowball,
+		height:   round.height,
+		host:     n.p2pNode,
+		group:    n.notaryGroup,
+		logger:   n.logger,
+		node:     n,
+	}
+
+	var rootNode *hamt.Node
+	if n.currentRound == 1 {
+		rootNode = hamt.NewNode(n.hamtStore, hamt.UseTreeBitWidth(5))
+	} else {
+		n.logger.Debugf("previous state: %v", n.rounds[n.currentRound-1].state)
+		rootNode = n.rounds[n.currentRound-1].state.Copy()
+	}
+	n.logger.Debugf("current round: %d, node: %v", n.currentRound, rootNode)
+
+	for _, txCID := range preferred.Block.Transactions {
+		abr, ok := n.mempool[txCID]
+		if !ok {
+			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
+			continue
+		}
+		id, err := n.hamtStore.Put(msg.ctx, abr)
+		if err != nil {
+			panic(fmt.Errorf("error putting abr: %w", err))
+		}
+		err = rootNode.Set(msg.ctx, string(abr.ObjectId), id)
+		if err != nil {
+			panic(fmt.Errorf("error setting hamt: %w", err))
+		}
+		delete(n.mempool, txCID) //TODO: these should be shipped to a state updater
+	}
+	err := rootNode.Flush(msg.ctx)
+	if err != nil {
+		panic(fmt.Errorf("error flushing rootNode: %w", err))
+	}
+	r := n.rounds[n.currentRound-1]
+	r.state = rootNode
+	n.rounds[n.currentRound-1] = r
 }
 
 func (n *Node) SnowBallReceive(actorContext actor.Context) {
@@ -244,6 +304,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 		defer n.RUnlock()
 		if !n.snowballer.Started() && len(n.mempool) > 0 {
 			go func() {
+				n.RLock()
 				n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
 				n.snowballer.snowball.Prefer(&Vote{
 					Block: &Block{
@@ -251,13 +312,14 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 						Transactions: n.mempool.Keys(),
 					},
 				})
+				n.RUnlock()
 				done := make(chan error, 1)
 				n.snowballer.start(msg.ctx, done)
 				select {
 				case <-msg.ctx.Done():
 					return
 				case err := <-done:
-					actor.EmptyRootContext.Send(n.pid, &snowballerDone{err: err})
+					actor.EmptyRootContext.Send(n.pid, &snowballerDone{err: err, ctx: msg.ctx})
 				}
 			}()
 		}
@@ -321,6 +383,8 @@ func (n *Node) handleStream(s network.Stream) {
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+	n.Lock()
+	defer n.Unlock()
 
 	n.logger.Debugf("handling message: ObjectId: %s, Height: %d", abr.ObjectId, abr.Height)
 	// look into the hamt, and get the current ABR
@@ -402,10 +466,8 @@ func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) erro
 	if sw.Err != nil {
 		return sw.Err
 	}
-	n.Lock() //TODO: wtf am I doing here with a lock in an actor?
 	n.logger.Debugf("storing in mempool %s", wrapped.Cid().String())
 	n.mempool[wrapped.Cid()] = abr
-	n.Unlock()
 	nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 	// if the next height Tx is here we can also queue that up
 	next, ok := n.inflight.Get(nextKey)
@@ -436,6 +498,8 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 	if !ok {
 		return nil, fmt.Errorf("we don't have the previous round")
 	}
+
+	n.logger.Debugf("previous round: %v", lockedRound)
 
 	err := lockedRound.state.Find(ctx, objectID, &abrCid)
 	if err != nil {

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
@@ -19,6 +19,7 @@ import (
 type snowballer struct {
 	sync.RWMutex
 
+	node     *Node
 	snowball *Snowball
 	height   uint64
 	host     p2p.Node
@@ -99,14 +100,14 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 		votes := make([]*Vote, snb.snowball.k)
 		i := 0
 		for block := range respChan {
-			snb.logger.Debugf("received block: %v", block)
-			//TODO: here we should throw away blocks with Txs we don't know about.
+			// snb.logger.Debugf("received block: %v", block)
 			votes[i] = &Vote{
 				Block: &block,
 			}
-			if len(block.Transactions) == 0 {
+			if len(block.Transactions) == 0 || !snb.mempoolHasAllTransactions(block.Transactions) {
 				votes[i].Nil()
 			}
+
 			i++
 		}
 
@@ -119,11 +120,24 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 		}
 
 		votes = calculateTallies(votes)
-		snb.logger.Debugf("votes: %s", spew.Sdump(votes))
+		// snb.logger.Debugf("votes: %s", spew.Sdump(votes))
 
 		snb.snowball.Tick(votes)
-		snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
+		// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 	}
 
 	done <- nil
+}
+
+func (snb *snowballer) mempoolHasAllTransactions(transactions []cid.Cid) bool {
+	snb.node.RLock()
+	defer snb.node.RUnlock()
+	for _, txCID := range transactions {
+		_, ok := snb.node.mempool[txCID]
+		if !ok {
+			snb.logger.Debugf("missing tx: %s", txCID.String())
+			return false
+		}
+	}
+	return true
 }

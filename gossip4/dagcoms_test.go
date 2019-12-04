@@ -97,7 +97,7 @@ func TestEndToEnd(t *testing.T) {
 	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrapper)
 
 	for i, node := range nodes {
-		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
+		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "DEBUG")
 
 		if i > 0 {
 			cl, err := node.p2pNode.Bootstrap(bootAddrs)
@@ -123,7 +123,7 @@ func TestEndToEnd(t *testing.T) {
 
 	// n.p2pNode.(*p2p.LibP2PHost).WaitForDiscovery("gossip4", 1, 10*time.Second)
 
-	transCount := 200
+	transCount := 100
 	trans := make([]*services.AddBlockRequest, transCount)
 
 	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
@@ -148,5 +148,5 @@ func TestEndToEnd(t *testing.T) {
 		require.Nil(t, err)
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 }
