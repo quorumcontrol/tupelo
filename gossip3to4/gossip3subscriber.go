@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/opentracing/opentracing-go"
 	g3services "github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -55,14 +56,13 @@ func (g3s *Gossip3Subscriber) handleStarted(actorCtx actor.Context) {
 }
 
 func (g3s *Gossip3Subscriber) handleAddBlockRequest(actorCtx actor.Context, abr *g3services.AddBlockRequest) {
-	// TODO: Send metric event here
+	sp := opentracing.StartSpan("add-block-request-gossip3-subscriber")
+	defer sp.Finish()
 
 	g4ABR, err := ConvertABR(abr)
 	if err != nil {
 		panic(fmt.Errorf("error converting gossip3 ABR to gossip4 format: %v", err))
 	}
-
-	fmt.Printf("gossip4 ABR: %+v\n", g4ABR)
 
 	actorCtx.Respond(g4ABR)
 }

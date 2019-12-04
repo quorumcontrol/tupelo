@@ -10,6 +10,7 @@ import (
 
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/multiformats/go-multihash"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -238,6 +239,9 @@ func (n *Node) commitCheckpoint(actorContext actor.Context, cp *Checkpoint) {
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+
+	sp := opentracing.StartSpan("add-block-request-gossip4-node")
+	defer sp.Finish()
 
 	n.logger.Debugf("handling message: ObjectId: %s, Height: %d", abr.ObjectId, abr.Height)
 	// look into the hamt, and get the current ABR

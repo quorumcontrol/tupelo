@@ -3,6 +3,7 @@ package gossip3to4
 import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/AsynkronIT/protoactor-go/plugin"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -36,11 +37,12 @@ func NewNodeProps(cfg *NodeConfig) *actor.Props {
 }
 
 func (n *Node) Receive(actorCtx actor.Context) {
-	switch msg := actorCtx.Message().(type) {
+	switch actorCtx.Message().(type) {
 	case *actor.Started:
 		n.handleStarted(actorCtx)
 	case *services.AddBlockRequest:
-		n.handleAddBlockRequest(actorCtx, msg)
+		// these are converted ABRs coming back from the gossip3 subscriber
+		n.handleAddBlockRequest(actorCtx)
 	}
 }
 
@@ -52,8 +54,9 @@ func (n *Node) handleStarted(actorCtx actor.Context) {
 	n.gossip3Sub = actorCtx.Spawn(NewGossip3SubscriberProps(g3sCfg))
 }
 
-func (n *Node) handleAddBlockRequest(actorCtx actor.Context, abr *services.AddBlockRequest) {
-	// TODO: Send some metrics here
+func (n *Node) handleAddBlockRequest(actorCtx actor.Context) {
+	sp := opentracing.StartSpan("add-block-request-gossip3-to-gossip4")
+	defer sp.Finish()
 
 	actorCtx.Forward(n.gossip4Node)
 }
