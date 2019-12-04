@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -65,6 +66,8 @@ type snowballTicker struct {
 }
 
 type Node struct {
+	sync.RWMutex // it's weird to mix these synchronization primitives with actors, but it's expeditious at the moment - CODE CLEANUP please.
+
 	p2pNode     p2p.Node
 	signKey     *bls.SignKey
 	notaryGroup *types.NotaryGroup
@@ -224,6 +227,9 @@ func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *services.AddBlockRequest:
 		n.handleAddBlockRequest(actorContext, msg)
+	case *snowballerDone:
+		preferred := n.snowballer.snowball.Preferred()
+		n.logger.Infof("round %d decided with err: %v: %s (len: %d)", n.currentRound, msg.err, preferred.ID(), len(preferred.Block.Transactions))
 	}
 }
 
@@ -234,6 +240,8 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 			n.handleStream(msg)
 		}()
 	case *snowballTicker:
+		n.RLock()
+		defer n.RUnlock()
 		if !n.snowballer.Started() && len(n.mempool) > 0 {
 			go func() {
 				n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
@@ -249,12 +257,10 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				case <-msg.ctx.Done():
 					return
 				case err := <-done:
-					actor.EmptyRootContext.Send(n.snowballPid, &snowballerDone{err: err})
+					actor.EmptyRootContext.Send(n.pid, &snowballerDone{err: err})
 				}
 			}()
 		}
-	case *snowballerDone:
-		n.logger.Infof("round %d decided with err: %v", n.currentRound, msg.err)
 	}
 }
 
@@ -396,9 +402,10 @@ func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) erro
 	if sw.Err != nil {
 		return sw.Err
 	}
+	n.Lock() //TODO: wtf am I doing here with a lock in an actor?
 	n.logger.Debugf("storing in mempool %s", wrapped.Cid().String())
 	n.mempool[wrapped.Cid()] = abr
-
+	n.Unlock()
 	nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 	// if the next height Tx is here we can also queue that up
 	next, ok := n.inflight.Get(nextKey)

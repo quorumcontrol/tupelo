@@ -123,7 +123,7 @@ func TestEndToEnd(t *testing.T) {
 
 	// n.p2pNode.(*p2p.LibP2PHost).WaitForDiscovery("gossip4", 1, 10*time.Second)
 
-	transCount := 20
+	transCount := 200
 	trans := make([]*services.AddBlockRequest, transCount)
 
 	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
