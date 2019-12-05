@@ -508,7 +508,6 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 	}
 
 	var abrCid cid.Cid
-	var abr *services.AddBlockRequest
 
 	lockedRound, ok := n.rounds[n.currentRound-1]
 	if !ok {
@@ -524,6 +523,8 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 		}
 		return nil, fmt.Errorf("error getting abrCID: %v", err)
 	}
+
+	abr := &services.AddBlockRequest{}
 
 	if !abrCid.Equals(cid.Undef) {
 		err = n.hamtStore.Get(ctx, abrCid, abr)
