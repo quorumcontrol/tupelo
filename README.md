@@ -1,5 +1,3 @@
-[![CircleCI](https://circleci.com/gh/quorumcontrol/tupelo.svg?style=svg&circle-token=a3b4706845320feab8531490674c95d0c72f2c62)](https://circleci.com/gh/quorumcontrol/tupelo)
-
 ## Dependencies
 
 * Go >= 1.12
