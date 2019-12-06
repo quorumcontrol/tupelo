@@ -1,74 +1,98 @@
-// Copyright © 2018 NAME HERE <EMAIL ADDRESS>
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package cmd
 
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
-	"github.com/quorumcontrol/tupelo/nodebuilder"
-
+	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/spf13/cobra"
+
+	"github.com/quorumcontrol/tupelo/gossip3to4"
+	"github.com/quorumcontrol/tupelo/gossip4"
+	"github.com/quorumcontrol/tupelo/nodebuilder"
 )
 
-var (
-	testnodePort int
+func runGossip4Node(ctx context.Context, config *nodebuilder.Config, group *types.NotaryGroup) (*actor.PID, error) {
+	p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error creating p2p node: %v", err)
+	}
 
-	enableJaegerTracing  bool
-	enableElasticTracing bool
-)
+	nodeCfg := &gossip4.NewNodeOptions{
+		P2PNode:     p2pNode,
+		SignKey:     config.PrivateKeySet.SignKey,
+		NotaryGroup: group,
+		DagStore:    peer,
+	}
 
-// testnodeCmd represents the test-node command
-var testnodeCmd = &cobra.Command{
-	Use:   "test-node [index of key]",
-	Short: "Run a tupelo node",
+	node, err := gossip4.NewNode(ctx, nodeCfg)
+	if err != nil {
+		return nil, fmt.Errorf("error creating new node: %v", err)
+	}
+
+	err = node.Start(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting node: %v", err)
+	}
+
+	return node.PID(), nil
+}
+
+func runGossip3To4Node(ctx context.Context, group *types.NotaryGroup, gossip4PID *actor.PID) error {
+	p2pNode, _, err := p2p.NewHostAndBitSwapPeer(ctx)
+	if err != nil {
+		return fmt.Errorf("error creating p2p node: %v", err)
+	}
+
+	actorCtx := actor.EmptyRootContext
+	actorCtx.Spawn(gossip3to4.NewNodeProps(&gossip3to4.NodeConfig{
+		P2PNode:     p2pNode,
+		NotaryGroup: group,
+		Gossip4Node: gossip4PID,
+	}))
+
+	return nil
+}
+
+var nodeCmd = &cobra.Command{
+	Use:   "node",
+	Short: "Run a tupelo node (gossip4)",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		remote.Start()
-
 		config := nodebuilderConfig
 		if config == nil {
-			var err error
-			config, err = nodebuilder.LegacyConfig(configNamespace, testnodePort, enableElasticTracing, enableJaegerTracing, overrideKeysFile)
-			if err != nil {
-				panic(fmt.Errorf("error getting legacy config: %v", err))
-			}
+			panic(fmt.Errorf("error getting node config"))
 		}
 
-		nb := &nodebuilder.NodeBuilder{Config: config}
-		err := nb.Start(ctx)
+		// get the notary group
+		group, err := config.NotaryGroupConfig.NotaryGroup(nil)
 		if err != nil {
-			panic(fmt.Errorf("error starting: %v", err))
+			panic(fmt.Errorf("error generating notary group: %v", err))
 		}
-		err = nb.Host().WaitForBootstrap(len(config.NotaryGroupConfig.Signers)/2, 30*time.Second)
+
+		// spin up a gossip4 node
+		pid, err := runGossip4Node(ctx, config, group)
 		if err != nil {
-			panic(fmt.Errorf("error starting: %v", err))
+			panic(err)
 		}
-		fmt.Printf("started signer host %s on %v\n", nb.Host().Identity(), nb.Host().Addresses())
-		select {}
+
+		// spin up a gossip3to4 node
+		err = runGossip3To4Node(ctx, group, pid)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Node running")
+
+		<- make(chan struct{})
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(testnodeCmd)
-	testnodeCmd.Flags().IntVarP(&testnodePort, "port", "p", 0, "what port will the node listen on")
-	testnodeCmd.Flags().BoolVar(&enableJaegerTracing, "jaeger-tracing", false, "enable jaeger tracing")
-	testnodeCmd.Flags().BoolVar(&enableElasticTracing, "elastic-tracing", false, "enable elastic tracing")
+	rootCmd.AddCommand(nodeCmd)
 }

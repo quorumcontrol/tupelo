@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+
 	"github.com/quorumcontrol/tupelo/cmd"
 )
 
