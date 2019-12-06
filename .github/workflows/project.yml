@@ -1,10 +1,9 @@
-on:
-  project_card:
+on: project_card
 name: Add Card Review Date
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - name: hi!
+    - name: hi
       run: |
         echo "Hello world from a project card action!"
