@@ -1,0 +1,14 @@
+name: CI
+
+on:
+  project_card:
+    types: moved
+
+jobs:
+  addDate:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Add re-evaluation date
+      run: echo Hello, world!
