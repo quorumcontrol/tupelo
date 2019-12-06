@@ -1,7 +1,7 @@
 on: project_card
 name: Add Card Review Date
 jobs:
-  test:
+  card:
     runs-on: ubuntu-latest
     steps:
     - name: hi
