@@ -68,6 +68,28 @@ const (
 	privateKeyFile = "private-keys.json"
 )
 
+type printJSONKey struct {
+	*nodebuilder.LegacyPrivateKeySet
+	*nodebuilder.LegacyPublicKeySet
+}
+
+func printJSONKeys(privateKeys []*nodebuilder.LegacyPrivateKeySet, publicKeys []*nodebuilder.LegacyPublicKeySet) {
+	toPrint := make([]*printJSONKey, len(privateKeys))
+	for i := range privateKeys {
+		toPrint[i] = &printJSONKey{
+			privateKeys[i],
+			publicKeys[i],
+		}
+	}
+
+	keysJSON, err := json.Marshal(toPrint)
+	if err != nil {
+		panic(fmt.Errorf("error Error marshaling keys: %v", err))
+	}
+
+	fmt.Println(string(keysJSON))
+}
+
 func writeJSONKeys(privateKeys []*nodebuilder.LegacyPrivateKeySet, publicKeys []*nodebuilder.LegacyPublicKeySet, path string) error {
 	publicKeyJson, err := json.Marshal(publicKeys)
 	if err != nil {
@@ -106,6 +128,8 @@ var generateNodeKeysCmd = &cobra.Command{
 		switch generateNodeKeysOutput {
 		case "text":
 			printTextKeys(privateKeys, publicKeys)
+		case "json":
+			printJSONKeys(privateKeys, publicKeys)
 		case "json-file":
 			err := writeJSONKeys(privateKeys, publicKeys, generateNodeKeysPath)
 			if err != nil {
