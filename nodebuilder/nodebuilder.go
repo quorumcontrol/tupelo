@@ -111,6 +111,10 @@ func (nb *NodeBuilder) StartTracing() {
 
 func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	localKeys := nb.Config.PrivateKeySet
+	if localKeys.SignKey == nil {
+		return fmt.Errorf("must set sign key for signer")
+	}
+
 	localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
 
 	currentPath := signerCurrentPath(nb.Config.StoragePath, localSigner)
