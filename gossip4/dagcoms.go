@@ -451,10 +451,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 			n.logger.Errorf("error getting current: %v", err)
 			return
 		}
-		// err = n.handlePostSave(ctx, actorContext, abr, current)
-		// if err != nil {
-		// 	n.logger.Errorf("error handling postSave: %v", err)
-		// }
+
 		return
 	}
 
