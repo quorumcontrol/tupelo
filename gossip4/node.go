@@ -488,3 +488,7 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 
 	return abr, nil
 }
+
+func (n *Node) PID() *actor.PID {
+	return n.pid
+}
