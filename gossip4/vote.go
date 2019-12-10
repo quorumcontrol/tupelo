@@ -1,6 +1,6 @@
 package gossip4
 
-var ZeroVoteID = "nil"
+var ZeroVoteID = "n"
 
 type Vote struct {
 	Block      *Block
@@ -32,6 +32,9 @@ func (v *Vote) SetTally(n float64) {
 }
 
 func (v *Vote) Length() float64 {
+	if v.Block == nil {
+		return 0
+	}
 	return float64(v.Block.Length())
 }
 
@@ -40,6 +43,7 @@ func calculateTallies(responses []*Vote) []*Vote {
 	votes := make(map[string]*Vote, len(responses))
 
 	for _, res := range responses {
+		snowlog.Debugf("calculateTallies: %s", res.ID())
 		vote, exists := votes[res.ID()]
 		if !exists {
 			vote = res

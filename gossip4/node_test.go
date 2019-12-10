@@ -139,6 +139,7 @@ func TestEndToEnd(t *testing.T) {
 		trans[i] = &tran
 	}
 
+	// Uncomment out to easily run a profile
 	// f, err := os.Create("endtoend.prof")
 	// if err != nil {
 	// 	log.Fatal(err)

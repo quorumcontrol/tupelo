@@ -49,6 +49,7 @@ func (s *Snowball) Reset() {
 func (s *Snowball) Tick(votes []*Vote) {
 	s.Lock()
 	defer s.Unlock()
+	snowlog.Debugf("tick len(votes): %d", len(votes))
 
 	if s.decided {
 		return
@@ -61,6 +62,8 @@ func (s *Snowball) Tick(votes []*Vote) {
 		if vote.ID() == ZeroVoteID {
 			continue
 		}
+
+		snowlog.Debugf("id: %s", vote.ID())
 
 		if majority == nil || vote.Tally() > majority.Tally() {
 			majority = vote
@@ -78,6 +81,7 @@ func (s *Snowball) Tick(votes []*Vote) {
 		s.count = 0
 		return
 	}
+	snowlog.Debugf("majority tally: %f", majority.Tally())
 
 	s.counts[majority.ID()]++
 

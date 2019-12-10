@@ -51,9 +51,9 @@ func (rh *roundHolder) Get(height uint64) (*round, bool) {
 	return r, ok
 }
 
-func (rh *roundHolder) SetCurrent(height uint64, r *round) {
+func (rh *roundHolder) SetCurrent(r *round) {
 	rh.Lock()
-	rh.rounds[height] = r
-	rh.currentRound = height
+	rh.rounds[r.height] = r
+	rh.currentRound = r.height
 	rh.Unlock()
 }

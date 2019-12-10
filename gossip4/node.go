@@ -91,9 +91,12 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		return nil, fmt.Errorf("error creating cache: %w", err)
 	}
 
+	// TODO: we need a way to bootstrap a node coming back up and not in the genesis state.
+	// shouldn't be too hard, just save the latest round into a key/value store somewhere
+	// and then it can come back up and bootstrap itself up to the latest in the network
 	holder := newRoundHolder()
 	r := newRound(0)
-	holder.SetCurrent(r.height, r)
+	holder.SetCurrent(r)
 
 	n := &Node{
 		name:        opts.Name,
@@ -285,7 +288,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	n.logger.Debugf("after setting: %v", completedRound.state)
 
 	round := newRound(completedRound.height + 1)
-	n.rounds.SetCurrent(round.height, round)
+	n.rounds.SetCurrent(round)
 	n.snowballer = newSnowballer(n, round.height, round.snowball)
 }
 

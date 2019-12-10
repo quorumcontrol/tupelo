@@ -16,6 +16,13 @@ type Block struct {
 	wrapped      *cbornode.Node
 }
 
+func newBlock(height uint64, txs []cid.Cid) *Block {
+	return &Block{
+		Height:       height,
+		Transactions: txs,
+	}
+}
+
 func (b *Block) ID() string {
 	return b.Wrapped().Cid().String()
 }

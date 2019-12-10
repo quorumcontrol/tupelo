@@ -38,3 +38,23 @@ func TestMempoolContains(t *testing.T) {
 	assert.False(t, pool.Contains(badID))
 	assert.False(t, pool.Contains(id, badID))
 }
+
+func TestMempoolGet(t *testing.T) {
+	sw := &safewrap.SafeWrap{}
+
+	pool, id, _ := newPopulatedMempool()
+	badID := sw.WrapObject("not there").Cid()
+
+	assert.NotNil(t, pool.Get(id))
+	assert.Nil(t, pool.Get(badID))
+}
+
+func TestMempoolDelete(t *testing.T) {
+	pool, id, _ := newPopulatedMempool()
+
+	assert.NotNil(t, pool.Get(id))
+	pool.Delete(id)
+	assert.Nil(t, pool.Get(id))
+	assert.False(t, pool.Contains(id))
+	assert.Equal(t, 0, pool.Length())
+}
