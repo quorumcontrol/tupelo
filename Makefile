@@ -33,12 +33,15 @@ $(call GUARD,VERSION):
 $(FIRSTGOPATH)/bin/packr2:
 	GO111MODULE=off go get -u github.com/gobuffalo/packr/v2/packr2
 
+$(FIRSTGOPATH)/bin/gotestsum:
+	GO111MODULE=off go get -u gotest.tools/gotestsum
+
 $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
 vendor: go.mod go.sum $(FIRSTGOPATH)/bin/modvendor
 	go mod vendor
-	modvendor -copy="**/*.c **/*.h"
+	$(FIRSTGOPATH)/bin/modvendor -copy="**/*.c **/*.h"
 
 tupelo: $(packr) $(gosources) go.mod go.sum
 	go build
@@ -49,20 +52,14 @@ lint: $(FIRSTGOPATH)/bin/golangci-lint $(packr)
 $(FIRSTGOPATH)/bin/golangci-lint:
 	./scripts/download-golangci-lint.sh
 
-test: $(packr) $(gosources) go.mod go.sum
-	gotestsum -- -tags=integration ./...
-
-SOURCE_MOUNT ?= -v ${CURDIR}:/src/tupelo
-
-ci-test: $(packr) $(gosources) go.mod go.sum
-	mkdir -p test_results/tests
-	gotestsum --junitfile=test_results/tests/results.xml -- -tags=integration ./...
+test: $(packr) $(gosources) go.mod go.sum $(FIRSTGOPATH)/bin/gotestsum
+	$(FIRSTGOPATH)/bin/gotestsum -- -tags=integration ./...
 
 docker-image: vendor $(packr) $(gosources) Dockerfile .dockerignore
 	docker build -t quorumcontrol/tupelo:$(TAG) .
 
 $(FIRSTGOPATH)/bin/modvendor:
-	go get -u github.com/goware/modvendor
+	GO111MODULE=off go get -u github.com/goware/modvendor
 
 install: $(packr) $(gosources) go.mod go.sum
 	go install -a -gcflags=-trimpath=$(CURDIR) -asmflags=-trimpath=$(CURDIR)

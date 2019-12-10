@@ -324,7 +324,7 @@ func setUpSystem(t *testing.T) (*remote.NetworkPubSub, *types.NotaryGroup, func(
 	if err != nil {
 		return nil, nil, cleanUp, err
 	}
-	err = clientHost.WaitForBootstrap(2, 1*time.Second)
+	err = clientHost.WaitForBootstrap(2, 5*time.Second)
 	if err != nil {
 		return nil, nil, cleanUp, err
 	}

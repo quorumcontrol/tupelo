@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+export TUPELO_PORT=${TUPELO_PORT:-"0"}
+export TUPELO_BOOTSTRAP_ONLY=${TUPELO_BOOTSTRAP_ONLY:-"false"}
+export TUPELO_CONFIG_PATH=${TUPELO_CONFIG_PATH:-"/tupelo"}
+export TUPELO_CONFIG_FILE=${TUPELO_CONFIG_FILE:-"$TUPELO_CONFIG_PATH/config.toml"}
+export TUPELO_NOTARY_GROUP_CONFIG=${TUPELO_NOTARY_GROUP_CONFIG:-"$TUPELO_CONFIG_PATH/notarygroup.toml"}
+export TUPELO_STORAGE_PATH=${TUPELO_STORAGE_PATH:-"$TUPELO_CONFIG_PATH/data"}
+
+mkdir -p $TUPELO_CONFIG_PATH
+
+if [[ -n "$TUPELO_NOTARY_GROUP_URL" ]]; then
+  wget -q -O $TUPELO_NOTARY_GROUP_CONFIG $TUPELO_NOTARY_GROUP_URL
+fi
+
+if [ ! -f $TUPELO_CONFIG_FILE ]; then
+  envsubst < /tupelo/config.toml.tpl  > $TUPELO_CONFIG_FILE
+fi
+
+exec /usr/bin/tupelo --config $TUPELO_CONFIG_FILE "$@"

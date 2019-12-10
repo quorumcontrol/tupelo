@@ -1,0 +1,32 @@
+version: "3"
+
+services:
+  tupelo:
+    image: quorumcontrol/tupelo-local:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - tupelo-local:/tupelo-local
+      - .:/src/tupelo
+    environment:
+      TUPELO_BUILD_PATH: /src/tupelo
+      COMMUNITY_VERSION: ${COMMUNITY_VERSION:-latest}
+    logging:
+        driver: none
+
+  tester:
+    image: quorumcontrol/tupelo-wasm-sdk:${WASM_SDK_VERSION:-latest}
+    entrypoint: ["/tupelo-local/wait-for-tupelo.sh"]
+    command: ["npm", "run", "test"]
+    volumes:
+      - tupelo-local:/tupelo-local
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.247.0/24
+
+volumes:
+  tupelo-local:

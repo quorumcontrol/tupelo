@@ -1,6 +1,6 @@
 module github.com/quorumcontrol/tupelo
 
-go 1.12
+go 1.13
 
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
@@ -13,9 +13,11 @@ require (
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/go-immutable-radix v1.0.0
 	github.com/hashicorp/golang-lru v0.5.3
+	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.1.1
 	github.com/ipfs/go-ds-badger v0.0.5
+	github.com/ipfs/go-hamt-ipld v0.0.13
 	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-log v0.0.1
@@ -24,9 +26,11 @@ require (
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
+	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/procfs v0.0.2 // indirect
 	github.com/quorumcontrol/chaintree v0.9.1
+	github.com/quorumcontrol/messages v1.0.0
 	github.com/quorumcontrol/messages/v2 v2.0.2
 	github.com/quorumcontrol/tupelo-go-sdk v0.5.13-0.20191120122823-2579989670b5
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0

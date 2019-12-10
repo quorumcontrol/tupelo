@@ -1,8 +1,10 @@
-on: release
-name: Docker Build & Push Latest
+name: Test suite
+
+on: [push]
+
 jobs:
-  docker:
-    name: "docker build & push latest"
+  test:
+    name: "run test suite"
     runs-on: ubuntu-18.04
     env:
       # ${{ runner.workspace }} is not available here, so hardcode for now
@@ -35,16 +37,3 @@ jobs:
       run: make vendor
     - name: run tests
       run: scripts/test-suite.sh
-    - name: set version
-      run: make github-prepare
-      env:
-        GITHUB_REF: ${{ github.ref }}
-    - name: docker login
-      run: docker login --username "$DOCKER_USERNAME" --password "$DOCKER_PASSWORD"
-      env:
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-    - name: docker build and push
-      run: |
-        docker build -t quorumcontrol/tupelo:latest .
-        docker push quorumcontrol/tupelo:latest
