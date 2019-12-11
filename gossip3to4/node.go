@@ -47,6 +47,9 @@ func (n *Node) Receive(actorCtx actor.Context) {
 }
 
 func (n *Node) handleStarted(actorCtx actor.Context) {
+	sp := opentracing.StartSpan("gossip3to4-node-started")
+	defer sp.Finish()
+
 	g3sCfg := &Gossip3SubscriberConfig{
 		P2PNode:     n.p2pNode,
 		NotaryGroup: n.notaryGroup,
@@ -55,7 +58,7 @@ func (n *Node) handleStarted(actorCtx actor.Context) {
 }
 
 func (n *Node) handleAddBlockRequest(actorCtx actor.Context) {
-	sp := opentracing.StartSpan("add-block-request-gossip3-to-gossip4")
+	sp := opentracing.StartSpan("gossip3to4-received-add-block-request")
 	defer sp.Finish()
 
 	actorCtx.Forward(n.gossip4Node)
