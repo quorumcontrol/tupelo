@@ -59,7 +59,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 	snb.Unlock()
 
 	for !snb.snowball.Decided() {
-		respChan := make(chan Block, snb.snowball.k)
+		respChan := make(chan Checkpoint, snb.snowball.k)
 		wg := &sync.WaitGroup{}
 		for i := 0; i < snb.snowball.k; i++ {
 			wg.Add(1)
@@ -111,13 +111,13 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					return
 				}
 
-				var block *Block
+				var checkpoint *Checkpoint
 
 				blkInter, ok := snb.cache.Get(id)
 				if ok {
-					block = blkInter.(*Block)
+					checkpoint = blkInter.(*Checkpoint)
 				} else {
-					blk := &Block{}
+					blk := &Checkpoint{}
 					err = cbornode.DecodeInto(bits, blk)
 					if err != nil {
 						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
@@ -125,11 +125,11 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 						wg.Done()
 						return
 					}
-					block = blk
-					snb.cache.Add(id, block)
+					checkpoint = blk
+					snb.cache.Add(id, checkpoint)
 				}
 
-				respChan <- *block
+				respChan <- *checkpoint
 				wg.Done()
 			}()
 		}
@@ -137,12 +137,12 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 		close(respChan)
 		votes := make([]*Vote, snb.snowball.k)
 		i := 0
-		for block := range respChan {
-			// snb.logger.Debugf("received block: %v", block)
+		for checkpoint := range respChan {
+			// snb.logger.Debugf("received checkpoint: %v", checkpoint)
 			votes[i] = &Vote{
-				Block: &block,
+				Checkpoint: &checkpoint,
 			}
-			if len(block.Transactions) == 0 || !snb.mempoolHasAllTransactions(block.Transactions) {
+			if len(checkpoint.Transactions) == 0 || !snb.mempoolHasAllTransactions(checkpoint.Transactions) {
 				votes[i].Nil()
 			}
 

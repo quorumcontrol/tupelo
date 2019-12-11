@@ -238,8 +238,8 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 
 	completedRound := n.rounds.Current()
 
-	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Block.Transactions))
-	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Block.Transactions)
+	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.Transactions))
+	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.Transactions)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
 	// increase the currentRound and create a new Round in the roundHolder
 	// state updating should be more robust here to make sure transactions don't stomp on each other and can probably happen in the background
@@ -255,11 +255,11 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
 
-	for _, txCID := range preferred.Block.Transactions {
+	for _, txCID := range preferred.Checkpoint.Transactions {
 		abr := n.mempool.Get(txCID)
 		if abr == nil {
 			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
-			panic("an accepted block should not have a Tx we don't know about")
+			panic("an accepted checkpoint should not have a Tx we don't know about")
 		}
 		err := rootNode.Set(msg.ctx, string(abr.ObjectId), txCID)
 		if err != nil {
@@ -303,7 +303,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 			go func() {
 				n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
 				n.snowballer.snowball.Prefer(&Vote{
-					Block: &Block{
+					Checkpoint: &Checkpoint{
 						Height:       n.rounds.Current().height,
 						Transactions: n.mempool.Keys(),
 					},
@@ -350,13 +350,13 @@ func (n *Node) handleStream(s network.Stream) {
 
 	r, ok := n.rounds.Get(height)
 
-	response := Block{Height: height}
+	response := Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
 		if preferred != nil {
 			// n.logger.Debugf("existing preferred; %v", preferred)
-			response = *preferred.Block
+			response = *preferred.Checkpoint
 		}
 	}
 	wrapped := response.Wrapped()

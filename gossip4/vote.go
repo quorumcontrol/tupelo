@@ -3,7 +3,7 @@ package gossip4
 var ZeroVoteID = "n"
 
 type Vote struct {
-	Block      *Block
+	Checkpoint *Checkpoint
 	tallyCount float64
 	id         string
 }
@@ -14,11 +14,11 @@ func (v *Vote) Nil() {
 }
 
 func (v *Vote) ID() string {
-	if v.Block == nil {
+	if v.Checkpoint == nil {
 		return ZeroVoteID
 	}
 	if v.id == "" {
-		v.id = v.Block.ID()
+		v.id = v.Checkpoint.ID()
 	}
 	return v.id
 }
@@ -32,10 +32,10 @@ func (v *Vote) SetTally(n float64) {
 }
 
 func (v *Vote) Length() float64 {
-	if v.Block == nil {
+	if v.Checkpoint == nil {
 		return 0
 	}
-	return float64(v.Block.Length())
+	return float64(v.Checkpoint.Length())
 }
 
 // Return back the votes with their tallies calculated.
@@ -59,8 +59,8 @@ func calculateTallies(responses []*Vote) []*Vote {
 	}
 
 	totalTally := float64(0)
-	for _, block := range votes {
-		totalTally += block.Tally()
+	for _, checkpoint := range votes {
+		totalTally += checkpoint.Tally()
 	}
 
 	array := make([]*Vote, 0, len(votes))

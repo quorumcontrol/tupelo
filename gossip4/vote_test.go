@@ -46,7 +46,7 @@ func TestCalculateTallies(t *testing.T) {
 	{
 		nodeIDCount++
 		v := &Vote{
-			Block: nil,
+			Checkpoint: nil,
 		}
 		v.Nil()
 		votes = append(votes, v)
@@ -58,47 +58,47 @@ func TestCalculateTallies(t *testing.T) {
 	{
 		nodeIDCount++
 
-		block := newBlock(1, generateTxIds(t, 2))
+		checkpoint := newCheckpoint(1, generateTxIds(t, 2))
 
 		votes = append(votes, &Vote{
-			Block: block,
+			Checkpoint: checkpoint,
 		})
 
-		expectedTallies[block.ID()] = 0.0
+		expectedTallies[checkpoint.ID()] = 0.0
 	}
 
 	// Vote 3: has the highest transactions.
 	{
 		nodeIDCount++
-		block := newBlock(1, generateTxIds(t, 10))
+		checkpoint := newCheckpoint(1, generateTxIds(t, 10))
 
 		votes = append(votes, &Vote{
-			Block: block,
+			Checkpoint: checkpoint,
 		})
 
-		expectedTallies[block.ID()] = 0.32
+		expectedTallies[checkpoint.ID()] = 0.32
 	}
 
 	// Vote 4: has 4 txs
 	{
 		nodeIDCount++
-		block := newBlock(1, generateTxIds(t, 4))
+		checkpoint := newCheckpoint(1, generateTxIds(t, 4))
 
 		votes = append(votes, &Vote{
-			Block: block,
+			Checkpoint: checkpoint,
 		})
-		expectedTallies[block.ID()] = 0.08
+		expectedTallies[checkpoint.ID()] = 0.08
 	}
 
 	// Vote 5: Second highest transactions.
 	{
 		nodeIDCount++
-		block := newBlock(1, generateTxIds(t, 9))
+		checkpoint := newCheckpoint(1, generateTxIds(t, 9))
 		votes = append(votes, &Vote{
-			Block: block,
+			Checkpoint: checkpoint,
 		})
 
-		expectedTallies[block.ID()] = 0.279999999999999
+		expectedTallies[checkpoint.ID()] = 0.279999999999999
 	}
 
 	tallies := calculateTallies(votes)
@@ -127,9 +127,9 @@ func TestTick(t *testing.T) {
 		votes := make([]*Vote, snowball.k)
 
 		for i := 0; i < len(votes); i++ {
-			block := newBlock(1, generateTxIds(t, 2))
+			checkpoint := newCheckpoint(1, generateTxIds(t, 2))
 			votes[i] = &Vote{
-				Block: block,
+				Checkpoint: checkpoint,
 			}
 		}
 
@@ -146,16 +146,16 @@ func TestTick(t *testing.T) {
 
 		votes := make([]*Vote, 0, snowball.k)
 
-		_block := newBlock(1, generateTxIds(t, 1))
+		_checkpoint := newCheckpoint(1, generateTxIds(t, 1))
 
 		for i := 0; i < cap(votes); i++ {
-			var block *Block
+			var checkpoint *Checkpoint
 			if i < int(snowball.alpha*float64(cap(votes))) {
-				block = _block
+				checkpoint = _checkpoint
 			}
 
 			votes = append(votes, &Vote{
-				Block: block,
+				Checkpoint: checkpoint,
 			})
 		}
 
@@ -164,10 +164,10 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.False(t, snowball.Decided())
-		assert.Equal(t, _block.ID(), snowball.Preferred().Block.ID())
+		assert.Equal(t, _checkpoint.ID(), snowball.Preferred().Checkpoint.ID())
 	})
 
-	t.Run("transactions num majority block wins", func(t *testing.T) {
+	t.Run("transactions num majority checkpoint wins", func(t *testing.T) {
 		snowball.Reset()
 
 		biggestTxNumIdx := 0
@@ -179,10 +179,10 @@ func TestTick(t *testing.T) {
 				num++
 			}
 
-			block := newBlock(1, generateTxIds(t, num))
+			checkpoint := newCheckpoint(1, generateTxIds(t, num))
 
 			votes = append(votes, &Vote{
-				Block: block,
+				Checkpoint: checkpoint,
 			})
 		}
 
@@ -191,6 +191,6 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.True(t, snowball.Decided())
-		assert.Equal(t, votes[biggestTxNumIdx].Block.ID(), snowball.Preferred().Block.ID())
+		assert.Equal(t, votes[biggestTxNumIdx].Checkpoint.ID(), snowball.Preferred().Checkpoint.ID())
 	})
 }
