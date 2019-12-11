@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/spf13/cobra"
 
 	"github.com/quorumcontrol/tupelo/gossip3to4"
@@ -67,6 +68,16 @@ var nodeCmd = &cobra.Command{
 		config := nodebuilderConfig
 		if config == nil {
 			panic(fmt.Errorf("error getting node config"))
+		}
+
+		// start the tracing system if configured
+		switch config.TracingSystem {
+		case nodebuilder.ElasticTracing:
+			tracing.StartElastic()
+		case nodebuilder.NoTracing:
+			// no-op
+		default:
+			panic(fmt.Errorf("only elastic tracing is supported; got %v", config.TracingSystem))
 		}
 
 		// get the notary group
