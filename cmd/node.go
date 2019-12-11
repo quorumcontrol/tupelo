@@ -73,6 +73,7 @@ var nodeCmd = &cobra.Command{
 		// start the tracing system if configured
 		switch config.TracingSystem {
 		case nodebuilder.ElasticTracing:
+			fmt.Println("Starting elastic tracing")
 			tracing.StartElastic()
 		case nodebuilder.NoTracing:
 			// no-op
