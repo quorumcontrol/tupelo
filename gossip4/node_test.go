@@ -86,7 +86,7 @@ func TestEndToEnd(t *testing.T) {
 	bootstrapper, err := p2p.NewHostFromOptions(ctx)
 	require.Nil(t, err)
 
-	numMembers := 7
+	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
 	ng, nodes, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
@@ -106,7 +106,7 @@ func TestEndToEnd(t *testing.T) {
 			require.Nil(t, err)
 			defer cl.Close()
 
-			err = node.p2pNode.WaitForBootstrap(1, 2*time.Second)
+			err = node.p2pNode.WaitForBootstrap(1, 10*time.Second)
 			require.Nil(t, err)
 			err = node.p2pNode.(*p2p.LibP2PHost).StartDiscovery("gossip4")
 			require.Nil(t, err)
@@ -118,7 +118,7 @@ func TestEndToEnd(t *testing.T) {
 	cl, err := n.p2pNode.Bootstrap(bootAddrs)
 	require.Nil(t, err)
 	defer cl.Close()
-	err = n.p2pNode.WaitForBootstrap(len(nodes)-1, 2*time.Second)
+	err = n.p2pNode.WaitForBootstrap(len(nodes)-1, 10*time.Second)
 	require.Nil(t, err)
 	err = n.p2pNode.(*p2p.LibP2PHost).StartDiscovery("gossip4")
 	require.Nil(t, err)
