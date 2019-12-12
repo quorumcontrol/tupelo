@@ -70,7 +70,7 @@ func (g3s *Gossip3Subscriber) handleStarted(actorCtx actor.Context) {
 	g3s.pid = pid
 }
 
-func (g3s *Gossip3Subscriber) handleAddBlockRequest(actorCtx actor.Context, abr *g3services.AddBlockRequest) {
+func (g3s *Gossip3Subscriber) handleAddBlockRequest(actorCtx actor.Context, abr *services.AddBlockRequest) {
 	sp := opentracing.StartSpan("add-block-request-gossip3-subscriber")
 	defer sp.Finish()
 
