@@ -8,6 +8,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/build/go/services"
+	g4services "github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -46,6 +47,12 @@ func (g3s *Gossip3Subscriber) Receive(actorCtx actor.Context) {
 	case *services.AddBlockRequest:
 		g3s.logger.Debugf("received ABR: %+v", msg)
 		g3s.handleAddBlockRequest(actorCtx, msg)
+	case *g4services.AddBlockRequest:
+		g3s.logger.Debugf("received g4 (%T) ABR: %+v", msg, msg)
+		sp := opentracing.StartSpan("gossip3to4-g3sub-received-g4abr")
+		sp.SetTag("abr", msg)
+		sp.SetTag("abr_type", reflect.TypeOf(msg))
+		defer sp.Finish()
 	default:
 		g3s.logger.Debugf("received other message (%T): %+v", msg, msg)
 		sp := opentracing.StartSpan("gossip3to4-g3sub-received-other")
