@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/multiformats/go-multihash"
@@ -186,6 +187,15 @@ func (n *Node) Start(ctx context.Context) error {
 	n.logger.Debugf("node starting with difficulty: %0256b", difficultyThreshold)
 
 	return nil
+}
+
+func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
+	_, err := n.p2pNode.Bootstrap(bootstrapAddrs)
+	if err != nil {
+		return fmt.Errorf("error bootstrapping node: %v", err)
+	}
+
+	return n.p2pNode.WaitForBootstrap(1, 5*time.Second)
 }
 
 func (n *Node) Receive(actorContext actor.Context) {

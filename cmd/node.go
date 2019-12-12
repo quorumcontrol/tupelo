@@ -38,6 +38,8 @@ func runGossip4Node(ctx context.Context, config *nodebuilder.Config, group *type
 		return nil, fmt.Errorf("error starting node: %v", err)
 	}
 
+	err = node.Bootstrap(ctx, group.Config().BootstrapAddresses)
+
 	return node.PID(), nil
 }
 
