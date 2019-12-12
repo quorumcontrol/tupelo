@@ -2,6 +2,7 @@ package gossip3to4
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	logging "github.com/ipfs/go-log"
@@ -46,10 +47,10 @@ func (g3s *Gossip3Subscriber) Receive(actorCtx actor.Context) {
 		g3s.logger.Debugf("received ABR: %+v", msg)
 		g3s.handleAddBlockRequest(actorCtx, msg)
 	default:
-		g3s.logger.Debugf("received other message: %+v", msg)
+		g3s.logger.Debugf("received other message (%T): %+v", msg, msg)
 		sp := opentracing.StartSpan("gossip3to4-g3sub-received-other")
 		sp.SetTag("message", msg)
-		sp.SetTag("message_type", fmt.Sprintf("%T", msg))
+		sp.SetTag("message_type", reflect.TypeOf(msg))
 		defer sp.Finish()
 	}
 }
