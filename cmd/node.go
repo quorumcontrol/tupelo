@@ -49,14 +49,15 @@ func runGossip3To4Node(ctx context.Context, group *types.NotaryGroup, gossip4PID
 		return fmt.Errorf("error creating p2p node: %v", err)
 	}
 
-	actorCtx := actor.EmptyRootContext
-	actorCtx.Spawn(gossip3to4.NewNodeProps(&gossip3to4.NodeConfig{
+	node := gossip3to4.NewNode(ctx, &gossip3to4.NodeConfig{
 		P2PNode:     p2pNode,
 		NotaryGroup: group,
 		Gossip4Node: gossip4PID,
-	}))
+	})
 
-	return nil
+	node.Start(ctx)
+
+	return node.Bootstrap(ctx, group.Config().BootstrapAddresses)
 }
 
 var nodeCmd = &cobra.Command{

@@ -192,7 +192,7 @@ func (n *Node) Start(ctx context.Context) error {
 func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
 	_, err := n.p2pNode.Bootstrap(bootstrapAddrs)
 	if err != nil {
-		return fmt.Errorf("error bootstrapping node: %v", err)
+		return fmt.Errorf("error bootstrapping gossip4 node: %v", err)
 	}
 
 	return n.p2pNode.WaitForBootstrap(1, 5*time.Second)
