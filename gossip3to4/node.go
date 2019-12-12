@@ -45,9 +45,13 @@ func (n *Node) Start(ctx context.Context) {
 		n.logger.Debugf("node stopped")
 		actor.EmptyRootContext.Poison(pid)
 	}()
+
+	n.logger.Debug("node started")
 }
 
 func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
+	n.logger.Debug("p2p node bootstrapping")
+
 	_, err := n.p2pNode.Bootstrap(bootstrapAddrs)
 	if err != nil {
 		return fmt.Errorf("error bootstrapping gosssip3to4 node: %v", err)
@@ -57,12 +61,18 @@ func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
 }
 
 func (n *Node) Receive(actorCtx actor.Context) {
-	switch actorCtx.Message().(type) {
+	switch msg := actorCtx.Message().(type) {
 	case *actor.Started:
 		n.handleStarted(actorCtx)
 	case *services.AddBlockRequest:
 		// these are converted ABRs coming back from the gossip3 subscriber
+		n.logger.Debugf("received ABR: %+v", msg)
 		n.handleAddBlockRequest(actorCtx)
+	default:
+		n.logger.Debugf("received other message: %+v", msg)
+		sp := opentracing.StartSpan("gossip3to4-node-received-other")
+		sp.SetTag("message", msg)
+		defer sp.Finish()
 	}
 }
 
