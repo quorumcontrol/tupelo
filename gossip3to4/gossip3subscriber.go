@@ -49,6 +49,7 @@ func (g3s *Gossip3Subscriber) Receive(actorCtx actor.Context) {
 		g3s.logger.Debugf("received other message: %+v", msg)
 		sp := opentracing.StartSpan("gossip3to4-g3sub-received-other")
 		sp.SetTag("message", msg)
+		sp.SetTag("message_type", fmt.Sprintf("%T", msg))
 		defer sp.Finish()
 	}
 }
