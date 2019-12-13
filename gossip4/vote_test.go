@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ipfs/go-cid"
-	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,7 +119,6 @@ func TestTick(t *testing.T) {
 
 	snowball := NewSnowball(defaultAlpha, defaultBeta, defaultK)
 
-	logging.SetLogLevel("snowball", "debug")
 	t.Run("no decision in case of all equal tallies", func(t *testing.T) {
 		snowball.Reset()
 
