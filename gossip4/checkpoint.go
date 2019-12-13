@@ -11,15 +11,15 @@ func init() {
 }
 
 type Checkpoint struct {
-	Height       uint64
-	Transactions []cid.Cid
-	wrapped      *cbornode.Node
+	Height           uint64
+	AddBlockRequests []cid.Cid
+	wrapped          *cbornode.Node
 }
 
 func newCheckpoint(height uint64, txs []cid.Cid) *Checkpoint {
 	return &Checkpoint{
-		Height:       height,
-		Transactions: txs,
+		Height:           height,
+		AddBlockRequests: txs,
 	}
 }
 
@@ -38,5 +38,5 @@ func (c *Checkpoint) Wrapped() *cbornode.Node {
 }
 
 func (c *Checkpoint) Length() int {
-	return len(c.Transactions)
+	return len(c.AddBlockRequests)
 }

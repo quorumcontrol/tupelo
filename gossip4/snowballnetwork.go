@@ -142,7 +142,11 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 			votes[i] = &Vote{
 				Checkpoint: &checkpoint,
 			}
-			if len(checkpoint.Transactions) == 0 || !snb.mempoolHasAllTransactions(checkpoint.Transactions) {
+			if len(checkpoint.AddBlockRequests) == 0 ||
+				!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
+				snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
+				// nil out any votes that have ABRs we havne't heard of
+				// or if they present conflicting ABRs in the same Checkpoint
 				votes[i].Nil()
 			}
 
@@ -175,17 +179,36 @@ func cidFromBits(bits []byte) (cid.Cid, error) {
 	return cid.NewCidV1(cid.DagCBOR, hash), nil
 }
 
-func (snb *snowballer) mempoolHasAllTransactions(transactions []cid.Cid) bool {
+func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 	hasAll := true
-	for _, txCID := range transactions {
-		ok := snb.node.mempool.Contains(txCID)
+	for _, abrCID := range abrCIDs {
+		ok := snb.node.mempool.Contains(abrCID)
 		if !ok {
-			snb.logger.Debugf("missing tx: %s", txCID.String())
-			snb.node.rootContext.Send(snb.node.syncerPid, txCID)
+			snb.logger.Debugf("missing tx: %s", abrCID.String())
+			snb.node.rootContext.Send(snb.node.syncerPid, abrCID)
 			hasAll = false
 		}
 	}
 	return hasAll
+}
+
+// this checks to make sure the block coming in doesn't have any conflicting transactions
+func (snb *snowballer) hasConflictingABRs(abrCIDs []cid.Cid) bool {
+	csIds := make(map[mempoolConflictSetID]struct{})
+	for _, abrCID := range abrCIDs {
+		tx := snb.node.mempool.Get(abrCID)
+		if tx == nil {
+			snb.logger.Errorf("had a null transaction ( %s ) from a block in the mempool, this shouldn't happen", abrCID.String())
+			return true
+		}
+		conflictSetID := toConflictSetID(tx)
+		_, ok := csIds[conflictSetID]
+		if ok {
+			return true
+		}
+		csIds[conflictSetID] = struct{}{}
+	}
+	return false
 }
 
 type snowballerDone struct {

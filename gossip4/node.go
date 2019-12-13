@@ -238,8 +238,8 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 
 	completedRound := n.rounds.Current()
 
-	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.Transactions))
-	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.Transactions)
+	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests))
+	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.AddBlockRequests)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
 	// increase the currentRound and create a new Round in the roundHolder
 	// state updating should be more robust here to make sure transactions don't stomp on each other and can probably happen in the background
@@ -255,7 +255,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
 
-	for _, txCID := range preferred.Checkpoint.Transactions {
+	for _, txCID := range preferred.Checkpoint.AddBlockRequests {
 		abr := n.mempool.Get(txCID)
 		if abr == nil {
 			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
@@ -265,7 +265,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
-		n.mempool.Delete(txCID)
+		n.mempool.DeleteIDAndConflictSet(txCID)
 
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
@@ -301,11 +301,12 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 	case *snowballTicker:
 		if !n.snowballer.Started() && n.mempool.Length() > 0 {
 			go func() {
-				n.logger.Debugf("starting snowballer and preferring %v", n.mempool.Keys())
+				preferred := n.mempool.Preferred()
+				n.logger.Debugf("starting snowballer and preferring %v", preferred)
 				n.snowballer.snowball.Prefer(&Vote{
 					Checkpoint: &Checkpoint{
-						Height:       n.rounds.Current().height,
-						Transactions: n.mempool.Keys(),
+						Height:           n.rounds.Current().height,
+						AddBlockRequests: preferred,
 					},
 				})
 				done := make(chan error, 1)
