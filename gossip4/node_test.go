@@ -83,20 +83,15 @@ func TestEndToEnd(t *testing.T) {
 		cancel()
 	}()
 
-	bootstrapper, err := p2p.NewHostFromOptions(ctx)
-	require.Nil(t, err)
-
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	ng, nodes, err := newTupeloSystem(ctx, ts)
+	_, nodes, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
-	fmt.Println("quorum count: ", ng.QuorumCount())
 
 	n := nodes[0]
-	fmt.Println("signerIndex: ", n.signerIndex)
 	// logging.SetLogLevel(fmt.Sprintf("node-%d", n.signerIndex), "info")
-	bootAddrs := testnotarygroup.BootstrapAddresses(bootstrapper)
+	bootAddrs := testnotarygroup.BootstrapAddresses(n.p2pNode)
 
 	for i, node := range nodes {
 		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
@@ -108,19 +103,15 @@ func TestEndToEnd(t *testing.T) {
 
 			err = node.p2pNode.WaitForBootstrap(1, 10*time.Second)
 			require.Nil(t, err)
-			err = node.p2pNode.(*p2p.LibP2PHost).StartDiscovery("gossip4")
-			require.Nil(t, err)
 		}
 		err = node.Start(ctx)
 		require.Nil(t, err)
 	}
 
-	cl, err := n.p2pNode.Bootstrap(bootAddrs)
+	cl, err := n.p2pNode.Bootstrap(testnotarygroup.BootstrapAddresses(nodes[1].p2pNode))
 	require.Nil(t, err)
 	defer cl.Close()
-	err = n.p2pNode.WaitForBootstrap(len(nodes)-1, 10*time.Second)
-	require.Nil(t, err)
-	err = n.p2pNode.(*p2p.LibP2PHost).StartDiscovery("gossip4")
+	err = n.p2pNode.WaitForBootstrap(1, 10*time.Second)
 	require.Nil(t, err)
 
 	transCount := 200
