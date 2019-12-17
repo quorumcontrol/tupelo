@@ -148,7 +148,7 @@ func TestEndToEnd(t *testing.T) {
 
 	startNodes(t, ctx, nodes)
 
-	abrCount := 200
+	abrCount := 10
 	abrs := make([]*services.AddBlockRequest, abrCount)
 
 	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
