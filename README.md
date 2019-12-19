@@ -1,3 +1,7 @@
+# Tupelo
+
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
+
 ## Dependencies
 
 * Go >= 1.12
@@ -5,7 +9,7 @@
 * GNU Make
 
 ## Version
-The version of Tupelo is controlled via the `$VERSION` variable to the Makefile 
+The version of Tupelo is controlled via the `$VERSION` variable to the Makefile
 (default: "snapshot"). Make prints this to a file called resources/templates/version.txt,
 which again gets embedded into the binary by the [packr](github.com/gobuffalo/packr) tool.
 
@@ -23,7 +27,7 @@ which will also install it if necessary.
 `make test` will run all unit tests and some internal integration tests.
 
 ## Concepts
-Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state. 
+Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state.
 
 A group of Signers (as part of a Notary Group) keep track of the current state of every Chain Tree in order to prevent forking. The Notary Group does not need to keep the entire history nor the entire state of every Chain Tree, but only the latest tip (a hash of the current root node). Therefore, each owner of a Chain Tree is responsible for the storage of that Chain Tree. This provides flexibility for the owner to utilize existing storage backends, public distributed storage, or even local cold storage.
 
@@ -98,4 +102,4 @@ Transactions: [
 Signatures: [<VWs secp256k1 generated key>]
 ```
 
-After the transaction is confirmed, Alice now owns the Chain Tree for that vehicle. She does not even need to be online to verify that ownership as she will have an off-line list of the Notary Group public keys. Alice now has complete control of this Chain Tree, consequently VW no longer has the ability to submit transactions for that Chain Tree. 
+After the transaction is confirmed, Alice now owns the Chain Tree for that vehicle. She does not even need to be online to verify that ownership as she will have an off-line list of the Notary Group public keys. Alice now has complete control of this Chain Tree, consequently VW no longer has the ability to submit transactions for that Chain Tree.
