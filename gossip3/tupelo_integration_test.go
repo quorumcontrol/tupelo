@@ -3,11 +3,11 @@
 package gossip3
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -258,10 +258,10 @@ func sendTransaction(t *testing.T, cli *client.Client, treeKey *ecdsa.PrivateKey
 	if !treeTip.Defined() {
 		return fmt.Errorf("tree tip not defined")
 	}
-	if !reflect.DeepEqual(resp.Tip, &treeTip) {
+	if !bytes.Equal(resp.NewTip, treeTip.Bytes()) {
 		return fmt.Errorf("resp.Tip not equal to tree tip")
 	}
-	if resp.ChainId != signedTree.MustId() {
+	if string(resp.ObjectId) != signedTree.MustId() {
 		return fmt.Errorf("resp.ChainId not equal to tree ID")
 	}
 

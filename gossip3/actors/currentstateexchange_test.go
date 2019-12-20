@@ -85,7 +85,9 @@ func TestCurrentStateExchange(t *testing.T) {
 			resp, err := cli.PlayTransactions(chain, key, remoteTip, []*transactions.Transaction{txn})
 			require.Nil(t, err)
 
-			remoteTip = resp.Tip
+			tip, err := cid.Cast(resp.NewTip)
+			require.Nil(t, err)
+			remoteTip = &tip
 		}
 
 		tips[i] = remoteTip
