@@ -10,18 +10,21 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	sigs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-msgio"
+	msgio "github.com/libp2p/go-msgio"
 
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-hamt-ipld"
+	cid "github.com/ipfs/go-cid"
+	hamt "github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 )
@@ -233,6 +236,39 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
+func (n *Node) buildTreeState(abr *services.AddBlockRequest) (*signatures.TreeState, error) {
+	state := &signatures.TreeState{
+		TransactionId: consensus.RequestID(abr),
+		ObjectId:      abr.ObjectId,
+		PreviousTip:   abr.PreviousTip,
+		NewTip:        abr.NewTip,
+		Height:        abr.Height,
+	}
+
+	sig, err := sigs.BLSSign(n.signKey, consensus.GetSignable(state), len(n.notaryGroup.Signers), n.signerIndex)
+	if err != nil {
+		return nil, fmt.Errorf("error generating signature: %v", err)
+	}
+
+	state.Signature = sig
+
+	return state, nil
+}
+
+func (n *Node) publishTreeState(abr *services.AddBlockRequest) error {
+	state, err := n.buildTreeState(abr)
+	if err != nil {
+		return fmt.Errorf("error building tree state: %v", err)
+	}
+
+	data, err := state.Marshal()
+	if err != nil {
+		return fmt.Errorf("error marshaling tree state: %v", err)
+	}
+
+	return n.pubsub.Publish(string(state.ObjectId), data)
+}
+
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	preferred := n.snowballer.snowball.Preferred()
 
@@ -266,6 +302,12 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
 		n.mempool.DeleteIDAndConflictSet(txCID)
+
+		// Notify any clients of the updated chaintree state
+		err = n.publishTreeState(abr)
+		if err != nil {
+			n.logger.Errorf("error publishing tree state: %v", err)
+		}
 
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
