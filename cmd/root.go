@@ -21,11 +21,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/quorumcontrol/tupelo/gossip3"
 	"github.com/quorumcontrol/tupelo/nodebuilder"
 
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipfs/go-log"
-	"github.com/quorumcontrol/tupelo/gossip3"
 	"github.com/shibukawa/configdir"
 	"github.com/spf13/cobra"
 )
