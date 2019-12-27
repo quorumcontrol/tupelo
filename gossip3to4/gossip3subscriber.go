@@ -86,6 +86,6 @@ func (g3s *Gossip3Subscriber) handleAddBlockRequest(actorCtx actor.Context, abr 
 	if err != nil {
 		panic(fmt.Errorf("error converting gossip3 ABR to gossip4 format: %v", err))
 	}
-
-	actorCtx.Respond(g4ABR)
+	
+	actorCtx.Send(actorCtx.Parent(), g4ABR)
 }
