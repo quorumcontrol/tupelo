@@ -66,12 +66,9 @@ func startNodes(t *testing.T, ctx context.Context, nodes []*Node) {
 		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
 
 		if i > 0 {
-			cl, err := node.p2pNode.Bootstrap(bootAddrs)
+			err := node.Bootstrap(ctx, bootAddrs)
 			require.Nil(t, err)
-			defer cl.Close()
-
-			err = node.p2pNode.WaitForBootstrap(1, 10*time.Second)
-			require.Nil(t, err)
+			defer node.Close()
 		}
 		err := node.Start(ctx)
 		require.Nil(t, err)
