@@ -12,6 +12,8 @@ import (
 	"github.com/opentracing/opentracing-go"
 )
 
+// This is used for verifying receiveToken transactions
+// TODO: we want receive tokens to use round paths through hamts intead of signatures
 func verifySignature(rootCtx context.Context, msg []byte, signature *signatures.Signature, verKeys []*bls.VerKey) (bool, error) {
 	sp, _ := opentracing.StartSpanFromContext(rootCtx, "verifySignature")
 	defer sp.Finish()
