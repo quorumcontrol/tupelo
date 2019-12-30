@@ -11,11 +11,9 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
-	"github.com/quorumcontrol/tupelo/gossip3/actors"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
 	"github.com/libp2p/go-libp2p"
@@ -24,7 +22,6 @@ import (
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/quorumcontrol/tupelo/storage"
 	"github.com/shibukawa/configdir"
 )
 
@@ -110,60 +107,63 @@ func (nb *NodeBuilder) StartTracing() {
 }
 
 func (nb *NodeBuilder) startSigner(ctx context.Context) error {
-	localKeys := nb.Config.PrivateKeySet
-	localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
+	// TODO: Commented out pending gossip4. We may or may not want to convert this.
+	//  Delete it if not.
 
-	currentPath := signerCurrentPath(nb.Config.StoragePath, localSigner)
-
-	middleware.Log.Debugw("starting signer node", "storagePath", currentPath)
-	badgerCurrent, err := storage.NewDefaultBadger(currentPath)
-	if err != nil {
-		return fmt.Errorf("error creating storage: %v", err)
-	}
-
-	group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
-	if err != nil {
-		return fmt.Errorf("error generating notary group: %v", err)
-	}
-
-	var pubsub remote.PubSub
-	remote.Start()
-
-	cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
-	for _, s := range group.Signers {
-		id, err := p2p.PeerFromEcdsaKey(s.DstKey)
-		if err != nil {
-			panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
-		}
-		cm.Protect(id, "signer")
-	}
-
-	p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
-	if err != nil {
-		return fmt.Errorf("error setting up p2p host: %v", err)
-	}
-	if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
-		return fmt.Errorf("failed to bootstrap: %s", err)
-	}
-
-	remote.NewRouter(p2pHost)
-
-	nb.host = p2pHost
-
-	pubsub = remote.NewNetworkPubSub(p2pHost.GetPubSub())
-
-	act, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-		Self:              localSigner,
-		NotaryGroup:       group,
-		CurrentStateStore: badgerCurrent,
-		PubSubSystem:      pubsub,
-	}), syncerActorName(localSigner))
-	if err != nil {
-		panic(fmt.Sprintf("error spawning: %v", err))
-	}
-
-	localSigner.Actor = act
-	nb.actorToStop = act
+	// localKeys := nb.Config.PrivateKeySet
+	// localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
+	//
+	// currentPath := signerCurrentPath(nb.Config.StoragePath, localSigner)
+	//
+	// middleware.Log.Debugw("starting signer node", "storagePath", currentPath)
+	// badgerCurrent, err := storage.NewDefaultBadger(currentPath)
+	// if err != nil {
+	// 	return fmt.Errorf("error creating storage: %v", err)
+	// }
+	//
+	// group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
+	// if err != nil {
+	// 	return fmt.Errorf("error generating notary group: %v", err)
+	// }
+	//
+	// var pubsub remote.PubSub
+	// remote.Start()
+	//
+	// cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
+	// for _, s := range group.Signers {
+	// 	id, err := p2p.PeerFromEcdsaKey(s.DstKey)
+	// 	if err != nil {
+	// 		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+	// 	}
+	// 	cm.Protect(id, "signer")
+	// }
+	//
+	// p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
+	// if err != nil {
+	// 	return fmt.Errorf("error setting up p2p host: %v", err)
+	// }
+	// if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
+	// 	return fmt.Errorf("failed to bootstrap: %s", err)
+	// }
+	//
+	// remote.NewRouter(p2pHost)
+	//
+	// nb.host = p2pHost
+	//
+	// pubsub = remote.NewNetworkPubSub(p2pHost.GetPubSub())
+	//
+	// act, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
+	// 	Self:              localSigner,
+	// 	NotaryGroup:       group,
+	// 	CurrentStateStore: badgerCurrent,
+	// 	PubSubSystem:      pubsub,
+	// }), syncerActorName(localSigner))
+	// if err != nil {
+	// 	panic(fmt.Sprintf("error spawning: %v", err))
+	// }
+	//
+	// localSigner.Actor = act
+	// nb.actorToStop = act
 
 	return nil
 }

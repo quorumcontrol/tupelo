@@ -25,7 +25,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipfs/go-log"
-	"github.com/quorumcontrol/tupelo/gossip3"
 	"github.com/shibukawa/configdir"
 	"github.com/spf13/cobra"
 )
@@ -108,9 +107,10 @@ var rootCmd = &cobra.Command{
 			fmt.Println("unknown ipfs log level")
 		}
 
-		if err := gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
-			panic(err)
-		}
+		// TODO: Restore this in gossip4
+		// if err := gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
+		// 	panic(err)
+		// }
 
 		if remoteNetwork {
 			if localNetworkNodeCount > 0 {
