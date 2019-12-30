@@ -9,6 +9,7 @@ require (
 	github.com/elastic/go-sysinfo v1.1.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
+	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/ipfs/go-block-format v0.0.2
 	github.com/ipfs/go-cid v0.0.3
@@ -36,5 +37,5 @@ require (
 	go.elastic.co/apm/module/apmot v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
-	google.golang.org/grpc v1.21.1 // indirect
+	google.golang.org/grpc v1.21.1
 )
