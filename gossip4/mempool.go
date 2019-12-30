@@ -69,7 +69,7 @@ func (m *mempool) Get(id cid.Cid) *services.AddBlockRequest {
 	return m.abrs[id]
 }
 
-// DeleteWithConflictSet deletes not only this id, but all other
+// DeleteIDAndConflictSet deletes not only this id, but all other
 // conflicting ABRs as well.
 func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 	m.Lock()

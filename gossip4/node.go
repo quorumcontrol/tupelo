@@ -67,6 +67,8 @@ type Node struct {
 	syncerPid   *actor.PID
 
 	rootContext *actor.RootContext
+
+	closer io.Closer
 }
 
 type NewNodeOptions struct {
@@ -195,6 +197,26 @@ func (n *Node) Start(ctx context.Context) error {
 	}()
 
 	n.logger.Debugf("node starting")
+
+	return nil
+}
+
+func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
+	closer, err := n.p2pNode.Bootstrap(bootstrapAddrs)
+	if err != nil {
+		return fmt.Errorf("error bootstrapping gossip4 node: %v", err)
+	}
+
+	n.closer = closer
+
+	return n.p2pNode.WaitForBootstrap(1, 5*time.Second)
+}
+
+func (n *Node) Close() error {
+	err := n.closer.Close()
+	if err != nil {
+		return fmt.Errorf("error closing node IO: %v", err)
+	}
 
 	return nil
 }
