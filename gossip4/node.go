@@ -196,6 +196,15 @@ func (n *Node) Start(ctx context.Context) error {
 	return nil
 }
 
+func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
+	_, err := n.p2pNode.Bootstrap(bootstrapAddrs)
+	if err != nil {
+		return fmt.Errorf("error bootstrapping gossip4 node: %v", err)
+	}
+
+	return n.p2pNode.WaitForBootstrap(1, 5*time.Second)
+}
+
 func (n *Node) setupSnowball(actorContext actor.Context) {
 	snowballPid, err := actorContext.SpawnNamed(actor.PropsFromFunc(n.SnowBallReceive), "snowballReceiver")
 	if err != nil {

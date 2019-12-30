@@ -7,6 +7,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/spf13/cobra"
 
 	"github.com/quorumcontrol/tupelo/gossip3to4"
@@ -37,6 +38,8 @@ func runGossip4Node(ctx context.Context, config *nodebuilder.Config, group *type
 		return nil, fmt.Errorf("error starting node: %v", err)
 	}
 
+	err = node.Bootstrap(ctx, group.Config().BootstrapAddresses)
+
 	return node.PID(), nil
 }
 
@@ -46,14 +49,15 @@ func runGossip3To4Node(ctx context.Context, group *types.NotaryGroup, gossip4PID
 		return fmt.Errorf("error creating p2p node: %v", err)
 	}
 
-	actorCtx := actor.EmptyRootContext
-	actorCtx.Spawn(gossip3to4.NewNodeProps(&gossip3to4.NodeConfig{
+	node := gossip3to4.NewNode(ctx, &gossip3to4.NodeConfig{
 		P2PNode:     p2pNode,
 		NotaryGroup: group,
 		Gossip4Node: gossip4PID,
-	}))
+	})
 
-	return nil
+	node.Start(ctx)
+
+	return node.Bootstrap(ctx, group.Config().BootstrapAddresses)
 }
 
 var nodeCmd = &cobra.Command{
@@ -67,6 +71,17 @@ var nodeCmd = &cobra.Command{
 		config := nodebuilderConfig
 		if config == nil {
 			panic(fmt.Errorf("error getting node config"))
+		}
+
+		// start the tracing system if configured
+		switch config.TracingSystem {
+		case nodebuilder.ElasticTracing:
+			fmt.Println("Starting elastic tracing")
+			tracing.StartElastic()
+		case nodebuilder.NoTracing:
+			// no-op
+		default:
+			panic(fmt.Errorf("only elastic tracing is supported; got %v", config.TracingSystem))
 		}
 
 		// get the notary group

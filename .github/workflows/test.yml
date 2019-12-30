@@ -5,7 +5,7 @@ on: [push]
 jobs:
   test:
     name: "run test suite"
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     env:
       # ${{ runner.workspace }} is not available here, so hardcode for now
       # setup-go is considering inject these env vars automatically
