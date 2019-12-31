@@ -7,6 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,6 +27,13 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 	}
 
 	return ids
+}
+
+func newCheckpoint(height uint64, abrs []cid.Cid) *types.Checkpoint {
+	return &types.Checkpoint{
+		Height:           height,
+		AddBlockRequests: abrs,
+	}
 }
 
 func TestVoteWithoutBlock(t *testing.T) {

@@ -11,11 +11,13 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
 	"github.com/multiformats/go-multihash"
+	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 )
 
 type snowballer struct {
@@ -25,7 +27,7 @@ type snowballer struct {
 	snowball *Snowball
 	height   uint64
 	host     p2p.Node
-	group    *types.NotaryGroup
+	group    *g3types.NotaryGroup
 	logger   logging.EventLogger
 	cache    *lru.Cache
 	started  bool
@@ -59,7 +61,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 	snb.Unlock()
 
 	for !snb.snowball.Decided() {
-		respChan := make(chan Checkpoint, snb.snowball.k)
+		respChan := make(chan g4types.Checkpoint, snb.snowball.k)
 		wg := &sync.WaitGroup{}
 		for i := 0; i < snb.snowball.k; i++ {
 			wg.Add(1)
@@ -111,13 +113,13 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					return
 				}
 
-				var checkpoint *Checkpoint
+				var checkpoint *g4types.Checkpoint
 
 				blkInter, ok := snb.cache.Get(id)
 				if ok {
-					checkpoint = blkInter.(*Checkpoint)
+					checkpoint = blkInter.(*g4types.Checkpoint)
 				} else {
-					blk := &Checkpoint{}
+					blk := &g4types.Checkpoint{}
 					err = cbornode.DecodeInto(bits, blk)
 					if err != nil {
 						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
