@@ -10,7 +10,6 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	sigs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -22,11 +21,11 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+	sigutils "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 )
 
 const gossip4Protocol = "tupelo/v0.0.1"
@@ -258,37 +257,45 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
-func (n *Node) buildTreeState(abr *services.AddBlockRequest) (*signatures.TreeState, error) {
-	state := &signatures.TreeState{
-		TransactionId: consensus.RequestID(abr),
-		ObjectId:      abr.ObjectId,
-		PreviousTip:   abr.PreviousTip,
-		NewTip:        abr.NewTip,
-		Height:        abr.Height,
-	}
+func (n *Node) confirmCompletedRound(completedRound *g4types.CompletedRound) (*g4types.RoundConfirmation, error) {
+	roundCid := completedRound.CID()
 
-	sig, err := sigs.BLSSign(n.signKey, consensus.GetSignable(state), len(n.notaryGroup.Signers), n.signerIndex)
+	sig, err := sigutils.BLSSign(n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
 	if err != nil {
-		return nil, fmt.Errorf("error generating signature: %v", err)
+		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
 	}
 
-	state.Signature = sig
-
-	return state, nil
+	return &g4types.RoundConfirmation{
+		CompletedRound: roundCid,
+		Signature:      sig,
+	}, nil
 }
 
-func (n *Node) publishTreeState(abr *services.AddBlockRequest) error {
-	state, err := n.buildTreeState(abr)
+func (n *Node) publishCompletedRound(ctx context.Context) error {
+	current := n.rounds.Current()
+	currentStateCid, err := n.hamtStore.Put(ctx, current.state)
 	if err != nil {
-		return fmt.Errorf("error building tree state: %v", err)
+		return fmt.Errorf("error getting current state cid: %v", err)
 	}
 
-	data, err := state.Marshal()
-	if err != nil {
-		return fmt.Errorf("error marshaling tree state: %v", err)
+	if !current.snowball.Decided() {
+		return fmt.Errorf("can't publish an undecided round")
 	}
 
-	return n.pubsub.Publish(string(state.ObjectId), data)
+	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
+
+	completedRound := &g4types.CompletedRound{
+		Height:     current.height,
+		State:      currentStateCid,
+		Checkpoint: preferredCheckpointCid,
+	}
+
+	conf, err := n.confirmCompletedRound(completedRound)
+	if err != nil {
+		return fmt.Errorf("error confirming completed round: %v", err)
+	}
+
+	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
 }
 
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
@@ -325,12 +332,6 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		}
 		n.mempool.DeleteIDAndConflictSet(txCID)
 
-		// Notify any clients of the updated chaintree state
-		err = n.publishTreeState(abr)
-		if err != nil {
-			n.logger.Errorf("error publishing tree state: %v", err)
-		}
-
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
@@ -351,6 +352,12 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	completedRound.state = rootNode
 	n.logger.Debugf("after setting: %v", completedRound.state)
 
+	// Notify clients of the new checkpoint
+	err = n.publishCompletedRound(context.TODO())
+	if err != nil {
+		n.logger.Errorf("error publishing current round: %v", err)
+	}
+
 	round := newRound(completedRound.height + 1)
 	n.rounds.SetCurrent(round)
 	n.snowballer = newSnowballer(n, round.height, round.snowball)
@@ -368,7 +375,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				preferred := n.mempool.Preferred()
 				n.logger.Debugf("starting snowballer and preferring %v", preferred)
 				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: &Checkpoint{
+					Checkpoint: &g4types.Checkpoint{
 						Height:           n.rounds.Current().height,
 						AddBlockRequests: preferred,
 					},
@@ -415,7 +422,7 @@ func (n *Node) handleStream(s network.Stream) {
 
 	r, ok := n.rounds.Get(height)
 
-	response := Checkpoint{Height: height}
+	response := g4types.Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
