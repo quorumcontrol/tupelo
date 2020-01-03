@@ -76,7 +76,9 @@ func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 	m.Lock()
 	existing, ok := m.abrs[id]
 	if ok {
-		existing.StopTrace()
+		if existing.Started() {
+			existing.StopTrace()
+		}
 
 		delete(m.abrs, id)
 		csID := toConflictSetID(existing.AddBlockRequest)
