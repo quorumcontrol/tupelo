@@ -34,7 +34,7 @@ func (cs *conflictSet) Add(id cid.Cid) {
 type mempool struct {
 	sync.RWMutex
 	// abrs is the map of all *valid* add block requests (including conflicting ones)
-	abrs map[cid.Cid]*services.AddBlockRequest
+	abrs map[cid.Cid]*AddBlockWrapper
 	// conflictSets holds references to ABRs that are in conflict with each other
 	// and keeps track of which one is the current preferred
 	// the preferred is use to determine what block to propose, but we need to keep
@@ -45,14 +45,14 @@ type mempool struct {
 
 func newMempool() *mempool {
 	return &mempool{
-		abrs:         make(map[cid.Cid]*services.AddBlockRequest),
+		abrs:         make(map[cid.Cid]*AddBlockWrapper),
 		conflictSets: make(map[mempoolConflictSetID]*conflictSet),
 	}
 }
 
-func (m *mempool) Add(id cid.Cid, abr *services.AddBlockRequest) {
+func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
 	m.Lock()
-	indexKey := toConflictSetID(abr)
+	indexKey := toConflictSetID(abrWrapper.AddBlockRequest)
 	cs, ok := m.conflictSets[indexKey]
 	if !ok {
 		cs = &conflictSet{}
@@ -60,11 +60,11 @@ func (m *mempool) Add(id cid.Cid, abr *services.AddBlockRequest) {
 	cs.Add(id)
 	m.conflictSets[indexKey] = cs
 
-	m.abrs[id] = abr
+	m.abrs[id] = abrWrapper
 	m.Unlock()
 }
 
-func (m *mempool) Get(id cid.Cid) *services.AddBlockRequest {
+func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 	m.RLock()
 	defer m.RUnlock()
 	return m.abrs[id]
@@ -76,8 +76,10 @@ func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 	m.Lock()
 	existing, ok := m.abrs[id]
 	if ok {
+		existing.StopTrace()
+
 		delete(m.abrs, id)
-		csID := toConflictSetID(existing)
+		csID := toConflictSetID(existing.AddBlockRequest)
 		cs, ok := m.conflictSets[csID]
 		if ok {
 			for _, id := range cs.ids {

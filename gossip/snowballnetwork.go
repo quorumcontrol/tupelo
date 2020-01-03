@@ -197,12 +197,12 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 func (snb *snowballer) hasConflictingABRs(abrCIDs []cid.Cid) bool {
 	csIds := make(map[mempoolConflictSetID]struct{})
 	for _, abrCID := range abrCIDs {
-		tx := snb.node.mempool.Get(abrCID)
-		if tx == nil {
+		wrapper := snb.node.mempool.Get(abrCID)
+		if wrapper == nil {
 			snb.logger.Errorf("had a null transaction ( %s ) from a block in the mempool, this shouldn't happen", abrCID.String())
 			return true
 		}
-		conflictSetID := toConflictSetID(tx)
+		conflictSetID := toConflictSetID(wrapper.AddBlockRequest)
 		_, ok := csIds[conflictSetID]
 		if ok {
 			return true

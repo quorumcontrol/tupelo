@@ -250,7 +250,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	case *actor.Started:
 		n.setupSyncer(actorContext)
 		n.setupSnowball(actorContext)
-	case *services.AddBlockRequest:
+	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
 	case *snowballerDone:
 		n.handleSnowballerDone(msg)
@@ -332,8 +332,11 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
 
 	for _, txCID := range preferred.Checkpoint.AddBlockRequests {
-		abr := n.mempool.Get(txCID)
-		if abr == nil {
+		abrWrapper := n.mempool.Get(txCID)
+		abrWrapper.LogKV("confirmed", true)
+
+		abr := abrWrapper.AddBlockRequest
+		if abrWrapper == nil {
 			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
 			panic("an accepted checkpoint should not have a Tx we don't know about")
 		}
@@ -341,16 +344,16 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
+		// mempool calls StopTrace on our abrWrapper
 		n.mempool.DeleteIDAndConflictSet(txCID)
-
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
 		next, ok := n.inflight.Get(nextKey)
 		if ok {
-			nextAbr := next.(*services.AddBlockRequest)
-			if bytes.Equal(nextAbr.PreviousTip, abr.NewTip) {
-				if err := n.storeAbr(msg.ctx, nextAbr); err != nil {
+			nextAbrWrapper := next.(*AddBlockWrapper)
+			if bytes.Equal(nextAbrWrapper.AddBlockRequest.PreviousTip, nextAbrWrapper.AddBlockRequest.NewTip) {
+				if err := n.storeAbr(msg.ctx, nextAbrWrapper); err != nil {
 					n.logger.Warningf("error storing abr: %v", err)
 				}
 			}
@@ -459,8 +462,12 @@ func (n *Node) handleStream(s network.Stream) {
 	}
 }
 
-func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
-	ctx, cancel := context.WithCancel(context.TODO())
+func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *AddBlockWrapper) {
+	abr := abrWrapper.AddBlockRequest
+	sp := abrWrapper.NewSpan("g4.handleAddBlockRequest")
+	defer sp.Finish()
+
+	ctx, cancel := context.WithCancel(abrWrapper.GetContext())
 	defer cancel()
 
 	n.logger.Debugf("handling message: ObjectId: %s, Height: %d", abr.ObjectId, abr.Height)
@@ -478,14 +485,14 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 	// if the current is nil, then this ABR is acceptable if its height is 0
 	if current == nil {
 		if abr.Height == 0 {
-			err = n.storeAbr(ctx, abr)
+			err = n.storeAbr(ctx, abrWrapper)
 			if err != nil {
 				n.logger.Errorf("error getting current: %v", err)
 				return
 			}
 			return
 		}
-		n.storeAsInFlight(ctx, abr)
+		n.storeAsInFlight(ctx, abrWrapper)
 		return
 	}
 
@@ -503,7 +510,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 			return
 		}
 
-		err = n.storeAbr(ctx, abr)
+		err = n.storeAbr(ctx, abrWrapper)
 		if err != nil {
 			n.logger.Errorf("error getting current: %v", err)
 			return
@@ -514,30 +521,31 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 
 	if abr.Height > current.Height+1 {
 		// this is in the future so just queue it up
-		n.storeAsInFlight(ctx, abr)
+		n.storeAsInFlight(ctx, abrWrapper)
 		return
 	}
 
 	// TODO: handle byzantine case of msg.Height == current.Height
 }
 
-func (n *Node) storeAsInFlight(ctx context.Context, abr *services.AddBlockRequest) {
+func (n *Node) storeAsInFlight(ctx context.Context, abrWrapper *AddBlockWrapper) {
+	abr := abrWrapper.AddBlockRequest
 	n.logger.Infof("storing in inflight %s height: %d", string(abr.ObjectId), abr.Height)
-	n.inflight.Add(inFlightID(abr.ObjectId, abr.Height), abr)
+	n.inflight.Add(inFlightID(abr.ObjectId, abr.Height), abrWrapper)
 }
 
 func inFlightID(objectID []byte, height uint64) string {
 	return string(objectID) + strconv.FormatUint(height, 10)
 }
 
-func (n *Node) storeAbr(ctx context.Context, abr *services.AddBlockRequest) error {
-	id, err := n.hamtStore.Put(ctx, abr)
+func (n *Node) storeAbr(ctx context.Context, abrWrapper *AddBlockWrapper) error {
+	id, err := n.hamtStore.Put(ctx, abrWrapper.AddBlockRequest)
 	if err != nil {
 		return fmt.Errorf("error putting abr: %w", err)
 	}
 
 	n.logger.Debugf("storing in mempool %s", id.String())
-	n.mempool.Add(id, abr)
+	n.mempool.Add(id, abrWrapper)
 
 	return nil
 }
