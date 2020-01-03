@@ -104,7 +104,12 @@ func (n *Node) handleAddBlockRequest(actorCtx actor.Context, abr *services.AddBl
 	valid := n.validator.ValidateAbr(context.TODO(), abr)
 	if valid {
 		sp.SetTag("valid", true)
-		actorCtx.Forward(n.gossip4Node)
+		wrapper := &gossip.AddBlockWrapper{
+			AddBlockRequest: abr,
+		}
+		wrapper.StartTrace("g3transaction")
+
+		actorCtx.Send(n.gossip4Node, wrapper)
 	}
 	sp.SetTag("valid", false)
 }
