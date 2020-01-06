@@ -258,7 +258,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 }
 
 func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *g4types.CompletedRound) (*g4types.RoundConfirmation, error) {
-	roundCid, err := n.hamtStore.Put(ctx, completedRound)
+	roundCid := completedRound.CID()
 
 	sig, err := sigutils.BLSSign(n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
 	if err != nil {
@@ -282,12 +282,22 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 		return fmt.Errorf("can't publish an undecided round")
 	}
 
+	err = n.dagStore.Add(ctx, current.snowball.Preferred().Checkpoint.Wrapped())
+	if err != nil {
+		return fmt.Errorf("error adding to dag store: %w", err)
+	}
+
 	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
 
 	completedRound := &g4types.CompletedRound{
 		Height:     current.height,
 		State:      currentStateCid,
 		Checkpoint: preferredCheckpointCid,
+	}
+
+	err = n.dagStore.Add(ctx, completedRound.Wrapped())
+	if err != nil {
+		return fmt.Errorf("error adding to dag store: %w", err)
 	}
 
 	conf, err := n.confirmCompletedRound(ctx, completedRound)
