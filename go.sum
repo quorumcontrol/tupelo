@@ -489,6 +489,7 @@ github.com/quorumcontrol/messages v1.1.1/go.mod h1:PubykIzNsMO+CMecd7HDFKjBa4shV
 github.com/quorumcontrol/messages/v2 v2.1.2 h1:5LQQYWJc97fAH+bXpRXXsQbM6sSS+mYDjHNfLI8Snwk=
 github.com/quorumcontrol/messages/v2 v2.1.2/go.mod h1:on7qxEZYufdF6ZIyXFFWonyEmSdCuY+McIk2kLDiGwg=
 github.com/quorumcontrol/tupelo v0.5.12-0.20191230212236-8ab8884d2446/go.mod h1:dA7Myn72ZG7VFOeTttKqT4N2n5mfQroseTZ+nSeOXvE=
+github.com/quorumcontrol/tupelo v0.5.12-0.20200106150006-b0ebd63917e2/go.mod h1:gLuY1iZbTIKKDYwVPjfJl0knoaqyHbAOQ4k0okQWBb0=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1 h1:bkol/s6k1audTyo8GG7JJUAUtlo1I9BWsxb00AXr4Yw=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1/go.mod h1:wA31G/DE4bI+8rsWKGRlxOgtKjrk0nJjd1qgRTpiN0Q=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
