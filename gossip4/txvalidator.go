@@ -166,7 +166,7 @@ func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.A
 		return false
 	}
 
-	if (root.Height == 0 && abr.Height != 0) || (root.Height > 0 && abr.Height != root.Height+1) {
+	if (root.Height == 0 && abr.Height > 1) || (root.Height > 0 && abr.Height != root.Height+1) {
 		tv.logger.Warningf("invalid height on ABR root: %d, abr: %d", root.Height, abr.Height)
 		return false
 	}
