@@ -3,6 +3,7 @@ package gossip4
 import (
 	"context"
 	"fmt"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
@@ -148,7 +149,7 @@ func TestEndToEnd(t *testing.T) {
 	abrCount := 10
 	abrs := make([]*services.AddBlockRequest, abrCount)
 
-	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
+	testStore := hamtwrapper.DagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
 
 	for i := 0; i < abrCount; i++ {
 		abr := testhelpers.NewValidTransaction(t)
@@ -222,9 +223,7 @@ func TestByzantineCases(t *testing.T) {
 
 func abrToHamtCID(ctx context.Context, abr *services.AddBlockRequest) cid.Cid {
 	store := nodestore.MustMemoryStore(ctx)
-	hamtStore := hamt.CborIpldStore{
-		Blocks: &dsWrapper{store: store},
-	}
+	hamtStore := hamtwrapper.DagStoreToCborIpld(store)
 	id, _ := hamtStore.Put(ctx, abr)
 	return id
 }

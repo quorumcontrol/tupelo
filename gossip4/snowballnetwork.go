@@ -16,8 +16,7 @@ import (
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
-	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 )
 
 type snowballer struct {
@@ -27,7 +26,7 @@ type snowballer struct {
 	snowball *Snowball
 	height   uint64
 	host     p2p.Node
-	group    *g3types.NotaryGroup
+	group    *types.NotaryGroup
 	logger   logging.EventLogger
 	cache    *lru.Cache
 	started  bool

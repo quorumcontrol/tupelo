@@ -22,9 +22,8 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
-	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	sigutils "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 )
@@ -258,7 +257,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
-func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *g4types.CompletedRound) (*g4types.RoundConfirmation, error) {
+func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.CompletedRound) (*types.RoundConfirmation, error) {
 	roundCid := completedRound.CID()
 
 	sig, err := sigutils.BLSSign(n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
@@ -266,7 +265,7 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *g4type
 		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
 	}
 
-	return &g4types.RoundConfirmation{
+	return &types.RoundConfirmation{
 		CompletedRound: roundCid,
 		Signature:      sig,
 	}, nil
@@ -290,7 +289,7 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 
 	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
 
-	completedRound := &g4types.CompletedRound{
+	completedRound := &types.CompletedRound{
 		Height:     current.height,
 		State:      currentStateCid,
 		Checkpoint: preferredCheckpointCid,
@@ -386,7 +385,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				preferred := n.mempool.Preferred()
 				n.logger.Debugf("starting snowballer and preferring %v", preferred)
 				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: &g4types.Checkpoint{
+					Checkpoint: &types.Checkpoint{
 						Height:           n.rounds.Current().height,
 						AddBlockRequests: preferred,
 					},
@@ -433,7 +432,7 @@ func (n *Node) handleStream(s network.Stream) {
 
 	r, ok := n.rounds.Get(height)
 
-	response := g4types.Checkpoint{Height: height}
+	response := types.Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
