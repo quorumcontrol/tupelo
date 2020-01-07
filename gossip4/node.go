@@ -268,6 +268,7 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.
 	return &types.RoundConfirmation{
 		CompletedRound: roundCid,
 		Signature:      sig,
+		Height:         completedRound.Height,
 	}, nil
 }
 
