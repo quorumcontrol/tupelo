@@ -69,6 +69,7 @@ github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4
 github.com/dustin/go-humanize v1.0.0/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/elastic/go-sysinfo v0.0.0-20190103140604-e68552284485 h1:k9Ac5c19ZDF7XOktjJP50LTn3a9+HPUONWXyqT6Xt7M=
 github.com/elastic/go-sysinfo v0.0.0-20190103140604-e68552284485/go.mod h1:5kYRMF9nitZzZ4odJqSHV1DddYPTJ+QB4YsyWmNyJzA=
+github.com/elastic/go-sysinfo v1.0.1 h1:lzGPX2sIXaETeMXitXL2XZU8K4B7k7JBhIKWxdOdUt8=
 github.com/elastic/go-sysinfo v1.0.1/go.mod h1:O/D5m1VpYLwGjCYzEt63g3Z1uO3jXfwyzzjiW90t8cY=
 github.com/elastic/go-sysinfo v1.1.1 h1:ZVlaLDyhVkDfjwPGU55CQRCRolNpc7P0BbyhhQZQmMI=
 github.com/elastic/go-sysinfo v1.1.1/go.mod h1:i1ZYdU10oLNfRzq4vq62BEwD2fH8KaWh6eh0ikPT9F0=
@@ -493,6 +494,7 @@ github.com/quorumcontrol/messages/v2 v2.1.2/go.mod h1:on7qxEZYufdF6ZIyXFFWonyEmS
 github.com/quorumcontrol/tupelo v0.5.12-0.20191230212236-8ab8884d2446/go.mod h1:dA7Myn72ZG7VFOeTttKqT4N2n5mfQroseTZ+nSeOXvE=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200106150006-b0ebd63917e2/go.mod h1:gLuY1iZbTIKKDYwVPjfJl0knoaqyHbAOQ4k0okQWBb0=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200106164423-ae217697b350/go.mod h1:w38FdPQhXO6Nom4xb0lfDumX2NyS91sN00JkZ8qCNfI=
+github.com/quorumcontrol/tupelo v0.5.12-0.20200107090113-f9de5006be31/go.mod h1:1mVwpZeUzNlsom1ZPhPrhc9ZpT0rg2mst3bVIFB0ay4=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1 h1:bkol/s6k1audTyo8GG7JJUAUtlo1I9BWsxb00AXr4Yw=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1/go.mod h1:wA31G/DE4bI+8rsWKGRlxOgtKjrk0nJjd1qgRTpiN0Q=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
