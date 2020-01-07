@@ -7,6 +7,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/ethereum/go-ethereum v1.9.3
+	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
