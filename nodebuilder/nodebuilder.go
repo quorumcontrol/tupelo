@@ -8,13 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/middleware"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
-
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
