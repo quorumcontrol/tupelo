@@ -23,6 +23,7 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
 	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	sigutils "github.com/quorumcontrol/tupelo-go-sdk/signatures"
@@ -80,7 +81,7 @@ type NewNodeOptions struct {
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
-	hamtStore := dagStoreToCborIpld(opts.DagStore)
+	hamtStore := hamtwrapper.DagStoreToCborIpld(opts.DagStore)
 
 	var signerIndex int
 	for i, s := range opts.NotaryGroup.AllSigners() {
