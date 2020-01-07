@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/spf13/cobra"
@@ -104,7 +104,7 @@ var nodeCmd = &cobra.Command{
 
 		fmt.Println("Node running")
 
-		<- make(chan struct{})
+		<-make(chan struct{})
 	},
 }
 

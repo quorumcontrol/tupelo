@@ -4,7 +4,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 )
 
 type PrivateKeySet struct {

@@ -10,7 +10,7 @@ import (
 	"github.com/quorumcontrol/messages/build/go/services"
 	g4services "github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 )
 

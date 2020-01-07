@@ -10,7 +10,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
