@@ -492,7 +492,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 	if current.Height+1 == abr.Height {
 		// then this is the next height, let's save it if the tips match
 
-		if !bytes.Equal(current.PreviousTip, abr.PreviousTip) {
+		if !bytes.Equal(current.NewTip, abr.PreviousTip) {
 			n.logger.Warningf("tips did not match")
 			return
 		}
