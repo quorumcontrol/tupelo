@@ -18,7 +18,8 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 
 	for i := 0; i < count; i++ {
 		randomBits := make([]byte, 32)
-		rand.Read(randomBits)
+		_, err := rand.Read(randomBits)
+		require.Nil(t, err)
 
 		n := sw.WrapObject(randomBits)
 		require.NoError(t, sw.Err)

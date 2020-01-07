@@ -109,10 +109,7 @@ func BenchmarkTransactionValidator(b *testing.B) {
 		// in the real system everything happens in parallel with a max of 1024
 		// We don't limit in the benchmark because we're assuming < 1024 TPS
 		go func(msg *pubsub.Message) {
-			isValid := validator.validate(ctx, peerID, msg)
-			if !isValid {
-				b.Fatal("valid wasn't true")
-			}
+			validator.validate(ctx, peerID, msg)
 		}(txs[i])
 	}
 	wg.Wait()

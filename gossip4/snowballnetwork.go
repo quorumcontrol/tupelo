@@ -84,7 +84,9 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 				sw := &safewrap.SafeWrap{}
 				wrapped := sw.WrapObject(snb.height)
 
-				s.SetDeadline(time.Now().Add(2 * time.Second))
+				if err := s.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+					snb.logger.Errorf("error setting deadline: %v", err) // TODO: do we need to do anything about this error?
+				}
 
 				writer := msgio.NewVarintWriter(s)
 				err = writer.WriteMsg(wrapped.RawData())

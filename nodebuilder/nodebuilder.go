@@ -168,9 +168,9 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	return nil
 }
 
-func syncerActorName(signer *types.Signer) string {
-	return "tupelo-" + signer.ID
-}
+// func syncerActorName(signer *types.Signer) string {
+// 	return "tupelo-" + signer.ID
+// }
 
 func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 	cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
@@ -242,13 +242,13 @@ func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Opti
 	return p2p.NewHostFromOptions(ctx, append(opts, addlOpts...)...)
 }
 
-func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
-	path = filepath.Join(storagePath, signer.ID+"-current")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		panic(err)
-	}
-	return
-}
+// func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
+// 	path = filepath.Join(storagePath, signer.ID+"-current")
+// 	if err := os.MkdirAll(path, 0755); err != nil {
+// 		panic(err)
+// 	}
+// 	return
+// }
 
 func configDir(globalNamespace, namespace string) string {
 	conf := configdir.New("tupelo", filepath.Join(globalNamespace, namespace))

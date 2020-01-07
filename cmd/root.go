@@ -56,14 +56,15 @@ var logLevels = map[string]log.Lvl{
 	"trace":    log.LvlTrace,
 }
 
-var zapLogLevels = map[string]string{
-	"critical": "panic",
-	"error":    "error",
-	"warn":     "warn",
-	"info":     "info",
-	"debug":    "debug",
-	"trace":    "debug",
-}
+//TODO: restore this in gossip4
+// var zapLogLevels = map[string]string{
+// 	"critical": "panic",
+// 	"error":    "error",
+// 	"warn":     "warn",
+// 	"info":     "info",
+// 	"debug":    "debug",
+// 	"trace":    "debug",
+// }
 
 func getLogLevel(lvlName string) (log.Lvl, error) {
 	lvl, ok := logLevels[lvlName]

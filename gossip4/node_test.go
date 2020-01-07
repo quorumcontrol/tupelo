@@ -3,15 +3,15 @@ package gossip4
 import (
 	"context"
 	"fmt"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
 	"testing"
 	"time"
+
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
-	logging "github.com/ipfs/go-log"
 
 	"github.com/stretchr/testify/require"
 
@@ -64,7 +64,7 @@ func startNodes(t *testing.T, ctx context.Context, nodes []*Node) {
 	}
 
 	for i, node := range nodes {
-		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
+		// logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
 
 		if i > 0 {
 			err := node.Bootstrap(ctx, bootAddrs)
@@ -165,7 +165,7 @@ func TestEndToEnd(t *testing.T) {
 		bits, err := abr.Marshal()
 		require.Nil(t, err)
 
-		nodes[i%(len(nodes)-1)].pubsub.Publish(transactionTopic, bits)
+		err = nodes[i%(len(nodes)-1)].pubsub.Publish(transactionTopic, bits)
 		require.Nil(t, err)
 	}
 
@@ -208,7 +208,8 @@ func TestByzantineCases(t *testing.T) {
 			bits, err := abr.Marshal()
 			require.Nil(t, err)
 
-			n.pubsub.Publish(transactionTopic, bits)
+			err = n.pubsub.Publish(transactionTopic, bits)
+			require.Nil(t, err)
 		}
 		waitForAllAbrs(t, ctx, nodes, abrs)
 

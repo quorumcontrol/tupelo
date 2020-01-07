@@ -350,7 +350,9 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		if ok {
 			nextAbr := next.(*services.AddBlockRequest)
 			if bytes.Equal(nextAbr.PreviousTip, abr.NewTip) {
-				n.storeAbr(msg.ctx, nextAbr) // purposely ignore the error here
+				if err := n.storeAbr(msg.ctx, nextAbr); err != nil {
+					n.logger.Warningf("error storing abr: %v", err)
+				}
 			}
 			n.inflight.Remove(nextKey)
 		}
@@ -406,8 +408,13 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 
 func (n *Node) handleStream(s network.Stream) {
 	// n.logger.Debugf("handling stream from")
-	s.SetWriteDeadline(time.Now().Add(2 * time.Second))
-	s.SetReadDeadline(time.Now().Add(1 * time.Second))
+	if err := s.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		n.logger.Errorf("error setting write deadline: %v", err)
+	}
+	if err := s.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
+		n.logger.Errorf("error setting read deadline: %v", err)
+	}
+
 	reader := msgio.NewVarintReader(s)
 	writer := msgio.NewVarintWriter(s)
 
@@ -450,8 +457,6 @@ func (n *Node) handleStream(s network.Stream) {
 		s.Close()
 		return
 	}
-
-	return
 }
 
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
