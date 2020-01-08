@@ -12,10 +12,11 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/testhelpers"
-	"github.com/quorumcontrol/tupelo/testnotarygroup"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/testhelpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
 func TestTransactionValidator(t *testing.T) {

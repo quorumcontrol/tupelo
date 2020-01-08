@@ -8,9 +8,10 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 )
 
 type HumanPrivateKeySet struct {
@@ -44,10 +45,11 @@ func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 type HumanConfig struct {
 	Namespace string
 
-	NotaryGroupConfig string
-	StoragePath       string
-	PublicIP          string
-	Port              int
+	NotaryGroupConfig        string
+	Gossip3NotaryGroupConfig string
+	StoragePath              string
+	PublicIP                 string
+	Port                     int
 
 	PrivateKeySet *HumanPrivateKeySet
 
@@ -66,14 +68,27 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 
 	tomlBits, err := ioutil.ReadFile(hc.NotaryGroupConfig)
 	if err != nil {
-		return nil, fmt.Errorf("error reading %s: %v", hc.NotaryGroupConfig, err)
+		return nil, fmt.Errorf("error reading %v", err)
 	}
 
 	ngConfig, err := types.TomlToConfig(string(tomlBits))
 	if err != nil {
-		return nil, fmt.Errorf("error loading notary group config")
+		return nil, fmt.Errorf("error loading notary group config: %v", err)
 	}
 	c.NotaryGroupConfig = ngConfig
+
+	if hc.Gossip3NotaryGroupConfig != "" {
+		g3TomlBits, err := ioutil.ReadFile(hc.Gossip3NotaryGroupConfig)
+		if err != nil {
+			return nil, fmt.Errorf("error reading %v", err)
+		}
+
+		g3NgConfig, err := g3types.TomlToConfig(string(g3TomlBits))
+		if err != nil {
+			return nil, fmt.Errorf("error loading gossip3 notary group config: %v", err)
+		}
+		c.Gossip3NotaryGroupConfig = g3NgConfig
+	}
 
 	c.BootstrapNodes = ngConfig.BootstrapAddresses
 
@@ -103,7 +118,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 func TomlToConfig(path string) (*Config, error) {
 	tomlBits, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("error reading %s: %v", path, err)
+		return nil, fmt.Errorf("error reading %v", err)
 	}
 
 	var hc HumanConfig
@@ -116,10 +131,13 @@ func TomlToConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("missing notary group config path")
 	}
 
-	if filepath.IsAbs(hc.NotaryGroupConfig) {
-		hc.NotaryGroupConfig = hc.NotaryGroupConfig
-	} else {
-		hc.NotaryGroupConfig = filepath.Join(filepath.Dir(path), hc.NotaryGroupConfig)
+	if !filepath.IsAbs(hc.NotaryGroupConfig) {
+		relPath := hc.NotaryGroupConfig
+		hc.NotaryGroupConfig = filepath.Join(filepath.Dir(path), relPath)
+	}
+
+	if hc.Gossip3NotaryGroupConfig != "" && !filepath.IsAbs(hc.Gossip3NotaryGroupConfig) {
+		hc.Gossip3NotaryGroupConfig = filepath.Join(filepath.Dir(path), hc.Gossip3NotaryGroupConfig)
 	}
 
 	return HumanConfigToConfig(hc)

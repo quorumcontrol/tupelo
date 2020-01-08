@@ -22,7 +22,7 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 )
 
@@ -74,7 +74,7 @@ type NewNodeOptions struct {
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
 	Name             string             // optional
-	RootActorContext *actor.RootContext //optional
+	RootActorContext *actor.RootContext // optional
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
