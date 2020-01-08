@@ -80,7 +80,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 	if hc.Gossip3NotaryGroupConfig != "" {
 		g3TomlBits, err := ioutil.ReadFile(hc.Gossip3NotaryGroupConfig)
 		if err != nil {
-			return nil, fmt.Errorf("error reading: %s: %v", hc.Gossip3NotaryGroupConfig, err)
+			return nil, fmt.Errorf("error reading %v", err)
 		}
 
 		g3NgConfig, err := g3types.TomlToConfig(string(g3TomlBits))
