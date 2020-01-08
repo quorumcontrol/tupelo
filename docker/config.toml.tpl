@@ -1,4 +1,5 @@
 NotaryGroupConfig = "${TUPELO_NOTARY_GROUP_CONFIG}"
+Gossip3NotaryGroupConfig = "${TUPELO_GOSSIP3_NOTARY_GROUP_CONFIG}"
 
 BootstrapOnly = ${TUPELO_BOOTSTRAP_ONLY}
 Namespace = "${TUPELO_NAMESPACE}"
