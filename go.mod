@@ -8,7 +8,6 @@ require (
 	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
-	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-cid v0.0.3

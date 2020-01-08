@@ -1,7 +1,6 @@
 package nodebuilder
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -156,26 +155,6 @@ func LegacyConfig(namespace string, port int, enableElasticTracing, enableJaeger
 	}
 
 	return c, nil
-}
-
-func LegacyLocalNetwork(ctx context.Context, namespace string, nodeCount int) (*LocalNetwork, error) {
-	legacyKeys, _, err := loadLocalKeys(namespace, nodeCount)
-	if err != nil {
-		return nil, fmt.Errorf("error generating node keys: %v", err)
-	}
-
-	keys := make([]*PrivateKeySet, len(legacyKeys))
-	for i, legacyKey := range legacyKeys {
-		privKey, err := legacyKey.ToPrivateKeySet()
-		if err != nil {
-			return nil, fmt.Errorf("error getting private keys: %v", err)
-		}
-		keys[i] = privKey
-	}
-	ngConfig := types.DefaultConfig()
-	ngConfig.ID = "localnetwork"
-
-	return NewLocalNetwork(ctx, namespace, keys, ngConfig)
 }
 
 func loadKeyFile(keySet interface{}, path string, name string) error {

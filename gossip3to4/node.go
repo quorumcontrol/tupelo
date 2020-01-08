@@ -9,19 +9,19 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 )
 
 type NodeConfig struct {
 	P2PNode     p2p.Node
-	NotaryGroup *types.NotaryGroup
+	NotaryGroup *g3types.NotaryGroup
 	Gossip4Node *actor.PID
 }
 
 type Node struct {
 	p2pNode     p2p.Node
-	notaryGroup *types.NotaryGroup
+	notaryGroup *g3types.NotaryGroup
 	gossip3Sub  *actor.PID
 	gossip4Node *actor.PID
 	logger      logging.EventLogger

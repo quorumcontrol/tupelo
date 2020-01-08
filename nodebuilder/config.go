@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 )
 
@@ -23,10 +24,11 @@ const (
 type Config struct {
 	Namespace string
 
-	NotaryGroupConfig *types.Config
-	StoragePath       string
-	PublicIP          string
-	Port              int
+	Gossip3NotaryGroupConfig *g3types.Config
+	NotaryGroupConfig        *types.Config
+	StoragePath              string
+	PublicIP                 string
+	Port                     int
 
 	PrivateKeySet  *PrivateKeySet
 	BootstrapNodes []string

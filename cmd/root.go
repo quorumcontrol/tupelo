@@ -37,9 +37,10 @@ const (
 var (
 	configFilePath    string
 	nodebuilderConfig *nodebuilder.Config
-	logLvlName        string
-	overrideKeysFile  string
-	remoteNetwork     bool
+
+	logLvlName       string
+	overrideKeysFile string
+	remoteNetwork    bool
 
 	configNamespace string
 
@@ -58,12 +59,12 @@ var logLevels = map[string]log.Lvl{
 
 //TODO: restore this in gossip4
 // var zapLogLevels = map[string]string{
-// 	"critical": "panic",
-// 	"error":    "error",
-// 	"warn":     "warn",
-// 	"info":     "info",
-// 	"debug":    "debug",
-// 	"trace":    "debug",
+//	"critical": "panic",
+//	"error":    "error",
+//	"warn":     "warn",
+//	"info":     "info",
+//	"debug":    "debug",
+//	"trace":    "debug",
 // }
 
 func getLogLevel(lvlName string) (log.Lvl, error) {
@@ -110,7 +111,7 @@ var rootCmd = &cobra.Command{
 
 		// TODO: Restore this in gossip4
 		// if err := gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
-		// 	panic(err)
+		//	panic(err)
 		// }
 
 		if remoteNetwork {
@@ -131,9 +132,12 @@ var rootCmd = &cobra.Command{
 		}
 
 		if configFilePath != "" {
-			if err := loadTomlConfig(configFilePath); err != nil {
+			config, err := loadTomlConfig(configFilePath)
+			if err != nil {
 				panic(err)
 			}
+
+			nodebuilderConfig = config
 		}
 	},
 }
@@ -147,13 +151,12 @@ func Execute() {
 	}
 }
 
-func loadTomlConfig(path string) error {
+func loadTomlConfig(path string) (*nodebuilder.Config, error) {
 	c, err := nodebuilder.TomlToConfig(path)
 	if err != nil {
-		return fmt.Errorf("error getting config from toml: %v", err)
+		return nil, fmt.Errorf("error getting config from toml: %v", err)
 	}
-	nodebuilderConfig = c
-	return nil
+	return c, nil
 }
 
 func init() {

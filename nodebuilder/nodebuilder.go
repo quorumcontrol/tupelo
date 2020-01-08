@@ -8,13 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/middleware"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/middleware"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
-
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -118,12 +116,12 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	// middleware.Log.Debugw("starting signer node", "storagePath", currentPath)
 	// badgerCurrent, err := storage.NewDefaultBadger(currentPath)
 	// if err != nil {
-	// 	return fmt.Errorf("error creating storage: %v", err)
+	//	return fmt.Errorf("error creating storage: %v", err)
 	// }
 	//
 	// group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
 	// if err != nil {
-	// 	return fmt.Errorf("error generating notary group: %v", err)
+	//	return fmt.Errorf("error generating notary group: %v", err)
 	// }
 	//
 	// var pubsub remote.PubSub
@@ -131,19 +129,19 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	//
 	// cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
 	// for _, s := range group.Signers {
-	// 	id, err := p2p.PeerFromEcdsaKey(s.DstKey)
-	// 	if err != nil {
-	// 		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
-	// 	}
-	// 	cm.Protect(id, "signer")
+	//	id, err := p2p.PeerFromEcdsaKey(s.DstKey)
+	//	if err != nil {
+	//		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+	//	}
+	//	cm.Protect(id, "signer")
 	// }
 	//
 	// p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
 	// if err != nil {
-	// 	return fmt.Errorf("error setting up p2p host: %v", err)
+	//	return fmt.Errorf("error setting up p2p host: %v", err)
 	// }
 	// if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
-	// 	return fmt.Errorf("failed to bootstrap: %s", err)
+	//	return fmt.Errorf("failed to bootstrap: %s", err)
 	// }
 	//
 	// remote.NewRouter(p2pHost)
@@ -153,13 +151,13 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 	// pubsub = remote.NewNetworkPubSub(p2pHost.GetPubSub())
 	//
 	// act, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-	// 	Self:              localSigner,
-	// 	NotaryGroup:       group,
-	// 	CurrentStateStore: badgerCurrent,
-	// 	PubSubSystem:      pubsub,
+	//	Self:              localSigner,
+	//	NotaryGroup:       group,
+	//	CurrentStateStore: badgerCurrent,
+	//	PubSubSystem:      pubsub,
 	// }), syncerActorName(localSigner))
 	// if err != nil {
-	// 	panic(fmt.Sprintf("error spawning: %v", err))
+	//	panic(fmt.Sprintf("error spawning: %v", err))
 	// }
 	//
 	// localSigner.Actor = act
@@ -169,7 +167,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 }
 
 // func syncerActorName(signer *types.Signer) string {
-// 	return "tupelo-" + signer.ID
+//	return "tupelo-" + signer.ID
 // }
 
 func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
@@ -243,11 +241,11 @@ func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Opti
 }
 
 // func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
-// 	path = filepath.Join(storagePath, signer.ID+"-current")
-// 	if err := os.MkdirAll(path, 0755); err != nil {
-// 		panic(err)
-// 	}
-// 	return
+//	path = filepath.Join(storagePath, signer.ID+"-current")
+//	if err := os.MkdirAll(path, 0755); err != nil {
+//		panic(err)
+//	}
+//	return
 // }
 
 func configDir(globalNamespace, namespace string) string {

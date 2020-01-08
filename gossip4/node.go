@@ -76,7 +76,7 @@ type NewNodeOptions struct {
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
 	Name             string             // optional
-	RootActorContext *actor.RootContext //optional
+	RootActorContext *actor.RootContext // optional
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {

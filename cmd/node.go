@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
@@ -46,7 +47,7 @@ func runGossip4Node(ctx context.Context, config *nodebuilder.Config, group *type
 	return node.PID(), nil
 }
 
-func runGossip3To4Node(ctx context.Context, group *types.NotaryGroup, gossip4PID *actor.PID) error {
+func runGossip3To4Node(ctx context.Context, group *g3types.NotaryGroup, gossip4PID *actor.PID) error {
 	p2pNode, _, err := p2p.NewHostAndBitSwapPeer(ctx)
 	if err != nil {
 		return fmt.Errorf("error creating p2p node: %v", err)
@@ -87,22 +88,40 @@ var nodeCmd = &cobra.Command{
 			panic(fmt.Errorf("only elastic tracing is supported; got %v", config.TracingSystem))
 		}
 
-		// get the notary group
-		group, err := config.NotaryGroupConfig.NotaryGroup(nil)
+		// get the gossip3 notary group
+		var (
+			gossip3NotaryGroup *g3types.NotaryGroup
+			err                error
+		)
+		if config.Gossip3NotaryGroupConfig != nil {
+			gossip3NotaryGroup, err = config.Gossip3NotaryGroupConfig.NotaryGroup(nil)
+			if err != nil {
+				panic(fmt.Errorf("error generating notary group: %v", err))
+			}
+		}
+
+		// get the gossip4 notary group
+		localKeys := config.PrivateKeySet
+		localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
+		gossip4NotaryGroup, err := config.NotaryGroupConfig.NotaryGroup(localSigner)
 		if err != nil {
 			panic(fmt.Errorf("error generating notary group: %v", err))
 		}
 
 		// spin up a gossip4 node
-		pid, err := runGossip4Node(ctx, config, group)
+		pid, err := runGossip4Node(ctx, config, gossip4NotaryGroup)
 		if err != nil {
 			panic(err)
 		}
 
 		// spin up a gossip3to4 node
-		err = runGossip3To4Node(ctx, group, pid)
-		if err != nil {
-			panic(err)
+		if gossip3NotaryGroup != nil {
+			err = runGossip3To4Node(ctx, gossip3NotaryGroup, pid)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			fmt.Println("No gossip3 notary group configured; not starting gossip3to4 node")
 		}
 
 		fmt.Println("Node running")
