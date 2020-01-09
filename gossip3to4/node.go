@@ -16,14 +16,14 @@ import (
 type NodeConfig struct {
 	P2PNode     p2p.Node
 	NotaryGroup *g3types.NotaryGroup
-	Gossip4Node *actor.PID
+	GossipNode *actor.PID
 }
 
 type Node struct {
 	p2pNode     p2p.Node
 	notaryGroup *g3types.NotaryGroup
 	gossip3Sub  *actor.PID
-	gossip4Node *actor.PID
+	gossipNode *actor.PID
 	logger      logging.EventLogger
 }
 
@@ -33,7 +33,7 @@ func NewNode(ctx context.Context, cfg *NodeConfig) *Node {
 	return &Node{
 		p2pNode:     cfg.P2PNode,
 		notaryGroup: cfg.NotaryGroup,
-		gossip4Node: cfg.Gossip4Node,
+		gossipNode: cfg.GossipNode,
 		logger:      logger,
 	}
 }
@@ -91,5 +91,5 @@ func (n *Node) handleAddBlockRequest(actorCtx actor.Context) {
 	sp := opentracing.StartSpan("gossip3to4-received-add-block-request")
 	defer sp.Finish()
 
-	actorCtx.Forward(n.gossip4Node)
+	actorCtx.Forward(n.gossipNode)
 }

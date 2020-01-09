@@ -66,7 +66,7 @@ func ConvertABR(abr *g3services.AddBlockRequest) (*g4services.AddBlockRequest, e
 
 	g4PayloadBytes := sw.WrapObject(payload).RawData()
 	if sw.Err != nil {
-		return nil, fmt.Errorf("error wrapping gossip4 payload: %v", sw.Err)
+		return nil, fmt.Errorf("error wrapping gossip payload: %v", sw.Err)
 	}
 
 	return &g4services.AddBlockRequest{

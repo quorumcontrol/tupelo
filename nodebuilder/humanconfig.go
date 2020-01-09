@@ -11,7 +11,7 @@ import (
 	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
 type HumanPrivateKeySet struct {

@@ -1,6 +1,6 @@
-package gossip4
+package gossip
 
-import "github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+import "github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 
 var ZeroVoteID = "n"
 

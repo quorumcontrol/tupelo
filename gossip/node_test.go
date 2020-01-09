@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,8 +19,8 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/testhelpers"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 

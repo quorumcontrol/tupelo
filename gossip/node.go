@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"bytes"
@@ -22,13 +22,13 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/hamtwrapper"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	sigutils "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 )
 
-const gossip4Protocol = "tupelo/v0.0.1"
+const gossipProtocol = "tupelo/v0.0.1"
 
 const transactionTopic = "g4-transactions"
 
@@ -203,7 +203,7 @@ func (n *Node) Start(ctx context.Context) error {
 func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
 	closer, err := n.p2pNode.Bootstrap(bootstrapAddrs)
 	if err != nil {
-		return fmt.Errorf("error bootstrapping gossip4 node: %v", err)
+		return fmt.Errorf("error bootstrapping gossip node: %v", err)
 	}
 
 	n.closer = closer
@@ -226,7 +226,7 @@ func (n *Node) setupSnowball(actorContext actor.Context) {
 		panic(err)
 	}
 	n.snowballPid = snowballPid
-	n.p2pNode.SetStreamHandler(gossip4Protocol, func(s network.Stream) {
+	n.p2pNode.SetStreamHandler(gossipProtocol, func(s network.Stream) {
 		n.rootContext.Send(snowballPid, s)
 	})
 }

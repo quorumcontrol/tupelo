@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"crypto/rand"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

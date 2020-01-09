@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -11,12 +11,12 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
 	"github.com/multiformats/go-multihash"
-	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
 type snowballer struct {
@@ -72,7 +72,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)
 					signerPeer = peerID.Pretty()
 				}
-				s, err := snb.host.NewStream(ctx, signer.DstKey, gossip4Protocol)
+				s, err := snb.host.NewStream(ctx, signer.DstKey, gossipProtocol)
 				if err != nil {
 					snb.logger.Warningf("error creating stream to %s: %v", signer.ID, err)
 					if s != nil {

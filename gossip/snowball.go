@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"sync"
