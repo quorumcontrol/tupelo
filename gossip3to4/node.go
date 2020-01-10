@@ -9,31 +9,41 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+	"github.com/quorumcontrol/tupelo/gossip"
 )
 
 type NodeConfig struct {
 	P2PNode     p2p.Node
-	NotaryGroup *g3types.NotaryGroup
-	GossipNode *actor.PID
+	NotaryGroup *types.NotaryGroup
+	Gossip4Node *actor.PID
 }
 
 type Node struct {
 	p2pNode     p2p.Node
-	notaryGroup *g3types.NotaryGroup
+	notaryGroup *types.NotaryGroup
 	gossip3Sub  *actor.PID
-	gossipNode *actor.PID
+	gossip4Node *actor.PID
+	validator   *gossip.TransactionValidator
 	logger      logging.EventLogger
 }
 
 func NewNode(ctx context.Context, cfg *NodeConfig) *Node {
 	logger := logging.Logger("gossip3to4")
 
+	// purposely setting the node PID to nil because we send in the ABR
+	// from this node as opposed to using the validator itself to send in the Tx
+	validator, err := gossip.NewTransactionValidator(logger, cfg.NotaryGroup, nil)
+	if err != nil {
+		panic(fmt.Errorf("error creating new transaction validator: %w", err))
+	}
+
 	return &Node{
 		p2pNode:     cfg.P2PNode,
 		notaryGroup: cfg.NotaryGroup,
-		gossipNode: cfg.GossipNode,
+		gossip4Node: cfg.Gossip4Node,
+		validator:   validator,
 		logger:      logger,
 	}
 }
@@ -67,7 +77,7 @@ func (n *Node) Receive(actorCtx actor.Context) {
 	case *services.AddBlockRequest:
 		// these are converted ABRs coming back from the gossip3 subscriber
 		n.logger.Debugf("received ABR: %+v", msg)
-		n.handleAddBlockRequest(actorCtx)
+		n.handleAddBlockRequest(actorCtx, msg)
 	default:
 		n.logger.Debugf("received other message: %+v", msg)
 		sp := opentracing.StartSpan("gossip3to4-node-received-other")
@@ -87,9 +97,14 @@ func (n *Node) handleStarted(actorCtx actor.Context) {
 	n.gossip3Sub = actorCtx.Spawn(NewGossip3SubscriberProps(g3sCfg))
 }
 
-func (n *Node) handleAddBlockRequest(actorCtx actor.Context) {
+func (n *Node) handleAddBlockRequest(actorCtx actor.Context, abr *services.AddBlockRequest) {
 	sp := opentracing.StartSpan("gossip3to4-received-add-block-request")
 	defer sp.Finish()
 
-	actorCtx.Forward(n.gossipNode)
+	valid := n.validator.ValidateAbr(context.TODO(), abr)
+	if valid {
+		sp.SetTag("valid", true)
+		actorCtx.Forward(n.gossip4Node)
+	}
+	sp.SetTag("valid", false)
 }

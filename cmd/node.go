@@ -5,14 +5,13 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/spf13/cobra"
 
-	"github.com/quorumcontrol/tupelo/gossip3to4"
 	"github.com/quorumcontrol/tupelo/gossip"
+	"github.com/quorumcontrol/tupelo/gossip3to4"
 	"github.com/quorumcontrol/tupelo/nodebuilder"
 )
 
@@ -47,7 +46,7 @@ func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types
 	return node.PID(), nil
 }
 
-func runGossip3To4Node(ctx context.Context, group *g3types.NotaryGroup, gossipPID *actor.PID) error {
+func runGossip3To4Node(ctx context.Context, group *types.NotaryGroup, gossipPID *actor.PID) error {
 	p2pNode, _, err := p2p.NewHostAndBitSwapPeer(ctx)
 	if err != nil {
 		return fmt.Errorf("error creating p2p node: %v", err)
@@ -56,7 +55,7 @@ func runGossip3To4Node(ctx context.Context, group *g3types.NotaryGroup, gossipPI
 	node := gossip3to4.NewNode(ctx, &gossip3to4.NodeConfig{
 		P2PNode:     p2pNode,
 		NotaryGroup: group,
-		GossipNode: gossipPID,
+		Gossip4Node: gossipPID,
 	})
 
 	node.Start(ctx)
@@ -90,11 +89,11 @@ var nodeCmd = &cobra.Command{
 
 		// get the gossip3 notary group
 		var (
-			gossip3NotaryGroup *g3types.NotaryGroup
+			gossip3NotaryGroup *types.NotaryGroup
 			err                error
 		)
 		if config.Gossip3NotaryGroupConfig != nil {
-			gossip3NotaryGroup, err = config.Gossip3NotaryGroupConfig.NotaryGroup(nil)
+			gossip3NotaryGroup, err = config.NotaryGroupConfig.NotaryGroup(nil)
 			if err != nil {
 				panic(fmt.Errorf("error generating notary group: %v", err))
 			}
