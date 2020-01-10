@@ -11,8 +11,6 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
 	"github.com/multiformats/go-multihash"
-	g4types "github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
-
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
@@ -60,7 +58,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 	snb.Unlock()
 
 	for !snb.snowball.Decided() {
-		respChan := make(chan g4types.Checkpoint, snb.snowball.k)
+		respChan := make(chan types.Checkpoint, snb.snowball.k)
 		wg := &sync.WaitGroup{}
 		for i := 0; i < snb.snowball.k; i++ {
 			wg.Add(1)
@@ -114,13 +112,13 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					return
 				}
 
-				var checkpoint *g4types.Checkpoint
+				var checkpoint *types.Checkpoint
 
 				blkInter, ok := snb.cache.Get(id)
 				if ok {
-					checkpoint = blkInter.(*g4types.Checkpoint)
+					checkpoint = blkInter.(*types.Checkpoint)
 				} else {
-					blk := &g4types.Checkpoint{}
+					blk := &types.Checkpoint{}
 					err = cbornode.DecodeInto(bits, blk)
 					if err != nil {
 						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
