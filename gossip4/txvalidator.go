@@ -26,15 +26,18 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
 )
 
-type transactionValidator struct {
+// TransactionValidator validates incoming pubsub messages for internal consistency
+// and sends them to the gossip4 node. It is exported for the gossip3to4 module
+type TransactionValidator struct {
 	group      *types.NotaryGroup
 	validators []chaintree.BlockValidatorFunc
 	node       *actor.PID
 	logger     logging.EventLogger
 }
 
-func newTransactionValidator(logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*transactionValidator, error) {
-	tv := &transactionValidator{
+// NewTransactionValidator creates a new TransactionValidator
+func NewTransactionValidator(logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*TransactionValidator, error) {
+	tv := &TransactionValidator{
 		group:  group,
 		node:   node,
 		logger: logger,
@@ -46,7 +49,7 @@ func newTransactionValidator(logger logging.EventLogger, group *types.NotaryGrou
 	return tv, nil
 }
 
-func (tv *transactionValidator) setup() error {
+func (tv *TransactionValidator) setup() error {
 	validators, err := blockValidators(tv.group)
 	tv.validators = validators
 	return err
@@ -80,13 +83,13 @@ func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, 
 	return append(blockValidators, sigVerifier), nil
 }
 
-func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
+func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
 	abr, err := pubsubMsgToAddBlockRequest(ctx, msg)
 	if err != nil {
 		tv.logger.Errorf("error converting message to abr: %v", err)
 		return false
 	}
-	validated := tv.validateAbr(ctx, abr)
+	validated := tv.ValidateAbr(ctx, abr)
 	if validated {
 		// we do something a bit odd here and send the ABR through an actor notification rather
 		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
@@ -98,7 +101,8 @@ func (tv *transactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 	return false
 }
 
-func (tv *transactionValidator) validateAbr(ctx context.Context, abr *services.AddBlockRequest) bool {
+// ValidateAbr validates the internal consistency of an ABR (without validating if it is the next in the proper sequence)
+func (tv *TransactionValidator) ValidateAbr(ctx context.Context, abr *services.AddBlockRequest) bool {
 	newTip, err := cid.Cast(abr.NewTip)
 	if err != nil {
 		tv.logger.Errorf("error casting abr new tip: %v", err)
