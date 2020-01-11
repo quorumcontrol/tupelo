@@ -30,6 +30,9 @@ func TestBootstrap(t *testing.T) {
 				},
 				BootstrapNodes: p2p.BootstrapNodes(),
 				BootstrapOnly:  true,
+				NotaryGroupConfig: &types.Config{
+					TransactionTopic: "testOnly",
+				},
 			},
 		}
 		err = nb.Start(ctx)
