@@ -7,7 +7,6 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/ethereum/go-ethereum v1.9.3
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
@@ -30,12 +29,10 @@ require (
 	github.com/quorumcontrol/chaintree v0.9.4
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200109062614-43239ffb9335
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200111013635-908b6d631822
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
-	go.uber.org/atomic v1.5.1 // indirect
-	go.uber.org/multierr v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
 	google.golang.org/grpc v1.21.1
 )
