@@ -143,7 +143,7 @@ func (tv *TransactionValidator) ValidateAbr(ctx context.Context, abr *services.A
 	if abr.Height > 0 {
 		tree = dag.NewDag(ctx, transPreviousTip, nodeStore)
 	} else {
-		tree = consensus.NewEmptyTree(string(abr.ObjectId), nodeStore)
+		tree = consensus.NewEmptyTree(ctx, string(abr.ObjectId), nodeStore)
 	}
 
 	chainTree, err := chaintree.NewChainTree(

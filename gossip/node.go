@@ -260,7 +260,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.CompletedRound) (*types.RoundConfirmation, error) {
 	roundCid := completedRound.CID()
 
-	sig, err := sigutils.BLSSign(n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
+	sig, err := sigutils.BLSSign(ctx, n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
 	if err != nil {
 		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
 	}
