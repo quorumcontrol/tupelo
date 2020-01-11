@@ -196,6 +196,16 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 		}
 	}
 
+	// TODO: not sure we want this here long term, but for now let the
+	// bootstrapper help out with gossip pubsub
+	group, err := nb.NotaryGroup()
+	if err != nil {
+		return fmt.Errorf("error getting notary group %w", err)
+	}
+	_, err = host.GetPubSub().Subscribe(group.Config().TransactionTopic)
+	if err != nil {
+		return fmt.Errorf("error subscribing %w", err)
+	}
 	return nil
 }
 
