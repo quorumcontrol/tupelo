@@ -16,7 +16,13 @@ import (
 )
 
 func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types.NotaryGroup) (*actor.PID, error) {
-	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(config.PrivateKeySet.DestKey))
+	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(
+		ctx,
+		p2p.WithKey(config.PrivateKeySet.DestKey),
+		// TODO: this is easier for early development of wasm, but we should examine whether
+		// we want this in production or not.
+		p2p.WithWebSockets(50000),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating p2p node: %v", err)
 	}

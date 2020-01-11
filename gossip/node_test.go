@@ -140,7 +140,7 @@ func TestEndToEnd(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	_, nodes, err := newTupeloSystem(ctx, ts)
+	group, nodes, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 
@@ -165,7 +165,7 @@ func TestEndToEnd(t *testing.T) {
 		bits, err := abr.Marshal()
 		require.Nil(t, err)
 
-		err = nodes[i%(len(nodes)-1)].pubsub.Publish(transactionTopic, bits)
+		err = nodes[i%(len(nodes)-1)].pubsub.Publish(group.Config().TransactionTopic, bits)
 		require.Nil(t, err)
 	}
 
@@ -178,7 +178,7 @@ func TestByzantineCases(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	_, nodes, err := newTupeloSystem(ctx, ts)
+	group, nodes, err := newTupeloSystem(ctx, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 
@@ -208,7 +208,7 @@ func TestByzantineCases(t *testing.T) {
 			bits, err := abr.Marshal()
 			require.Nil(t, err)
 
-			err = n.pubsub.Publish(transactionTopic, bits)
+			err = n.pubsub.Publish(group.Config().TransactionTopic, bits)
 			require.Nil(t, err)
 		}
 		waitForAllAbrs(t, ctx, nodes, abrs)

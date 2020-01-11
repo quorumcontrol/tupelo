@@ -30,8 +30,6 @@ import (
 
 const gossipProtocol = "tupelo/v0.0.1"
 
-const transactionTopic = "g4-transactions"
-
 func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
 }
@@ -155,12 +153,12 @@ func (n *Node) Start(ctx context.Context) error {
 
 	n.pubsub = n.p2pNode.GetPubSub()
 
-	err = n.pubsub.RegisterTopicValidator(transactionTopic, validator.validate)
+	err = n.pubsub.RegisterTopicValidator(n.notaryGroup.Config().TransactionTopic, validator.validate)
 	if err != nil {
 		return fmt.Errorf("error registering topic validator: %v", err)
 	}
 
-	sub, err := n.pubsub.Subscribe(transactionTopic)
+	sub, err := n.pubsub.Subscribe(n.notaryGroup.Config().TransactionTopic)
 	if err != nil {
 		return fmt.Errorf("error subscribing %v", err)
 	}

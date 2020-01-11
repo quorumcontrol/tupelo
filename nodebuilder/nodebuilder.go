@@ -177,6 +177,7 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 		ctx,
 		p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
 		p2p.WithRelayOpts(circuit.OptHop),
+		p2p.WithWebSockets(50000), // TODO: examine whether we actually need this in bootstrap or not
 	)
 	if err != nil {
 		return fmt.Errorf("Could not start bootstrap node, %v", err)
