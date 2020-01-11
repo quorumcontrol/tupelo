@@ -1,10 +1,11 @@
-package gossip4
+package gossip
 
 import (
-	"github.com/ipfs/go-cid"
-	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"strconv"
 	"sync"
+
+	"github.com/ipfs/go-cid"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
 
 type mempoolConflictSetID string

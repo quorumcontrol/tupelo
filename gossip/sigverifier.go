@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -20,14 +20,14 @@ func verifySignature(rootCtx context.Context, msg []byte, signature *signatures.
 
 	// logger.Debugf("handle signature verification")
 
-	err := sigfuncs.RestoreBLSPublicKey(signature, verKeys)
+	err := sigfuncs.RestoreBLSPublicKey(rootCtx, signature, verKeys)
 	if err != nil {
 		sp.SetTag("error", true)
 		// logger.Errorf("error restoring public key %v", err)
 		return false, fmt.Errorf("error verifying: %v", err)
 	}
 
-	isVerified, err := sigfuncs.Valid(signature, msg, nil)
+	isVerified, err := sigfuncs.Valid(rootCtx, signature, msg, nil)
 	if err != nil {
 		sp.SetTag("error", true)
 		// logger.Errorf("error verifying %v", err)

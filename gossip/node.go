@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"bytes"
@@ -13,20 +13,22 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-msgio"
+	msgio "github.com/libp2p/go-msgio"
 
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-hamt-ipld"
+	cid "github.com/ipfs/go-cid"
+	hamt "github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+	sigutils "github.com/quorumcontrol/tupelo-go-sdk/signatures"
 )
 
-const gossip4Protocol = "tupelo/v0.0.1"
+const gossipProtocol = "tupelo/v0.0.1"
 
 const transactionTopic = "g4-transactions"
 
@@ -78,7 +80,7 @@ type NewNodeOptions struct {
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
-	hamtStore := dagStoreToCborIpld(opts.DagStore)
+	hamtStore := hamtwrapper.DagStoreToCborIpld(opts.DagStore)
 
 	var signerIndex int
 	for i, s := range opts.NotaryGroup.AllSigners() {
@@ -201,7 +203,7 @@ func (n *Node) Start(ctx context.Context) error {
 func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
 	closer, err := n.p2pNode.Bootstrap(bootstrapAddrs)
 	if err != nil {
-		return fmt.Errorf("error bootstrapping gossip4 node: %v", err)
+		return fmt.Errorf("error bootstrapping gossip node: %v", err)
 	}
 
 	n.closer = closer
@@ -224,7 +226,7 @@ func (n *Node) setupSnowball(actorContext actor.Context) {
 		panic(err)
 	}
 	n.snowballPid = snowballPid
-	n.p2pNode.SetStreamHandler(gossip4Protocol, func(s network.Stream) {
+	n.p2pNode.SetStreamHandler(gossipProtocol, func(s network.Stream) {
 		n.rootContext.Send(snowballPid, s)
 	})
 }
@@ -253,6 +255,58 @@ func (n *Node) Receive(actorContext actor.Context) {
 	case *snowballerDone:
 		n.handleSnowballerDone(msg)
 	}
+}
+
+func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.CompletedRound) (*types.RoundConfirmation, error) {
+	roundCid := completedRound.CID()
+
+	sig, err := sigutils.BLSSign(ctx, n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
+	if err != nil {
+		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
+	}
+
+	return &types.RoundConfirmation{
+		CompletedRound: roundCid,
+		Signature:      sig,
+		Height:         completedRound.Height,
+	}, nil
+}
+
+func (n *Node) publishCompletedRound(ctx context.Context) error {
+	current := n.rounds.Current()
+	currentStateCid, err := n.hamtStore.Put(ctx, current.state)
+	if err != nil {
+		return fmt.Errorf("error getting current state cid: %v", err)
+	}
+
+	if !current.snowball.Decided() {
+		return fmt.Errorf("can't publish an undecided round")
+	}
+
+	err = n.dagStore.Add(ctx, current.snowball.Preferred().Checkpoint.Wrapped())
+	if err != nil {
+		return fmt.Errorf("error adding to dag store: %w", err)
+	}
+
+	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
+
+	completedRound := &types.CompletedRound{
+		Height:     current.height,
+		State:      currentStateCid,
+		Checkpoint: preferredCheckpointCid,
+	}
+
+	err = n.dagStore.Add(ctx, completedRound.Wrapped())
+	if err != nil {
+		return fmt.Errorf("error adding to dag store: %w", err)
+	}
+
+	conf, err := n.confirmCompletedRound(ctx, completedRound)
+	if err != nil {
+		return fmt.Errorf("error confirming completed round: %v", err)
+	}
+
+	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
 }
 
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
@@ -296,7 +350,9 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		if ok {
 			nextAbr := next.(*services.AddBlockRequest)
 			if bytes.Equal(nextAbr.PreviousTip, abr.NewTip) {
-				n.storeAbr(msg.ctx, nextAbr) // purposely ignore the error here
+				if err := n.storeAbr(msg.ctx, nextAbr); err != nil {
+					n.logger.Warningf("error storing abr: %v", err)
+				}
 			}
 			n.inflight.Remove(nextKey)
 		}
@@ -308,6 +364,12 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, rootNode)
 	completedRound.state = rootNode
 	n.logger.Debugf("after setting: %v", completedRound.state)
+
+	// Notify clients of the new checkpoint
+	err = n.publishCompletedRound(context.TODO())
+	if err != nil {
+		n.logger.Errorf("error publishing current round: %v", err)
+	}
 
 	round := newRound(completedRound.height + 1)
 	n.rounds.SetCurrent(round)
@@ -326,7 +388,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				preferred := n.mempool.Preferred()
 				n.logger.Debugf("starting snowballer and preferring %v", preferred)
 				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: &Checkpoint{
+					Checkpoint: &types.Checkpoint{
 						Height:           n.rounds.Current().height,
 						AddBlockRequests: preferred,
 					},
@@ -346,8 +408,13 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 
 func (n *Node) handleStream(s network.Stream) {
 	// n.logger.Debugf("handling stream from")
-	s.SetWriteDeadline(time.Now().Add(2 * time.Second))
-	s.SetReadDeadline(time.Now().Add(1 * time.Second))
+	if err := s.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		n.logger.Errorf("error setting write deadline: %v", err)
+	}
+	if err := s.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
+		n.logger.Errorf("error setting read deadline: %v", err)
+	}
+
 	reader := msgio.NewVarintReader(s)
 	writer := msgio.NewVarintWriter(s)
 
@@ -373,7 +440,7 @@ func (n *Node) handleStream(s network.Stream) {
 
 	r, ok := n.rounds.Get(height)
 
-	response := Checkpoint{Height: height}
+	response := types.Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
@@ -390,8 +457,6 @@ func (n *Node) handleStream(s network.Stream) {
 		s.Close()
 		return
 	}
-
-	return
 }
 
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.AddBlockRequest) {
@@ -433,7 +498,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abr *services.A
 	if current.Height+1 == abr.Height {
 		// then this is the next height, let's save it if the tips match
 
-		if !bytes.Equal(current.PreviousTip, abr.PreviousTip) {
+		if !bytes.Equal(current.NewTip, abr.PreviousTip) {
 			n.logger.Warningf("tips did not match")
 			return
 		}

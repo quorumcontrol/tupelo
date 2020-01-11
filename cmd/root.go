@@ -57,6 +57,16 @@ var logLevels = map[string]log.Lvl{
 	"trace":    log.LvlTrace,
 }
 
+//TODO: restore this in gossip4
+// var zapLogLevels = map[string]string{
+//	"critical": "panic",
+//	"error":    "error",
+//	"warn":     "warn",
+//	"info":     "info",
+//	"debug":    "debug",
+//	"trace":    "debug",
+// }
+
 func getLogLevel(lvlName string) (log.Lvl, error) {
 	lvl, ok := logLevels[lvlName]
 	if !ok {
@@ -101,7 +111,7 @@ var rootCmd = &cobra.Command{
 
 		// TODO: Restore this in gossip4
 		// if err := gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
-		// 	panic(err)
+		//	panic(err)
 		// }
 
 		if remoteNetwork {

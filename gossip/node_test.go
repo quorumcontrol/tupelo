@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
-	logging "github.com/ipfs/go-log"
 
 	"github.com/stretchr/testify/require"
 
@@ -18,9 +19,8 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/testhelpers"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
-
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
@@ -64,7 +64,7 @@ func startNodes(t *testing.T, ctx context.Context, nodes []*Node) {
 	}
 
 	for i, node := range nodes {
-		logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
+		// logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
 
 		if i > 0 {
 			err := node.Bootstrap(ctx, bootAddrs)
@@ -149,7 +149,7 @@ func TestEndToEnd(t *testing.T) {
 	abrCount := 10
 	abrs := make([]*services.AddBlockRequest, abrCount)
 
-	testStore := dagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
+	testStore := hamtwrapper.DagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
 
 	for i := 0; i < abrCount; i++ {
 		abr := testhelpers.NewValidTransaction(t)
@@ -165,7 +165,7 @@ func TestEndToEnd(t *testing.T) {
 		bits, err := abr.Marshal()
 		require.Nil(t, err)
 
-		nodes[i%(len(nodes)-1)].pubsub.Publish(transactionTopic, bits)
+		err = nodes[i%(len(nodes)-1)].pubsub.Publish(transactionTopic, bits)
 		require.Nil(t, err)
 	}
 
@@ -208,7 +208,8 @@ func TestByzantineCases(t *testing.T) {
 			bits, err := abr.Marshal()
 			require.Nil(t, err)
 
-			n.pubsub.Publish(transactionTopic, bits)
+			err = n.pubsub.Publish(transactionTopic, bits)
+			require.Nil(t, err)
 		}
 		waitForAllAbrs(t, ctx, nodes, abrs)
 
@@ -223,9 +224,7 @@ func TestByzantineCases(t *testing.T) {
 
 func abrToHamtCID(ctx context.Context, abr *services.AddBlockRequest) cid.Cid {
 	store := nodestore.MustMemoryStore(ctx)
-	hamtStore := hamt.CborIpldStore{
-		Blocks: &dsWrapper{store: store},
-	}
+	hamtStore := hamtwrapper.DagStoreToCborIpld(store)
 	id, _ := hamtStore.Put(ctx, abr)
 	return id
 }

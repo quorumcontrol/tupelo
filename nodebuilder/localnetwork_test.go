@@ -6,10 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
-	"github.com/stretchr/testify/require"
-
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLocalNetwork(t *testing.T) {

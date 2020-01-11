@@ -1,9 +1,11 @@
-package gossip4
+package gossip
+
+import "github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 
 var ZeroVoteID = "n"
 
 type Vote struct {
-	Checkpoint *Checkpoint
+	Checkpoint *types.Checkpoint
 	tallyCount float64
 	id         string
 }
@@ -18,7 +20,7 @@ func (v *Vote) ID() string {
 		return ZeroVoteID
 	}
 	if v.id == "" {
-		v.id = v.Checkpoint.ID()
+		v.id = v.Checkpoint.CID().String()
 	}
 	return v.id
 }

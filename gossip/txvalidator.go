@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
 // TransactionValidator validates incoming pubsub messages for internal consistency
@@ -139,7 +139,12 @@ func (tv *TransactionValidator) ValidateAbr(ctx context.Context, abr *services.A
 		return false
 	}
 
-	tree := dag.NewDag(ctx, transPreviousTip, nodeStore)
+	var tree *dag.Dag
+	if abr.Height > 0 {
+		tree = dag.NewDag(ctx, transPreviousTip, nodeStore)
+	} else {
+		tree = consensus.NewEmptyTree(ctx, string(abr.ObjectId), nodeStore)
+	}
 
 	chainTree, err := chaintree.NewChainTree(
 		ctx,
@@ -165,7 +170,7 @@ func (tv *TransactionValidator) ValidateAbr(ctx context.Context, abr *services.A
 		return false
 	}
 
-	if (root.Height == 0 && abr.Height != 0) || (root.Height > 0 && abr.Height != root.Height+1) {
+	if (root.Height == 0 && abr.Height > 1) || (root.Height > 0 && abr.Height != root.Height+1) {
 		tv.logger.Warningf("invalid height on ABR root: %d, abr: %d", root.Height, abr.Height)
 		return false
 	}

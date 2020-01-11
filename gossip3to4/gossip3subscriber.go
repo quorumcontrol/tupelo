@@ -10,7 +10,7 @@ import (
 	"github.com/quorumcontrol/messages/build/go/services"
 	g4services "github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/remote"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 )
 
@@ -70,7 +70,7 @@ func (g3s *Gossip3Subscriber) handleStarted(actorCtx actor.Context) {
 
 	ngCfg := g3s.notaryGroup.Config()
 
-	pid, err := actorCtx.SpawnNamed(pubsub.NewSubscriberProps(ngCfg.TransactionTopic), ngCfg.ID + SubscriptionSuffix)
+	pid, err := actorCtx.SpawnNamed(pubsub.NewSubscriberProps(ngCfg.TransactionTopic), ngCfg.ID+SubscriptionSuffix)
 	if err != nil {
 		panic(fmt.Errorf("error spawning gossip3 subscriber actor: %v", err))
 	}

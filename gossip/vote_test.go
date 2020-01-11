@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"crypto/rand"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,8 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 
 	for i := 0; i < count; i++ {
 		randomBits := make([]byte, 32)
-		rand.Read(randomBits)
+		_, err := rand.Read(randomBits)
+		require.Nil(t, err)
 
 		n := sw.WrapObject(randomBits)
 		require.NoError(t, sw.Err)
@@ -26,6 +28,13 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 	}
 
 	return ids
+}
+
+func newCheckpoint(height uint64, abrs []cid.Cid) *types.Checkpoint {
+	return &types.Checkpoint{
+		Height:           height,
+		AddBlockRequests: abrs,
+	}
 }
 
 func TestVoteWithoutBlock(t *testing.T) {
@@ -63,7 +72,7 @@ func TestCalculateTallies(t *testing.T) {
 			Checkpoint: checkpoint,
 		})
 
-		expectedTallies[checkpoint.ID()] = 0.0
+		expectedTallies[checkpoint.Wrapped().Cid().String()] = 0.0
 	}
 
 	// Vote 3: has the highest transactions.
@@ -75,7 +84,7 @@ func TestCalculateTallies(t *testing.T) {
 			Checkpoint: checkpoint,
 		})
 
-		expectedTallies[checkpoint.ID()] = 0.32
+		expectedTallies[checkpoint.Wrapped().Cid().String()] = 0.32
 	}
 
 	// Vote 4: has 4 txs
@@ -86,7 +95,7 @@ func TestCalculateTallies(t *testing.T) {
 		votes = append(votes, &Vote{
 			Checkpoint: checkpoint,
 		})
-		expectedTallies[checkpoint.ID()] = 0.08
+		expectedTallies[checkpoint.Wrapped().Cid().String()] = 0.08
 	}
 
 	// Vote 5: Second highest transactions.
@@ -97,7 +106,7 @@ func TestCalculateTallies(t *testing.T) {
 			Checkpoint: checkpoint,
 		})
 
-		expectedTallies[checkpoint.ID()] = 0.279999999999999
+		expectedTallies[checkpoint.Wrapped().Cid().String()] = 0.279999999999999
 	}
 
 	tallies := calculateTallies(votes)
@@ -147,7 +156,7 @@ func TestTick(t *testing.T) {
 		_checkpoint := newCheckpoint(1, generateTxIds(t, 1))
 
 		for i := 0; i < cap(votes); i++ {
-			var checkpoint *Checkpoint
+			var checkpoint *types.Checkpoint
 			if i < int(snowball.alpha*float64(cap(votes))) {
 				checkpoint = _checkpoint
 			}
@@ -162,7 +171,7 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.False(t, snowball.Decided())
-		assert.Equal(t, _checkpoint.ID(), snowball.Preferred().Checkpoint.ID())
+		assert.Equal(t, _checkpoint.Wrapped().Cid().String(), snowball.Preferred().Checkpoint.Wrapped().Cid().String())
 	})
 
 	t.Run("transactions num majority checkpoint wins", func(t *testing.T) {
@@ -189,6 +198,6 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.True(t, snowball.Decided())
-		assert.Equal(t, votes[biggestTxNumIdx].Checkpoint.ID(), snowball.Preferred().Checkpoint.ID())
+		assert.Equal(t, votes[biggestTxNumIdx].Checkpoint.Wrapped().Cid().String(), snowball.Preferred().Checkpoint.Wrapped().Cid().String())
 	})
 }

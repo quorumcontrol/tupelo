@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -11,11 +11,10 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-msgio"
 	"github.com/multiformats/go-multihash"
-
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
 type snowballer struct {
@@ -59,7 +58,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 	snb.Unlock()
 
 	for !snb.snowball.Decided() {
-		respChan := make(chan Checkpoint, snb.snowball.k)
+		respChan := make(chan types.Checkpoint, snb.snowball.k)
 		wg := &sync.WaitGroup{}
 		for i := 0; i < snb.snowball.k; i++ {
 			wg.Add(1)
@@ -71,7 +70,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)
 					signerPeer = peerID.Pretty()
 				}
-				s, err := snb.host.NewStream(ctx, signer.DstKey, gossip4Protocol)
+				s, err := snb.host.NewStream(ctx, signer.DstKey, gossipProtocol)
 				if err != nil {
 					snb.logger.Warningf("error creating stream to %s: %v", signer.ID, err)
 					if s != nil {
@@ -83,7 +82,9 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 				sw := &safewrap.SafeWrap{}
 				wrapped := sw.WrapObject(snb.height)
 
-				s.SetDeadline(time.Now().Add(2 * time.Second))
+				if err := s.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+					snb.logger.Errorf("error setting deadline: %v", err) // TODO: do we need to do anything about this error?
+				}
 
 				writer := msgio.NewVarintWriter(s)
 				err = writer.WriteMsg(wrapped.RawData())
@@ -111,13 +112,13 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					return
 				}
 
-				var checkpoint *Checkpoint
+				var checkpoint *types.Checkpoint
 
 				blkInter, ok := snb.cache.Get(id)
 				if ok {
-					checkpoint = blkInter.(*Checkpoint)
+					checkpoint = blkInter.(*types.Checkpoint)
 				} else {
-					blk := &Checkpoint{}
+					blk := &types.Checkpoint{}
 					err = cbornode.DecodeInto(bits, blk)
 					if err != nil {
 						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)

@@ -9,9 +9,9 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
-	"github.com/quorumcontrol/tupelo/gossip4"
+	"github.com/quorumcontrol/tupelo/gossip"
 )
 
 type NodeConfig struct {
@@ -25,7 +25,7 @@ type Node struct {
 	notaryGroup *types.NotaryGroup
 	gossip3Sub  *actor.PID
 	gossip4Node *actor.PID
-	validator   *gossip4.TransactionValidator
+	validator   *gossip.TransactionValidator
 	logger      logging.EventLogger
 }
 
@@ -34,7 +34,7 @@ func NewNode(ctx context.Context, cfg *NodeConfig) *Node {
 
 	// purposely setting the node PID to nil because we send in the ABR
 	// from this node as opposed to using the validator itself to send in the Tx
-	validator, err := gossip4.NewTransactionValidator(logger, cfg.NotaryGroup, nil)
+	validator, err := gossip.NewTransactionValidator(logger, cfg.NotaryGroup, nil)
 	if err != nil {
 		panic(fmt.Errorf("error creating new transaction validator: %w", err))
 	}

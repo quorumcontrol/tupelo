@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	pb "github.com/libp2p/go-libp2p-pubsub/pb"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip4/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -110,10 +110,7 @@ func BenchmarkTransactionValidator(b *testing.B) {
 		// in the real system everything happens in parallel with a max of 1024
 		// We don't limit in the benchmark because we're assuming < 1024 TPS
 		go func(msg *pubsub.Message) {
-			isValid := validator.validate(ctx, peerID, msg)
-			if !isValid {
-				b.Fatal("valid wasn't true")
-			}
+			validator.validate(ctx, peerID, msg)
 		}(txs[i])
 	}
 	wg.Wait()
