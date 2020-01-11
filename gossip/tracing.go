@@ -1,4 +1,4 @@
-package gossip4
+package gossip
 
 import (
 	g4services "github.com/quorumcontrol/messages/v2/build/go/services"
