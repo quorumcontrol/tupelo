@@ -16,7 +16,13 @@ import (
 )
 
 func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types.NotaryGroup) (*actor.PID, error) {
-	p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx)
+	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(
+		ctx,
+		p2p.WithKey(config.PrivateKeySet.DestKey),
+		// TODO: this is easier for early development of wasm, but we should examine whether
+		// we want this in production or not.
+		p2p.WithWebSockets(50000),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating p2p node: %v", err)
 	}
@@ -25,7 +31,7 @@ func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types
 		P2PNode:     p2pNode,
 		SignKey:     config.PrivateKeySet.SignKey,
 		NotaryGroup: group,
-		DagStore:    peer,
+		DagStore:    bitswapper,
 	}
 
 	node, err := gossip.NewNode(ctx, nodeCfg)
@@ -33,14 +39,16 @@ func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types
 		return nil, fmt.Errorf("error creating new node: %v", err)
 	}
 
-	err = node.Start(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error starting node: %v", err)
-	}
-
 	err = node.Bootstrap(ctx, group.Config().BootstrapAddresses)
 	if err != nil {
 		return nil, fmt.Errorf("error bootstrapping node: %v", err)
+	}
+
+	fmt.Printf("node bootstrapped, starting")
+
+	err = node.Start(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting node: %v", err)
 	}
 
 	return node.PID(), nil

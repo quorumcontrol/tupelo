@@ -12,34 +12,31 @@ services:
       - "34001:34001"
       
   node0:
+    depends_on: 
+      - bootstrap
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node0/config.toml",
+    command: ["node", "--config", "/configs/node0/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-error}"]
 
   node1:
+    depends_on: 
+      - bootstrap
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node1/config.toml",
+    command: ["node", "--config", "/configs/node1/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-error}"]
   
   node2:
+    depends_on: 
+      - bootstrap
     build: .
     volumes:
       - ./configs/localdocker:/configs
-    command: ["test-node", "--config", "/configs/node2/config.toml",
+    command: ["node", "--config", "/configs/node2/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-error}"]
-
-  rpc-server:
-    build: .
-    volumes:
-      - ./configs/localdocker:/configs
-    command: ["rpc-server","-r", "-l", "0", "--config", "/configs/rpcserver/config.toml",
-      "-L", "${TUPELO_LOG_LEVEL:-error}"]
-    ports:
-      - "50051:50051"
 
 networks:
   default:

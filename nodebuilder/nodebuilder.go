@@ -177,6 +177,7 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 		ctx,
 		p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
 		p2p.WithRelayOpts(circuit.OptHop),
+		p2p.WithWebSockets(50000), // TODO: examine whether we actually need this in bootstrap or not
 	)
 	if err != nil {
 		return fmt.Errorf("Could not start bootstrap node, %v", err)
@@ -195,6 +196,16 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 		}
 	}
 
+	// TODO: not sure we want this here long term, but for now let the
+	// bootstrapper help out with gossip pubsub
+	group, err := nb.NotaryGroup()
+	if err != nil {
+		return fmt.Errorf("error getting notary group %w", err)
+	}
+	_, err = host.GetPubSub().Subscribe(group.Config().TransactionTopic)
+	if err != nil {
+		return fmt.Errorf("error subscribing %w", err)
+	}
 	return nil
 }
 
