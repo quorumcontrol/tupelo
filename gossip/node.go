@@ -208,7 +208,7 @@ func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
 
 	n.closer = closer
 
-	return n.p2pNode.WaitForBootstrap(1, 5*time.Second)
+	return n.p2pNode.WaitForBootstrap(1, 10*time.Second)
 }
 
 func (n *Node) Close() error {
