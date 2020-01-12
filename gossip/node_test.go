@@ -3,6 +3,7 @@ package gossip
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -24,7 +25,8 @@ import (
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*Node, error) {
+func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*Node, error) {
+	name := t.Name()
 	nodes := make([]*Node, len(testSet.SignKeys))
 
 	ng := types.NewNotaryGroup("testnotary")
@@ -45,6 +47,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
+			Name:        name + "-" + strconv.Itoa(i),
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
@@ -122,7 +125,7 @@ func TestNewNode(t *testing.T) {
 
 	numMembers := 1
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	_, nodes, err := newTupeloSystem(ctx, ts)
+	_, nodes, err := newTupeloSystem(ctx, t, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 	n := nodes[0]
@@ -140,7 +143,7 @@ func TestEndToEnd(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, ts)
+	group, nodes, err := newTupeloSystem(ctx, t, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 
@@ -178,7 +181,7 @@ func TestByzantineCases(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, ts)
+	group, nodes, err := newTupeloSystem(ctx, t, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 
