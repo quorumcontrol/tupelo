@@ -8,7 +8,6 @@ require (
 	github.com/dgraph-io/badger v1.6.0-rc1
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
-	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-cid v0.0.3
@@ -29,10 +28,9 @@ require (
 	github.com/quorumcontrol/chaintree v0.9.4
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200111041028-c872b16c033b
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200113102443-c8486f4a8c46
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
-	google.golang.org/grpc v1.21.1
 )
