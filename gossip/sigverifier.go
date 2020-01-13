@@ -15,19 +15,17 @@ import (
 // This is used for verifying receiveToken transactions
 // TODO: we want receive tokens to use round paths through hamts intead of signatures
 func verifySignature(rootCtx context.Context, msg []byte, signature *signatures.Signature, verKeys []*bls.VerKey) (bool, error) {
-	sp, _ := opentracing.StartSpanFromContext(rootCtx, "verifySignature")
+	sp, ctx := opentracing.StartSpanFromContext(rootCtx, "verifySignature")
 	defer sp.Finish()
 
-	// logger.Debugf("handle signature verification")
-
-	err := sigfuncs.RestoreBLSPublicKey(rootCtx, signature, verKeys)
+	err := sigfuncs.RestoreBLSPublicKey(ctx, signature, verKeys)
 	if err != nil {
 		sp.SetTag("error", true)
 		// logger.Errorf("error restoring public key %v", err)
 		return false, fmt.Errorf("error verifying: %v", err)
 	}
 
-	isVerified, err := sigfuncs.Valid(rootCtx, signature, msg, nil)
+	isVerified, err := sigfuncs.Valid(ctx, signature, msg, nil)
 	if err != nil {
 		sp.SetTag("error", true)
 		// logger.Errorf("error verifying %v", err)

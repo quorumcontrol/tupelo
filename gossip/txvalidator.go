@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ipfs/go-cid"
@@ -84,25 +85,33 @@ func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, 
 }
 
 func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
-	abr, err := pubsubMsgToAddBlockRequest(ctx, msg)
+	wrapper := &AddBlockWrapper{}
+	wrapper.StartTrace("g4transaction")
+
+	abr, err := pubsubMsgToAddBlockRequest(wrapper.GetContext(), msg)
 	if err != nil {
 		tv.logger.Errorf("error converting message to abr: %v", err)
 		return false
 	}
-	validated := tv.ValidateAbr(ctx, abr)
+	validated := tv.ValidateAbr(wrapper.GetContext(), abr)
 	if validated {
 		// we do something a bit odd here and send the ABR through an actor notification rather
 		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
-
-		actor.EmptyRootContext.Send(tv.node, abr)
+		wrapper.AddBlockRequest = abr
+		wrapper.LogKV("valid", true)
+		actor.EmptyRootContext.Send(tv.node, wrapper)
 		return true
 	}
+	wrapper.LogKV("valid", false)
+	wrapper.StopTrace()
 
 	return false
 }
 
-// ValidateAbr validates the internal consistency of an ABR (without validating if it is the next in the proper sequence)
-func (tv *TransactionValidator) ValidateAbr(ctx context.Context, abr *services.AddBlockRequest) bool {
+func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *services.AddBlockRequest) bool {
+	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "g4.unmarshalPubSub")
+	defer sp.Finish()
+
 	newTip, err := cid.Cast(abr.NewTip)
 	if err != nil {
 		tv.logger.Errorf("error casting abr new tip: %v", err)
@@ -195,6 +204,9 @@ func (tv *TransactionValidator) ValidateAbr(ctx context.Context, abr *services.A
 }
 
 func pubsubMsgToAddBlockRequest(ctx context.Context, msg *pubsub.Message) (*services.AddBlockRequest, error) {
+	sp, _ := opentracing.StartSpanFromContext(ctx, "g4.unmarshalPubSub")
+	defer sp.Finish()
+
 	abr := &services.AddBlockRequest{}
 	err := abr.Unmarshal(msg.Data)
 	return abr, err

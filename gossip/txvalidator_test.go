@@ -49,7 +49,7 @@ func TestTransactionValidator(t *testing.T) {
 	// the Node should receive the ABR (we simulate the node with a future here)
 	res, err := fut.Result()
 	require.Nil(t, err)
-	assert.Equal(t, abr.ObjectId, res.(*services.AddBlockRequest).ObjectId)
+	assert.Equal(t, abr.ObjectId, res.(*AddBlockWrapper).AddBlockRequest.ObjectId)
 
 	// an abr with a bad new tip should be marked invalid
 	abr = testhelpers.NewValidTransaction(t)

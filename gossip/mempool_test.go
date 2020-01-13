@@ -21,7 +21,7 @@ func newPopulatedMempool() (*mempool, cid.Cid, *services.AddBlockRequest) {
 	n := sw.WrapObject(abr)
 
 	pool := newMempool()
-	pool.Add(n.Cid(), abr)
+	pool.Add(n.Cid(), &AddBlockWrapper{AddBlockRequest: abr})
 	return pool, n.Cid(), abr
 }
 
@@ -74,8 +74,8 @@ func TestMempoolDeleteIDAndConflictSet(t *testing.T) {
 		require.NotEqual(t, abr1.NewTip, abr2.NewTip)
 
 		pool := newMempool()
-		pool.Add(abr1Cid, &abr1)
-		pool.Add(abr2Cid, &abr2)
+		pool.Add(abr1Cid, &AddBlockWrapper{AddBlockRequest: &abr1})
+		pool.Add(abr2Cid, &AddBlockWrapper{AddBlockRequest: &abr2})
 		assert.True(t, pool.Contains(abr1Cid, abr2Cid))
 		pool.DeleteIDAndConflictSet(abr2Cid)
 		assert.False(t, pool.Contains(abr1Cid))
@@ -104,10 +104,10 @@ func TestMempoolPreferred(t *testing.T) {
 	require.True(t, abr2Cid.String() < abr1Cid.String())
 
 	pool := newMempool()
-	pool.Add(abr1Cid, &abr1)
+	pool.Add(abr1Cid, &AddBlockWrapper{AddBlockRequest: &abr1})
 	require.True(t, preferredContains(pool, abr1Cid))
 
-	pool.Add(abr2Cid, &abr2)
+	pool.Add(abr2Cid, &AddBlockWrapper{AddBlockRequest: &abr2})
 	assert.True(t, preferredContains(pool, abr2Cid))
 	assert.False(t, preferredContains(pool, abr1Cid))
 }
