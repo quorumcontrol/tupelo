@@ -206,6 +206,10 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error subscribing %w", err)
 	}
+	_, err = host.GetPubSub().Subscribe(group.ID)
+	if err != nil {
+		return fmt.Errorf("error subscribing %w", err)
+	}
 	return nil
 }
 
