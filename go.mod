@@ -28,7 +28,7 @@ require (
 	github.com/quorumcontrol/chaintree v0.9.4
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200113102443-c8486f4a8c46
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200113203129-833be754e51a
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
