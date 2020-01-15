@@ -5,7 +5,7 @@ import "github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 var ZeroVoteID = "n"
 
 type Vote struct {
-	Checkpoint *types.Checkpoint
+	Checkpoint *types.WrappedCheckpoint
 	tallyCount float64
 	id         string
 }

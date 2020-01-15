@@ -20,6 +20,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/messages/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
@@ -255,7 +256,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
-func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.CompletedRound) (*types.RoundConfirmation, error) {
+func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.WrappedRound) (*gossip.RoundConfirmation, error) {
 	roundCid := completedRound.CID()
 
 	sig, err := sigutils.BLSSign(ctx, n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
@@ -263,10 +264,10 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.
 		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
 	}
 
-	return &types.RoundConfirmation{
-		CompletedRound: roundCid,
-		Signature:      sig,
-		Height:         completedRound.Height,
+	return &gossip.RoundConfirmation{
+		RoundCid:  roundCid.Bytes(),
+		Signature: sig,
+		Height:    completedRound.Height(),
 	}, nil
 }
 
@@ -288,18 +289,20 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 
 	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
 
-	completedRound := &types.CompletedRound{
-		Height:     current.height,
-		State:      currentStateCid,
-		Checkpoint: preferredCheckpointCid,
+	completedRound := &gossip.Round{
+		Height:        current.height,
+		StateCid:      currentStateCid.Bytes(),
+		CheckpointCid: preferredCheckpointCid.Bytes(),
 	}
 
-	err = n.dagStore.Add(ctx, completedRound.Wrapped())
+	wrappedCompletedRound := types.WrapRound(completedRound)
+
+	err = n.dagStore.Add(ctx, wrappedCompletedRound.Wrapped())
 	if err != nil {
 		return fmt.Errorf("error adding to dag store: %w", err)
 	}
 
-	conf, err := n.confirmCompletedRound(ctx, completedRound)
+	conf, err := n.confirmCompletedRound(ctx, wrappedCompletedRound)
 	if err != nil {
 		return fmt.Errorf("error confirming completed round: %v", err)
 	}
@@ -329,21 +332,26 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
 
-	for _, txCID := range preferred.Checkpoint.AddBlockRequests {
-		abrWrapper := n.mempool.Get(txCID)
+	for _, cidBytes := range preferred.Checkpoint.AddBlockRequests {
+		abrCid, err := cid.Cast(cidBytes)
+		if err != nil {
+			panic(fmt.Errorf("error casting add block request cid: %v", err))
+		}
+
+		abrWrapper := n.mempool.Get(abrCid)
 		abrWrapper.LogKV("confirmed", true)
 
 		abr := abrWrapper.AddBlockRequest
 		if abrWrapper == nil {
-			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
+			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", abrCid.String())
 			panic("an accepted checkpoint should not have a Tx we don't know about")
 		}
-		err := rootNode.Set(msg.ctx, string(abr.ObjectId), txCID)
+		err = rootNode.Set(msg.ctx, string(abr.ObjectId), abrCid)
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
 		// mempool calls StopTrace on our abrWrapper
-		n.mempool.DeleteIDAndConflictSet(txCID)
+		n.mempool.DeleteIDAndConflictSet(abrCid)
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
@@ -388,10 +396,14 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 			go func() {
 				preferred := n.mempool.Preferred()
 				n.logger.Debugf("starting snowballer and preferring %v", preferred)
+				preferredBytes := [][]byte{}
+				for i, pref := range preferred {
+					preferredBytes[i] = pref.Bytes()
+				}
 				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: &types.Checkpoint{
+					Checkpoint: &gossip.Checkpoint{
 						Height:           n.rounds.Current().height,
-						AddBlockRequests: preferred,
+						AddBlockRequests: preferredBytes,
 					},
 				})
 				done := make(chan error, 1)
@@ -441,7 +453,7 @@ func (n *Node) handleStream(s network.Stream) {
 
 	r, ok := n.rounds.Get(height)
 
-	response := types.Checkpoint{Height: height}
+	response := gossip.Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()

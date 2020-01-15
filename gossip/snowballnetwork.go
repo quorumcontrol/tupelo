@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/libp2p/go-msgio"
 	"github.com/multiformats/go-multihash"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/build/go/gossip"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -58,7 +60,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 	snb.Unlock()
 
 	for !snb.snowball.Decided() {
-		respChan := make(chan types.Checkpoint, snb.snowball.k)
+		respChan := make(chan gossip.Checkpoint, snb.snowball.k)
 		wg := &sync.WaitGroup{}
 		for i := 0; i < snb.snowball.k; i++ {
 			wg.Add(1)
@@ -112,13 +114,13 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 					return
 				}
 
-				var checkpoint *types.Checkpoint
+				var checkpoint *gossip.Checkpoint
 
 				blkInter, ok := snb.cache.Get(id)
 				if ok {
-					checkpoint = blkInter.(*types.Checkpoint)
+					checkpoint = blkInter.(*gossip.Checkpoint)
 				} else {
-					blk := &types.Checkpoint{}
+					blk := &gossip.Checkpoint{}
 					err = cbornode.DecodeInto(bits, blk)
 					if err != nil {
 						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
@@ -180,9 +182,14 @@ func cidFromBits(bits []byte) (cid.Cid, error) {
 	return cid.NewCidV1(cid.DagCBOR, hash), nil
 }
 
-func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
+func (snb *snowballer) mempoolHasAllABRs(abrCIDs [][]byte) bool {
 	hasAll := true
-	for _, abrCID := range abrCIDs {
+	for _, cidBytes := range abrCIDs {
+		abrCID, err := cid.Cast(cidBytes)
+		if err != nil {
+			panic(fmt.Errorf("error casting add block request cid: %v", err))
+		}
+
 		ok := snb.node.mempool.Contains(abrCID)
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", abrCID.String())
@@ -194,9 +201,14 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 }
 
 // this checks to make sure the block coming in doesn't have any conflicting transactions
-func (snb *snowballer) hasConflictingABRs(abrCIDs []cid.Cid) bool {
+func (snb *snowballer) hasConflictingABRs(abrCIDs [][]byte) bool {
 	csIds := make(map[mempoolConflictSetID]struct{})
-	for _, abrCID := range abrCIDs {
+	for _, cidBytes := range abrCIDs {
+		abrCID, err := cid.Cast(cidBytes)
+		if err != nil {
+			panic(fmt.Errorf("error casting add block request cid: %v", err))
+		}
+
 		wrapper := snb.node.mempool.Get(abrCID)
 		if wrapper == nil {
 			snb.logger.Errorf("had a null transaction ( %s ) from a block in the mempool, this shouldn't happen", abrCID.String())
