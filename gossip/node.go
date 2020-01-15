@@ -256,7 +256,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
-func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.WrappedRound) (*gossip.RoundConfirmation, error) {
+func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.WrappedRound) (*types.WrappedRoundConfirmation, error) {
 	roundCid := completedRound.CID()
 
 	sig, err := sigutils.BLSSign(ctx, n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
@@ -264,11 +264,12 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.
 		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
 	}
 
-	return &gossip.RoundConfirmation{
+	conf := &gossip.RoundConfirmation{
 		RoundCid:  roundCid.Bytes(),
 		Signature: sig,
 		Height:    completedRound.Height(),
-	}, nil
+	}
+	return types.WrapRoundConfirmation(conf), nil
 }
 
 func (n *Node) publishCompletedRound(ctx context.Context) error {
@@ -315,7 +316,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 
 	completedRound := n.rounds.Current()
 
-	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests))
+	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests()))
 	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.AddBlockRequests)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
 	// increase the currentRound and create a new Round in the roundHolder
@@ -332,7 +333,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
 
-	for _, cidBytes := range preferred.Checkpoint.AddBlockRequests {
+	for _, cidBytes := range preferred.Checkpoint.AddBlockRequests() {
 		abrCid, err := cid.Cast(cidBytes)
 		if err != nil {
 			panic(fmt.Errorf("error casting add block request cid: %v", err))
@@ -400,11 +401,12 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				for i, pref := range preferred {
 					preferredBytes[i] = pref.Bytes()
 				}
+				cp := &gossip.Checkpoint{
+					Height:           n.rounds.Current().height,
+					AddBlockRequests: preferredBytes,
+				}
 				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: &gossip.Checkpoint{
-						Height:           n.rounds.Current().height,
-						AddBlockRequests: preferredBytes,
-					},
+					Checkpoint: types.WrapCheckpoint(cp),
 				})
 				done := make(chan error, 1)
 				n.snowballer.start(msg.ctx, done)
@@ -452,14 +454,15 @@ func (n *Node) handleStream(s network.Stream) {
 	// n.logger.Debugf("remote looking for height: %d", height)
 
 	r, ok := n.rounds.Get(height)
+	cp := &gossip.Checkpoint{Height: height}
+	response := types.WrapCheckpoint(cp)
 
-	response := gossip.Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
 		if preferred != nil {
 			// n.logger.Debugf("existing preferred; %v", preferred)
-			response = *preferred.Checkpoint
+			response = preferred.Checkpoint
 		}
 	}
 	wrapped := response.Wrapped()

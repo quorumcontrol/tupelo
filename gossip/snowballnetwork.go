@@ -143,7 +143,7 @@ func (snb *snowballer) start(ctx context.Context, done chan error) {
 		for checkpoint := range respChan {
 			// snb.logger.Debugf("received checkpoint: %v", checkpoint)
 			votes[i] = &Vote{
-				Checkpoint: &checkpoint,
+				Checkpoint: types.WrapCheckpoint(&checkpoint),
 			}
 			if len(checkpoint.AddBlockRequests) == 0 ||
 				!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
