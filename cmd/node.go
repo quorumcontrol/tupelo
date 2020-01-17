@@ -51,6 +51,8 @@ func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types
 		return nil, fmt.Errorf("error starting node: %v", err)
 	}
 
+	fmt.Printf("started signer host %s on %v\n", p2pNode.Identity(), p2pNode.Addresses())
+
 	return node.PID(), nil
 }
 
