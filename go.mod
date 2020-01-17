@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.28.4
 	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
+	github.com/go-critic/go-critic v0.3.5-0.20190210220443-ee9bf5809ead // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
