@@ -53,7 +53,9 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		nb.Stop()
+		if err := nb.Stop(); err != nil {
+			logger.Errorf("error stopping: %w", err)
+		}
 	}()
 
 	nb.StartTracing()
