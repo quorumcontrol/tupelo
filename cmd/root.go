@@ -152,9 +152,21 @@ func Execute() {
 }
 
 func loadTomlConfig(path string) (*nodebuilder.Config, error) {
+	// temporary debugging output
+	// TODO: delete me
+	file, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	contents, err := ioutil.ReadAll(file)
+	fmt.Printf("Loading config:\n\n%s\n\n", contents)
+	// end debugging output
+
 	c, err := nodebuilder.TomlToConfig(path)
 	if err != nil {
-		return nil, fmt.Errorf("error getting config from toml: %v", err)
+		return nil, fmt.Errorf("error getting config from %s: %v", path, err)
 	}
 	return c, nil
 }
