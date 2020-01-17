@@ -5,15 +5,19 @@ go 1.13
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
 	github.com/BurntSushi/toml v0.3.1
-	github.com/dgraph-io/badger v1.6.0-rc1
+	github.com/aws/aws-sdk-go v1.28.4
+	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
+	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
 	github.com/ipfs/go-cid v0.0.3
-	github.com/ipfs/go-datastore v0.1.1
-	github.com/ipfs/go-ds-badger v0.0.5
+	github.com/ipfs/go-datastore v0.3.1
+	github.com/ipfs/go-ds-badger v0.2.0
+	github.com/ipfs/go-ds-s3 v0.4.0
 	github.com/ipfs/go-hamt-ipld v0.0.13
+	github.com/ipfs/go-ipfs-blockstore v0.1.0
 	github.com/ipfs/go-ipld-cbor v0.0.3
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-log v0.0.1
@@ -25,6 +29,7 @@ require (
 	github.com/libp2p/go-msgio v0.0.4
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
+	github.com/pkg/errors v0.8.1
 	github.com/quorumcontrol/chaintree v0.9.4
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.2
@@ -32,5 +37,4 @@ require (
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
 )

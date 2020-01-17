@@ -7,54 +7,11 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
-	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/spf13/cobra"
 
-	"github.com/quorumcontrol/tupelo/gossip"
 	"github.com/quorumcontrol/tupelo/gossip3to4"
 	"github.com/quorumcontrol/tupelo/nodebuilder"
 )
-
-func runGossipNode(ctx context.Context, config *nodebuilder.Config, group *types.NotaryGroup) (*actor.PID, error) {
-	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(
-		ctx,
-		p2p.WithKey(config.PrivateKeySet.DestKey),
-		// TODO: this is easier for early development of wasm, but we should examine whether
-		// we want this in production or not.
-		p2p.WithWebSockets(50000),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error creating p2p node: %v", err)
-	}
-
-	nodeCfg := &gossip.NewNodeOptions{
-		P2PNode:     p2pNode,
-		SignKey:     config.PrivateKeySet.SignKey,
-		NotaryGroup: group,
-		DagStore:    bitswapper,
-	}
-
-	node, err := gossip.NewNode(ctx, nodeCfg)
-	if err != nil {
-		return nil, fmt.Errorf("error creating new node: %v", err)
-	}
-
-	err = node.Bootstrap(ctx, group.Config().BootstrapAddresses)
-	if err != nil {
-		return nil, fmt.Errorf("error bootstrapping node: %v", err)
-	}
-
-	fmt.Printf("node bootstrapped, starting")
-
-	err = node.Start(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error starting node: %v", err)
-	}
-
-	fmt.Printf("started signer host %s on %v\n", p2pNode.Identity(), p2pNode.Addresses())
-
-	return node.PID(), nil
-}
 
 func runGossip3To4Node(ctx context.Context, group *types.NotaryGroup, gossipPID *actor.PID) error {
 	p2pNode, _, err := p2p.NewHostAndBitSwapPeer(ctx)
@@ -86,17 +43,6 @@ var nodeCmd = &cobra.Command{
 			panic(fmt.Errorf("error getting node config"))
 		}
 
-		// start the tracing system if configured
-		switch config.TracingSystem {
-		case nodebuilder.ElasticTracing:
-			fmt.Println("Starting elastic tracing")
-			tracing.StartElastic()
-		case nodebuilder.NoTracing:
-			// no-op
-		default:
-			panic(fmt.Errorf("only elastic tracing is supported; got %v", config.TracingSystem))
-		}
-
 		// get the gossip3 notary group
 		var (
 			gossip3NotaryGroup *types.NotaryGroup
@@ -109,23 +55,16 @@ var nodeCmd = &cobra.Command{
 			}
 		}
 
-		// get the gossip4 notary group
-		localKeys := config.PrivateKeySet
-		localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
-		gossipNotaryGroup, err := config.NotaryGroupConfig.NotaryGroup(localSigner)
-		if err != nil {
-			panic(fmt.Errorf("error generating notary group: %v", err))
-		}
+		nb := &nodebuilder.NodeBuilder{Config: config}
 
-		// spin up a gossip4 node
-		pid, err := runGossipNode(ctx, config, gossipNotaryGroup)
+		err = nb.Start(ctx)
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("error starting: %w", err))
 		}
 
 		// spin up a gossip3to4 node
 		if gossip3NotaryGroup != nil {
-			err = runGossip3To4Node(ctx, gossip3NotaryGroup, pid)
+			err = runGossip3To4Node(ctx, gossip3NotaryGroup, nb.Actor())
 			if err != nil {
 				panic(err)
 			}
@@ -133,7 +72,10 @@ var nodeCmd = &cobra.Command{
 			fmt.Println("No gossip3 notary group configured; not starting gossip3to4 node")
 		}
 
-		fmt.Println("Node running")
+		fmt.Printf("Node (%s) running at:\n", nb.Host().Identity())
+		for _, addr := range nb.Host().Addresses() {
+			fmt.Println(addr)
+		}
 
 		<-make(chan struct{})
 	},

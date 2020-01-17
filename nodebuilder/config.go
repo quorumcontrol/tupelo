@@ -4,8 +4,8 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 )
 
 type PrivateKeySet struct {
@@ -29,10 +29,14 @@ type Config struct {
 	StoragePath              string
 	PublicIP                 string
 	Port                     int
+	WebsocketPort            int
 
 	PrivateKeySet  *PrivateKeySet
 	BootstrapNodes []string
 
 	TracingSystem TracingSystem // either Jaeger or Elastic
 	BootstrapOnly bool
+
+	P2PStorage HumanStorageConfig
+	Storage    HumanStorageConfig
 }
