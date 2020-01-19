@@ -8,12 +8,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
+	"github.com/quorumcontrol/tupelo/gossip"
 
-	"github.com/AsynkronIT/protoactor-go/actor"
-
+	"github.com/ipfs/go-bitswap"
+	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
@@ -23,29 +25,24 @@ import (
 	"github.com/shibukawa/configdir"
 )
 
+var logger = logging.Logger("nodebuilder")
+
 type NodeBuilder struct {
 	Config      *Config
 	host        p2p.Node
-	actorToStop *actor.PID
+	signerActor *actor.PID
 }
 
 func (nb *NodeBuilder) Host() p2p.Node {
 	return nb.host
 }
 
-func (nb *NodeBuilder) NotaryGroup() (*types.NotaryGroup, error) {
-	return nb.Config.NotaryGroupConfig.NotaryGroup(nil)
+func (nb *NodeBuilder) Actor() *actor.PID {
+	return nb.signerActor
 }
 
-func (nb *NodeBuilder) BootstrappedP2PNode(ctx context.Context, opts ...p2p.Option) (p2p.Node, error) {
-	host, err := p2p.NewHostFromOptions(ctx, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("error creating host: %v", err)
-	}
-	if _, err = host.Bootstrap(nb.bootstrapNodes()); err != nil {
-		return nil, fmt.Errorf("error bootstrapping: %v", err)
-	}
-	return host, nil
+func (nb *NodeBuilder) NotaryGroup() (*types.NotaryGroup, error) {
+	return nb.Config.NotaryGroupConfig.NotaryGroup(nil)
 }
 
 func (nb *NodeBuilder) Start(ctx context.Context) error {
@@ -53,6 +50,13 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	go func() {
+		<-ctx.Done()
+		if err := nb.Stop(); err != nil {
+			logger.Errorf("error stopping: %w", err)
+		}
+	}()
 
 	nb.StartTracing()
 
@@ -64,15 +68,12 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 }
 
 func (nb *NodeBuilder) Stop() error {
-	if nb.actorToStop != nil {
-		err := actor.EmptyRootContext.PoisonFuture(nb.actorToStop).Wait()
-		if err != nil {
-			return fmt.Errorf("signer failed to stop gracefully: %v", err)
-		}
-	}
-
 	if nb.Config.TracingSystem == JaegerTracing {
 		tracing.StopJaeger()
+	}
+
+	if nb.signerActor != nil {
+		actor.EmptyRootContext.Stop(nb.Actor())
 	}
 
 	return nil
@@ -105,79 +106,85 @@ func (nb *NodeBuilder) StartTracing() {
 }
 
 func (nb *NodeBuilder) startSigner(ctx context.Context) error {
-	// TODO: Commented out pending gossip4. We may or may not want to convert this.
-	//  Delete it if not.
+	localKeys := nb.Config.PrivateKeySet
+	localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
+	group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
+	if err != nil {
+		return fmt.Errorf("error generating notary group: %w", err)
+	}
 
-	// localKeys := nb.Config.PrivateKeySet
-	// localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
-	//
-	// currentPath := signerCurrentPath(nb.Config.StoragePath, localSigner)
-	//
-	// middleware.Log.Debugw("starting signer node", "storagePath", currentPath)
-	// badgerCurrent, err := storage.NewDefaultBadger(currentPath)
-	// if err != nil {
-	//	return fmt.Errorf("error creating storage: %v", err)
-	// }
-	//
-	// group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
-	// if err != nil {
-	//	return fmt.Errorf("error generating notary group: %v", err)
-	// }
-	//
-	// var pubsub remote.PubSub
-	// remote.Start()
-	//
-	// cm := connmgr.NewConnManager(len(group.Signers)*2, 900, 20*time.Second)
-	// for _, s := range group.Signers {
-	//	id, err := p2p.PeerFromEcdsaKey(s.DstKey)
-	//	if err != nil {
-	//		panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
-	//	}
-	//	cm.Protect(id, "signer")
-	// }
-	//
-	// p2pHost, err := nb.p2pNodeWithOpts(ctx, p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)))
-	// if err != nil {
-	//	return fmt.Errorf("error setting up p2p host: %v", err)
-	// }
-	// if _, err = p2pHost.Bootstrap(nb.bootstrapNodes()); err != nil {
-	//	return fmt.Errorf("failed to bootstrap: %s", err)
-	// }
-	//
-	// remote.NewRouter(p2pHost)
-	//
-	// nb.host = p2pHost
-	//
-	// pubsub = remote.NewNetworkPubSub(p2pHost.GetPubSub())
-	//
-	// act, err := actor.EmptyRootContext.SpawnNamed(actors.NewTupeloNodeProps(&actors.TupeloConfig{
-	//	Self:              localSigner,
-	//	NotaryGroup:       group,
-	//	CurrentStateStore: badgerCurrent,
-	//	PubSubSystem:      pubsub,
-	// }), syncerActorName(localSigner))
-	// if err != nil {
-	//	panic(fmt.Sprintf("error spawning: %v", err))
-	// }
-	//
-	// localSigner.Actor = act
-	// nb.actorToStop = act
+	cm := connmgr.NewConnManager(len(group.Signers)*5, 900, 20*time.Second)
+	for _, s := range group.Signers {
+		id, err := p2p.PeerFromEcdsaKey(s.DstKey)
+		if err != nil {
+			panic(fmt.Sprintf("error getting peer from ecdsa key: %v", err))
+		}
+		cm.Protect(id, "signer")
+	}
+
+	blockstorage, err := nb.Config.Storage.ToBlockstore() // defaults to memory
+	if err != nil {
+		return fmt.Errorf("error converting to datastore: %w", err)
+	}
+
+	p2pStore, err := nb.Config.P2PStorage.ToDatastore() // defaults to memory
+	if err != nil {
+		return fmt.Errorf("error converting to datastore: %w", err)
+	}
+
+	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(
+		ctx,
+		append(nb.defaultP2POptions(ctx),
+			p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
+			p2p.WithDatastore(p2pStore),
+			p2p.WithBlockstore(blockstorage),
+		)...,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating p2p node: %w", err)
+	}
+
+	nb.host = p2pNode
+
+	nodeCfg := &gossip.NewNodeOptions{
+		P2PNode:     p2pNode,
+		SignKey:     localKeys.SignKey,
+		NotaryGroup: group,
+		DagStore:    bitswapper,
+	}
+
+	node, err := gossip.NewNode(ctx, nodeCfg)
+	if err != nil {
+		return fmt.Errorf("error creating new node: %v", err)
+	}
+
+	bootstappers, err := nb.bootstrapNodesWithoutSelf()
+	if err != nil {
+		return fmt.Errorf("error getting bootstrap nodes: %w", err)
+	}
+
+	err = node.Bootstrap(ctx, bootstappers)
+	if err != nil {
+		return fmt.Errorf("error bootstrapping node: %w", err)
+	}
+
+	err = node.Start(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting node: %v", err)
+	}
 
 	return nil
 }
 
-// func syncerActorName(signer *types.Signer) string {
-//	return "tupelo-" + signer.ID
-// }
-
 func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 	cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
 
-	host, err := nb.p2pNodeWithOpts(
+	host, err := p2p.NewHostFromOptions(
 		ctx,
-		p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
-		p2p.WithRelayOpts(circuit.OptHop),
-		p2p.WithWebSockets(50000), // TODO: examine whether we actually need this in bootstrap or not
+		append(nb.defaultP2POptions(ctx),
+			p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
+			p2p.WithRelayOpts(circuit.OptHop),
+		)...,
 	)
 	if err != nil {
 		return fmt.Errorf("Could not start bootstrap node, %v", err)
@@ -203,6 +210,10 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 		return fmt.Errorf("error getting notary group %w", err)
 	}
 	_, err = host.GetPubSub().Subscribe(group.Config().TransactionTopic)
+	if err != nil {
+		return fmt.Errorf("error subscribing %w", err)
+	}
+	_, err = host.GetPubSub().Subscribe(group.ID)
 	if err != nil {
 		return fmt.Errorf("error subscribing %w", err)
 	}
@@ -234,11 +245,15 @@ func (nb *NodeBuilder) ownPeerID() (peer.ID, error) {
 	return p2p.PeerFromEcdsaKey(&nb.Config.PrivateKeySet.DestKey.PublicKey)
 }
 
-func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Option) (p2p.Node, error) {
+func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 	opts := []p2p.Option{
 		p2p.WithKey(nb.Config.PrivateKeySet.DestKey),
-		p2p.WithDiscoveryNamespaces("tupelo-transaction-gossipers"),
+		p2p.WithDiscoveryNamespaces(nb.Config.NotaryGroupConfig.ID),
 		p2p.WithListenIP("0.0.0.0", nb.Config.Port),
+		p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)),
+		//TODO: do we want to enable this?
+		// p2p.WithPubSubOptions(pubsub.WithStrictSignatureVerification(true), pubsub.WithMessageSigning(true)),
+		p2p.WithWebSockets(nb.Config.WebsocketPort),
 	}
 
 	if nb.Config.PublicIP != "" {
@@ -246,18 +261,10 @@ func (nb *NodeBuilder) p2pNodeWithOpts(ctx context.Context, addlOpts ...p2p.Opti
 			"port", nb.Config.Port)
 		opts = append(opts, p2p.WithExternalIP(nb.Config.PublicIP, nb.Config.Port))
 	} else {
-		middleware.Log.Debugw("host has no public IP")
+		logger.Debug("host has no public IP")
 	}
-	return p2p.NewHostFromOptions(ctx, append(opts, addlOpts...)...)
+	return opts
 }
-
-// func signerCurrentPath(storagePath string, signer *types.Signer) (path string) {
-//	path = filepath.Join(storagePath, signer.ID+"-current")
-//	if err := os.MkdirAll(path, 0755); err != nil {
-//		panic(err)
-//	}
-//	return
-// }
 
 func configDir(globalNamespace, namespace string) string {
 	conf := configdir.New("tupelo", filepath.Join(globalNamespace, namespace))

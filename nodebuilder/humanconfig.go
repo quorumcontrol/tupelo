@@ -50,6 +50,7 @@ type HumanConfig struct {
 	StoragePath              string
 	PublicIP                 string
 	Port                     int
+	WebsocketPort            int
 
 	PrivateKeySet *HumanPrivateKeySet
 
@@ -63,6 +64,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		StoragePath:   hc.StoragePath,
 		PublicIP:      hc.PublicIP,
 		Port:          hc.Port,
+		WebsocketPort: hc.WebsocketPort,
 		BootstrapOnly: hc.BootstrapOnly,
 	}
 

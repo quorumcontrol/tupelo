@@ -308,6 +308,8 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 		return fmt.Errorf("error confirming completed round: %v", err)
 	}
 
+	n.logger.Debugf("publishing round confirmed to: %s", n.notaryGroup.ID)
+
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
 }
 
