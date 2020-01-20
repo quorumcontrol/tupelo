@@ -31,11 +31,18 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 	return ids
 }
 
-func newCheckpoint(height uint64, abrs []cid.Cid) *gossip.Checkpoint {
-	return &gossip.Checkpoint{
-		Height:           height,
-		AddBlockRequests: abrs,
+func newCheckpoint(height uint64, abrs []cid.Cid) *types.CheckpointWrapper {
+	var abrBytes [][]byte
+	for i, abrCid := range abrs {
+		abrBytes[i] = abrCid.Bytes()
 	}
+
+	cp := &gossip.Checkpoint{
+		Height:           height,
+		AddBlockRequests: abrBytes,
+	}
+
+	return types.WrapCheckpoint(cp)
 }
 
 func TestVoteWithoutBlock(t *testing.T) {
@@ -136,7 +143,6 @@ func TestTick(t *testing.T) {
 
 		for i := 0; i < len(votes); i++ {
 			checkpoint := newCheckpoint(1, generateTxIds(t, 2))
-			wrappedCheckpoint := types.WrapCheckpoint(checkpoint)
 			votes[i] = &Vote{
 				Checkpoint: checkpoint,
 			}
@@ -158,7 +164,7 @@ func TestTick(t *testing.T) {
 		_checkpoint := newCheckpoint(1, generateTxIds(t, 1))
 
 		for i := 0; i < cap(votes); i++ {
-			var checkpoint *gossip.Checkpoint
+			var checkpoint *types.CheckpointWrapper
 			if i < int(snowball.alpha*float64(cap(votes))) {
 				checkpoint = _checkpoint
 			}
