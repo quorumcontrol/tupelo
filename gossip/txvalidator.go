@@ -109,7 +109,7 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 }
 
 func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *services.AddBlockRequest) bool {
-	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "gossip4.unmarshalPubSub")
+	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "gossip4.validateABR")
 	defer sp.Finish()
 
 	newTip, err := cid.Cast(abr.NewTip)
