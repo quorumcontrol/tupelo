@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip/middleware"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/quorumcontrol/tupelo/gossip"
@@ -257,8 +256,7 @@ func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 	}
 
 	if nb.Config.PublicIP != "" {
-		middleware.Log.Debugw("configuring host with public IP", "publicIP", nb.Config.PublicIP,
-			"port", nb.Config.Port)
+		logger.Debugf("configuring host with public IP: %v and port: %v", nb.Config.PublicIP, nb.Config.Port)
 		opts = append(opts, p2p.WithExternalIP(nb.Config.PublicIP, nb.Config.Port))
 	} else {
 		logger.Debug("host has no public IP")
