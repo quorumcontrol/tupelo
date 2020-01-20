@@ -27,6 +27,9 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
+// TODO: Delete me when done with gossip 3 dark traffic testing!
+var MagicValidNewTip = "convertedFromGossip3"
+
 // TransactionValidator validates incoming pubsub messages for internal consistency
 // and sends them to the gossip4 node. It is exported for the gossip3to4 module
 type TransactionValidator struct {
@@ -112,11 +115,7 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "gossip4.validateABR")
 	defer sp.Finish()
 
-	newTip, err := cid.Cast(abr.NewTip)
-	if err != nil {
-		tv.logger.Errorf("error casting abr new tip: %v", err)
-		return false
-	}
+
 
 	transPreviousTip, err := cid.Cast(abr.PreviousTip)
 	if err != nil {
@@ -196,9 +195,18 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 		return false
 	}
 
-	if !chainTree.Dag.Tip.Equals(newTip) {
-		sp.SetTag("tips-match", false)
-		return false
+	// TODO: Remove MagicValidNewTip check when done w/ gossip3 dark traffic testing!
+	if string(abr.NewTip) != MagicValidNewTip {
+		newTip, err := cid.Cast(abr.NewTip)
+		if err != nil {
+			tv.logger.Errorf("error casting abr new tip: %v", err)
+			return false
+		}
+
+		if !chainTree.Dag.Tip.Equals(newTip) {
+			sp.SetTag("tips-match", false)
+			return false
+		}
 	}
 
 	sp.SetTag("tips-match", true)
