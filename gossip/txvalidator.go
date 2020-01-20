@@ -109,7 +109,7 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 }
 
 func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *services.AddBlockRequest) bool {
-	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "g4.unmarshalPubSub")
+	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "gossip4.unmarshalPubSub")
 	defer sp.Finish()
 
 	newTip, err := cid.Cast(abr.NewTip)
@@ -197,6 +197,7 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 	}
 
 	if !chainTree.Dag.Tip.Equals(newTip) {
+		sp.SetTag("tips-match", false)
 		return false
 	}
 
@@ -204,7 +205,7 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 }
 
 func pubsubMsgToAddBlockRequest(ctx context.Context, msg *pubsub.Message) (*services.AddBlockRequest, error) {
-	sp, _ := opentracing.StartSpanFromContext(ctx, "g4.unmarshalPubSub")
+	sp, _ := opentracing.StartSpanFromContext(ctx, "gossip4.unmarshalPubSub")
 	defer sp.Finish()
 
 	abr := &services.AddBlockRequest{}
