@@ -12,6 +12,8 @@ import (
 	g4services "github.com/quorumcontrol/messages/v2/build/go/services"
 	g4signatures "github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
+
+	"github.com/quorumcontrol/tupelo/gossip"
 )
 
 type g3SignatureMap map[string]*g3signatures.Signature
@@ -73,7 +75,7 @@ func ConvertABR(abr *g3services.AddBlockRequest) (*g4services.AddBlockRequest, e
 		ObjectId:    abr.ObjectId,
 		PreviousTip: abr.PreviousTip,
 		Height:      abr.Height,
-		NewTip:      abr.NewTip,
+		NewTip:      []byte(gossip.MagicValidNewTip), // just for dark traffic testing
 		Payload:     g4PayloadBytes,
 		State:       abr.State,
 	}, nil

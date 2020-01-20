@@ -7,6 +7,8 @@ import (
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	g3services "github.com/quorumcontrol/messages/build/go/services"
 	"github.com/stretchr/testify/require"
+
+	"github.com/quorumcontrol/tupelo/gossip"
 )
 
 func TestConvertABR(t *testing.T) {
@@ -22,8 +24,9 @@ func TestConvertABR(t *testing.T) {
 	g4abr, err := ConvertABR(&g3abr)
 	require.Nil(t, err)
 
+	require.Equal(t, gossip.MagicValidNewTip, string(g4abr.NewTip))
+	
 	require.Equal(t, g3abr.State, g4abr.State)
-	require.Equal(t, g3abr.NewTip, g4abr.NewTip)
 	require.Equal(t, g3abr.Height, g4abr.Height)
 	require.Equal(t, g3abr.PreviousTip, g4abr.PreviousTip)
 	require.Equal(t, g3abr.ObjectId, g4abr.ObjectId)
