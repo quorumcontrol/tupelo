@@ -201,6 +201,8 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 		return false
 	}
 
+	sp.SetTag("tips-match", true)
+
 	return true
 }
 
