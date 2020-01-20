@@ -89,7 +89,7 @@ func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, 
 
 func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
 	wrapper := &AddBlockWrapper{}
-	wrapper.StartTrace("g4transaction")
+	wrapper.StartTrace("gossip4.transaction")
 
 	abr, err := pubsubMsgToAddBlockRequest(wrapper.GetContext(), msg)
 	if err != nil {

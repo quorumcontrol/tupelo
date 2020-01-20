@@ -25,7 +25,7 @@ func TestConvertABR(t *testing.T) {
 	require.Nil(t, err)
 
 	require.Equal(t, gossip.MagicValidNewTip, string(g4abr.NewTip))
-	
+
 	require.Equal(t, g3abr.State, g4abr.State)
 	require.Equal(t, g3abr.Height, g4abr.Height)
 	require.Equal(t, g3abr.PreviousTip, g4abr.PreviousTip)
