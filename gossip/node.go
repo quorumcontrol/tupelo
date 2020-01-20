@@ -256,7 +256,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
-func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.WrappedRound) (*types.RoundConfirmationWrapper, error) {
+func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.RoundWrapper) (*types.RoundConfirmationWrapper, error) {
 	roundCid := completedRound.CID()
 
 	sig, err := sigutils.BLSSign(ctx, n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
