@@ -8,8 +8,8 @@ require (
 	github.com/aws/aws-sdk-go v1.28.4
 	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
-	github.com/go-critic/go-critic v0.3.5-0.20190210220443-ee9bf5809ead // indirect
 	github.com/gobuffalo/packr/v2 v2.5.1
+	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
@@ -34,10 +34,11 @@ require (
 	github.com/quorumcontrol/chaintree v0.9.4
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.2
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200120024519-21cd48d8c6e6
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200120142430-df0fb799984c
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
+	google.golang.org/grpc v1.21.1
 )
 
 // These replaces come from: https://github.com/ipfs/go-ipfs/issues/6795#issuecomment-571165734

@@ -154,7 +154,7 @@ func Execute() {
 func loadTomlConfig(path string) (*nodebuilder.Config, error) {
 	c, err := nodebuilder.TomlToConfig(path)
 	if err != nil {
-		return nil, fmt.Errorf("error getting config from toml: %v", err)
+		return nil, fmt.Errorf("error getting config from %s: %v", path, err)
 	}
 	return c, nil
 }

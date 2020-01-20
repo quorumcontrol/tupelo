@@ -20,19 +20,30 @@ type HumanPrivateKeySet struct {
 }
 
 func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
-	signKeyBytes, err := hexutil.Decode(hpks.SignKeyHex)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding sign key: %v", err)
+	var (
+		signKeyBytes []byte
+		signKey      *bls.SignKey
+		err          error
+	)
+
+	if len(hpks.SignKeyHex) > 0 {
+		signKeyBytes, err = hexutil.Decode(hpks.SignKeyHex)
+		if err != nil {
+			return nil, fmt.Errorf("error decoding sign key: %v", err)
+		}
+		signKey = bls.BytesToSignKey(signKeyBytes)
 	}
+
 	destKeyBytes, err := hexutil.Decode(hpks.DestKeyHex)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding dest key: %v", err)
 	}
+
 	ecdsaPrivate, err := crypto.ToECDSA(destKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't unmarshal ECDSA private key: %v", err)
 	}
-	signKey := bls.BytesToSignKey(signKeyBytes)
+
 	return &PrivateKeySet{
 		SignKey: signKey,
 		DestKey: ecdsaPrivate,

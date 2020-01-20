@@ -246,13 +246,16 @@ func (nb *NodeBuilder) ownPeerID() (peer.ID, error) {
 
 func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 	opts := []p2p.Option{
-		p2p.WithKey(nb.Config.PrivateKeySet.DestKey),
 		p2p.WithDiscoveryNamespaces(nb.Config.NotaryGroupConfig.ID),
 		p2p.WithListenIP("0.0.0.0", nb.Config.Port),
 		p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)),
 		//TODO: do we want to enable this?
 		// p2p.WithPubSubOptions(pubsub.WithStrictSignatureVerification(true), pubsub.WithMessageSigning(true)),
 		p2p.WithWebSockets(nb.Config.WebsocketPort),
+	}
+
+	if nb.Config.PrivateKeySet != nil && nb.Config.PrivateKeySet.DestKey != nil {
+		opts = append(opts, p2p.WithKey(nb.Config.PrivateKeySet.DestKey))
 	}
 
 	if nb.Config.PublicIP != "" {
