@@ -114,6 +114,8 @@ func (n *Node) handleAddBlockRequest(actorCtx actor.Context, abr *services.AddBl
 		wrapper.StartTrace("gossip3.transaction")
 
 		actorCtx.Send(n.gossip4Node, wrapper)
+
+		return
 	}
 	sp.SetTag("valid", false)
 }
