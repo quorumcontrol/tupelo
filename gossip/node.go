@@ -478,6 +478,8 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 	current, err := n.getCurrent(ctx, string(abr.ObjectId))
 	if err != nil {
+		abrWrapper.LogKV("error", err.Error())
+		defer abrWrapper.StopTrace()
 		n.logger.Errorf("error getting current: %v", err)
 		return
 	}
@@ -487,6 +489,8 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 		if abr.Height == 0 {
 			err = n.storeAbr(ctx, abrWrapper)
 			if err != nil {
+				abrWrapper.LogKV("error", err.Error())
+				defer abrWrapper.StopTrace()
 				n.logger.Errorf("error getting current: %v", err)
 				return
 			}
@@ -498,6 +502,8 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 	// if this msg height is lower than current then just drop it
 	if current.Height > abr.Height {
+		abrWrapper.LogKV("error", "current height is higher than ABR height")
+		defer abrWrapper.StopTrace()
 		return
 	}
 
@@ -507,12 +513,17 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 		if !bytes.Equal(current.NewTip, abr.PreviousTip) {
 			n.logger.Warningf("tips did not match")
+			abrWrapper.LogKV("error", "tips did not match")
+			defer abrWrapper.StopTrace()
 			return
 		}
 
 		err = n.storeAbr(ctx, abrWrapper)
 		if err != nil {
-			n.logger.Errorf("error getting current: %v", err)
+			err := fmt.Errorf("error storing abr: %w", err)
+			n.logger.Errorf("error storing abr: %v", err)
+			abrWrapper.LogKV("error", err.Error())
+			defer abrWrapper.StopTrace()
 			return
 		}
 
@@ -525,7 +536,13 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 		return
 	}
 
-	// TODO: handle byzantine case of msg.Height == current.Height
+	if abr.Height == current.Height {
+		msg := "byzantine: same height as current"
+		abrWrapper.LogKV("error", msg)
+		defer abrWrapper.StopTrace()
+		n.logger.Errorf("error storing abr: %v", msg)
+		return
+	}
 }
 
 func (n *Node) storeAsInFlight(ctx context.Context, abrWrapper *AddBlockWrapper) {

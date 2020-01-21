@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"github.com/opentracing/opentracing-go"
 	"sync"
 	"time"
 
@@ -52,7 +53,11 @@ func (snb *snowballer) Started() bool {
 	return snb.started
 }
 
-func (snb *snowballer) start(ctx context.Context, done chan error) {
+func (snb *snowballer) start(startCtx context.Context, done chan error) {
+	sp := opentracing.StartSpan("gossip4.snowballer.start")
+	defer sp.Finish()
+	ctx := opentracing.ContextWithSpan(startCtx, sp)
+
 	snb.Lock()
 	snb.started = true
 	snb.Unlock()
