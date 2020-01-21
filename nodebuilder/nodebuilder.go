@@ -172,6 +172,8 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 		return fmt.Errorf("error starting node: %v", err)
 	}
 
+	nb.signerActor = node.PID()
+
 	return nil
 }
 
