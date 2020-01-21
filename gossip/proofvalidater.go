@@ -8,7 +8,7 @@ import (
 	hamt "github.com/ipfs/go-hamt-ipld"
 	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/messages/build/go/gossip"
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
 	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"

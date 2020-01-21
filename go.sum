@@ -748,6 +748,7 @@ github.com/quorumcontrol/chaintree v0.9.4 h1:FfAd7l/Il53ZG2snvtb/6vx57Lme5ELl/XU
 github.com/quorumcontrol/chaintree v0.9.4/go.mod h1:XZMtCWpLgWM6UVSRk431n+HIjJcndppvLvxP1v19gwU=
 github.com/quorumcontrol/messages v1.1.1 h1:e90LvAM7YCZrFnXGM9H3pin+jjGqYPjW+YthBJkZHLc=
 github.com/quorumcontrol/messages v1.1.1/go.mod h1:PubykIzNsMO+CMecd7HDFKjBa4shVrPal8/GxM1+plc=
+github.com/quorumcontrol/messages v2.0.1+incompatible h1:8bqzWXzanPcs/YW/mYGzZbI1bT5t0nngsUBBQKV6YmA=
 github.com/quorumcontrol/messages/v2 v2.1.2 h1:5LQQYWJc97fAH+bXpRXXsQbM6sSS+mYDjHNfLI8Snwk=
 github.com/quorumcontrol/messages/v2 v2.1.2/go.mod h1:on7qxEZYufdF6ZIyXFFWonyEmSdCuY+McIk2kLDiGwg=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200106164423-ae217697b350/go.mod h1:w38FdPQhXO6Nom4xb0lfDumX2NyS91sN00JkZ8qCNfI=

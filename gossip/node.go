@@ -20,7 +20,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/messages/build/go/gossip"
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"

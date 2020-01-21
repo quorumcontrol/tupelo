@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/build/go/gossip"
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
