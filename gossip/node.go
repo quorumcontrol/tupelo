@@ -479,7 +479,7 @@ func (n *Node) handleStream(s network.Stream) {
 
 func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *AddBlockWrapper) {
 	abr := abrWrapper.AddBlockRequest
-	sp := abrWrapper.NewSpan("g4.handleAddBlockRequest")
+	sp := abrWrapper.NewSpan("gossip4.handleAddBlockRequest")
 	defer sp.Finish()
 
 	ctx, cancel := context.WithCancel(abrWrapper.GetContext())

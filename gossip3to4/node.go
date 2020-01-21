@@ -10,23 +10,26 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
+	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo/gossip"
 )
 
 type NodeConfig struct {
-	P2PNode     p2p.Node
-	NotaryGroup *types.NotaryGroup
-	Gossip4Node *actor.PID
+	P2PNode            p2p.Node
+	NotaryGroup        *types.NotaryGroup
+	Gossip3NotaryGroup *g3types.NotaryGroup
+	Gossip4Node        *actor.PID
 }
 
 type Node struct {
-	p2pNode     p2p.Node
-	notaryGroup *types.NotaryGroup
-	gossip3Sub  *actor.PID
-	gossip4Node *actor.PID
-	validator   *gossip.TransactionValidator
-	logger      logging.EventLogger
+	p2pNode            p2p.Node
+	notaryGroup        *types.NotaryGroup
+	gossip3NotaryGroup *g3types.NotaryGroup
+	gossip3Sub         *actor.PID
+	gossip4Node        *actor.PID
+	validator          *gossip.TransactionValidator
+	logger             logging.EventLogger
 }
 
 func NewNode(ctx context.Context, cfg *NodeConfig) *Node {
@@ -40,11 +43,12 @@ func NewNode(ctx context.Context, cfg *NodeConfig) *Node {
 	}
 
 	return &Node{
-		p2pNode:     cfg.P2PNode,
-		notaryGroup: cfg.NotaryGroup,
-		gossip4Node: cfg.Gossip4Node,
-		validator:   validator,
-		logger:      logger,
+		p2pNode:            cfg.P2PNode,
+		notaryGroup:        cfg.NotaryGroup,
+		gossip3NotaryGroup: cfg.Gossip3NotaryGroup,
+		gossip4Node:        cfg.Gossip4Node,
+		validator:          validator,
+		logger:             logger,
 	}
 }
 
@@ -92,7 +96,7 @@ func (n *Node) handleStarted(actorCtx actor.Context) {
 
 	g3sCfg := &Gossip3SubscriberConfig{
 		P2PNode:     n.p2pNode,
-		NotaryGroup: n.notaryGroup,
+		NotaryGroup: n.gossip3NotaryGroup,
 	}
 	n.gossip3Sub = actorCtx.Spawn(NewGossip3SubscriberProps(g3sCfg))
 }
