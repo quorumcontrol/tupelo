@@ -54,7 +54,7 @@ func (snb *snowballer) Started() bool {
 }
 
 func (snb *snowballer) start(startCtx context.Context, done chan error) {
-	sp := opentracing.StartSpan("snowballer.start")
+	sp := opentracing.StartSpan("gossip4.snowballer.start")
 	defer sp.Finish()
 	ctx := opentracing.ContextWithSpan(startCtx, sp)
 
