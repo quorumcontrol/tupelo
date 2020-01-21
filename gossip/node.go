@@ -399,7 +399,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 			go func() {
 				preferred := n.mempool.Preferred()
 				n.logger.Debugf("starting snowballer and preferring %v", preferred)
-				preferredBytes := [][]byte{}
+				preferredBytes := make([][]byte, len(preferred))
 				for i, pref := range preferred {
 					preferredBytes[i] = pref.Bytes()
 				}

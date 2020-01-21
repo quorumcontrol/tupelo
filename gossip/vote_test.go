@@ -32,7 +32,7 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 }
 
 func newCheckpoint(height uint64, abrs []cid.Cid) *types.CheckpointWrapper {
-	var abrBytes [][]byte
+	abrBytes := make([][]byte, len(abrs))
 	for i, abrCid := range abrs {
 		abrBytes[i] = abrCid.Bytes()
 	}
