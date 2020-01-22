@@ -1,4 +1,4 @@
-FROM golang:1.13.5-alpine3.10 AS build
+FROM golang:1.13.6-alpine3.11 AS build
 
 WORKDIR /app
 
@@ -8,10 +8,10 @@ COPY . .
 
 RUN go install -mod=vendor -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}"
 
-FROM alpine:3.10
+FROM alpine:3.11
 LABEL maintainer="dev@quorumcontrol.com"
 
-RUN apk add --no-cache --update gettext ca-certificates
+RUN apk add --no-cache --update gettext ca-certificates curl
 
 RUN mkdir -p /tupelo
 
