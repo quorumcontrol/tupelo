@@ -15,7 +15,7 @@ import (
 // This is used for verifying receiveToken transactions
 // TODO: we want receive tokens to use round paths through hamts intead of signatures
 func verifySignature(rootCtx context.Context, msg []byte, signature *signatures.Signature, verKeys []*bls.VerKey) (bool, error) {
-	sp, ctx := opentracing.StartSpanFromContext(rootCtx, "verifySignature")
+	sp, ctx := opentracing.StartSpanFromContext(rootCtx, "gossip4.verifySignature")
 	defer sp.Finish()
 
 	err := sigfuncs.RestoreBLSPublicKey(ctx, signature, verKeys)
