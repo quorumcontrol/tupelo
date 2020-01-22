@@ -355,13 +355,15 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		}
 		// mempool calls StopTrace on our abrWrapper
 		n.mempool.DeleteIDAndConflictSet(abrCid)
+		n.logger.Debugf("looking for %s height: %d", abr.ObjectId, abr.Height+1)
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
 		next, ok := n.inflight.Get(nextKey)
 		if ok {
+			n.logger.Debugf("found %s height: %d in inflight", abr.ObjectId, abr.Height+1)
 			nextAbrWrapper := next.(*AddBlockWrapper)
-			if bytes.Equal(nextAbrWrapper.AddBlockRequest.PreviousTip, nextAbrWrapper.AddBlockRequest.NewTip) {
+			if bytes.Equal(nextAbrWrapper.AddBlockRequest.PreviousTip, abrWrapper.AddBlockRequest.NewTip) {
 				if err := n.storeAbr(msg.ctx, nextAbrWrapper); err != nil {
 					n.logger.Warningf("error storing abr: %v", err)
 				}
