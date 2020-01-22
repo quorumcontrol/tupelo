@@ -21,6 +21,11 @@ if [ -n "$TUPELO_GOSSIP3_NOTARY_GROUP_URL" ]; then
   wget -q -O "$TUPELO_GOSSIP3_NOTARY_GROUP_CONFIG" "$TUPELO_GOSSIP3_NOTARY_GROUP_URL"
 fi
 
+if [ -n "$TUPELO_ADVERTISE_EC2_PUBLIC_IP" ]; then
+  TUPELO_PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+  export TUPELO_PUBLIC_IP
+fi
+
 if [ ! -f "$TUPELO_CONFIG_FILE" ]; then
   envsubst < /tupelo/config.toml.tpl  > "$TUPELO_CONFIG_FILE"
 fi
