@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"context"
 	"crypto/rand"
 	"math"
 	"testing"
@@ -133,6 +134,8 @@ func TestCalculateTallies(t *testing.T) {
 }
 
 func TestTick(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	snowball := NewSnowball(defaultAlpha, defaultBeta, defaultK)
 
@@ -149,7 +152,7 @@ func TestTick(t *testing.T) {
 		}
 
 		for i := 0; i < snowball.beta+1; i++ {
-			snowball.Tick(calculateTallies(votes))
+			snowball.Tick(ctx, calculateTallies(votes))
 		}
 
 		assert.False(t, snowball.Decided())
@@ -175,7 +178,7 @@ func TestTick(t *testing.T) {
 		}
 
 		for i := 0; i < snowball.beta+1; i++ {
-			snowball.Tick(calculateTallies(votes))
+			snowball.Tick(ctx, calculateTallies(votes))
 		}
 
 		assert.False(t, snowball.Decided())
@@ -202,7 +205,7 @@ func TestTick(t *testing.T) {
 		}
 
 		for i := 0; i < snowball.beta+1; i++ {
-			snowball.Tick(calculateTallies(votes))
+			snowball.Tick(ctx, calculateTallies(votes))
 		}
 
 		assert.True(t, snowball.Decided())
