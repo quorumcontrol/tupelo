@@ -1,9 +1,11 @@
 package gossip
 
 import (
+	"context"
 	"sync"
 
 	logging "github.com/ipfs/go-log"
+	"github.com/opentracing/opentracing-go"
 )
 
 var snowlog = logging.Logger("snowball")
@@ -46,9 +48,13 @@ func (s *Snowball) Reset() {
 	s.Unlock()
 }
 
-func (s *Snowball) Tick(votes []*Vote) {
+func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
+	sp, _ := opentracing.StartSpanFromContext(startCtx, "gossip4.snowball.tick")
+	defer sp.Finish()
+
 	s.Lock()
 	defer s.Unlock()
+	sp.LogKV("voteCount", len(votes))
 	snowlog.Debugf("tick len(votes): %d", len(votes))
 
 	if s.decided {
@@ -70,6 +76,10 @@ func (s *Snowball) Tick(votes []*Vote) {
 		}
 	}
 
+	if majority != nil {
+		sp.LogKV("majority", majority.ID())
+	}
+
 	denom := float64(len(votes))
 
 	if denom < 2 {
@@ -78,14 +88,17 @@ func (s *Snowball) Tick(votes []*Vote) {
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
 		snowlog.Debugf("resettitng count: %v", majority)
+		sp.LogKV("countReset", true)
 		s.count = 0
 		return
 	}
+	sp.LogKV("majorityTally", majority.Tally())
 	snowlog.Debugf("majority tally: %f", majority.Tally())
 
 	s.counts[majority.ID()]++
 
 	if s.preferred == nil || s.counts[majority.ID()] > s.counts[s.preferred.ID()] {
+		sp.LogKV("setPreferred", true)
 		s.preferred = majority
 	}
 
@@ -93,8 +106,9 @@ func (s *Snowball) Tick(votes []*Vote) {
 		s.last, s.count = majority, 1
 	} else {
 		s.count++
-
+		sp.LogKV("count", s.count)
 		if s.count > s.beta {
+			sp.LogKV("decided", true)
 			s.decided = true
 		}
 	}

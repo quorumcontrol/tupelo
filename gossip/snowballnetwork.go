@@ -63,118 +63,148 @@ func (snb *snowballer) start(startCtx context.Context, done chan error) {
 	snb.Unlock()
 
 	for !snb.snowball.Decided() {
-		respChan := make(chan types.Checkpoint, snb.snowball.k)
-		wg := &sync.WaitGroup{}
-		for i := 0; i < snb.snowball.k; i++ {
-			wg.Add(1)
-			go func() {
-				var signer *types.Signer
-				var signerPeer string
-				for signer == nil || signerPeer == snb.host.Identity() {
-					signer = snb.group.GetRandomSigner()
-					peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)
-					signerPeer = peerID.Pretty()
-				}
-				s, err := snb.host.NewStream(ctx, signer.DstKey, gossipProtocol)
-				if err != nil {
-					snb.logger.Warningf("error creating stream to %s: %v", signer.ID, err)
-					if s != nil {
-						s.Close()
-					}
-					wg.Done()
-					return
-				}
-				sw := &safewrap.SafeWrap{}
-				wrapped := sw.WrapObject(snb.height)
-
-				if err := s.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
-					snb.logger.Errorf("error setting deadline: %v", err) // TODO: do we need to do anything about this error?
-				}
-
-				writer := msgio.NewVarintWriter(s)
-				err = writer.WriteMsg(wrapped.RawData())
-				if err != nil {
-					snb.logger.Warningf("error writing to stream to %s: %v", signer.ID, err)
-					s.Close()
-					wg.Done()
-					return
-				}
-
-				reader := msgio.NewVarintReader(s)
-				bits, err := reader.ReadMsg()
-				if err != nil {
-					snb.logger.Warningf("error reading from stream to %s: %v", signer.ID, err)
-					s.Close()
-					wg.Done()
-					return
-				}
-
-				id, err := cidFromBits(bits)
-				if err != nil {
-					snb.logger.Warningf("error creating bits to %s: %v", signer.ID, err)
-					s.Close()
-					wg.Done()
-					return
-				}
-
-				var checkpoint *types.Checkpoint
-
-				blkInter, ok := snb.cache.Get(id)
-				if ok {
-					checkpoint = blkInter.(*types.Checkpoint)
-				} else {
-					blk := &types.Checkpoint{}
-					err = cbornode.DecodeInto(bits, blk)
-					if err != nil {
-						snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
-						s.Close()
-						wg.Done()
-						return
-					}
-					checkpoint = blk
-					snb.cache.Add(id, checkpoint)
-				}
-
-				respChan <- *checkpoint
-				wg.Done()
-			}()
-		}
-		wg.Wait()
-		close(respChan)
-		votes := make([]*Vote, snb.snowball.k)
-		i := 0
-		for checkpoint := range respChan {
-			// snb.logger.Debugf("received checkpoint: %v", checkpoint)
-			votes[i] = &Vote{
-				Checkpoint: &checkpoint,
-			}
-			if len(checkpoint.AddBlockRequests) == 0 ||
-				!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
-				snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
-				// nil out any votes that have ABRs we havne't heard of
-				// or if they present conflicting ABRs in the same Checkpoint
-				votes[i].Nil()
-			}
-
-			i++
-		}
-
-		if i < len(votes) {
-			for j := i; j < len(votes); j++ {
-				v := &Vote{}
-				v.Nil()
-				votes[j] = v
-			}
-		}
-
-		votes = calculateTallies(votes)
-		// snb.logger.Debugf("votes: %s", spew.Sdump(votes))
-
-		snb.snowball.Tick(votes)
-		// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
+		snb.doTick(ctx)
 	}
 
 	done <- nil
+}
+
+func (snb *snowballer) doTick(startCtx context.Context) {
+	sp := opentracing.StartSpan("gossip4.snowballer.tick", opentracing.FollowsFrom(opentracing.SpanFromContext(startCtx).Context()))
+	defer sp.Finish()
+	ctx := opentracing.ContextWithSpan(startCtx, sp)
+
+	sp.LogKV("height", snb.height)
+
+	respChan := make(chan types.Checkpoint, snb.snowball.k)
+	wg := &sync.WaitGroup{}
+	for i := 0; i < snb.snowball.k; i++ {
+		wg.Add(1)
+		go func() {
+			snb.getOneRandomVote(ctx, wg, respChan)
+		}()
+	}
+	wg.Wait()
+	close(respChan)
+	votes := make([]*Vote, snb.snowball.k)
+	i := 0
+	for checkpoint := range respChan {
+		// snb.logger.Debugf("received checkpoint: %v", checkpoint)
+		votes[i] = &Vote{
+			Checkpoint: &checkpoint,
+		}
+		if len(checkpoint.AddBlockRequests) == 0 ||
+			!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
+			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
+			// nil out any votes that have ABRs we havne't heard of
+			// or if they present conflicting ABRs in the same Checkpoint
+			votes[i].Nil()
+		}
+
+		cnt := 0
+		for _, vote := range votes {
+			if vote == nil || vote.ID() == ZeroVoteID {
+				cnt++
+			}
+		}
+		sp.LogKV("checkpoint"+checkpoint.CID().String()+"-nilCount", cnt)
+
+		i++
+	}
+
+	if i < len(votes) {
+		for j := i; j < len(votes); j++ {
+			v := &Vote{}
+			v.Nil()
+			votes[j] = v
+		}
+	}
+
+	votes = calculateTallies(votes)
+	// snb.logger.Debugf("votes: %s", spew.Sdump(votes))
+
+	snb.snowball.Tick(ctx, votes)
+	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
+}
+
+func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan types.Checkpoint) {
+	sp, ctx := opentracing.StartSpanFromContext(parentCtx, "gossip4.snowballer.getOneRandomVote")
+	defer sp.Finish()
+
+	var signer *types.Signer
+	var signerPeer string
+	defer wg.Done()
+
+	for signer == nil || signerPeer == snb.host.Identity() {
+		signer = snb.group.GetRandomSigner()
+		peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)
+		signerPeer = peerID.Pretty()
+	}
+	sp.LogKV("signerPeer", signerPeer)
+
+	s, err := snb.host.NewStream(ctx, signer.DstKey, gossipProtocol)
+	if err != nil {
+		sp.LogKV("error", err.Error())
+		snb.logger.Warningf("error creating stream to %s: %v", signer.ID, err)
+		if s != nil {
+			s.Close()
+		}
+		return
+	}
+	defer s.Close()
+
+	sw := &safewrap.SafeWrap{}
+	wrapped := sw.WrapObject(snb.height)
+
+	if err := s.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		sp.LogKV("error", err.Error())
+		snb.logger.Errorf("error setting deadline: %v", err) // TODO: do we need to do anything about this error?
+		return
+	}
+
+	writer := msgio.NewVarintWriter(s)
+	err = writer.WriteMsg(wrapped.RawData())
+	if err != nil {
+		sp.LogKV("error", err.Error())
+		snb.logger.Warningf("error writing to stream to %s: %v", signer.ID, err)
+		return
+	}
+
+	reader := msgio.NewVarintReader(s)
+	bits, err := reader.ReadMsg()
+	if err != nil {
+		sp.LogKV("error", err.Error())
+		snb.logger.Warningf("error reading from stream to %s: %v", signer.ID, err)
+		return
+	}
+
+	id, err := cidFromBits(bits)
+	if err != nil {
+		sp.LogKV("error", err.Error())
+		snb.logger.Warningf("error creating bits to %s: %v", signer.ID, err)
+		return
+	}
+
+	var checkpoint *types.Checkpoint
+
+	blkInter, ok := snb.cache.Get(id)
+	if ok {
+		sp.LogKV("cacheHit", true)
+		checkpoint = blkInter.(*types.Checkpoint)
+	} else {
+		sp.LogKV("cacheHit", false)
+		blk := &types.Checkpoint{}
+		err = cbornode.DecodeInto(bits, blk)
+		if err != nil {
+			sp.LogKV("error", err.Error())
+			snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
+			return
+		}
+		checkpoint = blk
+		snb.cache.Add(id, checkpoint)
+	}
+
+	respChan <- *checkpoint
 }
 
 func cidFromBits(bits []byte) (cid.Cid, error) {
