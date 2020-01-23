@@ -45,7 +45,7 @@ func calculateTallies(responses []*Vote) []*Vote {
 	votes := make(map[string]*Vote, len(responses))
 
 	for _, res := range responses {
-		snowlog.Debugf("calculateTallies: %s", res.ID())
+		snowlog.Debugf("calculateTallies: %s (len %d)", res.ID(), res.Length())
 		vote, exists := votes[res.ID()]
 		if !exists {
 			vote = res
@@ -71,6 +71,10 @@ func calculateTallies(responses []*Vote) []*Vote {
 		votes[id].SetTally(votes[id].Tally() / totalTally)
 
 		array = append(array, votes[id])
+	}
+
+	for _, vote := range array {
+		snowlog.Debugf("vote %s tally %f", vote.ID(), vote.Tally())
 	}
 
 	return array
