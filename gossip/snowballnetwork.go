@@ -98,16 +98,9 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
+			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(checkpoint.AddBlockRequests), snb.hasConflictingABRs(checkpoint.AddBlockRequests))
 			votes[i].Nil()
 		}
-
-		cnt := 0
-		for _, vote := range votes {
-			if vote == nil || vote.ID() == ZeroVoteID {
-				cnt++
-			}
-		}
-		sp.LogKV("checkpoint"+checkpoint.CID().String()+"-nilCount", cnt)
 
 		i++
 	}
@@ -140,6 +133,7 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)
 		signerPeer = peerID.Pretty()
 	}
+	snb.logger.Debugf("snowballing with %s", signerPeer)
 	sp.LogKV("signerPeer", signerPeer)
 
 	s, err := snb.host.NewStream(ctx, signer.DstKey, gossipProtocol)
