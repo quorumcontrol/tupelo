@@ -19,10 +19,10 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
+	"github.com/quorumcontrol/tupelo-go-sdk/proof"
 
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
@@ -67,24 +67,15 @@ func blockValidators(ctx context.Context, group *types.NotaryGroup) ([]chaintree
 		verKeys[i] = signer.VerKey
 	}
 
-	sigVerifier := types.GenerateIsValidSignature(func(state *signatures.TreeState) (bool, error) {
-		if uint64(sigfuncs.SignerCount(state.Signature)) < quorumCount {
-			return false, nil
-		}
-
-		return verifySignature(
-			context.TODO(),
-			consensus.GetSignable(state),
-			state.Signature,
-			verKeys,
-		)
+	proofVerifier := types.GenerateHasValidProof(func(prf *gossip.Proof) (bool, error) {
+		return proof.Verify(ctx, prf, quorumCount, verKeys)
 	})
 
 	blockValidators, err := group.BlockValidators(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting block validators: %v", err)
 	}
-	return append(blockValidators, sigVerifier), nil
+	return append(blockValidators, proofVerifier), nil
 }
 
 func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {

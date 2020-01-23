@@ -209,7 +209,7 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		snb.cache.Add(id, checkpoint)
 	}
 
-	respChan <- *checkpoint
+	respChan <- checkpoint
 }
 
 func cidFromBits(bits []byte) (cid.Cid, error) {

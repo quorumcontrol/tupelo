@@ -65,7 +65,7 @@ func TestTransactionValidator(t *testing.T) {
 }
 
 // 25 Nov 2019 - Topper's MBP
-// BenchmarkTransactionValidator-12    	    7638	    194252 ns/op	  152368 B/op	    2016 allocs/op
+// BenchmarkTransactionValidator-12	    7638	    194252 ns/op	  152368 B/op	    2016 allocs/op
 func BenchmarkTransactionValidator(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
