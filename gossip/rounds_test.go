@@ -10,17 +10,17 @@ import (
 func TestRoundHolderSetCurrent(t *testing.T) {
 	rh := newRoundHolder()
 
-	rh.SetCurrent(newRound(0))
+	rh.SetCurrent(newRound(0, 0, 0, 0))
 	require.Equal(t, uint64(0), rh.Current().height)
 
-	rh.SetCurrent(newRound(1))
+	rh.SetCurrent(newRound(1, 0, 0, 0))
 	assert.Equal(t, uint64(1), rh.Current().height)
 }
 
 func TestRoundHolderGet(t *testing.T) {
 	rh := newRoundHolder()
 
-	r := newRound(0)
+	r := newRound(0, 0, 0, 0)
 	rh.SetCurrent(r)
 
 	returned, exists := rh.Get(0)
