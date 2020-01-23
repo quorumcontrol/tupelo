@@ -87,7 +87,7 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	}
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
-		snowlog.Debugf("resettitng count: %v", majority)
+		snowlog.Debugf("resetting count: %v", majority)
 		sp.LogKV("countReset", true)
 		s.count = 0
 		return
