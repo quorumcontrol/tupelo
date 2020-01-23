@@ -40,26 +40,26 @@ type TransactionValidator struct {
 }
 
 // NewTransactionValidator creates a new TransactionValidator
-func NewTransactionValidator(logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*TransactionValidator, error) {
+func NewTransactionValidator(ctx context.Context, logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*TransactionValidator, error) {
 	tv := &TransactionValidator{
 		group:  group,
 		node:   node,
 		logger: logger,
 	}
-	err := tv.setup()
+	err := tv.setup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up transaction validator: %v", err)
 	}
 	return tv, nil
 }
 
-func (tv *TransactionValidator) setup() error {
-	validators, err := blockValidators(tv.group)
+func (tv *TransactionValidator) setup(ctx context.Context) error {
+	validators, err := blockValidators(ctx, tv.group)
 	tv.validators = validators
 	return err
 }
 
-func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, error) {
+func blockValidators(ctx context.Context, group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, error) {
 	quorumCount := group.QuorumCount()
 	signers := group.AllSigners()
 	verKeys := make([]*bls.VerKey, len(signers))
@@ -80,7 +80,7 @@ func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, 
 		)
 	})
 
-	blockValidators, err := group.BlockValidators(context.TODO())
+	blockValidators, err := group.BlockValidators(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting block validators: %v", err)
 	}
@@ -114,8 +114,6 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *services.AddBlockRequest) bool {
 	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "gossip4.validateABR")
 	defer sp.Finish()
-
-
 
 	transPreviousTip, err := cid.Cast(abr.PreviousTip)
 	if err != nil {

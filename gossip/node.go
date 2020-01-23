@@ -147,7 +147,7 @@ func (n *Node) Start(ctx context.Context) error {
 		n.rootContext.Poison(n.pid)
 	}()
 
-	validator, err := NewTransactionValidator(n.logger, n.notaryGroup, pid)
+	validator, err := NewTransactionValidator(ctx, n.logger, n.notaryGroup, pid)
 	if err != nil {
 		return fmt.Errorf("error setting up: %v", err)
 	}

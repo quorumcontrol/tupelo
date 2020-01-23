@@ -31,7 +31,7 @@ func TestTransactionValidator(t *testing.T) {
 
 	fut := actor.NewFuture(5 * time.Second)
 
-	validator, err := NewTransactionValidator(logging.Logger("txvalidatortest"), ng, fut.PID())
+	validator, err := NewTransactionValidator(ctx, logging.Logger("txvalidatortest"), ng, fut.PID())
 	require.Nil(t, err)
 
 	// an internally consistent Tx is marked as valid and sent to the Node
@@ -88,7 +88,7 @@ func BenchmarkTransactionValidator(b *testing.B) {
 	act := actor.EmptyRootContext.Spawn(actor.PropsFromFunc(receiver))
 	defer actor.EmptyRootContext.Stop(act)
 
-	validator, err := NewTransactionValidator(logging.Logger("txvalidatortest"), ng, act)
+	validator, err := NewTransactionValidator(ctx, logging.Logger("txvalidatortest"), ng, act)
 	require.Nil(b, err)
 
 	txs := make([]*pubsub.Message, b.N)
