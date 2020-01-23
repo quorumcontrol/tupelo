@@ -77,6 +77,13 @@ type NewNodeOptions struct {
 	RootActorContext *actor.RootContext // optional
 }
 
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	hamtStore := hamtwrapper.DagStoreToCborIpld(opts.DagStore)
 
@@ -97,7 +104,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	// shouldn't be too hard, just save the latest round into a key/value store somewhere
 	// and then it can come back up and bootstrap itself up to the latest in the network
 	holder := newRoundHolder()
-	r := newRound(0)
+	r := newRound(0, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
 	holder.SetCurrent(r)
 
 	n := &Node{
@@ -374,7 +381,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		n.logger.Errorf("error publishing current round: %v", err)
 	}
 
-	round := newRound(completedRound.height + 1)
+	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
 	n.rounds.SetCurrent(round)
 	n.snowballer = newSnowballer(n, round.height, round.snowball)
 }
