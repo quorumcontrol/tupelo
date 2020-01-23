@@ -7,10 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	logging "github.com/ipfs/go-log"
+
+	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
+
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
 
@@ -67,7 +70,7 @@ func startNodes(t *testing.T, ctx context.Context, nodes []*Node) {
 	}
 
 	for i, node := range nodes {
-		// logging.SetLogLevel(fmt.Sprintf("node-%d", node.signerIndex), "INFO")
+		// logging.SetLogLevel(fmt.Sprintf("node-%d", i), "debug")
 
 		if i > 0 {
 			err := node.Bootstrap(ctx, bootAddrs)
@@ -186,6 +189,43 @@ func TestByzantineCases(t *testing.T) {
 	require.Len(t, nodes, numMembers)
 
 	startNodes(t, ctx, nodes)
+	logging.SetLogLevel("*", "debug")
+
+	t.Run("different transactions at each node", func(t *testing.T) {
+		abrs := make([]*services.AddBlockRequest, numMembers)
+		for i := 0; i < numMembers; i++ {
+			abr := testhelpers.NewValidTransaction(t)
+			abrs[i] = &abr
+		}
+
+		for i, abr := range abrs {
+			wrapper := &AddBlockWrapper{
+				AddBlockRequest: abr,
+			}
+			wrapper.StartTrace("gossip3.transaction")
+
+			actor.EmptyRootContext.Send(nodes[i].PID(), wrapper)
+		}
+		waitForAllAbrs(t, ctx, nodes, abrs)
+	})
+
+	t.Run("one node starts with all the transactions", func(t *testing.T) {
+		abrs := make([]*services.AddBlockRequest, numMembers)
+		for i := 0; i < numMembers; i++ {
+			abr := testhelpers.NewValidTransaction(t)
+			abrs[i] = &abr
+		}
+
+		for _, abr := range abrs {
+			wrapper := &AddBlockWrapper{
+				AddBlockRequest: abr,
+			}
+			wrapper.StartTrace("gossip3.transaction")
+
+			actor.EmptyRootContext.Send(nodes[0].PID(), wrapper)
+		}
+		waitForAllAbrs(t, ctx, nodes, abrs)
+	})
 
 	t.Run("conflicting chaintree blocks", func(t *testing.T) {
 		// use a canonical key because that influences the hash of the ABRs
