@@ -18,10 +18,22 @@ type round struct {
 	state    *hamt.Node
 }
 
-func newRound(height uint64) *round {
+func newRound(height uint64, alpha float64, beta int, k int) *round {
+	if alpha == 0.0 {
+		alpha = defaultAlpha
+	}
+
+	if beta == 0 {
+		beta = defaultBeta
+	}
+
+	if k == 0 {
+		k = defaultK
+	}
+
 	return &round{
 		height:   height,
-		snowball: NewSnowball(defaultAlpha, defaultBeta, defaultK),
+		snowball: NewSnowball(alpha, beta, k),
 	}
 }
 

@@ -39,6 +39,10 @@ type snowballTicker struct {
 	ctx context.Context
 }
 
+type startSnowball struct {
+	ctx context.Context
+}
+
 type Node struct {
 	name string
 
@@ -57,6 +61,7 @@ type Node struct {
 	rounds *roundHolder
 
 	snowballer *snowballer
+	validator  *TransactionValidator
 
 	signerIndex int
 
@@ -65,6 +70,8 @@ type Node struct {
 	syncerPid   *actor.PID
 
 	rootContext *actor.RootContext
+
+	startCtx context.Context
 
 	closer io.Closer
 }
@@ -76,6 +83,13 @@ type NewNodeOptions struct {
 	DagStore         nodestore.DagStore
 	Name             string             // optional
 	RootActorContext *actor.RootContext // optional
+}
+
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
@@ -98,7 +112,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	// shouldn't be too hard, just save the latest round into a key/value store somewhere
 	// and then it can come back up and bootstrap itself up to the latest in the network
 	holder := newRoundHolder()
-	r := newRound(0)
+	r := newRound(0, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
 	holder.SetCurrent(r)
 
 	n := &Node{
@@ -151,6 +165,7 @@ func (n *Node) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error setting up: %v", err)
 	}
+	n.validator = validator
 
 	n.pubsub = n.p2pNode.GetPubSub()
 
@@ -163,6 +178,8 @@ func (n *Node) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error subscribing %v", err)
 	}
+
+	n.startCtx = ctx
 
 	// don't do anything with these messages because we actually get them
 	// fully decoded in the actor spun up above
@@ -236,6 +253,7 @@ func (n *Node) setupSyncer(actorContext actor.Context) {
 			nodeActor: actorContext.Self(),
 			logger:    n.logger,
 			store:     n.hamtStore,
+			validator: n.validator,
 		}
 	}), "transactionsyncer")
 	if err != nil {
@@ -385,7 +403,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		n.logger.Errorf("error publishing current round: %v", err)
 	}
 
-	round := newRound(completedRound.height + 1)
+	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
 	n.rounds.SetCurrent(round)
 	n.snowballer = newSnowballer(n, round.height, round.snowball)
 }
@@ -394,10 +412,10 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case network.Stream:
 		go func() {
-			n.handleStream(msg)
+			n.handleStream(actorContext, msg)
 		}()
-	case *snowballTicker:
-		if !n.snowballer.Started() && n.mempool.Length() > 0 {
+	case *startSnowball:
+		if !n.snowballer.Started() {
 			go func() {
 				preferred := n.mempool.Preferred()
 				n.logger.Debugf("starting snowballer and preferring %v", preferred)
@@ -412,6 +430,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				n.snowballer.snowball.Prefer(&Vote{
 					Checkpoint: types.WrapCheckpoint(cp),
 				})
+				n.logger.Debugf("preferred id: %s", n.snowballer.snowball.Preferred().ID())
 				done := make(chan error, 1)
 				n.snowballer.start(msg.ctx, done)
 				select {
@@ -422,10 +441,15 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				}
 			}()
 		}
+
+	case *snowballTicker:
+		if !n.snowballer.Started() && n.mempool.Length() > 0 {
+			actorContext.Send(actorContext.Self(), &startSnowball{ctx: msg.ctx})
+		}
 	}
 }
 
-func (n *Node) handleStream(s network.Stream) {
+func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 	// n.logger.Debugf("handling stream from")
 	if err := s.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		n.logger.Errorf("error setting write deadline: %v", err)
@@ -464,7 +488,9 @@ func (n *Node) handleStream(s network.Stream) {
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
-		if preferred != nil {
+		if preferred == nil && r.height >= n.rounds.Current().height {
+			actorContext.Send(actorContext.Self(), &startSnowball{ctx: n.startCtx})
+		} else {
 			// n.logger.Debugf("existing preferred; %v", preferred)
 			response = preferred.Checkpoint
 		}
