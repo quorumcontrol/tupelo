@@ -235,8 +235,6 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		snb.cache.Add(id, checkpoint)
 	}
 
-	snb.earlyCommitter.Vote(signerPeer, checkpoint.CID())
-
 	respChan <- &snowballVoteResp{
 		signerID:   signerPeer,
 		checkpoint: *checkpoint,

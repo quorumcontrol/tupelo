@@ -27,7 +27,11 @@ func TestEarlyCommit(t *testing.T) {
 
 	ec.Vote("2", c1)
 	hasThreshold, checkpoint := ec.HasThreshold(3, 0.66)
-
 	assert.True(t, hasThreshold)
 	assert.Truef(t, c1.Equals(checkpoint), "expected %s to equal %s", checkpoint.String(), c1.String())
+
+	// checking the internals now, these can probably be deleted after this is stabilized
+	assert.Equal(t, c1, ec.currentSignerVotes["2"])
+	assert.Len(t, ec.checkpointVotes[c2], 0)
+	assert.Len(t, ec.checkpointVotes[c1], 2)
 }
