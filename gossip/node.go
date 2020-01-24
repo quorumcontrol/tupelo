@@ -328,6 +328,12 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 }
 
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
+	if msg.err != nil {
+		n.logger.Errorf("snowballer crashed: %v", msg.err)
+		// TODO: How should we recover from this?
+		return
+	}
+
 	preferred := n.snowballer.snowball.Preferred()
 
 	completedRound := n.rounds.Current()
