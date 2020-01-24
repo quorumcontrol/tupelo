@@ -93,9 +93,9 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		return
 	}
 	sp.LogKV("majorityTally", majority.Tally())
-	snowlog.Debugf("majority %s tally: %f", majority.ID(), majority.Tally())
 
 	s.counts[majority.ID()]++
+	snowlog.Debugf("majority %s tally: %f, count %d", majority.ID(), majority.Tally(), s.counts[majority.ID()])
 
 	if s.preferred == nil || s.counts[majority.ID()] > s.counts[s.preferred.ID()] {
 		sp.LogKV("setPreferred", true)
@@ -103,11 +103,17 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		s.preferred = majority
 	}
 
-	if s.last == nil || majority.ID() != s.last.ID() {
+	if last := s.last; last == nil || majority.ID() != s.last.ID() {
+		var lastID string
+		if last != nil {
+			lastID = last.ID()
+		}
+		snowlog.Debug("majority id: %s != last id: %s", majority.ID(), lastID)
 		s.last, s.count = majority, 1
 	} else {
 		s.count++
 		sp.LogKV("count", s.count)
+		snowlog.Debugf("count: %d", s.count)
 		if s.count > s.beta {
 			sp.LogKV("decided", true)
 			s.decided = true
