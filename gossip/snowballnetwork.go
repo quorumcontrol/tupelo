@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -80,20 +79,20 @@ func (snb *snowballer) start(startCtx context.Context, done chan error) {
 		snb.doTick(ctx)
 		didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
 		if didEarly {
-			snb.logger.Debugf("early commit on %s", checkpointID.String())
-			earlyCommitted = didEarly
-			checkpoint, ok := snb.cache.Get(checkpointID)
-			if !ok {
-				done <- errors.New("could not find checkpoint in the cache: should never happen")
-				return
-			}
-			// TODO: this probably shouldn't reach into snowball here,
-			// maybe it could move decided logic up to the snowballer here and others could reference this
-			// rather than having the external system dig into the the snowball instance here too.
-			snb.snowball.Prefer(&Vote{
-				Checkpoint: checkpoint.(*types.Checkpoint),
-			})
-			snb.snowball.decided = true
+			snb.logger.Debugf("would early commit on %s, but not", checkpointID.String())
+			// earlyCommitted = didEarly
+			// checkpoint, ok := snb.cache.Get(checkpointID)
+			// if !ok {
+			// 	done <- errors.New("could not find checkpoint in the cache: should never happen")
+			// 	return
+			// }
+			// // TODO: this probably shouldn't reach into snowball here,
+			// // maybe it could move decided logic up to the snowballer here and others could reference this
+			// // rather than having the external system dig into the the snowball instance here too.
+			// snb.snowball.Prefer(&Vote{
+			// 	Checkpoint: checkpoint.(*types.Checkpoint),
+			// })
+			// snb.snowball.decided = true
 		}
 	}
 
