@@ -112,10 +112,10 @@ func TestBenchmarker(t *testing.T) {
 	cli, err := newClient(ctx, group, bootAddrs)
 	require.Nil(t, err)
 
-	ben := NewBenchmark(cli, 1, 1*time.Second)
+	ben := NewBenchmark(cli, 3, 3*time.Second, 1*time.Second)
 	require.NotNil(t, ben)
 
 	res := ben.Run(ctx)
-	require.InDelta(t, int64(1), res.Total, float64(1))
-	require.InDelta(t, 1, res.Measured, float64(1))
+	require.InDelta(t, int64(9), res.Total, float64(1))
+	require.InDelta(t, 9, res.Measured, float64(1))
 }
