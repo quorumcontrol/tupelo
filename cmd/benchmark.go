@@ -58,7 +58,10 @@ var benchmarkCmd = &cobra.Command{
 		}
 
 		cli := client.New(group, pubsubwrapper.WrapLibp2p(p2pHost.GetPubSub()), peer)
-		cli.Start(ctx)
+		err = cli.Start(ctx)
+		if err != nil {
+			panic(fmt.Errorf("error starting client: %v", err))
+		}
 
 		b := benchmark.NewBenchmark(cli, benchmarkConcurrency, time.Duration(benchmarkDuration)*time.Second)
 
