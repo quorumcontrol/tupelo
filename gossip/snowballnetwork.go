@@ -121,7 +121,6 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	i := 0
 	for resp := range respChan {
 		checkpoint := resp.checkpoint
-		// snb.logger.Debugf("received checkpoint: %v", checkpoint)
 		vote := &Vote{
 			Checkpoint: &checkpoint,
 		}
@@ -136,6 +135,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 		votes[i] = vote
 		// if the vote hasn't been nilled then we can add it to the early commiter
 		if vote.ID() != ZeroVoteID {
+			snb.logger.Debugf("received checkpoint: %v", checkpoint)
 			snb.earlyCommitter.Vote(resp.signerID, resp.checkpoint.CID())
 		}
 
@@ -258,6 +258,8 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", abrCID.String())
 			snb.node.rootContext.Send(snb.node.syncerPid, abrCID)
+			// the reason to not just return false here is that we want
+			// to continue to loop over all the Txs in order to sync the ones we don't have
 			hasAll = false
 		}
 	}
