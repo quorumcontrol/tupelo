@@ -2,9 +2,11 @@ package gossip
 
 import (
 	"context"
-	"github.com/opentracing/opentracing-go"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/opentracing/opentracing-go"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
@@ -28,7 +30,10 @@ type snowballer struct {
 	group    *types.NotaryGroup
 	logger   logging.EventLogger
 	cache    *lru.Cache
-	started  bool
+
+	earlyCommitter *earlyCommitter
+
+	started bool
 }
 
 func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
@@ -37,13 +42,14 @@ func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
 		panic(err)
 	}
 	return &snowballer{
-		node:     n,
-		snowball: snowball,
-		host:     n.p2pNode,
-		group:    n.notaryGroup,
-		logger:   n.logger,
-		cache:    cache,
-		height:   height,
+		node:           n,
+		snowball:       snowball,
+		host:           n.p2pNode,
+		group:          n.notaryGroup,
+		logger:         n.logger,
+		cache:          cache,
+		height:         height,
+		earlyCommitter: newEarlyCommitter(),
 	}
 }
 
@@ -62,8 +68,24 @@ func (snb *snowballer) start(startCtx context.Context, done chan error) {
 	snb.started = true
 	snb.Unlock()
 
-	for !snb.snowball.Decided() {
+	signerCount := int(snb.group.Size())
+
+	var earlyCommitted bool
+	for !snb.snowball.Decided() && !earlyCommitted {
 		snb.doTick(ctx)
+		didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
+		if didEarly {
+			snb.logger.Debugf("early commit on %s", checkpointID.String())
+			earlyCommitted = didEarly
+			checkpoint, ok := snb.cache.Get(checkpointID)
+			if !ok {
+				done <- errors.New("could not find checkpoint in the cache: should never happen")
+				return
+			}
+			snb.snowball.Prefer(&Vote{
+				Checkpoint: checkpoint.(*types.Checkpoint),
+			})
+		}
 	}
 
 	done <- nil
@@ -197,6 +219,8 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		checkpoint = blk
 		snb.cache.Add(id, checkpoint)
 	}
+
+	snb.earlyCommitter.Vote(signerPeer, checkpoint.CID())
 
 	respChan <- *checkpoint
 }
