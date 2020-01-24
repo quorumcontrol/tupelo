@@ -272,6 +272,8 @@ func (n *Node) Receive(actorContext actor.Context) {
 		}
 	case *snowballerDone:
 		n.handleSnowballerDone(msg)
+	default:
+		n.logger.Debugf("root node actor received other %T message: %+v", msg, msg)
 	}
 }
 
@@ -427,6 +429,8 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 				}
 			}()
 		}
+	default:
+		n.logger.Debugf("snowball actor received other %T message: %+v", msg, msg)
 	}
 }
 
