@@ -82,9 +82,13 @@ func (snb *snowballer) start(startCtx context.Context, done chan error) {
 				done <- errors.New("could not find checkpoint in the cache: should never happen")
 				return
 			}
+			// TODO: this probably shouldn't reach into snowball here,
+			// maybe it could move decided logic up to the snowballer here and others could reference this
+			// rather than having the external system dig into the the snowball instance here too.
 			snb.snowball.Prefer(&Vote{
 				Checkpoint: checkpoint.(*types.Checkpoint),
 			})
+			snb.snowball.decided = true
 		}
 	}
 

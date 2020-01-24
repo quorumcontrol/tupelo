@@ -167,6 +167,9 @@ func TestEndToEnd(t *testing.T) {
 		abrs[i] = &abr
 	}
 
+	sub, err := nodes[0].pubsub.Subscribe(group.ID)
+	require.Nil(t, err)
+
 	for i, abr := range abrs {
 		bits, err := abr.Marshal()
 		require.Nil(t, err)
@@ -176,6 +179,13 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	waitForAllAbrs(t, ctx, nodes, abrs)
+
+	// test that it receives the round confirmation signatures
+	for range nodes {
+		_, err = sub.Next(ctx)
+		require.Nil(t, err)
+	}
+
 }
 
 func TestByzantineCases(t *testing.T) {
