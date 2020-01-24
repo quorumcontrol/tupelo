@@ -203,9 +203,7 @@ func (n *Node) Start(ctx context.Context) error {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				if n.snowballPid != nil {
-					n.rootContext.Send(n.snowballPid, &snowballTicker{ctx: ctx})
-				}
+				n.rootContext.Send(n.pid, &snowballTicker{ctx: ctx})
 			}
 		}
 	}()
@@ -268,6 +266,10 @@ func (n *Node) Receive(actorContext actor.Context) {
 		n.setupSnowball(actorContext)
 	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
+	case *snowballTicker:
+		if !n.snowballer.Started() && n.mempool.Length() > 0 {
+			actorContext.Send(n.snowballPid, &startSnowball{ctx: msg.ctx})
+		}
 	case *snowballerDone:
 		n.handleSnowballerDone(msg)
 	}
@@ -424,11 +426,6 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 					n.rootContext.Send(n.pid, &snowballerDone{err: err, ctx: msg.ctx})
 				}
 			}()
-		}
-
-	case *snowballTicker:
-		if !n.snowballer.Started() && n.mempool.Length() > 0 {
-			actorContext.Send(actorContext.Self(), &startSnowball{ctx: msg.ctx})
 		}
 	}
 }
