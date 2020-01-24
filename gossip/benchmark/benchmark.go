@@ -22,7 +22,7 @@ type Benchmark struct {
 
 type ResultSet struct {
 	Durations       []int
-	Errors          []error
+	Errors          []string
 	Total           int64
 	Measured        int
 	Successes       int
@@ -39,12 +39,12 @@ type Result struct {
 	Transaction *services.AddBlockRequest
 }
 
-func NewBenchmark(cli *client.Client, concurrency int, duration time.Duration) *Benchmark {
+func NewBenchmark(cli *client.Client, concurrency int, duration time.Duration, timeout time.Duration) *Benchmark {
 	return &Benchmark{
 		client:      cli,
 		concurrency: concurrency,
 		duration:    duration,
-		timeout:     10 * time.Second,
+		timeout:     timeout,
 	}
 }
 
@@ -68,7 +68,7 @@ func (b *Benchmark) Send(ctx context.Context, resCh chan *Result) {
 func handleResult(resultSet *ResultSet, res *Result) {
 	resultSet.Measured++
 	if res.Error != nil {
-		resultSet.Errors = append(resultSet.Errors, res.Error)
+		resultSet.Errors = append(resultSet.Errors, res.Error.Error())
 		resultSet.Failures++
 		return
 	}
@@ -111,6 +111,12 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	}()
 
 	<-ctx.Done()
+	// now we wait for "timeout" to happen to make sure we get all the results
+	time.Sleep(b.timeout)
+
+	for len(resCh) > 0 {
+		handleResult(resultSet, <-resCh)
+	}
 
 	sum := 0
 	for _, v := range resultSet.Durations {

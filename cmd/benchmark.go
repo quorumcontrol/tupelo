@@ -17,6 +17,7 @@ import (
 var benchmarkConcurrency int
 var benchmarkDuration int
 var benchmarkStartDelay int
+var benchmarkTimeout int
 
 // benchmark represents the shell command
 var benchmarkCmd = &cobra.Command{
@@ -60,7 +61,7 @@ var benchmarkCmd = &cobra.Command{
 		cli := client.New(group, pubsubwrapper.WrapLibp2p(p2pHost.GetPubSub()), peer)
 		cli.Start(ctx)
 
-		b := benchmark.NewBenchmark(cli, benchmarkConcurrency, time.Duration(benchmarkDuration)*time.Second)
+		b := benchmark.NewBenchmark(cli, benchmarkConcurrency, time.Duration(benchmarkDuration)*time.Second, time.Duration(benchmarkTimeout)*time.Second)
 
 		results := b.Run(ctx)
 
@@ -73,5 +74,6 @@ func init() {
 	rootCmd.AddCommand(benchmarkCmd)
 	benchmarkCmd.Flags().IntVarP(&benchmarkConcurrency, "concurrency", "c", 1, "how many transactions to execute at once")
 	benchmarkCmd.Flags().IntVarP(&benchmarkDuration, "duration", "d", 10, "how many seconds to run benchmark for")
+	benchmarkCmd.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 10, "how many seconds to timeout waiting for Txs to complete")
 	benchmarkCmd.Flags().IntVar(&benchmarkStartDelay, "delay", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stabilize first")
 }
