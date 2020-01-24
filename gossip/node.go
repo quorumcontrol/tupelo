@@ -404,32 +404,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 			n.handleStream(actorContext, msg)
 		}()
 	case *startSnowball:
-		if !n.snowballer.Started() {
-			go func() {
-				preferred := n.mempool.Preferred()
-				n.logger.Debugf("starting snowballer and preferring %v", preferred)
-				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: &types.Checkpoint{
-						Height:           n.rounds.Current().height,
-						AddBlockRequests: preferred,
-					},
-				})
-				n.logger.Debugf("preferred id: %s", n.snowballer.snowball.Preferred().ID())
-				done := make(chan error, 1)
-				n.snowballer.start(msg.ctx, done)
-				select {
-				case <-msg.ctx.Done():
-					return
-				case err := <-done:
-					n.rootContext.Send(n.pid, &snowballerDone{err: err, ctx: msg.ctx})
-				}
-			}()
-		}
-
-	case *snowballTicker:
-		if !n.snowballer.Started() && n.mempool.Length() > 0 {
-			actorContext.Send(actorContext.Self(), &startSnowball{ctx: msg.ctx})
-		}
+		n.snowballer.Start(msg.ctx)
 	}
 }
 
