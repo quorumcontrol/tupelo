@@ -36,6 +36,11 @@ type snowballer struct {
 	started bool
 }
 
+type snowballVoteResp struct {
+	signerID   string
+	checkpoint types.Checkpoint
+}
+
 func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
 	cache, err := lru.New(50)
 	if err != nil {
@@ -102,7 +107,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 
 	sp.LogKV("height", snb.height)
 
-	respChan := make(chan types.Checkpoint, snb.snowball.k)
+	respChan := make(chan *snowballVoteResp, snb.snowball.k)
 	wg := &sync.WaitGroup{}
 	for i := 0; i < snb.snowball.k; i++ {
 		wg.Add(1)
@@ -114,9 +119,10 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	close(respChan)
 	votes := make([]*Vote, snb.snowball.k)
 	i := 0
-	for checkpoint := range respChan {
+	for resp := range respChan {
+		checkpoint := resp.checkpoint
 		// snb.logger.Debugf("received checkpoint: %v", checkpoint)
-		votes[i] = &Vote{
+		vote := &Vote{
 			Checkpoint: &checkpoint,
 		}
 		if len(checkpoint.AddBlockRequests) == 0 ||
@@ -125,7 +131,12 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(checkpoint.AddBlockRequests), snb.hasConflictingABRs(checkpoint.AddBlockRequests))
-			votes[i].Nil()
+			vote.Nil()
+		}
+		votes[i] = vote
+		// if the vote hasn't been nilled then we can add it to the early commiter
+		if vote.ID() != ZeroVoteID {
+			snb.earlyCommitter.Vote(resp.signerID, resp.checkpoint.CID())
 		}
 
 		i++
@@ -146,7 +157,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 }
 
-func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan types.Checkpoint) {
+func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan *snowballVoteResp) {
 	sp, ctx := opentracing.StartSpanFromContext(parentCtx, "gossip4.snowballer.getOneRandomVote")
 	defer sp.Finish()
 
@@ -226,7 +237,10 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 
 	snb.earlyCommitter.Vote(signerPeer, checkpoint.CID())
 
-	respChan <- *checkpoint
+	respChan <- &snowballVoteResp{
+		signerID:   signerPeer,
+		checkpoint: *checkpoint,
+	}
 }
 
 func cidFromBits(bits []byte) (cid.Cid, error) {
