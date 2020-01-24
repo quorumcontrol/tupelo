@@ -63,14 +63,45 @@ func (snb *snowballer) Started() bool {
 	return snb.started
 }
 
-func (snb *snowballer) start(startCtx context.Context, done chan error) {
+// Start is idempotent and thread safe
+func (snb *snowballer) Start(ctx context.Context) {
+	snb.Lock()
+	defer snb.Unlock()
+
+	if snb.started {
+		return
+	}
+
+	preferred := snb.node.mempool.Preferred()
+	snb.logger.Debugf("starting snowballer and preferring %v", preferred)
+	snb.snowball.Prefer(&Vote{
+		Checkpoint: &types.Checkpoint{
+			Height: snb.node.rounds.Current().height,
+			AddBlockRequests: preferred,
+		},
+	})
+
+	snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
+
+	go func() {
+		done := make(chan error, 1)
+		snb.run(ctx, done)
+
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-done:
+			snb.node.rootContext.Send(snb.node.pid, &snowballerDone{err: err, ctx: ctx})
+		}
+	}()
+
+	snb.started = true
+}
+
+func (snb *snowballer) run(startCtx context.Context, done chan error) {
 	sp := opentracing.StartSpan("gossip4.snowballer.start")
 	defer sp.Finish()
 	ctx := opentracing.ContextWithSpan(startCtx, sp)
-
-	snb.Lock()
-	snb.started = true
-	snb.Unlock()
 
 	signerCount := int(snb.group.Size())
 
