@@ -12,8 +12,8 @@ type checkpointVotes map[cid.Cid]signerList
 type earlyCommitter struct {
 	sync.RWMutex
 
-	currentSignerVotes signerIDToCheckpoint // map of signer id to
-	checkpointVotes    checkpointVotes      // map of checkpoint to a list of signers voting for it
+	currentSignerVotes signerIDToCheckpoint // map of signer id to its current vote (checkpoint CID)
+	checkpointVotes    checkpointVotes      // map of checkpointCID to a list of signers voting for it
 }
 
 func newEarlyCommitter() *earlyCommitter {
