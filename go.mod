@@ -31,7 +31,7 @@ require (
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.8.1
-	github.com/quorumcontrol/chaintree v1.0.2-0.20200123185821-453f01cdbbb9
+	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200123172240-224b207a9631
 	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200123190352-82ad6dc34f40
