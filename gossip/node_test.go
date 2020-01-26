@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-bitswap"
 	logging "github.com/ipfs/go-log"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -40,7 +41,7 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 	}
 
 	for i := range ng.AllSigners() {
-		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i])) // TODO: options?
+		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
 		}
