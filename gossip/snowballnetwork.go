@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -71,17 +72,19 @@ func (snb *snowballer) Start(ctx context.Context) {
 	if snb.started {
 		return
 	}
+	snb.started = true
 
 	preferred := snb.node.mempool.Preferred()
-	snb.logger.Debugf("starting snowballer and preferring %v", preferred)
-	snb.snowball.Prefer(&Vote{
-		Checkpoint: &types.Checkpoint{
-			Height: snb.node.rounds.Current().height,
-			AddBlockRequests: preferred,
-		},
-	})
-
-	snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
+	snb.logger.Debugf("starting snowballer (height: %d) and preferring %v", snb.height, preferred)
+	if len(preferred) > 0 {
+		snb.snowball.Prefer(&Vote{
+			Checkpoint: &types.Checkpoint{
+				Height:           snb.height,
+				AddBlockRequests: preferred,
+			},
+		})
+		snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
+	}
 
 	go func() {
 		done := make(chan error, 1)
@@ -95,7 +98,6 @@ func (snb *snowballer) Start(ctx context.Context) {
 		}
 	}()
 
-	snb.started = true
 }
 
 func (snb *snowballer) run(startCtx context.Context, done chan error) {
@@ -105,25 +107,25 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 
 	signerCount := int(snb.group.Size())
 
-	var earlyCommitted bool
-	for !snb.snowball.Decided() && !earlyCommitted {
+	for !snb.snowball.Decided() {
 		snb.doTick(ctx)
 		didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
 		if didEarly {
 			snb.logger.Debugf("would early commit on %s, but not", checkpointID.String())
-			// earlyCommitted = didEarly
-			// checkpoint, ok := snb.cache.Get(checkpointID)
-			// if !ok {
-			// 	done <- errors.New("could not find checkpoint in the cache: should never happen")
-			// 	return
-			// }
-			// // TODO: this probably shouldn't reach into snowball here,
-			// // maybe it could move decided logic up to the snowballer here and others could reference this
-			// // rather than having the external system dig into the the snowball instance here too.
-			// snb.snowball.Prefer(&Vote{
-			// 	Checkpoint: checkpoint.(*types.Checkpoint),
-			// })
-			// snb.snowball.decided = true
+			checkpoint, ok := snb.cache.Get(checkpointID)
+			if !ok {
+				done <- errors.New("could not find checkpoint in the cache: should never happen")
+				return
+			}
+			// TODO: this probably shouldn't reach into snowball here,
+			// maybe it could move decided logic up to the snowballer here and others could reference this
+			// rather than having the external system dig into the the snowball instance here too.
+			snb.snowball.Prefer(&Vote{
+				Checkpoint: checkpoint.(*types.Checkpoint),
+			})
+			snb.snowball.Lock()
+			snb.snowball.decided = true
+			snb.snowball.Unlock()
 		}
 	}
 
@@ -151,12 +153,13 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	i := 0
 	for resp := range respChan {
 		checkpoint := resp.checkpoint
+		snb.logger.Debugf("checkpoint: %v", &checkpoint)
 		vote := &Vote{
 			Checkpoint: &checkpoint,
 		}
-		if len(checkpoint.AddBlockRequests) == 0 ||
-			!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
-			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
+		if !(len(checkpoint.AddBlockRequests) > 0 &&
+			snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) &&
+			!snb.hasConflictingABRs(checkpoint.AddBlockRequests)) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(checkpoint.AddBlockRequests), snb.hasConflictingABRs(checkpoint.AddBlockRequests))
@@ -291,6 +294,7 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 			hasAll = false
 		}
 	}
+	snb.logger.Debugf("hasAllABRs: %t", hasAll)
 	return hasAll
 }
 
@@ -306,10 +310,12 @@ func (snb *snowballer) hasConflictingABRs(abrCIDs []cid.Cid) bool {
 		conflictSetID := toConflictSetID(wrapper.AddBlockRequest)
 		_, ok := csIds[conflictSetID]
 		if ok {
+			snb.logger.Debugf("hasConflicting: true")
 			return true
 		}
 		csIds[conflictSetID] = struct{}{}
 	}
+	snb.logger.Debugf("hasConflicting: false")
 	return false
 }
 
