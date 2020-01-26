@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ipfs/go-bitswap"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client/pubsubinterfaces/pubsubwrapper"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -35,7 +36,11 @@ var benchmarkCmd = &cobra.Command{
 		nb := &nodebuilder.NodeBuilder{Config: config}
 		nb.StartTracing()
 
-		p2pHost, peer, err := p2p.NewHostAndBitSwapPeer(ctx)
+		p2pHost, peer, err := p2p.NewHostAndBitSwapPeer(
+			ctx,
+			p2p.WithDiscoveryNamespaces(nb.Config.NotaryGroupConfig.ID),
+			p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)),
+		)
 		if err != nil {
 			panic(fmt.Errorf("error creating host: %w", err))
 		}
