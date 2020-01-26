@@ -50,7 +50,7 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
-			Name:        name + "-" + strconv.Itoa(i),
+			Name:        strconv.Itoa(i) + "-" + name,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
