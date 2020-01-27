@@ -3,9 +3,11 @@ package benchmark
 import (
 	"context"
 	"fmt"
-	logging "github.com/ipfs/go-log"
 	"testing"
 	"time"
+
+	"github.com/ipfs/go-bitswap"
+	logging "github.com/ipfs/go-log"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client/pubsubinterfaces/pubsubwrapper"
@@ -27,7 +29,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	}
 
 	for i := range ng.AllSigners() {
-		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]))
+		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
 		}

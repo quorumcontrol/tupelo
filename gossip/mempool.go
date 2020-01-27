@@ -5,8 +5,11 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
+	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
+
+var memlog = logging.Logger("mempool")
 
 type mempoolConflictSetID string
 type conflictSet struct {
@@ -52,6 +55,8 @@ func newMempool() *mempool {
 
 func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
 	m.Lock()
+	memlog.Debugf("adding %s", id.String())
+
 	indexKey := toConflictSetID(abrWrapper.AddBlockRequest)
 	cs, ok := m.conflictSets[indexKey]
 	if !ok {
@@ -74,6 +79,7 @@ func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 // conflicting ABRs as well.
 func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 	m.Lock()
+	memlog.Debugf("removing %s", id.String())
 	existing, ok := m.abrs[id]
 	if ok {
 		if existing.Started() {

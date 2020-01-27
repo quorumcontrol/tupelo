@@ -2,9 +2,11 @@ package gossip
 
 import (
 	"context"
-	"github.com/opentracing/opentracing-go"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/opentracing/opentracing-go"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
@@ -28,7 +30,15 @@ type snowballer struct {
 	group    *types.NotaryGroup
 	logger   logging.EventLogger
 	cache    *lru.Cache
-	started  bool
+
+	earlyCommitter *earlyCommitter
+
+	started bool
+}
+
+type snowballVoteResp struct {
+	signerID   string
+	checkpoint types.Checkpoint
 }
 
 func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
@@ -37,13 +47,14 @@ func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
 		panic(err)
 	}
 	return &snowballer{
-		node:     n,
-		snowball: snowball,
-		host:     n.p2pNode,
-		group:    n.notaryGroup,
-		logger:   n.logger,
-		cache:    cache,
-		height:   height,
+		node:           n,
+		snowball:       snowball,
+		host:           n.p2pNode,
+		group:          n.notaryGroup,
+		logger:         n.logger,
+		cache:          cache,
+		height:         height,
+		earlyCommitter: newEarlyCommitter(),
 	}
 }
 
@@ -53,17 +64,69 @@ func (snb *snowballer) Started() bool {
 	return snb.started
 }
 
-func (snb *snowballer) start(startCtx context.Context, done chan error) {
+// Start is idempotent and thread safe
+func (snb *snowballer) Start(ctx context.Context) {
+	snb.Lock()
+	defer snb.Unlock()
+
+	if snb.started {
+		return
+	}
+	snb.started = true
+
+	preferred := snb.node.mempool.Preferred()
+	snb.logger.Debugf("starting snowballer (height: %d) and preferring %v", snb.height, preferred)
+	if len(preferred) > 0 {
+		snb.snowball.Prefer(&Vote{
+			Checkpoint: &types.Checkpoint{
+				Height:           snb.height,
+				AddBlockRequests: preferred,
+			},
+		})
+		snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
+	}
+
+	go func() {
+		done := make(chan error, 1)
+		snb.run(ctx, done)
+
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-done:
+			snb.node.rootContext.Send(snb.node.pid, &snowballerDone{err: err, ctx: ctx})
+		}
+	}()
+
+}
+
+func (snb *snowballer) run(startCtx context.Context, done chan error) {
 	sp := opentracing.StartSpan("gossip4.snowballer.start")
 	defer sp.Finish()
 	ctx := opentracing.ContextWithSpan(startCtx, sp)
 
-	snb.Lock()
-	snb.started = true
-	snb.Unlock()
+	signerCount := int(snb.group.Size())
 
 	for !snb.snowball.Decided() {
 		snb.doTick(ctx)
+		didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
+		if didEarly {
+			snb.logger.Debugf("would early commit on %s, but not", checkpointID.String())
+			checkpoint, ok := snb.cache.Get(checkpointID)
+			if !ok {
+				done <- errors.New("could not find checkpoint in the cache: should never happen")
+				return
+			}
+			// TODO: this probably shouldn't reach into snowball here,
+			// maybe it could move decided logic up to the snowballer here and others could reference this
+			// rather than having the external system dig into the the snowball instance here too.
+			snb.snowball.Prefer(&Vote{
+				Checkpoint: checkpoint.(*types.Checkpoint),
+			})
+			snb.snowball.Lock()
+			snb.snowball.decided = true
+			snb.snowball.Unlock()
+		}
 	}
 
 	done <- nil
@@ -76,7 +139,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 
 	sp.LogKV("height", snb.height)
 
-	respChan := make(chan types.Checkpoint, snb.snowball.k)
+	respChan := make(chan *snowballVoteResp, snb.snowball.k)
 	wg := &sync.WaitGroup{}
 	for i := 0; i < snb.snowball.k; i++ {
 		wg.Add(1)
@@ -88,18 +151,25 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	close(respChan)
 	votes := make([]*Vote, snb.snowball.k)
 	i := 0
-	for checkpoint := range respChan {
-		// snb.logger.Debugf("received checkpoint: %v", checkpoint)
-		votes[i] = &Vote{
+	for resp := range respChan {
+		checkpoint := resp.checkpoint
+		snb.logger.Debugf("checkpoint: %v", &checkpoint)
+		vote := &Vote{
 			Checkpoint: &checkpoint,
 		}
-		if len(checkpoint.AddBlockRequests) == 0 ||
-			!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
-			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
+		if !(len(checkpoint.AddBlockRequests) > 0 &&
+			snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) &&
+			!snb.hasConflictingABRs(checkpoint.AddBlockRequests)) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(checkpoint.AddBlockRequests), snb.hasConflictingABRs(checkpoint.AddBlockRequests))
-			votes[i].Nil()
+			vote.Nil()
+		}
+		votes[i] = vote
+		// if the vote hasn't been nilled then we can add it to the early commiter
+		if vote.ID() != ZeroVoteID {
+			snb.logger.Debugf("received checkpoint: %v", checkpoint)
+			snb.earlyCommitter.Vote(resp.signerID, resp.checkpoint.CID())
 		}
 
 		i++
@@ -120,7 +190,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 }
 
-func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan types.Checkpoint) {
+func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan *snowballVoteResp) {
 	sp, ctx := opentracing.StartSpanFromContext(parentCtx, "gossip4.snowballer.getOneRandomVote")
 	defer sp.Finish()
 
@@ -198,7 +268,10 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		snb.cache.Add(id, checkpoint)
 	}
 
-	respChan <- *checkpoint
+	respChan <- &snowballVoteResp{
+		signerID:   signerPeer,
+		checkpoint: *checkpoint,
+	}
 }
 
 func cidFromBits(bits []byte) (cid.Cid, error) {
@@ -216,9 +289,12 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", abrCID.String())
 			snb.node.rootContext.Send(snb.node.syncerPid, abrCID)
+			// the reason to not just return false here is that we want
+			// to continue to loop over all the Txs in order to sync the ones we don't have
 			hasAll = false
 		}
 	}
+	snb.logger.Debugf("hasAllABRs: %t", hasAll)
 	return hasAll
 }
 
@@ -234,10 +310,12 @@ func (snb *snowballer) hasConflictingABRs(abrCIDs []cid.Cid) bool {
 		conflictSetID := toConflictSetID(wrapper.AddBlockRequest)
 		_, ok := csIds[conflictSetID]
 		if ok {
+			snb.logger.Debugf("hasConflicting: true")
 			return true
 		}
 		csIds[conflictSetID] = struct{}{}
 	}
+	snb.logger.Debugf("hasConflicting: false")
 	return false
 }
 
