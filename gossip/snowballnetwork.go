@@ -77,7 +77,7 @@ func (snb *snowballer) Start(ctx context.Context) {
 	snb.started = true
 
 	preferred := snb.node.mempool.Preferred()
-	snb.logger.Debugf("starting snowballer (height: %d) and preferring %v", snb.height, preferred)
+	snb.logger.Debugf("starting snowballer (a: %f, k: %d, b: %d) (height: %d) and preferring %v", snb.snowball.alpha, snb.snowball.k, snb.snowball.beta, snb.height, preferred)
 	if len(preferred) > 0 {
 		preferredBytes := make([][]byte, len(preferred))
 		for i, pref := range preferred {
@@ -165,9 +165,9 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			Checkpoint: wrappedCheckpoint,
 		}
 		abrs := wrappedCheckpoint.AddBlockRequests()
-		if !(len(abrs) > 0 &&
-			snb.mempoolHasAllABRs(abrs) &&
-			!snb.hasConflictingABRs(abrs)) {
+		if len(abrs) == 0 ||
+			!(snb.mempoolHasAllABRs(abrs)) ||
+			snb.hasConflictingABRs(abrs) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(abrs), snb.hasConflictingABRs(abrs))

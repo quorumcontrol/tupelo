@@ -10,6 +10,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -336,6 +337,9 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 }
 
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
+	sp := opentracing.StartSpan("gossip4.round.done")
+	defer sp.Finish()
+
 	if msg.err != nil {
 		n.logger.Errorf("snowballer crashed: %v", msg.err)
 		// TODO: How should we recover from this?
@@ -353,6 +357,8 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	// state updating should be more robust here to make sure transactions don't stomp on each other and can probably happen in the background
 	// probably need to recheck what's left in the mempool too for now we're ignoring all that as a PoC
 
+	rootNodeSp := opentracing.StartSpan("gossip4.getRoot", opentracing.ChildOf(sp.Context()))
+
 	var rootNode *hamt.Node
 	if completedRound.height == 0 {
 		rootNode = hamt.NewNode(n.hamtStore, hamt.UseTreeBitWidth(5))
@@ -362,8 +368,11 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 		rootNode = previousRound.state.Copy()
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
+	rootNodeSp.Finish()
 
+	processSp := opentracing.StartSpan("gossip4.processTxs", opentracing.ChildOf(sp.Context()))
 	for _, cidBytes := range preferred.Checkpoint.AddBlockRequests() {
+		txSp := opentracing.StartSpan("gossip4.tx", opentracing.ChildOf(processSp.Context()))
 		abrCid, err := cid.Cast(cidBytes)
 		if err != nil {
 			panic(fmt.Errorf("error casting add block request cid: %v", err))
@@ -377,10 +386,15 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", abrCid.String())
 			panic("an accepted checkpoint should not have a Tx we don't know about")
 		}
+
+		setSp := opentracing.StartSpan("gossip4.tx.set", opentracing.ChildOf(processSp.Context()))
+
 		err = rootNode.Set(msg.ctx, string(abr.ObjectId), abrCid)
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
+		setSp.Finish()
+
 		// mempool calls StopTrace on our abrWrapper
 		n.mempool.DeleteIDAndConflictSet(abrCid)
 		n.logger.Debugf("looking for %s height: %d", abr.ObjectId, abr.Height+1)
@@ -398,20 +412,28 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 			}
 			n.inflight.Remove(nextKey)
 		}
+		txSp.Finish()
 	}
+	processSp.Finish()
+
+	flushSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
 	err := rootNode.Flush(msg.ctx)
 	if err != nil {
 		panic(fmt.Errorf("error flushing rootNode: %w", err))
 	}
+	flushSp.Finish()
+
 	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, rootNode)
 	completedRound.state = rootNode
 	n.logger.Debugf("after setting: %v", completedRound.state)
 
+	publishSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
 	// Notify clients of the new checkpoint
 	err = n.publishCompletedRound(context.TODO())
 	if err != nil {
 		n.logger.Errorf("error publishing current round: %v", err)
 	}
+	publishSp.Finish()
 
 	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
 	n.rounds.SetCurrent(round)

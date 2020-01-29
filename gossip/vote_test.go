@@ -159,7 +159,7 @@ func TestTick(t *testing.T) {
 		assert.Nil(t, snowball.Preferred())
 	})
 
-	t.Run("no decision in case of 20% empty votes", func(t *testing.T) {
+	t.Run("no decision in case of 33% empty votes", func(t *testing.T) {
 		snowball.Reset()
 
 		votes := make([]*Vote, 0, snowball.k)
@@ -182,7 +182,7 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.False(t, snowball.Decided())
-		assert.Equal(t, _checkpoint.Wrapped().Cid().String(), snowball.Preferred().Checkpoint.Wrapped().Cid().String())
+		assert.Nil(t, snowball.Preferred())
 	})
 
 	t.Run("transactions num majority checkpoint wins", func(t *testing.T) {
