@@ -157,9 +157,9 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 		vote := &Vote{
 			Checkpoint: &checkpoint,
 		}
-		if !(len(checkpoint.AddBlockRequests) > 0 &&
-			snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) &&
-			!snb.hasConflictingABRs(checkpoint.AddBlockRequests)) {
+		if len(checkpoint.AddBlockRequests) == 0 ||
+			!(snb.mempoolHasAllABRs(checkpoint.AddBlockRequests)) ||
+			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(checkpoint.AddBlockRequests), snb.hasConflictingABRs(checkpoint.AddBlockRequests))
