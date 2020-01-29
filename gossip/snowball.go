@@ -108,7 +108,7 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		if last != nil {
 			lastID = last.ID()
 		}
-		snowlog.Debug("majority id: %s != last id: %s", majority.ID(), lastID)
+		snowlog.Debugf("majority id: %s != last id: %s", majority.ID(), lastID)
 		s.last, s.count = majority, 1
 	} else {
 		s.count++

@@ -3,9 +3,11 @@ package benchmark
 import (
 	"context"
 	"fmt"
-	logging "github.com/ipfs/go-log"
 	"testing"
 	"time"
+
+	"github.com/ipfs/go-bitswap"
+	logging "github.com/ipfs/go-log"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client/pubsubinterfaces/pubsubwrapper"
@@ -27,7 +29,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	}
 
 	for i := range ng.AllSigners() {
-		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]))
+		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
 		}
@@ -112,12 +114,10 @@ func TestBenchmarker(t *testing.T) {
 	cli, err := newClient(ctx, group, bootAddrs)
 	require.Nil(t, err)
 
-	ben := NewBenchmark(cli, 1, 1*time.Second)
+	ben := NewBenchmark(cli, 3, 3*time.Second, 1*time.Second)
 	require.NotNil(t, ben)
 
 	res := ben.Run(ctx)
-	require.InDelta(t, int64(1), res.Total, float64(1))
-	require.InDelta(t, 1, res.Measured, float64(1))
-
-	require.True(t, res.MaxDuration > 0)
+	require.InDelta(t, int64(9), res.Total, float64(1))
+	require.InDelta(t, 9, res.Measured, float64(1))
 }

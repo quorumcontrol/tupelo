@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/ipfs/go-bitswap"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
@@ -15,7 +16,7 @@ import (
 )
 
 func runGossip3To4Node(ctx context.Context, gossip3Group *g3types.NotaryGroup, gossip4Group *types.NotaryGroup, gossipPID *actor.PID) error {
-	p2pNode, _, err := p2p.NewHostAndBitSwapPeer(ctx)
+	p2pNode, _, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 	if err != nil {
 		return fmt.Errorf("error creating p2p node: %v", err)
 	}

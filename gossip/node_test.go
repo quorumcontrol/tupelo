@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ipfs/go-bitswap"
 	logging "github.com/ipfs/go-log"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -40,7 +41,7 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 	}
 
 	for i := range ng.AllSigners() {
-		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i])) // TODO: options?
+		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
 		}
@@ -50,7 +51,7 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
-			Name:        name + "-" + strconv.Itoa(i),
+			Name:        strconv.Itoa(i) + "-" + name,
 		})
 		if err != nil {
 			return nil, nil, fmt.Errorf("error making node: %v", err)
@@ -167,6 +168,9 @@ func TestEndToEnd(t *testing.T) {
 		abrs[i] = &abr
 	}
 
+	sub, err := nodes[0].pubsub.Subscribe(group.ID)
+	require.Nil(t, err)
+
 	for i, abr := range abrs {
 		bits, err := abr.Marshal()
 		require.Nil(t, err)
@@ -176,6 +180,13 @@ func TestEndToEnd(t *testing.T) {
 	}
 
 	waitForAllAbrs(t, ctx, nodes, abrs)
+
+	// test that it receives the round confirmation signatures
+	for range nodes {
+		_, err = sub.Next(ctx)
+		require.Nil(t, err)
+	}
+
 }
 
 func TestByzantineCases(t *testing.T) {

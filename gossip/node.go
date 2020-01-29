@@ -204,9 +204,7 @@ func (n *Node) Start(ctx context.Context) error {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				if n.snowballPid != nil {
-					n.rootContext.Send(n.snowballPid, &snowballTicker{ctx: ctx})
-				}
+				n.rootContext.Send(n.pid, &snowballTicker{ctx: ctx})
 			}
 		}
 	}()
@@ -269,8 +267,14 @@ func (n *Node) Receive(actorContext actor.Context) {
 		n.setupSnowball(actorContext)
 	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
+	case *snowballTicker:
+		if !n.snowballer.Started() && n.mempool.Length() > 0 {
+			actorContext.Send(n.snowballPid, &startSnowball{ctx: msg.ctx})
+		}
 	case *snowballerDone:
 		n.handleSnowballerDone(msg)
+	default:
+		n.logger.Debugf("root node actor received other %T message: %+v", msg, msg)
 	}
 }
 
@@ -332,6 +336,12 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 }
 
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
+	if msg.err != nil {
+		n.logger.Errorf("snowballer crashed: %v", msg.err)
+		// TODO: How should we recover from this?
+		return
+	}
+
 	preferred := n.snowballer.snowball.Preferred()
 
 	completedRound := n.rounds.Current()
@@ -415,37 +425,9 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 			n.handleStream(actorContext, msg)
 		}()
 	case *startSnowball:
-		if !n.snowballer.Started() {
-			go func() {
-				preferred := n.mempool.Preferred()
-				n.logger.Debugf("starting snowballer and preferring %v", preferred)
-				preferredBytes := make([][]byte, len(preferred))
-				for i, pref := range preferred {
-					preferredBytes[i] = pref.Bytes()
-				}
-				cp := &gossip.Checkpoint{
-					Height:           n.rounds.Current().height,
-					AddBlockRequests: preferredBytes,
-				}
-				n.snowballer.snowball.Prefer(&Vote{
-					Checkpoint: types.WrapCheckpoint(cp),
-				})
-				n.logger.Debugf("preferred id: %s", n.snowballer.snowball.Preferred().ID())
-				done := make(chan error, 1)
-				n.snowballer.start(msg.ctx, done)
-				select {
-				case <-msg.ctx.Done():
-					return
-				case err := <-done:
-					n.rootContext.Send(n.pid, &snowballerDone{err: err, ctx: msg.ctx})
-				}
-			}()
-		}
-
-	case *snowballTicker:
-		if !n.snowballer.Started() && n.mempool.Length() > 0 {
-			actorContext.Send(actorContext.Self(), &startSnowball{ctx: msg.ctx})
-		}
+		n.snowballer.Start(msg.ctx)
+	default:
+		n.logger.Debugf("snowball actor received other %T message: %+v", msg, msg)
 	}
 }
 

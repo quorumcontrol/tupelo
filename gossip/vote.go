@@ -12,6 +12,7 @@ type Vote struct {
 
 func (v *Vote) Nil() {
 	v.tallyCount = 0.0
+	v.Checkpoint = nil
 	v.id = ZeroVoteID
 }
 

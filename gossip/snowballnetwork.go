@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -31,7 +32,15 @@ type snowballer struct {
 	group    *types.NotaryGroup
 	logger   logging.EventLogger
 	cache    *lru.Cache
-	started  bool
+
+	earlyCommitter *earlyCommitter
+
+	started bool
+}
+
+type snowballVoteResp struct {
+	signerID          string
+	wrappedCheckpoint *types.CheckpointWrapper
 }
 
 func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
@@ -40,13 +49,14 @@ func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
 		panic(err)
 	}
 	return &snowballer{
-		node:     n,
-		snowball: snowball,
-		host:     n.p2pNode,
-		group:    n.notaryGroup,
-		logger:   n.logger,
-		cache:    cache,
-		height:   height,
+		node:           n,
+		snowball:       snowball,
+		host:           n.p2pNode,
+		group:          n.notaryGroup,
+		logger:         n.logger,
+		cache:          cache,
+		height:         height,
+		earlyCommitter: newEarlyCommitter(),
 	}
 }
 
@@ -56,17 +66,75 @@ func (snb *snowballer) Started() bool {
 	return snb.started
 }
 
-func (snb *snowballer) start(startCtx context.Context, done chan error) {
+// Start is idempotent and thread safe
+func (snb *snowballer) Start(ctx context.Context) {
+	snb.Lock()
+	defer snb.Unlock()
+
+	if snb.started {
+		return
+	}
+	snb.started = true
+
+	preferred := snb.node.mempool.Preferred()
+	snb.logger.Debugf("starting snowballer (height: %d) and preferring %v", snb.height, preferred)
+	if len(preferred) > 0 {
+		preferredBytes := make([][]byte, len(preferred))
+		for i, pref := range preferred {
+			preferredBytes[i] = pref.Bytes()
+		}
+		cp := &gossip.Checkpoint{
+			Height:           snb.height,
+			AddBlockRequests: preferredBytes,
+		}
+		snb.snowball.Prefer(&Vote{
+			Checkpoint: types.WrapCheckpoint(cp),
+		})
+		snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
+	}
+
+	go func() {
+		done := make(chan error, 1)
+		snb.run(ctx, done)
+
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-done:
+			snb.node.rootContext.Send(snb.node.pid, &snowballerDone{err: err, ctx: ctx})
+		}
+	}()
+
+}
+
+func (snb *snowballer) run(startCtx context.Context, done chan error) {
 	sp := opentracing.StartSpan("gossip4.snowballer.start")
 	defer sp.Finish()
 	ctx := opentracing.ContextWithSpan(startCtx, sp)
 
-	snb.Lock()
-	snb.started = true
-	snb.Unlock()
+	signerCount := int(snb.group.Size())
 
 	for !snb.snowball.Decided() {
 		snb.doTick(ctx)
+		didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
+		if didEarly {
+			snb.logger.Debugf("would early commit on %s, but not", checkpointID.String())
+			wrappedCheckpoint, ok := snb.cache.Get(checkpointID)
+			if !ok {
+				done <- errors.New("could not find checkpoint in the cache: should never happen")
+				return
+			}
+			// TODO: this probably shouldn't reach into snowball here,
+			// maybe it could move decided logic up to the snowballer here and others could reference this
+			// rather than having the external system dig into the the snowball instance here too.
+			cp := wrappedCheckpoint.(*types.CheckpointWrapper)
+			snb.snowball.Prefer(&Vote{
+				Checkpoint: cp,
+			})
+			snb.snowball.Lock()
+			snb.snowball.decided = true
+			snb.snowball.Unlock()
+		}
 	}
 
 	done <- nil
@@ -79,7 +147,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 
 	sp.LogKV("height", snb.height)
 
-	respChan := make(chan *gossip.Checkpoint, snb.snowball.k)
+	respChan := make(chan *snowballVoteResp, snb.snowball.k)
 	wg := &sync.WaitGroup{}
 	for i := 0; i < snb.snowball.k; i++ {
 		wg.Add(1)
@@ -91,20 +159,25 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	close(respChan)
 	votes := make([]*Vote, snb.snowball.k)
 	i := 0
-	for checkpoint := range respChan {
-		// snb.logger.Debugf("received checkpoint: %v", checkpoint)
-
-		wrappedCheckpoint := types.WrapCheckpoint(checkpoint)
-		votes[i] = &Vote{
+	for resp := range respChan {
+		wrappedCheckpoint := resp.wrappedCheckpoint
+		vote := &Vote{
 			Checkpoint: wrappedCheckpoint,
 		}
-		if len(checkpoint.AddBlockRequests) == 0 ||
-			!snb.mempoolHasAllABRs(checkpoint.AddBlockRequests) ||
-			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
+		abrs := wrappedCheckpoint.AddBlockRequests()
+		if !(len(abrs) > 0 &&
+			snb.mempoolHasAllABRs(abrs) &&
+			!snb.hasConflictingABRs(abrs)) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
-			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(checkpoint.AddBlockRequests), snb.hasConflictingABRs(checkpoint.AddBlockRequests))
-			votes[i].Nil()
+			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(abrs), snb.hasConflictingABRs(abrs))
+			vote.Nil()
+		}
+		votes[i] = vote
+		// if the vote hasn't been nilled then we can add it to the early commiter
+		if vote.ID() != ZeroVoteID {
+			snb.logger.Debugf("received checkpoint: %v", wrappedCheckpoint.Value())
+			snb.earlyCommitter.Vote(resp.signerID, wrappedCheckpoint.CID())
 		}
 
 		i++
@@ -125,7 +198,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 }
 
-func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan *gossip.Checkpoint) {
+func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan *snowballVoteResp) {
 	sp, ctx := opentracing.StartSpanFromContext(parentCtx, "gossip4.snowballer.getOneRandomVote")
 	defer sp.Finish()
 
@@ -184,12 +257,12 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		return
 	}
 
-	var checkpoint *gossip.Checkpoint
+	var wrappedCheckpoint *types.CheckpointWrapper
 
 	blkInter, ok := snb.cache.Get(id)
 	if ok {
 		sp.LogKV("cacheHit", true)
-		checkpoint = blkInter.(*gossip.Checkpoint)
+		wrappedCheckpoint = blkInter.(*types.CheckpointWrapper)
 	} else {
 		sp.LogKV("cacheHit", false)
 		blk := &gossip.Checkpoint{}
@@ -199,11 +272,14 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 			snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
 			return
 		}
-		checkpoint = blk
-		snb.cache.Add(id, checkpoint)
+		wrappedCheckpoint = types.WrapCheckpoint(blk)
+		snb.cache.Add(id, wrappedCheckpoint)
 	}
 
-	respChan <- checkpoint
+	respChan <- &snowballVoteResp{
+		signerID:          signerPeer,
+		wrappedCheckpoint: wrappedCheckpoint,
+	}
 }
 
 func cidFromBits(bits []byte) (cid.Cid, error) {
@@ -226,9 +302,12 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs [][]byte) bool {
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", abrCID.String())
 			snb.node.rootContext.Send(snb.node.syncerPid, abrCID)
+			// the reason to not just return false here is that we want
+			// to continue to loop over all the Txs in order to sync the ones we don't have
 			hasAll = false
 		}
 	}
+	snb.logger.Debugf("hasAllABRs: %t", hasAll)
 	return hasAll
 }
 
@@ -249,10 +328,12 @@ func (snb *snowballer) hasConflictingABRs(abrCIDs [][]byte) bool {
 		conflictSetID := toConflictSetID(wrapper.AddBlockRequest)
 		_, ok := csIds[conflictSetID]
 		if ok {
+			snb.logger.Debugf("hasConflicting: true")
 			return true
 		}
 		csIds[conflictSetID] = struct{}{}
 	}
+	snb.logger.Debugf("hasConflicting: false")
 	return false
 }
 
