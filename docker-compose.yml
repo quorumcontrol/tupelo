@@ -2,7 +2,7 @@ version: "3"
 services:
   bootstrap:
     build: .
-    command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-error}"]
+    command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-info}"]
     volumes:
       - ./configs/localdocker:/configs      
     networks:
@@ -18,7 +18,7 @@ services:
     volumes:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node0/config.toml",
-      "-L", "${TUPELO_LOG_LEVEL:-error}"]
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
 
   node1:
     depends_on: 
@@ -27,7 +27,7 @@ services:
     volumes:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node1/config.toml",
-      "-L", "${TUPELO_LOG_LEVEL:-error}"]
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
   
   node2:
     depends_on: 
@@ -36,7 +36,7 @@ services:
     volumes:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node2/config.toml",
-      "-L", "${TUPELO_LOG_LEVEL:-error}"]
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
 
 networks:
   default:
