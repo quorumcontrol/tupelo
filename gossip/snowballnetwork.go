@@ -75,7 +75,7 @@ func (snb *snowballer) Start(ctx context.Context) {
 	snb.started = true
 
 	preferred := snb.node.mempool.Preferred()
-	snb.logger.Debugf("starting snowballer (height: %d) and preferring %v", snb.height, preferred)
+	snb.logger.Debugf("starting snowballer (a: %f, k: %d, b: %d) (height: %d) and preferring %v", snb.snowball.alpha, snb.snowball.k, snb.snowball.beta, snb.height, preferred)
 	if len(preferred) > 0 {
 		snb.snowball.Prefer(&Vote{
 			Checkpoint: &types.Checkpoint{
