@@ -19,7 +19,8 @@ services:
       - 9411
     
 
-# you can use manipulate these settings in the other docker-compose using the environment
+# you can use these settings in the other docker-compose using the environment
+# you MUST set JAEGER_AGENT_HOST=jaeger in order to use this.
     #   JAEGER_SERVICE_NAME	The service name
     #   JAEGER_AGENT_HOST	The hostname for communicating with agent via UDP
     #   JAEGER_AGENT_PORT	The port for communicating with agent via UDP
