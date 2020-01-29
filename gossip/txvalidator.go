@@ -92,11 +92,11 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 		// we do something a bit odd here and send the ABR through an actor notification rather
 		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
 		wrapper.AddBlockRequest = abr
-		wrapper.LogKV("valid", true)
+		wrapper.SetTag("valid", true)
 		actor.EmptyRootContext.Send(tv.node, wrapper)
 		return true
 	}
-	wrapper.LogKV("valid", false)
+	wrapper.SetTag("valid", false)
 	wrapper.StopTrace()
 
 	return false
