@@ -2,14 +2,19 @@ package benchmark
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-hamt-ipld"
+	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 )
 
@@ -68,7 +73,11 @@ func (b *Benchmark) Send(ctx context.Context, resCh chan *Result) {
 func handleResult(resultSet *ResultSet, res *Result) {
 	resultSet.Measured++
 	if res.Error != nil {
-		resultSet.Errors = append(resultSet.Errors, res.Error.Error())
+		id, err := abrToHamtCID(context.TODO(), res.Transaction)
+		if err != nil {
+			panic(fmt.Sprintf("couldn't convert transaction to CID: %v", err))
+		}
+		resultSet.Errors = append(resultSet.Errors, id.String()+": "+res.Error.Error())
 		resultSet.Failures++
 		return
 	}
@@ -137,4 +146,12 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	}
 
 	return resultSet
+}
+
+func abrToHamtCID(ctx context.Context, abr *services.AddBlockRequest) (cid.Cid, error) {
+	underlyingStore := nodestore.MustMemoryStore(ctx)
+	hamtStore := hamt.CborIpldStore{
+		Blocks: hamtwrapper.NewStore(underlyingStore),
+	}
+	return hamtStore.Put(ctx, abr)
 }
