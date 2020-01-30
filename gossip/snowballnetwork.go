@@ -170,7 +170,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			snb.hasConflictingABRs(abrs) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
-			snb.logger.Debugf("nilling vote has all: %t, has conflicting: %t", snb.mempoolHasAllABRs(abrs), snb.hasConflictingABRs(abrs))
+			snb.logger.Debugf("nilling vote")
 			vote.Nil()
 		}
 		votes[i] = vote
