@@ -77,7 +77,7 @@ func (snb *snowballer) Start(ctx context.Context) {
 	preferred := snb.node.mempool.Preferred()
 	snb.logger.Debugf("starting snowballer (a: %f, k: %d, b: %d) (height: %d) and preferring %v", snb.snowball.alpha, snb.snowball.k, snb.snowball.beta, snb.height, preferred)
 	if len(preferred) > 0 {
-		snb.snowball.Prefer(&Vote{
+		snb.snowball.PreferInLock(&Vote{
 			Checkpoint: &types.Checkpoint{
 				Height:           snb.height,
 				AddBlockRequests: preferred,

@@ -90,7 +90,7 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 
 		// if we have a nil preference, then go ahead and prefer the highest tally no matter what
 		if s.preferred == nil && majority != nil {
-			s.Prefer(majority)
+			s.PreferInLock(majority)
 		}
 
 		snowlog.Debugf("resetting count: %v", majority)
@@ -132,14 +132,19 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	}
 }
 
-func (s *Snowball) Prefer(b *Vote) {
+func (s *Snowball) Prefer(v *Vote) {
 	s.Lock()
-	s.preferred = b
-	_, exists := s.counts[b.ID()]
-	if !exists {
-		s.counts[b.ID()] = 1
-	}
+	s.PreferInLock(v)
 	s.Unlock()
+}
+
+// PreferInLock is ONLY for contexts in which you already hold a write lock
+func (s *Snowball) PreferInLock(v *Vote) {
+	s.preferred = v
+	_, exists := s.counts[v.ID()]
+	if !exists {
+		s.counts[v.ID()] = 1
+	}
 }
 
 func (s *Snowball) Preferred() *Vote {
