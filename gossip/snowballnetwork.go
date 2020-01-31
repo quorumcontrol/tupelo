@@ -77,7 +77,7 @@ func (snb *snowballer) Start(ctx context.Context) {
 	preferred := snb.node.mempool.Preferred()
 	snb.logger.Debugf("starting snowballer (a: %f, k: %d, b: %d) (height: %d) and preferring %v", snb.snowball.alpha, snb.snowball.k, snb.snowball.beta, snb.height, preferred)
 	if len(preferred) > 0 {
-		snb.snowball.Prefer(&Vote{
+		snb.snowball.PreferInLock(&Vote{
 			Checkpoint: &types.Checkpoint{
 				Height:           snb.height,
 				AddBlockRequests: preferred,
@@ -109,23 +109,26 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 
 	for !snb.snowball.Decided() {
 		snb.doTick(ctx)
-		didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
-		if didEarly {
-			snb.logger.Debugf("would early commit on %s, but not", checkpointID.String())
-			checkpoint, ok := snb.cache.Get(checkpointID)
-			if !ok {
-				done <- errors.New("could not find checkpoint in the cache: should never happen")
-				return
+		if snb.snowball.count > 3 { // we only care about early commit if we've received the same answer a few times in a row.
+			didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
+			// if > alpha of the network has voted for a particular checkpoint *and* I agree that it is my preferred, then I can early commit that.
+			if didEarly && snb.snowball.Preferred().Checkpoint.CID().Equals(checkpointID) {
+				snb.logger.Debugf("early commit on %s: ", checkpointID.String())
+				checkpoint, ok := snb.cache.Get(checkpointID)
+				if !ok {
+					done <- errors.New("could not find checkpoint in the cache: should never happen")
+					return
+				}
+				// TODO: this probably shouldn't reach into snowball here,
+				// maybe it could move decided logic up to the snowballer here and others could reference this
+				// rather than having the external system dig into the the snowball instance here too.
+				snb.snowball.Prefer(&Vote{
+					Checkpoint: checkpoint.(*types.Checkpoint),
+				})
+				snb.snowball.Lock()
+				snb.snowball.decided = true
+				snb.snowball.Unlock()
 			}
-			// TODO: this probably shouldn't reach into snowball here,
-			// maybe it could move decided logic up to the snowballer here and others could reference this
-			// rather than having the external system dig into the the snowball instance here too.
-			snb.snowball.Prefer(&Vote{
-				Checkpoint: checkpoint.(*types.Checkpoint),
-			})
-			snb.snowball.Lock()
-			snb.snowball.decided = true
-			snb.snowball.Unlock()
 		}
 	}
 
@@ -153,7 +156,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	i := 0
 	for resp := range respChan {
 		checkpoint := resp.checkpoint
-		snb.logger.Debugf("checkpoint: %v", &checkpoint)
+		snb.logger.Debugf("%s checkpoint: %v", resp.signerID, &checkpoint)
 		vote := &Vote{
 			Checkpoint: &checkpoint,
 		}
@@ -162,13 +165,12 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
-			snb.logger.Debugf("nilling vote")
+			snb.logger.Debugf("%s nilling vote", resp.signerID)
 			vote.Nil()
 		}
 		votes[i] = vote
 		// if the vote hasn't been nilled then we can add it to the early commiter
 		if vote.ID() != ZeroVoteID {
-			snb.logger.Debugf("received checkpoint: %v", checkpoint)
 			snb.earlyCommitter.Vote(resp.signerID, resp.checkpoint.CID())
 		}
 
@@ -198,6 +200,7 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 	var signerPeer string
 	defer wg.Done()
 
+	// pick one non-self signer
 	for signer == nil || signerPeer == snb.host.Identity() {
 		signer = snb.group.GetRandomSigner()
 		peerID, _ := p2p.PeerIDFromPublicKey(signer.DstKey)

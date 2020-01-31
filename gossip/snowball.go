@@ -87,6 +87,12 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	}
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
+
+		// if we have a nil preference, then go ahead and prefer the highest tally no matter what
+		if s.preferred == nil && majority != nil {
+			s.PreferInLock(majority)
+		}
+
 		snowlog.Debugf("resetting count: %v", majority)
 		sp.LogKV("countReset", true)
 		s.count = 0
@@ -95,11 +101,16 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	sp.LogKV("majorityTally", majority.Tally())
 
 	s.counts[majority.ID()]++
-	snowlog.Debugf("majority %s tally: %f, count %d", majority.ID(), majority.Tally(), s.counts[majority.ID()])
+
+	if preferred := s.preferred; preferred != nil {
+		snowlog.Debugf("majority %s tally: %f, count %d, snowballCount: %d (preferred: %s)", majority.ID(), majority.Tally(), s.counts[majority.ID()], s.count, s.preferred.Checkpoint.CID())
+	} else {
+		snowlog.Debugf("majority %s tally: %f, count %d, snowballCount: %d (preferred: nil)", majority.ID(), majority.Tally(), s.counts[majority.ID()], s.count)
+	}
 
 	if s.preferred == nil || s.counts[majority.ID()] > s.counts[s.preferred.ID()] {
 		sp.LogKV("setPreferred", true)
-		snowlog.Debugf("setting preferred: %s", majority.ID())
+		snowlog.Debugf("setting preferred: %s @ %d", majority.ID(), s.count)
 		s.preferred = majority
 	}
 
@@ -121,30 +132,36 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	}
 }
 
-func (s *Snowball) Prefer(b *Vote) {
+func (s *Snowball) Prefer(v *Vote) {
 	s.Lock()
-	s.preferred = b
-	_, exists := s.counts[b.ID()]
-	if !exists {
-		s.counts[b.ID()] = 1
-	}
+	s.PreferInLock(v)
 	s.Unlock()
+}
+
+// PreferInLock is ONLY for contexts in which you already hold a write lock
+func (s *Snowball) PreferInLock(v *Vote) {
+	s.preferred = v
+	_, exists := s.counts[v.ID()]
+	if !exists {
+		s.counts[v.ID()] = 1
+	}
 }
 
 func (s *Snowball) Preferred() *Vote {
 	s.RLock()
-	preferred := s.preferred
-	s.RUnlock()
+	defer s.RUnlock()
+	if preferred := s.preferred; preferred == nil {
+		return nil
+	}
 
-	return preferred
+	return s.preferred.Copy()
 }
 
 func (s *Snowball) Decided() bool {
 	s.RLock()
-	decided := s.decided
-	s.RUnlock()
+	defer s.RUnlock()
 
-	return decided
+	return s.decided
 }
 
 func (s *Snowball) Progress() int {
