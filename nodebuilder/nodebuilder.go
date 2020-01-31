@@ -12,6 +12,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/tracing"
 	"github.com/quorumcontrol/tupelo/gossip"
+	"github.com/quorumcontrol/tupelo/proxy"
 
 	"github.com/ipfs/go-bitswap"
 	logging "github.com/ipfs/go-log"
@@ -59,11 +60,25 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 
 	nb.StartTracing()
 
+	var host *p2p.LibP2PHost
 	if nb.Config.BootstrapOnly {
-		return nb.startBootstrap(ctx)
+		h, e := nb.startBootstrap(ctx)
+		host = h
+		err = e
+	} else {
+		h, e := nb.startSigner(ctx)
+		host = h
+		err = e
+	}
+	if err != nil {
+		return fmt.Errorf("error starting: %w", err)
 	}
 
-	return nb.startSigner(ctx)
+	if nb.Config.SecureWebSocketDomain != "" {
+		nb.startSecureWebsocketProxy(ctx, host)
+	}
+
+	return nil
 }
 
 func (nb *NodeBuilder) Stop() error {
@@ -75,6 +90,31 @@ func (nb *NodeBuilder) Stop() error {
 		actor.EmptyRootContext.Stop(nb.Actor())
 	}
 
+	return nil
+}
+
+func (nb *NodeBuilder) startSecureWebsocketProxy(ctx context.Context, host *p2p.LibP2PHost) error {
+	swsd := nb.Config.SecureWebSocketDomain
+
+	dialStr, err := wsAddrFromMultiAddrs(host.Addresses())
+	if err != nil {
+		return fmt.Errorf("error getting wsAddr: %v", err)
+	}
+	logger.Infof("Starting TLS proxy for %s connecting to %s", swsd, dialStr)
+	p := proxy.Server{
+		BindDomain: swsd,
+		Backend: proxy.Backend{
+			Addr:           dialStr,
+			ConnectTimeout: 5000, // 5 seconds
+		},
+		CertDirectory: nb.Config.CertificateCache,
+	}
+	go func() {
+		err := p.Run()
+		if err != nil {
+			logger.Errorf("error running: %v", err)
+		}
+	}()
 	return nil
 }
 
@@ -104,12 +144,12 @@ func (nb *NodeBuilder) StartTracing() {
 	}
 }
 
-func (nb *NodeBuilder) startSigner(ctx context.Context) error {
+func (nb *NodeBuilder) startSigner(ctx context.Context) (*p2p.LibP2PHost, error) {
 	localKeys := nb.Config.PrivateKeySet
 	localSigner := types.NewLocalSigner(&localKeys.DestKey.PublicKey, localKeys.SignKey)
 	group, err := nb.Config.NotaryGroupConfig.NotaryGroup(localSigner)
 	if err != nil {
-		return fmt.Errorf("error generating notary group: %w", err)
+		return nil, fmt.Errorf("error generating notary group: %w", err)
 	}
 
 	cm := connmgr.NewConnManager(len(group.Signers)*5, 900, 20*time.Second)
@@ -123,12 +163,12 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 
 	blockstorage, err := nb.Config.Storage.ToBlockstore() // defaults to memory
 	if err != nil {
-		return fmt.Errorf("error converting to datastore: %w", err)
+		return nil, fmt.Errorf("error converting to datastore: %w", err)
 	}
 
 	p2pStore, err := nb.Config.P2PStorage.ToDatastore() // defaults to memory
 	if err != nil {
-		return fmt.Errorf("error converting to datastore: %w", err)
+		return nil, fmt.Errorf("error converting to datastore: %w", err)
 	}
 
 	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(
@@ -140,7 +180,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("error creating p2p node: %w", err)
+		return nil, fmt.Errorf("error creating p2p node: %w", err)
 	}
 
 	nb.host = p2pNode
@@ -154,30 +194,30 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) error {
 
 	node, err := gossip.NewNode(ctx, nodeCfg)
 	if err != nil {
-		return fmt.Errorf("error creating new node: %v", err)
+		return nil, fmt.Errorf("error creating new node: %v", err)
 	}
 
 	bootstappers, err := nb.bootstrapNodesWithoutSelf()
 	if err != nil {
-		return fmt.Errorf("error getting bootstrap nodes: %w", err)
+		return nil, fmt.Errorf("error getting bootstrap nodes: %w", err)
 	}
 
 	err = node.Bootstrap(ctx, bootstappers)
 	if err != nil {
-		return fmt.Errorf("error bootstrapping node: %w", err)
+		return nil, fmt.Errorf("error bootstrapping node: %w", err)
 	}
 
 	err = node.Start(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting node: %v", err)
+		return nil, fmt.Errorf("error starting node: %v", err)
 	}
 
 	nb.signerActor = node.PID()
 
-	return nil
+	return p2pNode, nil
 }
 
-func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
+func (nb *NodeBuilder) startBootstrap(ctx context.Context) (*p2p.LibP2PHost, error) {
 	cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
 
 	host, err := p2p.NewHostFromOptions(
@@ -188,19 +228,19 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 		)...,
 	)
 	if err != nil {
-		return fmt.Errorf("Could not start bootstrap node, %v", err)
+		return host, fmt.Errorf("Could not start bootstrap node, %v", err)
 	}
 
 	nb.host = host
 
 	bootstappers, err := nb.bootstrapNodesWithoutSelf()
 	if err != nil {
-		return fmt.Errorf("error getting bootstrap nodes: %v", err)
+		return host, fmt.Errorf("error getting bootstrap nodes: %v", err)
 	}
 
 	if len(bootstappers) > 0 {
 		if _, err = host.Bootstrap(bootstappers); err != nil {
-			return fmt.Errorf("bootstrapping failed: %s", err)
+			return host, fmt.Errorf("bootstrapping failed: %s", err)
 		}
 	}
 
@@ -208,17 +248,17 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) error {
 	// bootstrapper help out with gossip pubsub
 	group, err := nb.NotaryGroup()
 	if err != nil {
-		return fmt.Errorf("error getting notary group %w", err)
+		return host, fmt.Errorf("error getting notary group %w", err)
 	}
 	_, err = host.GetPubSub().Subscribe(group.Config().TransactionTopic)
 	if err != nil {
-		return fmt.Errorf("error subscribing %w", err)
+		return host, fmt.Errorf("error subscribing %w", err)
 	}
 	_, err = host.GetPubSub().Subscribe(group.ID)
 	if err != nil {
-		return fmt.Errorf("error subscribing %w", err)
+		return host, fmt.Errorf("error subscribing %w", err)
 	}
-	return nil
+	return host, nil
 }
 
 func (nb *NodeBuilder) bootstrapNodes() []string {
@@ -262,10 +302,18 @@ func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 
 	if nb.Config.PublicIP != "" {
 		logger.Debugf("configuring host with public IP: %v and port: %v", nb.Config.PublicIP, nb.Config.Port)
-		opts = append(opts, p2p.WithExternalIP(nb.Config.PublicIP, nb.Config.Port))
+		opts = append(opts,
+			p2p.WithExternalIP(nb.Config.PublicIP, nb.Config.Port),
+			p2p.WithWebSocketExternalIP(nb.Config.PublicIP, nb.Config.WebsocketPort),
+		)
 	} else {
 		logger.Debug("host has no public IP")
 	}
+
+	if nb.Config.SecureWebSocketDomain != "" {
+		opts = append(opts, p2p.WithExternalAddr("/dns4/"+nb.Config.SecureWebSocketDomain+"/tcp/443/ws"))
+	}
+
 	return opts
 }
 

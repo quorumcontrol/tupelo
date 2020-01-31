@@ -29,7 +29,10 @@ type Config struct {
 	StoragePath              string
 	PublicIP                 string
 	Port                     int
-	WebsocketPort            int
+
+	WebsocketPort         int
+	SecureWebSocketDomain string
+	CertificateCache      string
 
 	PrivateKeySet  *PrivateKeySet
 	BootstrapNodes []string
