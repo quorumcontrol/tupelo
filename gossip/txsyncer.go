@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
@@ -16,11 +17,23 @@ type transactionGetter struct {
 	store     *hamt.CborIpldStore
 	logger    logging.EventLogger
 	validator *TransactionValidator
+	cache     *lru.Cache
 }
 
 func (tg *transactionGetter) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
+	case *actor.Started:
+		cache, err := lru.New(500)
+		if err != nil {
+			tg.logger.Errorf("error creating cache: %v", err)
+			panic("error creating cache")
+		}
+		tg.cache = cache
 	case cid.Cid:
+		if tg.cache.Contains(msg.String()) {
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		abr := &services.AddBlockRequest{}
@@ -29,14 +42,19 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 			tg.logger.Warningf("error fetching %s", msg.String())
 		}
 
+		tg.cache.Add(msg.String(), struct{}{})
+
 		valid := tg.validator.ValidateAbr(ctx, abr)
 		if valid {
 			wrapper := &AddBlockWrapper{
 				AddBlockRequest: abr,
 			}
 			wrapper.StartTrace("gossip4.syncer")
+			tg.logger.Debugf("sending %s to the node", msg.String())
 			actorContext.Send(tg.nodeActor, wrapper)
+			return
 		}
+		tg.logger.Warningf("received invalid transaction: %s", msg.String())
 
 	}
 }
