@@ -156,7 +156,7 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.False(t, snowball.Decided())
-		assert.Nil(t, snowball.Preferred())
+		assert.NotNil(t, snowball.Preferred())
 	})
 
 	t.Run("no decision in case of 33% empty votes", func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestTick(t *testing.T) {
 		}
 
 		assert.False(t, snowball.Decided())
-		assert.Nil(t, snowball.Preferred())
+		assert.NotNil(t, snowball.Preferred())
 	})
 
 	t.Run("transactions num majority checkpoint wins", func(t *testing.T) {

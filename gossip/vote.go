@@ -41,6 +41,14 @@ func (v *Vote) Length() float64 {
 	return float64(v.Checkpoint.Length())
 }
 
+func (v *Vote) Copy() *Vote {
+	return &Vote{
+		Checkpoint: v.Checkpoint,
+		tallyCount: v.tallyCount,
+		id:         v.id,
+	}
+}
+
 // Return back the votes with their tallies calculated.
 func calculateTallies(responses []*Vote) []*Vote {
 	votes := make(map[string]*Vote, len(responses))

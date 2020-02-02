@@ -454,7 +454,8 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 }
 
 func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
-	// n.logger.Debugf("handling stream from")
+	defer s.Close()
+
 	if err := s.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		n.logger.Errorf("error setting write deadline: %v", err)
 	}
