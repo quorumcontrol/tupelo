@@ -27,8 +27,16 @@ if [ -n "$TUPELO_ADVERTISE_EC2_PUBLIC_IP" ]; then
   export TUPELO_PUBLIC_IP
 fi
 
-if [ ! -f "$TUPELO_CONFIG_FILE" ]; then
-  envsubst < /tupelo/config.toml.tpl  > "$TUPELO_CONFIG_FILE"
+# If no config file exists, symlink in a generated one
+if [ ! -e "$TUPELO_CONFIG_FILE" ]; then
+  touch "$TUPELO_CONFIG_FILE.generated"
+  ln -s "$TUPELO_CONFIG_FILE.generated" "$TUPELO_CONFIG_FILE"
+fi
+# Then, if generated file exists, regenerate on each boot to pickup any changes
+# This is critical when a named volume is mounted into the `/tupelo` directory
+# else config is static from first boot
+if [ -f "$TUPELO_CONFIG_FILE.generated" ]; then
+  envsubst < /tupelo/config.toml.tpl  > "$TUPELO_CONFIG_FILE.generated"
 fi
 
 exec /usr/bin/tupelo --config "$TUPELO_CONFIG_FILE" "$@"
