@@ -30,7 +30,7 @@ type Config struct {
 	PublicIP                 string
 	Port                     int
 
-	WebsocketPort         int
+	WebSocketPort         int
 	SecureWebSocketDomain string
 	CertificateCache      string
 
