@@ -9,7 +9,6 @@ require (
 	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
-	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
@@ -28,6 +27,8 @@ require (
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
 	github.com/libp2p/go-msgio v0.0.4
+	github.com/multiformats/go-multiaddr v0.1.1
+	github.com/multiformats/go-multiaddr-net v0.1.0
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.8.1

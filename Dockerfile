@@ -11,7 +11,7 @@ RUN go install -mod=vendor -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath
 FROM alpine:3.11
 LABEL maintainer="dev@quorumcontrol.com"
 
-RUN apk add --no-cache --update gettext ca-certificates curl
+RUN apk add --no-cache --update gettext ca-certificates curl libcap
 
 RUN mkdir -p /tupelo
 
@@ -21,6 +21,8 @@ RUN addgroup -g 1000 tupelo && \
     chgrp 0 /tupelo
 
 COPY --from=build /go/bin/tupelo /usr/bin/tupelo
+RUN setcap 'cap_net_bind_service=+ep' /usr/bin/tupelo
+
 COPY ./docker/docker-entrypoint.sh /usr/bin/docker-entrypoint
 RUN chmod +x /usr/bin/docker-entrypoint
 
