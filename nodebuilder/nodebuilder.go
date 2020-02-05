@@ -75,7 +75,7 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 	}
 
 	if nb.Config.SecureWebSocketDomain != "" {
-		nb.startSecureWebsocketProxy(ctx, host)
+		nb.startSecureWebSocketProxy(ctx, host)
 	}
 
 	return nil
@@ -93,7 +93,7 @@ func (nb *NodeBuilder) Stop() error {
 	return nil
 }
 
-func (nb *NodeBuilder) startSecureWebsocketProxy(ctx context.Context, host *p2p.LibP2PHost) error {
+func (nb *NodeBuilder) startSecureWebSocketProxy(ctx context.Context, host *p2p.LibP2PHost) error {
 	swsd := nb.Config.SecureWebSocketDomain
 
 	dialStr, err := wsAddrFromMultiAddrs(host.Addresses())
@@ -293,7 +293,7 @@ func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 		p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)),
 		//TODO: do we want to enable this?
 		// p2p.WithPubSubOptions(pubsub.WithStrictSignatureVerification(true), pubsub.WithMessageSigning(true)),
-		p2p.WithWebSockets(nb.Config.WebsocketPort),
+		p2p.WithWebSockets(nb.Config.WebSocketPort),
 	}
 
 	if nb.Config.PrivateKeySet != nil && nb.Config.PrivateKeySet.DestKey != nil {
@@ -304,7 +304,7 @@ func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 		logger.Debugf("configuring host with public IP: %v and port: %v", nb.Config.PublicIP, nb.Config.Port)
 		opts = append(opts,
 			p2p.WithExternalIP(nb.Config.PublicIP, nb.Config.Port),
-			p2p.WithWebSocketExternalIP(nb.Config.PublicIP, nb.Config.WebsocketPort),
+			p2p.WithWebSocketExternalIP(nb.Config.PublicIP, nb.Config.WebSocketPort),
 		)
 	} else {
 		logger.Debug("host has no public IP")

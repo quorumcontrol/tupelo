@@ -63,7 +63,7 @@ type HumanConfig struct {
 	PublicIP                 string
 	Port                     int
 
-	WebsocketPort         int
+	WebSocketPort         int
 	SecureWebSocketDomain string // only available on port 443
 	CertificateCache      string
 
@@ -79,7 +79,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		StoragePath:           hc.StoragePath,
 		PublicIP:              hc.PublicIP,
 		Port:                  hc.Port,
-		WebsocketPort:         hc.WebsocketPort,
+		WebSocketPort:         hc.WebSocketPort,
 		BootstrapOnly:         hc.BootstrapOnly,
 		SecureWebSocketDomain: hc.SecureWebSocketDomain,
 		CertificateCache:      hc.CertificateCache,
