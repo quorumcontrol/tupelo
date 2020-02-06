@@ -37,7 +37,7 @@ func NewNode(ctx context.Context, cfg *NodeConfig) *Node {
 
 	// purposely setting the node PID to nil because we send in the ABR
 	// from this node as opposed to using the validator itself to send in the Tx
-	validator, err := gossip.NewTransactionValidator(logger, cfg.NotaryGroup, nil)
+	validator, err := gossip.NewTransactionValidator(ctx, logger, cfg.NotaryGroup, nil)
 	if err != nil {
 		panic(fmt.Errorf("error creating new transaction validator: %w", err))
 	}

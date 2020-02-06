@@ -80,4 +80,3 @@ func ConvertABR(abr *g3services.AddBlockRequest) (*g4services.AddBlockRequest, e
 		State:       abr.State,
 	}, nil
 }
-

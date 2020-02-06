@@ -200,7 +200,9 @@ func TestByzantineCases(t *testing.T) {
 	require.Len(t, nodes, numMembers)
 
 	startNodes(t, ctx, nodes)
-	logging.SetLogLevel("*", "debug")
+
+	err = logging.SetLogLevel("*", "debug")
+	require.Nil(t, err)
 
 	t.Run("different transactions at each node", func(t *testing.T) {
 		abrs := make([]*services.AddBlockRequest, numMembers)

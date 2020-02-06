@@ -89,7 +89,9 @@ func (nb *NodeBuilder) Start(ctx context.Context) error {
 	}
 
 	if nb.Config.SecureWebSocketDomain != "" {
-		nb.startSecureWebSocketProxy(ctx, host)
+		if err := nb.startSecureWebSocketProxy(ctx, host); err != nil {
+			return fmt.Errorf("error starting secure websocket proxy: %v", err)
+		}
 	}
 
 	return nil

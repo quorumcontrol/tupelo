@@ -19,10 +19,10 @@ import (
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
-	sigfuncs "github.com/quorumcontrol/tupelo-go-sdk/signatures"
+	"github.com/quorumcontrol/tupelo-go-sdk/proof"
 
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/messages/v2/build/go/signatures"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
@@ -40,26 +40,26 @@ type TransactionValidator struct {
 }
 
 // NewTransactionValidator creates a new TransactionValidator
-func NewTransactionValidator(logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*TransactionValidator, error) {
+func NewTransactionValidator(ctx context.Context, logger logging.EventLogger, group *types.NotaryGroup, node *actor.PID) (*TransactionValidator, error) {
 	tv := &TransactionValidator{
 		group:  group,
 		node:   node,
 		logger: logger,
 	}
-	err := tv.setup()
+	err := tv.setup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up transaction validator: %v", err)
 	}
 	return tv, nil
 }
 
-func (tv *TransactionValidator) setup() error {
-	validators, err := blockValidators(tv.group)
+func (tv *TransactionValidator) setup(ctx context.Context) error {
+	validators, err := blockValidators(ctx, tv.group)
 	tv.validators = validators
 	return err
 }
 
-func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, error) {
+func blockValidators(ctx context.Context, group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, error) {
 	quorumCount := group.QuorumCount()
 	signers := group.AllSigners()
 	verKeys := make([]*bls.VerKey, len(signers))
@@ -67,24 +67,15 @@ func blockValidators(group *types.NotaryGroup) ([]chaintree.BlockValidatorFunc, 
 		verKeys[i] = signer.VerKey
 	}
 
-	sigVerifier := types.GenerateIsValidSignature(func(state *signatures.TreeState) (bool, error) {
-		if uint64(sigfuncs.SignerCount(state.Signature)) < quorumCount {
-			return false, nil
-		}
-
-		return verifySignature(
-			context.TODO(),
-			consensus.GetSignable(state),
-			state.Signature,
-			verKeys,
-		)
+	proofVerifier := types.GenerateHasValidProof(func(prf *gossip.Proof) (bool, error) {
+		return proof.Verify(ctx, prf, quorumCount, verKeys)
 	})
 
-	blockValidators, err := group.BlockValidators(context.TODO())
+	blockValidators, err := group.BlockValidators(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting block validators: %v", err)
 	}
-	return append(blockValidators, sigVerifier), nil
+	return append(blockValidators, proofVerifier), nil
 }
 
 func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
@@ -101,11 +92,11 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 		// we do something a bit odd here and send the ABR through an actor notification rather
 		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
 		wrapper.AddBlockRequest = abr
-		wrapper.LogKV("valid", true)
+		wrapper.SetTag("valid", true)
 		actor.EmptyRootContext.Send(tv.node, wrapper)
 		return true
 	}
-	wrapper.LogKV("valid", false)
+	wrapper.SetTag("valid", false)
 	wrapper.StopTrace()
 
 	return false
@@ -114,8 +105,6 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *services.AddBlockRequest) bool {
 	sp, ctx := opentracing.StartSpanFromContext(validateCtx, "gossip4.validateABR")
 	defer sp.Finish()
-
-
 
 	transPreviousTip, err := cid.Cast(abr.PreviousTip)
 	if err != nil {

@@ -3,6 +3,7 @@ package gossip
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/libp2p/go-msgio"
 	"github.com/multiformats/go-multihash"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -37,8 +39,8 @@ type snowballer struct {
 }
 
 type snowballVoteResp struct {
-	signerID   string
-	checkpoint types.Checkpoint
+	signerID          string
+	wrappedCheckpoint *types.CheckpointWrapper
 }
 
 func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
@@ -77,11 +79,16 @@ func (snb *snowballer) Start(ctx context.Context) {
 	preferred := snb.node.mempool.Preferred()
 	snb.logger.Debugf("starting snowballer (a: %f, k: %d, b: %d) (height: %d) and preferring %v", snb.snowball.alpha, snb.snowball.k, snb.snowball.beta, snb.height, preferred)
 	if len(preferred) > 0 {
+		preferredBytes := make([][]byte, len(preferred))
+		for i, pref := range preferred {
+			preferredBytes[i] = pref.Bytes()
+		}
+		cp := &gossip.Checkpoint{
+			Height:           snb.height,
+			AddBlockRequests: preferredBytes,
+		}
 		snb.snowball.PreferInLock(&Vote{
-			Checkpoint: &types.Checkpoint{
-				Height:           snb.height,
-				AddBlockRequests: preferred,
-			},
+			Checkpoint: types.WrapCheckpoint(cp),
 		})
 		snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
 	}
@@ -114,7 +121,7 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 			// if > alpha of the network has voted for a particular checkpoint *and* I agree that it is my preferred, then I can early commit that.
 			if didEarly && snb.snowball.Preferred().Checkpoint.CID().Equals(checkpointID) {
 				snb.logger.Debugf("early commit on %s: ", checkpointID.String())
-				checkpoint, ok := snb.cache.Get(checkpointID)
+				wrappedCheckpoint, ok := snb.cache.Get(checkpointID)
 				if !ok {
 					done <- errors.New("could not find checkpoint in the cache: should never happen")
 					return
@@ -123,7 +130,7 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 				// maybe it could move decided logic up to the snowballer here and others could reference this
 				// rather than having the external system dig into the the snowball instance here too.
 				snb.snowball.Prefer(&Vote{
-					Checkpoint: checkpoint.(*types.Checkpoint),
+					Checkpoint: wrappedCheckpoint.(*types.CheckpointWrapper),
 				})
 				snb.snowball.Lock()
 				snb.snowball.decided = true
@@ -155,14 +162,15 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	votes := make([]*Vote, snb.snowball.k)
 	i := 0
 	for resp := range respChan {
-		checkpoint := resp.checkpoint
-		snb.logger.Debugf("%s checkpoint: %v", resp.signerID, &checkpoint)
+		wrappedCheckpoint := resp.wrappedCheckpoint
+		snb.logger.Debugf("%s checkpoint: %v", resp.signerID, wrappedCheckpoint.Value())
 		vote := &Vote{
-			Checkpoint: &checkpoint,
+			Checkpoint: wrappedCheckpoint,
 		}
-		if len(checkpoint.AddBlockRequests) == 0 ||
-			!(snb.mempoolHasAllABRs(checkpoint.AddBlockRequests)) ||
-			snb.hasConflictingABRs(checkpoint.AddBlockRequests) {
+		abrs := wrappedCheckpoint.AddBlockRequests()
+		if len(abrs) == 0 ||
+			!(snb.mempoolHasAllABRs(abrs)) ||
+			snb.hasConflictingABRs(abrs) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("%s nilling vote", resp.signerID)
@@ -171,7 +179,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 		votes[i] = vote
 		// if the vote hasn't been nilled then we can add it to the early commiter
 		if vote.ID() != ZeroVoteID {
-			snb.earlyCommitter.Vote(resp.signerID, resp.checkpoint.CID())
+			snb.earlyCommitter.Vote(resp.signerID, wrappedCheckpoint.CID())
 		}
 
 		i++
@@ -252,28 +260,28 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		return
 	}
 
-	var checkpoint *types.Checkpoint
+	var wrappedCheckpoint *types.CheckpointWrapper
 
 	blkInter, ok := snb.cache.Get(id)
 	if ok {
 		sp.LogKV("cacheHit", true)
-		checkpoint = blkInter.(*types.Checkpoint)
+		wrappedCheckpoint = blkInter.(*types.CheckpointWrapper)
 	} else {
 		sp.LogKV("cacheHit", false)
-		blk := &types.Checkpoint{}
+		blk := &gossip.Checkpoint{}
 		err = cbornode.DecodeInto(bits, blk)
 		if err != nil {
 			sp.LogKV("error", err.Error())
 			snb.logger.Warningf("error decoding from stream to %s: %v", signer.ID, err)
 			return
 		}
-		checkpoint = blk
-		snb.cache.Add(id, checkpoint)
+		wrappedCheckpoint = types.WrapCheckpoint(blk)
+		snb.cache.Add(id, wrappedCheckpoint)
 	}
 
 	respChan <- &snowballVoteResp{
-		signerID:   signerPeer,
-		checkpoint: *checkpoint,
+		signerID:          signerPeer,
+		wrappedCheckpoint: wrappedCheckpoint,
 	}
 }
 
@@ -285,9 +293,14 @@ func cidFromBits(bits []byte) (cid.Cid, error) {
 	return cid.NewCidV1(cid.DagCBOR, hash), nil
 }
 
-func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
+func (snb *snowballer) mempoolHasAllABRs(abrCIDs [][]byte) bool {
 	hasAll := true
-	for _, abrCID := range abrCIDs {
+	for _, cidBytes := range abrCIDs {
+		abrCID, err := cid.Cast(cidBytes)
+		if err != nil {
+			panic(fmt.Errorf("error casting add block request cid: %v", err))
+		}
+
 		ok := snb.node.mempool.Contains(abrCID)
 		if !ok {
 			snb.logger.Debugf("missing tx: %s", abrCID.String())
@@ -302,9 +315,14 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs []cid.Cid) bool {
 }
 
 // this checks to make sure the block coming in doesn't have any conflicting transactions
-func (snb *snowballer) hasConflictingABRs(abrCIDs []cid.Cid) bool {
+func (snb *snowballer) hasConflictingABRs(abrCIDs [][]byte) bool {
 	csIds := make(map[mempoolConflictSetID]struct{})
-	for _, abrCID := range abrCIDs {
+	for _, cidBytes := range abrCIDs {
+		abrCID, err := cid.Cast(cidBytes)
+		if err != nil {
+			panic(fmt.Errorf("error casting add block request cid: %v", err))
+		}
+
 		wrapper := snb.node.mempool.Get(abrCID)
 		if wrapper == nil {
 			snb.logger.Errorf("had a null transaction ( %s ) from a block in the mempool, this shouldn't happen", abrCID.String())

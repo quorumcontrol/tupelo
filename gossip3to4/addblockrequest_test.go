@@ -15,8 +15,6 @@ func TestConvertABR(t *testing.T) {
 	g3abrBytes, err := ioutil.ReadFile("testgossip3abr.cbor")
 	require.Nil(t, err)
 
-	cbornode.RegisterCborType(g3services.AddBlockRequest{})
-
 	var g3abr g3services.AddBlockRequest
 	err = cbornode.DecodeInto(g3abrBytes, &g3abr)
 	require.Nil(t, err)

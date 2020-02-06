@@ -8,6 +8,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,11 +32,18 @@ func generateTxIds(t *testing.T, count int) []cid.Cid {
 	return ids
 }
 
-func newCheckpoint(height uint64, abrs []cid.Cid) *types.Checkpoint {
-	return &types.Checkpoint{
-		Height:           height,
-		AddBlockRequests: abrs,
+func newCheckpoint(height uint64, abrs []cid.Cid) *types.CheckpointWrapper {
+	abrBytes := make([][]byte, len(abrs))
+	for i, abrCid := range abrs {
+		abrBytes[i] = abrCid.Bytes()
 	}
+
+	cp := &gossip.Checkpoint{
+		Height:           height,
+		AddBlockRequests: abrBytes,
+	}
+
+	return types.WrapCheckpoint(cp)
 }
 
 func TestVoteWithoutBlock(t *testing.T) {
@@ -159,7 +167,7 @@ func TestTick(t *testing.T) {
 		_checkpoint := newCheckpoint(1, generateTxIds(t, 1))
 
 		for i := 0; i < cap(votes); i++ {
-			var checkpoint *types.Checkpoint
+			var checkpoint *types.CheckpointWrapper
 			if i < int(snowball.alpha*float64(cap(votes))) {
 				checkpoint = _checkpoint
 			}

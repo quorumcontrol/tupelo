@@ -10,6 +10,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	format "github.com/ipfs/go-ipld-format"
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -21,6 +22,8 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
+	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
@@ -161,7 +164,7 @@ func (n *Node) Start(ctx context.Context) error {
 		n.rootContext.Poison(n.pid)
 	}()
 
-	validator, err := NewTransactionValidator(n.logger, n.notaryGroup, pid)
+	validator, err := NewTransactionValidator(ctx, n.logger, n.notaryGroup, pid)
 	if err != nil {
 		return fmt.Errorf("error setting up: %v", err)
 	}
@@ -278,7 +281,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	}
 }
 
-func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.CompletedRound) (*types.RoundConfirmation, error) {
+func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.RoundWrapper) (*types.RoundConfirmationWrapper, error) {
 	roundCid := completedRound.CID()
 
 	sig, err := sigutils.BLSSign(ctx, n.signKey, roundCid.Bytes(), len(n.notaryGroup.Signers), n.signerIndex)
@@ -286,11 +289,12 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.
 		return nil, fmt.Errorf("error signing current state checkpoint: %v", err)
 	}
 
-	return &types.RoundConfirmation{
-		CompletedRound: roundCid,
-		Signature:      sig,
-		Height:         completedRound.Height,
-	}, nil
+	conf := &gossip.RoundConfirmation{
+		RoundCid:  roundCid.Bytes(),
+		Signature: sig,
+		Height:    completedRound.Height(),
+	}
+	return types.WrapRoundConfirmation(conf), nil
 }
 
 func (n *Node) publishCompletedRound(ctx context.Context) error {
@@ -311,18 +315,20 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 
 	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
 
-	completedRound := &types.CompletedRound{
-		Height:     current.height,
-		State:      currentStateCid,
-		Checkpoint: preferredCheckpointCid,
+	completedRound := &gossip.Round{
+		Height:        current.height,
+		StateCid:      currentStateCid.Bytes(),
+		CheckpointCid: preferredCheckpointCid.Bytes(),
 	}
 
-	err = n.dagStore.Add(ctx, completedRound.Wrapped())
+	wrappedCompletedRound := types.WrapRound(completedRound)
+
+	err = n.dagStore.Add(ctx, wrappedCompletedRound.Wrapped())
 	if err != nil {
 		return fmt.Errorf("error adding to dag store: %w", err)
 	}
 
-	conf, err := n.confirmCompletedRound(ctx, completedRound)
+	conf, err := n.confirmCompletedRound(ctx, wrappedCompletedRound)
 	if err != nil {
 		return fmt.Errorf("error confirming completed round: %v", err)
 	}
@@ -330,6 +336,28 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 	n.logger.Debugf("publishing round confirmed to: %s", n.notaryGroup.ID)
 
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
+}
+
+func (n *Node) storeAbrBlocks(ctx context.Context, abr *services.AddBlockRequest) error {
+	sw := safewrap.SafeWrap{}
+	var stateNodes []format.Node
+
+	for _, nodeBytes := range abr.State {
+		stateNode := sw.Decode(nodeBytes)
+
+		stateNodes = append(stateNodes, stateNode)
+	}
+
+	if sw.Err != nil {
+		return fmt.Errorf("error decoding abr state: %v", sw.Err)
+	}
+
+	err := n.dagStore.AddMany(ctx, stateNodes)
+	if err != nil {
+		return fmt.Errorf("error storing abr state: %v", err)
+	}
+
+	return nil
 }
 
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
@@ -346,7 +374,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 
 	completedRound := n.rounds.Current()
 
-	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests))
+	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests()))
 	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.AddBlockRequests)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
 	// increase the currentRound and create a new Round in the roundHolder
@@ -367,40 +395,52 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	rootNodeSp.Finish()
 
 	processSp := opentracing.StartSpan("gossip4.processTxs", opentracing.ChildOf(sp.Context()))
-	for _, txCID := range preferred.Checkpoint.AddBlockRequests {
+	for _, cidBytes := range preferred.Checkpoint.AddBlockRequests() {
 		txSp := opentracing.StartSpan("gossip4.tx", opentracing.ChildOf(processSp.Context()))
-		abrWrapper := n.mempool.Get(txCID)
-		abrWrapper.LogKV("confirmed", true)
+		abrCid, err := cid.Cast(cidBytes)
+		if err != nil {
+			panic(fmt.Errorf("error casting add block request cid: %v", err))
+		}
+
+		abrWrapper := n.mempool.Get(abrCid)
+		abrWrapper.SetTag("confirmed", true)
 
 		abr := abrWrapper.AddBlockRequest
 		if abrWrapper == nil {
-			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", txCID.String())
+			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", abrCid.String())
 			panic("an accepted checkpoint should not have a Tx we don't know about")
 		}
 
 		setSp := opentracing.StartSpan("gossip4.tx.set", opentracing.ChildOf(processSp.Context()))
 
-		err := rootNode.Set(msg.ctx, string(abr.ObjectId), txCID)
+		err = rootNode.Set(msg.ctx, string(abr.ObjectId), abrCid)
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
 		setSp.Finish()
 
 		// mempool calls StopTrace on our abrWrapper
-		n.mempool.DeleteIDAndConflictSet(txCID)
+		n.mempool.DeleteIDAndConflictSet(abrCid)
+		n.logger.Debugf("looking for %s height: %d", abr.ObjectId, abr.Height+1)
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
 		next, ok := n.inflight.Get(nextKey)
 		if ok {
+			n.logger.Debugf("found %s height: %d in inflight", abr.ObjectId, abr.Height+1)
 			nextAbrWrapper := next.(*AddBlockWrapper)
-			if bytes.Equal(nextAbrWrapper.AddBlockRequest.PreviousTip, nextAbrWrapper.AddBlockRequest.NewTip) {
+			if bytes.Equal(nextAbrWrapper.AddBlockRequest.PreviousTip, abrWrapper.AddBlockRequest.NewTip) {
 				if err := n.storeAbr(msg.ctx, nextAbrWrapper); err != nil {
 					n.logger.Warningf("error storing abr: %v", err)
 				}
 			}
 			n.inflight.Remove(nextKey)
 		}
+
+		if err := n.storeAbrBlocks(msg.ctx, abr); err != nil {
+			n.logger.Warningf("error storing abr state: %v", err)
+		}
+
 		txSp.Finish()
 	}
 	processSp.Finish()
@@ -476,8 +516,9 @@ func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 	// n.logger.Debugf("remote looking for height: %d", height)
 
 	r, ok := n.rounds.Get(height)
+	cp := &gossip.Checkpoint{Height: height}
+	response := types.WrapCheckpoint(cp)
 
-	response := types.Checkpoint{Height: height}
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
 		preferred := r.snowball.Preferred()
@@ -485,7 +526,7 @@ func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 			actorContext.Send(actorContext.Self(), &startSnowball{ctx: n.startCtx})
 		} else {
 			// n.logger.Debugf("existing preferred; %v", preferred)
-			response = *preferred.Checkpoint
+			response = preferred.Checkpoint
 		}
 	}
 	wrapped := response.Wrapped()
@@ -514,7 +555,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 	current, err := n.getCurrent(ctx, string(abr.ObjectId))
 	if err != nil {
-		abrWrapper.LogKV("error", err.Error())
+		abrWrapper.SetTag("error", err.Error())
 		defer abrWrapper.StopTrace()
 		n.logger.Errorf("error getting current: %v", err)
 		return
@@ -525,7 +566,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 		if abr.Height == 0 {
 			err = n.storeAbr(ctx, abrWrapper)
 			if err != nil {
-				abrWrapper.LogKV("error", err.Error())
+				abrWrapper.SetTag("error", err.Error())
 				defer abrWrapper.StopTrace()
 				n.logger.Errorf("error getting current: %v", err)
 				return
@@ -538,7 +579,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 	// if this msg height is lower than current then just drop it
 	if current.Height > abr.Height {
-		abrWrapper.LogKV("error", "current height is higher than ABR height")
+		abrWrapper.SetTag("error", "current height is higher than ABR height")
 		defer abrWrapper.StopTrace()
 		return
 	}
@@ -549,7 +590,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 		if !bytes.Equal(current.NewTip, abr.PreviousTip) {
 			n.logger.Warningf("tips did not match")
-			abrWrapper.LogKV("error", "tips did not match")
+			abrWrapper.SetTag("error", "tips did not match")
 			defer abrWrapper.StopTrace()
 			return
 		}
@@ -558,7 +599,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 		if err != nil {
 			err := fmt.Errorf("error storing abr: %w", err)
 			n.logger.Errorf("error storing abr: %v", err)
-			abrWrapper.LogKV("error", err.Error())
+			abrWrapper.SetTag("error", err.Error())
 			defer abrWrapper.StopTrace()
 			return
 		}
@@ -574,7 +615,7 @@ func (n *Node) handleAddBlockRequest(actorContext actor.Context, abrWrapper *Add
 
 	if abr.Height == current.Height {
 		msg := "byzantine: same height as current"
-		abrWrapper.LogKV("error", msg)
+		abrWrapper.SetTag("error", msg)
 		defer abrWrapper.StopTrace()
 		n.logger.Errorf("error storing abr: %v", msg)
 		return
