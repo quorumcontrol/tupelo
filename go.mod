@@ -9,7 +9,6 @@ require (
 	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
-	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
@@ -28,17 +27,19 @@ require (
 	github.com/libp2p/go-libp2p-core v0.2.4
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
 	github.com/libp2p/go-msgio v0.0.4
+	github.com/multiformats/go-multiaddr v0.1.1
+	github.com/multiformats/go-multiaddr-net v0.1.0
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.8.1
 	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
 	github.com/quorumcontrol/messages v1.1.1
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200204150453-a139a1e85716
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200206190112-05e2a0d36129
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
+	golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72
 )
 
 // These replaces come from: https://github.com/ipfs/go-ipfs/issues/6795#issuecomment-571165734

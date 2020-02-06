@@ -2,13 +2,14 @@ package nodebuilder
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
-
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -61,7 +62,10 @@ type HumanConfig struct {
 	StoragePath              string
 	PublicIP                 string
 	Port                     int
-	WebsocketPort            int
+
+	WebSocketPort         int
+	SecureWebSocketDomain string // only available on port 443
+	CertificateCache      string
 
 	PrivateKeySet *HumanPrivateKeySet
 
@@ -71,12 +75,14 @@ type HumanConfig struct {
 
 func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 	c := &Config{
-		Namespace:     hc.Namespace,
-		StoragePath:   hc.StoragePath,
-		PublicIP:      hc.PublicIP,
-		Port:          hc.Port,
-		WebsocketPort: hc.WebsocketPort,
-		BootstrapOnly: hc.BootstrapOnly,
+		Namespace:             hc.Namespace,
+		StoragePath:           hc.StoragePath,
+		PublicIP:              hc.PublicIP,
+		Port:                  hc.Port,
+		WebSocketPort:         hc.WebSocketPort,
+		BootstrapOnly:         hc.BootstrapOnly,
+		SecureWebSocketDomain: hc.SecureWebSocketDomain,
+		CertificateCache:      hc.CertificateCache,
 	}
 
 	tomlBits, err := ioutil.ReadFile(hc.NotaryGroupConfig)
@@ -154,4 +160,35 @@ func TomlToConfig(path string) (*Config, error) {
 	}
 
 	return HumanConfigToConfig(hc)
+}
+
+func wsAddrFromMultiAddrs(multiAddrs []ma.Multiaddr) (string, error) {
+	var localMa ma.Multiaddr
+	for _, addr := range multiAddrs {
+
+		if hasProtocol(addr, "ws") && hasProtocol(addr, "ip4") {
+			ip, err := addr.ValueForProtocol(ma.P_IP4)
+			if err != nil {
+				return "", fmt.Errorf("error getting protocol: %v", err)
+			}
+			if ip == "127.0.0.1" {
+				localMa = addr
+			}
+		}
+	}
+	if localMa == nil {
+		return "", fmt.Errorf("error finding local WS")
+	}
+	_, dialAddr, err := manet.DialArgs(localMa)
+	return dialAddr, err
+}
+
+func hasProtocol(ma ma.Multiaddr, name string) bool {
+	protocols := ma.Protocols()
+	for _, p := range protocols {
+		if p.Name == name {
+			return true
+		}
+	}
+	return false
 }
