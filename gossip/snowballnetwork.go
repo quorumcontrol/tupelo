@@ -22,6 +22,8 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
+const paralellCount = 3
+
 type snowballer struct {
 	sync.RWMutex
 
@@ -32,6 +34,11 @@ type snowballer struct {
 	group    *types.NotaryGroup
 	logger   logging.EventLogger
 	cache    *lru.Cache
+
+	parentCtx     context.Context
+	parentCtxStop context.CancelFunc
+
+	respChan chan *snowballVoteResp
 
 	earlyCommitter *earlyCommitter
 
@@ -56,6 +63,7 @@ func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
 		logger:         n.logger,
 		cache:          cache,
 		height:         height,
+		respChan:       make(chan *snowballVoteResp, snowball.k*paralellCount),
 		earlyCommitter: newEarlyCommitter(),
 	}
 }
@@ -93,14 +101,41 @@ func (snb *snowballer) Start(ctx context.Context) {
 		snb.logger.Debugf("preferred id: %s", snb.snowball.Preferred().ID())
 	}
 
+	snowballerCtx, cancel := context.WithCancel(ctx)
+	snb.parentCtx = snowballerCtx
+	snb.parentCtxStop = cancel
+
+	stopSampling := snowballerCtx.Done()
+
+	// start populating results
+	go func() {
+		tokenCh := make(chan struct{}, snb.snowball.k*paralellCount)
+		for i := 0; i < snb.snowball.k*paralellCount; i++ {
+			tokenCh <- struct{}{}
+		}
+
+		for {
+			select {
+			case <-stopSampling:
+				return // stop the sample
+			case <-tokenCh:
+				snb.getOneRandomVote(snb.parentCtx, tokenCh)
+			}
+
+		}
+	}()
+
 	go func() {
 		done := make(chan error, 1)
 		snb.run(ctx, done)
 
+		ctxDone := snowballerCtx.Done()
+
 		select {
-		case <-ctx.Done():
+		case <-ctxDone:
 			return
 		case err := <-done:
+			snb.parentCtxStop()
 			snb.node.rootContext.Send(snb.node.pid, &snowballerDone{err: err, ctx: ctx})
 		}
 	}()
@@ -149,19 +184,20 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 
 	sp.LogKV("height", snb.height)
 
-	respChan := make(chan *snowballVoteResp, snb.snowball.k)
-	wg := &sync.WaitGroup{}
+	sampleSize := snb.snowball.k
+
+	responses := make([]*snowballVoteResp, sampleSize)
 	for i := 0; i < snb.snowball.k; i++ {
-		wg.Add(1)
-		go func() {
-			snb.getOneRandomVote(ctx, wg, respChan)
-		}()
+		responses[i] = <-snb.respChan // this channel is being populated in another go routine
 	}
-	wg.Wait()
-	close(respChan)
-	votes := make([]*Vote, snb.snowball.k)
-	i := 0
-	for resp := range respChan {
+	votes := make([]*Vote, sampleSize)
+	for i, resp := range responses {
+		if resp == nil {
+			v := &Vote{}
+			v.Nil()
+			votes[i] = v
+			continue
+		}
 		wrappedCheckpoint := resp.wrappedCheckpoint
 		snb.logger.Debugf("%s checkpoint: %v", resp.signerID, wrappedCheckpoint.Value())
 		vote := &Vote{
@@ -181,16 +217,6 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 		if vote.ID() != ZeroVoteID {
 			snb.earlyCommitter.Vote(resp.signerID, wrappedCheckpoint.CID())
 		}
-
-		i++
-	}
-
-	if i < len(votes) {
-		for j := i; j < len(votes); j++ {
-			v := &Vote{}
-			v.Nil()
-			votes[j] = v
-		}
 	}
 
 	votes = calculateTallies(votes)
@@ -200,13 +226,18 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 }
 
-func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.WaitGroup, respChan chan *snowballVoteResp) {
+func (snb *snowballer) getOneRandomVote(parentCtx context.Context, tokenCh chan struct{}) {
 	sp, ctx := opentracing.StartSpanFromContext(parentCtx, "gossip4.snowballer.getOneRandomVote")
 	defer sp.Finish()
 
+	var resp *snowballVoteResp // set up here so that we can add a nil response to the resp channel on error
+
 	var signer *types.Signer
 	var signerPeer string
-	defer wg.Done()
+	defer func() {
+		snb.respChan <- resp  // this will block when we don't need any more responses
+		tokenCh <- struct{}{} // and then this will let the sampler continue to get more responses
+	}()
 
 	// pick one non-self signer
 	for signer == nil || signerPeer == snb.host.Identity() {
@@ -279,7 +310,7 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, wg *sync.Wait
 		snb.cache.Add(id, wrappedCheckpoint)
 	}
 
-	respChan <- &snowballVoteResp{
+	resp = &snowballVoteResp{
 		signerID:          signerPeer,
 		wrappedCheckpoint: wrappedCheckpoint,
 	}
