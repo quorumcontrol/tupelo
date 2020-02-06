@@ -325,7 +325,7 @@ func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 	}
 
 	if nb.Config.SecureWebSocketDomain != "" {
-		opts = append(opts, p2p.WithExternalAddr("/dns4/"+nb.Config.SecureWebSocketDomain+"/tcp/443/ws"))
+		opts = append(opts, p2p.WithExternalAddr("/dns4/"+nb.Config.SecureWebSocketDomain+"/tcp/443/wss"))
 	}
 
 	return opts
