@@ -119,7 +119,7 @@ func (snb *snowballer) Start(ctx context.Context) {
 			case <-stopSampling:
 				return // stop the sample
 			case <-tokenCh:
-				snb.getOneRandomVote(snb.parentCtx, tokenCh)
+				go snb.getOneRandomVote(snb.parentCtx, tokenCh)
 			}
 
 		}
