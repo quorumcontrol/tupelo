@@ -39,7 +39,7 @@ require (
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20191111213947-16651526fdb4
+	golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72
 )
 
 // These replaces come from: https://github.com/ipfs/go-ipfs/issues/6795#issuecomment-571165734
