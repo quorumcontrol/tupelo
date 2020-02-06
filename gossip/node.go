@@ -10,6 +10,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	format "github.com/ipfs/go-ipld-format"
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -339,17 +340,21 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 
 func (n *Node) storeAbrBlocks(ctx context.Context, abr *services.AddBlockRequest) error {
 	sw := safewrap.SafeWrap{}
+	var stateNodes []format.Node
 
 	for _, nodeBytes := range abr.State {
 		stateNode := sw.Decode(nodeBytes)
-		if sw.Err != nil {
-			return fmt.Errorf("error decoding abr state: %v", sw.Err)
-		}
 
-		err := n.dagStore.Add(ctx, stateNode)
-		if err != nil {
-			return fmt.Errorf("error storing abr state: %v", err)
-		}
+		stateNodes = append(stateNodes, stateNode)
+	}
+
+	if sw.Err != nil {
+		return fmt.Errorf("error decoding abr state: %v", sw.Err)
+	}
+
+	err := n.dagStore.AddMany(ctx, stateNodes)
+	if err != nil {
+		return fmt.Errorf("error storing abr state: %v", err)
 	}
 
 	return nil
