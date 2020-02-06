@@ -17,6 +17,7 @@ import (
 	"github.com/ipfs/go-bitswap"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
 	circuit "github.com/libp2p/go-libp2p-circuit"
@@ -24,6 +25,19 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/shibukawa/configdir"
 )
+
+const MULTIADDR_WSS_CODE = 0x01DE
+
+func init() {
+	// Code 0 means not yet registered
+	if ma.ProtocolWithCode(MULTIADDR_WSS_CODE).Code == 0 {
+		ma.AddProtocol(ma.Protocol{
+			Name:  "wss",
+			Code:  MULTIADDR_WSS_CODE,
+			VCode: ma.CodeToVarint(MULTIADDR_WSS_CODE),
+		})
+	}
+}
 
 var logger = logging.Logger("nodebuilder")
 
