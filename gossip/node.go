@@ -10,7 +10,6 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
-	format "github.com/ipfs/go-ipld-format"
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -22,7 +21,6 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
-	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
@@ -63,14 +61,16 @@ type Node struct {
 
 	rounds *roundHolder
 
-	snowballer *snowballer
-	validator  *TransactionValidator
+	snowballer  *snowballer
+	validator   *TransactionValidator
+	stateStorer *stateStorer
 
 	signerIndex int
 
-	pid         *actor.PID
-	snowballPid *actor.PID
-	syncerPid   *actor.PID
+	pid            *actor.PID
+	snowballPid    *actor.PID
+	stateStorerPid *actor.PID
+	syncerPid      *actor.PID
 
 	rootContext *actor.RootContext
 
@@ -146,6 +146,9 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 
 	networkedSnowball := newSnowballer(n, r.height, r.snowball)
 	n.snowballer = networkedSnowball
+
+	n.stateStorer = newStateStorer(logger, n.dagStore)
+
 	return n, nil
 }
 
@@ -248,6 +251,14 @@ func (n *Node) setupSnowball(actorContext actor.Context) {
 	})
 }
 
+func (n *Node) setupStateStorer(actorContext actor.Context) {
+	storerPid, err := actorContext.SpawnNamed(actor.PropsFromFunc(n.stateStorer.Receive), n.name+"-state-storer")
+	if err != nil {
+		panic(err)
+	}
+	n.stateStorerPid = storerPid
+}
+
 func (n *Node) setupSyncer(actorContext actor.Context) {
 	syncerPid, err := actorContext.SpawnNamed(actor.PropsFromProducer(func() actor.Actor {
 		return &transactionGetter{
@@ -268,6 +279,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 	case *actor.Started:
 		n.setupSyncer(actorContext)
 		n.setupSnowball(actorContext)
+		n.setupStateStorer(actorContext)
 	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
 	case *snowballTicker:
@@ -275,7 +287,7 @@ func (n *Node) Receive(actorContext actor.Context) {
 			actorContext.Send(n.snowballPid, &startSnowball{ctx: msg.ctx})
 		}
 	case *snowballerDone:
-		n.handleSnowballerDone(msg)
+		n.handleSnowballerDone(actorContext, msg)
 	default:
 		n.logger.Debugf("root node actor received other %T message: %+v", msg, msg)
 	}
@@ -338,29 +350,7 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
 }
 
-func (n *Node) storeAbrBlocks(ctx context.Context, abr *services.AddBlockRequest) error {
-	sw := safewrap.SafeWrap{}
-	var stateNodes []format.Node
-
-	for _, nodeBytes := range abr.State {
-		stateNode := sw.Decode(nodeBytes)
-
-		stateNodes = append(stateNodes, stateNode)
-	}
-
-	if sw.Err != nil {
-		return fmt.Errorf("error decoding abr state: %v", sw.Err)
-	}
-
-	err := n.dagStore.AddMany(ctx, stateNodes)
-	if err != nil {
-		return fmt.Errorf("error storing abr state: %v", err)
-	}
-
-	return nil
-}
-
-func (n *Node) handleSnowballerDone(msg *snowballerDone) {
+func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerDone) {
 	sp := opentracing.StartSpan("gossip4.round.done")
 	defer sp.Finish()
 
@@ -437,9 +427,7 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 			n.inflight.Remove(nextKey)
 		}
 
-		if err := n.storeAbrBlocks(msg.ctx, abr); err != nil {
-			n.logger.Warningf("error storing abr state: %v", err)
-		}
+		actorContext.Send(n.stateStorerPid, saveTransactionState{ctx: msg.ctx, abr: abr})
 
 		txSp.Finish()
 	}
