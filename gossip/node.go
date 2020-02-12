@@ -10,6 +10,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	format "github.com/ipfs/go-ipld-format"
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -21,6 +22,7 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
@@ -336,6 +338,28 @@ func (n *Node) publishCompletedRound(ctx context.Context) error {
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
 }
 
+func (n *Node) storeAbrBlocks(ctx context.Context, abr *services.AddBlockRequest) error {
+	sw := safewrap.SafeWrap{}
+	var stateNodes []format.Node
+
+	for _, nodeBytes := range abr.State {
+		stateNode := sw.Decode(nodeBytes)
+
+		stateNodes = append(stateNodes, stateNode)
+	}
+
+	if sw.Err != nil {
+		return fmt.Errorf("error decoding abr state: %v", sw.Err)
+	}
+
+	err := n.dagStore.AddMany(ctx, stateNodes)
+	if err != nil {
+		return fmt.Errorf("error storing abr state: %v", err)
+	}
+
+	return nil
+}
+
 func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 	sp := opentracing.StartSpan("gossip4.round.done")
 	defer sp.Finish()
@@ -412,6 +436,11 @@ func (n *Node) handleSnowballerDone(msg *snowballerDone) {
 			}
 			n.inflight.Remove(nextKey)
 		}
+
+		if err := n.storeAbrBlocks(msg.ctx, abr); err != nil {
+			n.logger.Warningf("error storing abr state: %v", err)
+		}
+
 		txSp.Finish()
 	}
 	processSp.Finish()
