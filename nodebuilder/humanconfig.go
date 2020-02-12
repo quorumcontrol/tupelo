@@ -2,14 +2,15 @@ package nodebuilder
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
+
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
-	"io/ioutil"
-	"path/filepath"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -59,9 +60,10 @@ type HumanConfig struct {
 
 	NotaryGroupConfig        string
 	Gossip3NotaryGroupConfig string
-	StoragePath              string
 	PublicIP                 string
 	Port                     int
+
+	Storage HumanStorageConfig
 
 	WebSocketPort         int
 	SecureWebSocketDomain string // only available on port 443
@@ -76,7 +78,6 @@ type HumanConfig struct {
 func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 	c := &Config{
 		Namespace:             hc.Namespace,
-		StoragePath:           hc.StoragePath,
 		PublicIP:              hc.PublicIP,
 		Port:                  hc.Port,
 		WebSocketPort:         hc.WebSocketPort,
@@ -129,6 +130,13 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		}
 		c.PrivateKeySet = privSet
 	}
+
+	bstore, err := hc.Storage.ToBlockstore()
+	if err != nil {
+		return nil, fmt.Errorf("error converting to blockstore: %v", err)
+	}
+
+	c.Blockstore = bstore
 
 	return c, nil
 }

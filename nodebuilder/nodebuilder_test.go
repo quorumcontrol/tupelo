@@ -65,6 +65,10 @@ func TestSigner(t *testing.T) {
 			},
 		}
 
+		hsc := &HumanStorageConfig{Kind: "memory"}
+		bstore, err := hsc.ToBlockstore()
+		require.Nil(t, err)
+
 		nb := &NodeBuilder{
 			Config: &Config{
 				NotaryGroupConfig: ngConfig,
@@ -72,7 +76,7 @@ func TestSigner(t *testing.T) {
 					DestKey: ts.EcdsaKeys[0],
 					SignKey: ts.SignKeys[0],
 				},
-				StoragePath:    configDir("tests", "testonly"),
+				Blockstore:     bstore,
 				BootstrapNodes: addrs,
 			},
 		}
