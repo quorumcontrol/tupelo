@@ -9,6 +9,7 @@ require (
 	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
 	github.com/gobuffalo/packr/v2 v2.5.1
+	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
@@ -40,6 +41,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72
+	google.golang.org/grpc v1.21.1
 )
 
 // These replaces come from: https://github.com/ipfs/go-ipfs/issues/6795#issuecomment-571165734
