@@ -86,8 +86,11 @@ func handleResult(resultSet *ResultSet, res *Result) {
 }
 
 func (b *Benchmark) Run(ctx context.Context) *ResultSet {
-	ctx, cancel := context.WithTimeout(ctx, b.duration)
-	defer cancel()
+	benchmarkCtx, benchmarkCancel := context.WithTimeout(ctx, b.duration)
+	defer benchmarkCancel()
+
+	clientCtx, clientCancel := context.WithCancel(ctx)
+	defer clientCancel()
 
 	delayBetween := time.Duration(float64(time.Second) / float64(b.concurrency))
 
@@ -98,11 +101,11 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-benchmarkCtx.Done():
 				return
 			default:
 				atomic.AddInt64(&resultSet.Total, int64(1))
-				go b.Send(ctx, resCh)
+				go b.Send(clientCtx, resCh)
 				time.Sleep(delayBetween)
 			}
 		}
@@ -111,7 +114,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	go func() {
 		for {
 			select {
-			case <-ctx.Done():
+			case <-benchmarkCtx.Done():
 				return
 			case res := <-resCh:
 				handleResult(resultSet, res)
@@ -119,7 +122,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 		}
 	}()
 
-	<-ctx.Done()
+	<-benchmarkCtx.Done()
 	// now we wait for "timeout" to happen to make sure we get all the results
 	time.Sleep(b.timeout)
 
