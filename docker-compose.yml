@@ -18,7 +18,11 @@ services:
     volumes:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node0/config.toml",
-      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+      "-L", "${TUPELO_LOG_LEVEL:-warn}"]
+    ports:
+      - "8080:8080"
+    environment:
+      TUPELO_PPROF_ENABLED: "true"
 
   node1:
     depends_on: 
@@ -36,6 +40,60 @@ services:
     volumes:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node2/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+  
+  node3:
+    depends_on: 
+      - bootstrap
+    build: .
+    volumes:
+      - ./configs/localdocker:/configs
+    command: ["node", "--config", "/configs/node3/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+  
+  node4:
+    depends_on: 
+      - bootstrap
+    build: .
+    volumes:
+      - ./configs/localdocker:/configs
+    command: ["node", "--config", "/configs/node4/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+  
+  node5:
+    depends_on: 
+      - bootstrap
+    build: .
+    volumes:
+      - ./configs/localdocker:/configs
+    command: ["node", "--config", "/configs/node5/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+  
+  node6:
+    depends_on: 
+      - bootstrap
+    build: .
+    volumes:
+      - ./configs/localdocker:/configs
+    command: ["node", "--config", "/configs/node6/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+  
+  node7:
+    depends_on: 
+      - bootstrap
+    build: .
+    volumes:
+      - ./configs/localdocker:/configs
+    command: ["node", "--config", "/configs/node7/config.toml",
+      "-L", "${TUPELO_LOG_LEVEL:-info}"]
+  
+  node8:
+    depends_on: 
+      - bootstrap
+    build: .
+    volumes:
+      - ./configs/localdocker:/configs
+    command: ["node", "--config", "/configs/node8/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
 
 networks:
