@@ -364,8 +364,10 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 
 	completedRound := n.rounds.Current()
 
+	sp.SetTag("round", completedRound.height)
+	sp.SetTag("txcount", len(preferred.Checkpoint.AddBlockRequests()))
+
 	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests()))
-	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.AddBlockRequests)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
 	// increase the currentRound and create a new Round in the roundHolder
 	// state updating should be more robust here to make sure transactions don't stomp on each other and can probably happen in the background
@@ -392,8 +394,10 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 			panic(fmt.Errorf("error casting add block request cid: %v", err))
 		}
 
+		mempoolSp := opentracing.StartSpan("gossip4.mempoolGet", opentracing.ChildOf(processSp.Context()))
 		abrWrapper := n.mempool.Get(abrCid)
 		abrWrapper.SetTag("confirmed", true)
+		mempoolSp.Finish()
 
 		abr := abrWrapper.AddBlockRequest
 		if abrWrapper == nil {
@@ -410,12 +414,16 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 		setSp.Finish()
 
 		// mempool calls StopTrace on our abrWrapper
+		mempool2Sp := opentracing.StartSpan("gossip4.deleteIDAndConflictSet", opentracing.ChildOf(processSp.Context()))
 		n.mempool.DeleteIDAndConflictSet(abrCid)
+		mempool2Sp.Finish()
 		n.logger.Debugf("looking for %s height: %d", abr.ObjectId, abr.Height+1)
 		// if we have the next update in our inflight, we can queue that up here
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
+		ifSp := opentracing.StartSpan("gossip4.inflightGet", opentracing.ChildOf(processSp.Context()))
 		next, ok := n.inflight.Get(nextKey)
+		ifSp.Finish()
 		if ok {
 			n.logger.Debugf("found %s height: %d in inflight", abr.ObjectId, abr.Height+1)
 			nextAbrWrapper := next.(*AddBlockWrapper)
@@ -444,7 +452,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	completedRound.state = rootNode
 	n.logger.Debugf("after setting: %v", completedRound.state)
 
-	publishSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
+	publishSp := opentracing.StartSpan("gossip4.publishComplete", opentracing.ChildOf(sp.Context()))
 	// Notify clients of the new checkpoint
 	err = n.publishCompletedRound(context.TODO())
 	if err != nil {
@@ -621,13 +629,18 @@ func inFlightID(objectID []byte, height uint64) string {
 }
 
 func (n *Node) storeAbr(ctx context.Context, abrWrapper *AddBlockWrapper) error {
+	storeSp := opentracing.StartSpan("gossip4.storeAbrHamt")
 	id, err := n.hamtStore.Put(ctx, abrWrapper.AddBlockRequest)
 	if err != nil {
+		storeSp.Finish()
 		return fmt.Errorf("error putting abr: %w", err)
 	}
+	storeSp.Finish()
 
+	memSp := opentracing.StartSpan("gossip4.storeAbrMempool")
 	n.logger.Debugf("storing in mempool %s", id.String())
 	n.mempool.Add(id, abrWrapper)
+	memSp.Finish()
 
 	return nil
 }

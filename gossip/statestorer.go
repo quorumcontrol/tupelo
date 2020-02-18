@@ -6,6 +6,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	format "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -29,6 +30,9 @@ func newStateStorer(logger logging.EventLogger, dagStore nodestore.DagStore) *st
 }
 
 func (s *stateStorer) storeState(ctx context.Context, abr *services.AddBlockRequest) {
+	storeSp := opentracing.StartSpan("gossip4.storeState")
+	defer storeSp.Finish()
+
 	sw := safewrap.SafeWrap{}
 	var stateNodes []format.Node
 

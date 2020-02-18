@@ -6,6 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
 
@@ -54,6 +55,9 @@ func newMempool() *mempool {
 }
 
 func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
+	sp := opentracing.StartSpan("mempool.add")
+	defer sp.Finish()
+
 	m.Lock()
 	memlog.Debugf("adding %s", id.String())
 
@@ -70,6 +74,9 @@ func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
 }
 
 func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
+	sp := opentracing.StartSpan("mempool.get")
+	defer sp.Finish()
+
 	m.RLock()
 	defer m.RUnlock()
 	return m.abrs[id]
@@ -78,6 +85,9 @@ func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 // DeleteIDAndConflictSet deletes not only this id, but all other
 // conflicting ABRs as well.
 func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
+	sp := opentracing.StartSpan("mempool.deleteIDAndConflictSet")
+	defer sp.Finish()
+
 	m.Lock()
 	memlog.Debugf("removing %s", id.String())
 	existing, ok := m.abrs[id]
@@ -100,6 +110,9 @@ func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 }
 
 func (m *mempool) Contains(ids ...cid.Cid) bool {
+	sp := opentracing.StartSpan("mempool.contains")
+	defer sp.Finish()
+
 	m.RLock()
 	defer m.RUnlock()
 	for _, id := range ids {
@@ -112,6 +125,9 @@ func (m *mempool) Contains(ids ...cid.Cid) bool {
 }
 
 func (m *mempool) Preferred() []cid.Cid {
+	sp := opentracing.StartSpan("mempool.preferred")
+	defer sp.Finish()
+
 	m.RLock()
 	defer m.RUnlock()
 
@@ -126,6 +142,9 @@ func (m *mempool) Preferred() []cid.Cid {
 }
 
 func (m *mempool) Length() int {
+	sp := opentracing.StartSpan("mempool.length")
+	defer sp.Finish()
+
 	m.RLock()
 	defer m.RUnlock()
 	return len(m.abrs)
