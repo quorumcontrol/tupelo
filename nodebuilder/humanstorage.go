@@ -1,6 +1,5 @@
 package nodebuilder
 
-
 import (
 	"fmt"
 	"os"
@@ -39,7 +38,7 @@ type HumanStorageConfig struct {
 	RootDirectory  string
 }
 
-func (hsc *HumanStorageConfig) ToDatastore() (datastore.Batching, error) {
+func (hsc *HumanStorageConfig) toDatastore() (datastore.Batching, error) {
 	switch strings.ToLower(hsc.Kind) {
 	case "", "memory": // not-specified means memory
 		return dsync.MutexWrap(datastore.NewMapDatastore()), nil
@@ -53,7 +52,7 @@ func (hsc *HumanStorageConfig) ToDatastore() (datastore.Batching, error) {
 }
 
 func (hsc *HumanStorageConfig) ToBlockstore() (blockstore.Blockstore, error) {
-	datastore, err := hsc.ToDatastore()
+	datastore, err := hsc.toDatastore()
 	if err != nil {
 		return nil, fmt.Errorf("error getting datastore: %v", err)
 	}

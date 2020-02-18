@@ -177,22 +177,11 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) (*p2p.LibP2PHost, error)
 		cm.Protect(id, "signer")
 	}
 
-	blockstorage, err := nb.Config.Storage.ToBlockstore() // defaults to memory
-	if err != nil {
-		return nil, fmt.Errorf("error converting to datastore: %w", err)
-	}
-
-	p2pStore, err := nb.Config.P2PStorage.ToDatastore() // defaults to memory
-	if err != nil {
-		return nil, fmt.Errorf("error converting to datastore: %w", err)
-	}
-
 	p2pNode, bitswapper, err := p2p.NewHostAndBitSwapPeer(
 		ctx,
 		append(nb.defaultP2POptions(ctx),
 			p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
-			p2p.WithDatastore(p2pStore),
-			p2p.WithBlockstore(blockstorage),
+			p2p.WithBlockstore(nb.Config.Blockstore),
 		)...,
 	)
 	if err != nil {

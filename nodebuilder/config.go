@@ -3,6 +3,7 @@ package nodebuilder
 import (
 	"crypto/ecdsa"
 
+	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
@@ -26,7 +27,6 @@ type Config struct {
 
 	Gossip3NotaryGroupConfig *g3types.Config
 	NotaryGroupConfig        *types.Config
-	StoragePath              string
 	PublicIP                 string
 	Port                     int
 
@@ -40,6 +40,5 @@ type Config struct {
 	TracingSystem TracingSystem // either Jaeger or Elastic
 	BootstrapOnly bool
 
-	P2PStorage HumanStorageConfig
-	Storage    HumanStorageConfig
+	Blockstore blockstore.Blockstore
 }
