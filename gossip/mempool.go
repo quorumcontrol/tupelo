@@ -56,7 +56,8 @@ func newMempool() *mempool {
 func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
 	m.Lock()
 	memlog.Debugf("adding %s", id.String())
-
+	//TODO: there's got to be a better place for setting the cid
+	abrWrapper.cid = id
 	indexKey := toConflictSetID(abrWrapper.AddBlockRequest)
 	cs, ok := m.conflictSets[indexKey]
 	if !ok {
@@ -75,10 +76,23 @@ func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 	return m.abrs[id]
 }
 
+func (m *mempool) BulkDelete(ids ...cid.Cid) {
+	m.Lock()
+	for _, id := range ids {
+		m.deleteIDAndConflictSetInLock(id)
+	}
+	m.Unlock()
+}
+
 // DeleteIDAndConflictSet deletes not only this id, but all other
 // conflicting ABRs as well.
 func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 	m.Lock()
+	m.deleteIDAndConflictSetInLock(id)
+	m.Unlock()
+}
+
+func (m *mempool) deleteIDAndConflictSetInLock(id cid.Cid) {
 	memlog.Debugf("removing %s", id.String())
 	existing, ok := m.abrs[id]
 	if ok {
@@ -96,7 +110,6 @@ func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 			delete(m.conflictSets, csID)
 		}
 	}
-	m.Unlock()
 }
 
 func (m *mempool) Contains(ids ...cid.Cid) bool {

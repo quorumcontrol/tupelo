@@ -309,26 +309,25 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.
 	return types.WrapRoundConfirmation(conf), nil
 }
 
-func (n *Node) publishCompletedRound(ctx context.Context) error {
-	current := n.rounds.Current()
-	currentStateCid, err := n.hamtStore.Put(ctx, current.state.hamt)
+func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
+	currentStateCid, err := n.hamtStore.Put(ctx, round.state.hamt)
 	if err != nil {
 		return fmt.Errorf("error getting current state cid: %v", err)
 	}
 
-	if !current.snowball.Decided() {
+	if !round.snowball.Decided() {
 		return fmt.Errorf("can't publish an undecided round")
 	}
 
-	err = n.dagStore.Add(ctx, current.snowball.Preferred().Checkpoint.Wrapped())
+	err = n.dagStore.Add(ctx, round.snowball.Preferred().Checkpoint.Wrapped())
 	if err != nil {
 		return fmt.Errorf("error adding to dag store: %w", err)
 	}
 
-	preferredCheckpointCid := current.snowball.Preferred().Checkpoint.CID()
+	preferredCheckpointCid := round.snowball.Preferred().Checkpoint.CID()
 
 	completedRound := &gossip.Round{
-		Height:        current.height,
+		Height:        round.height,
 		StateCid:      currentStateCid.Bytes(),
 		CheckpointCid: preferredCheckpointCid.Bytes(),
 	}
@@ -385,34 +384,18 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	rootNodeSp.Finish()
 
 	processSp := opentracing.StartSpan("gossip4.processTxs", opentracing.ChildOf(sp.Context()))
-	for _, cidBytes := range preferred.Checkpoint.AddBlockRequests() {
-		txSp := opentracing.StartSpan("gossip4.tx", opentracing.ChildOf(processSp.Context()))
+	abrCIDBytes := preferred.Checkpoint.AddBlockRequests()
+	abrws := make([]*AddBlockWrapper, len(abrCIDBytes))
+	abrCIDs := make([]cid.Cid, len(abrCIDBytes))
+	for i, cidBytes := range abrCIDBytes {
 		abrCid, err := cid.Cast(cidBytes)
 		if err != nil {
 			panic(fmt.Errorf("error casting add block request cid: %v", err))
 		}
-
+		abrCIDs[i] = abrCid
 		abrWrapper := n.mempool.Get(abrCid)
-		abrWrapper.SetTag("confirmed", true)
-
 		abr := abrWrapper.AddBlockRequest
-		if abrWrapper == nil {
-			n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", abrCid.String())
-			panic("an accepted checkpoint should not have a Tx we don't know about")
-		}
-
-		setSp := opentracing.StartSpan("gossip4.tx.set", opentracing.ChildOf(processSp.Context()))
-
-		err = state.hamt.Set(msg.ctx, string(abr.ObjectId), abrCid)
-		if err != nil {
-			panic(fmt.Errorf("error setting hamt: %w", err))
-		}
-		setSp.Finish()
-
-		// mempool calls StopTrace on our abrWrapper
-		n.mempool.DeleteIDAndConflictSet(abrCid)
-		n.logger.Debugf("looking for %s height: %d", abr.ObjectId, abr.Height+1)
-		// if we have the next update in our inflight, we can queue that up here
+		abrws[i] = abrWrapper
 		nextKey := inFlightID(abr.ObjectId, abr.Height+1)
 		// if the next height Tx is here we can also queue that up
 		next, ok := n.inflight.Get(nextKey)
@@ -420,37 +403,29 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 			n.logger.Debugf("found %s height: %d in inflight", abr.ObjectId, abr.Height+1)
 			nextAbrWrapper := next.(*AddBlockWrapper)
 			if bytes.Equal(nextAbrWrapper.AddBlockRequest.PreviousTip, abrWrapper.AddBlockRequest.NewTip) {
-				if err := n.storeAbr(msg.ctx, nextAbrWrapper); err != nil {
-					n.logger.Warningf("error storing abr: %v", err)
-				}
+				go func() {
+					if err := n.storeAbr(msg.ctx, nextAbrWrapper); err != nil {
+						n.logger.Warningf("error storing abr: %v", err)
+					}
+				}()
+
 			}
 			n.inflight.Remove(nextKey)
 		}
-
-		actorContext.Send(n.stateStorerPid, &saveTransactionState{ctx: msg.ctx, abr: abr})
-
-		txSp.Finish()
 	}
+	state.addInflights(abrws...)
+	n.mempool.BulkDelete(abrCIDs...)
+
 	processSp.Finish()
-
-	flushSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
-	err := state.hamt.Flush(msg.ctx)
-	if err != nil {
-		panic(fmt.Errorf("error flushing rootNode: %w", err))
-	}
-	flushSp.Finish()
 
 	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, state.hamt)
 	completedRound.state = state
+	go func() {
+		if err := state.backgroundProcess(context.TODO(), n, completedRound); err != nil {
+			n.logger.Errorf("error processing round: %v", err)
+		}
+	}()
 	n.logger.Debugf("after setting: %v", completedRound.state.hamt)
-
-	publishSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
-	// Notify clients of the new checkpoint
-	err = n.publishCompletedRound(context.TODO())
-	if err != nil {
-		n.logger.Errorf("error publishing current round: %v", err)
-	}
-	publishSp.Finish()
 
 	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
 	n.rounds.SetCurrent(round)
