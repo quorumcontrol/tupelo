@@ -16,7 +16,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-hamt-ipld"
 
 	"github.com/stretchr/testify/require"
 
@@ -94,13 +93,12 @@ func waitForAllAbrs(t *testing.T, ctx context.Context, nodes []*Node, abrs []*se
 
 		for _, abr := range abrs {
 			did := string(abr.ObjectId)
-			var tip cid.Cid
 			r, _ := n.rounds.Get(current.height - 1)
-			err := r.state.hamt.Find(ctx, did, &tip)
-			if err == hamt.ErrNotFound {
+			abr, err := r.state.Find(ctx, did)
+			require.Nil(t, err)
+			if abr == nil {
 				return false
 			}
-			require.Nil(t, err)
 		}
 		return true
 	}

@@ -41,12 +41,16 @@ func (gs *globalState) Copy(ctx context.Context) *globalState {
 	return &globalState{
 		hamt:     gs.hamt.Copy(),
 		inflight: newInflight,
+		store:    gs.store,
 	}
 }
 
 func (gs *globalState) Find(ctx context.Context, objectID string) (*services.AddBlockRequest, error) {
 	gs.RLock()
 	defer gs.RUnlock()
+	if gs.hamt == nil {
+		return nil, nil
+	}
 
 	wrapper, ok := gs.inflight[objectID]
 	if ok {
