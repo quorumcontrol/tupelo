@@ -379,7 +379,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	} else {
 		previousRound, _ := n.rounds.Get(completedRound.height - 1)
 		n.logger.Debugf("previous state for %d: %v", completedRound.height-1, previousRound.state)
-		state = previousRound.state.Copy()
+		state = previousRound.state.Copy(context.TODO())
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, state.hamt)
 	rootNodeSp.Finish()
@@ -638,33 +638,12 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 		return nil, nil // this is the genesis round: we, by definition, have no state
 	}
 
-	var abrCid cid.Cid
-
 	lockedRound, ok := n.rounds.Get(currentRound.height - 1)
 	if !ok {
 		return nil, fmt.Errorf("we don't have the previous round")
 	}
 
-	n.logger.Debugf("previous round: %v", lockedRound)
-
-	err := lockedRound.state.hamt.Find(ctx, objectID, &abrCid)
-	if err != nil {
-		if err == hamt.ErrNotFound {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("error getting abrCID: %v", err)
-	}
-
-	abr := &services.AddBlockRequest{}
-
-	if !abrCid.Equals(cid.Undef) {
-		err = n.hamtStore.Get(ctx, abrCid, abr)
-		if err != nil {
-			return nil, fmt.Errorf("error getting abr: %v", err)
-		}
-	}
-
-	return abr, nil
+	return lockedRound.state.Find(ctx, objectID)
 }
 
 func (n *Node) PID() *actor.PID {
