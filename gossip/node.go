@@ -435,7 +435,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 			n.inflight.Remove(nextKey)
 		}
 
-		actorContext.Send(n.stateStorerPid, saveTransactionState{ctx: msg.ctx, abr: abr})
+		actorContext.Send(n.stateStorerPid, &saveTransactionState{ctx: msg.ctx, abr: abr})
 
 		txSp.Finish()
 	}
