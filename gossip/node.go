@@ -311,7 +311,7 @@ func (n *Node) confirmCompletedRound(ctx context.Context, completedRound *types.
 
 func (n *Node) publishCompletedRound(ctx context.Context) error {
 	current := n.rounds.Current()
-	currentStateCid, err := n.hamtStore.Put(ctx, current.state)
+	currentStateCid, err := n.hamtStore.Put(ctx, current.state.hamt)
 	if err != nil {
 		return fmt.Errorf("error getting current state cid: %v", err)
 	}
@@ -373,15 +373,15 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 
 	rootNodeSp := opentracing.StartSpan("gossip4.getRoot", opentracing.ChildOf(sp.Context()))
 
-	var rootNode *hamt.Node
+	var state *globalState
 	if completedRound.height == 0 {
-		rootNode = hamt.NewNode(n.hamtStore, hamt.UseTreeBitWidth(5))
+		state = newGlobalState(n.hamtStore)
 	} else {
 		previousRound, _ := n.rounds.Get(completedRound.height - 1)
 		n.logger.Debugf("previous state for %d: %v", completedRound.height-1, previousRound.state)
-		rootNode = previousRound.state.Copy()
+		state = previousRound.state.Copy()
 	}
-	n.logger.Debugf("current round: %d, node: %v", completedRound, rootNode)
+	n.logger.Debugf("current round: %d, node: %v", completedRound, state.hamt)
 	rootNodeSp.Finish()
 
 	processSp := opentracing.StartSpan("gossip4.processTxs", opentracing.ChildOf(sp.Context()))
@@ -403,7 +403,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 
 		setSp := opentracing.StartSpan("gossip4.tx.set", opentracing.ChildOf(processSp.Context()))
 
-		err = rootNode.Set(msg.ctx, string(abr.ObjectId), abrCid)
+		err = state.hamt.Set(msg.ctx, string(abr.ObjectId), abrCid)
 		if err != nil {
 			panic(fmt.Errorf("error setting hamt: %w", err))
 		}
@@ -434,15 +434,15 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	processSp.Finish()
 
 	flushSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
-	err := rootNode.Flush(msg.ctx)
+	err := state.hamt.Flush(msg.ctx)
 	if err != nil {
 		panic(fmt.Errorf("error flushing rootNode: %w", err))
 	}
 	flushSp.Finish()
 
-	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, rootNode)
-	completedRound.state = rootNode
-	n.logger.Debugf("after setting: %v", completedRound.state)
+	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, state.hamt)
+	completedRound.state = state
+	n.logger.Debugf("after setting: %v", completedRound.state.hamt)
 
 	publishSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
 	// Notify clients of the new checkpoint
@@ -647,7 +647,7 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 
 	n.logger.Debugf("previous round: %v", lockedRound)
 
-	err := lockedRound.state.Find(ctx, objectID, &abrCid)
+	err := lockedRound.state.hamt.Find(ctx, objectID, &abrCid)
 	if err != nil {
 		if err == hamt.ErrNotFound {
 			return nil, nil

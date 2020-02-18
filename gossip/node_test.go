@@ -96,7 +96,7 @@ func waitForAllAbrs(t *testing.T, ctx context.Context, nodes []*Node, abrs []*se
 			did := string(abr.ObjectId)
 			var tip cid.Cid
 			r, _ := n.rounds.Get(current.height - 1)
-			err := r.state.Find(ctx, did, &tip)
+			err := r.state.hamt.Find(ctx, did, &tip)
 			if err == hamt.ErrNotFound {
 				return false
 			}
