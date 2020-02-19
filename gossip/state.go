@@ -108,53 +108,16 @@ func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *ro
 		actor.EmptyRootContext.Send(n.stateStorerPid, &saveTransactionState{ctx: ctx, abr: abrWrapper.AddBlockRequest})
 	}
 
-	// flushSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
 	err := gs.hamt.Flush(ctx)
 	if err != nil {
 		panic(fmt.Errorf("error flushing rootNode: %w", err))
 	}
-	// flushSp.Finish()
 
-	// publishSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
 	// Notify clients of the new checkpoint
 	err = n.publishCompletedRound(ctx, round)
 	if err != nil {
 		n.logger.Errorf("error publishing current round: %v", err)
 	}
-	// publishSp.Finish()
 
 	return nil
-
-	// for _, cidBytes := range abrCIDs {
-	// 	txSp := opentracing.StartSpan("gossip4.tx", opentracing.ChildOf(processSp.Context()))
-	// 	abrCid, err := cid.Cast(cidBytes)
-	// 	if err != nil {
-	// 		panic(fmt.Errorf("error casting add block request cid: %v", err))
-	// 	}
-
-	// 	abrWrapper := n.mempool.Get(abrCid)
-	// 	abrWrapper.SetTag("confirmed", true)
-
-	// 	abr := abrWrapper.AddBlockRequest
-	// 	if abrWrapper == nil {
-	// 		n.logger.Errorf("I DO NOT HAVE THE TRANSACTION: %s", abrCid.String())
-	// 		panic("an accepted checkpoint should not have a Tx we don't know about")
-	// 	}
-
-	// 	setSp := opentracing.StartSpan("gossip4.tx.set", opentracing.ChildOf(processSp.Context()))
-
-	// 	err = state.hamt.Set(msg.ctx, string(abr.ObjectId), abrCid)
-	// 	if err != nil {
-	// 		panic(fmt.Errorf("error setting hamt: %w", err))
-	// 	}
-	// 	setSp.Finish()
-
-	// mempool calls StopTrace on our abrWrapper
-	// n.mempool.DeleteIDAndConflictSet(abrCid)
-	// 	n.logger.Debugf("looking for %s height: %d", abr.ObjectId, abr.Height+1)
-	// 	// if we have the next update in our inflight, we can queue that up here
-
-	// 	txSp.Finish()
-	// }
-	// processSp.Finish()
 }
