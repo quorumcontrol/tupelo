@@ -30,6 +30,8 @@ services:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node0/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
+    ports:
+      - "34002:34002"
 
   node1:
     depends_on: 
@@ -39,6 +41,8 @@ services:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node1/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
+    ports:
+      - "34003:34003"
   
   node2:
     depends_on: 
@@ -48,6 +52,8 @@ services:
       - ./configs/localdocker:/configs
     command: ["node", "--config", "/configs/node2/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
+    ports:
+      - "34004:34004"
 
 networks:
   default:

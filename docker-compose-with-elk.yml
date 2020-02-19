@@ -17,13 +17,13 @@ services:
       ELASTIC_APM_SERVER_URL: "http://apmserver:8200"
       TUPELO_TRACING_ENABLED: "true"
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:6.5.3
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.6.0
     ports:
       - 9200
     environment:
       discovery.type: single-node
   kibana:
-    image: docker.elastic.co/kibana/kibana:6.5.3
+    image: docker.elastic.co/kibana/kibana:7.6.0
     ports:
       - 5601:5601
     command:
@@ -31,7 +31,7 @@ services:
       - -e
       - http://elasticsearch:9200
   apmserver:
-    image: docker.elastic.co/apm/apm-server:6.5.3
+    image: docker.elastic.co/apm/apm-server:7.6.0
     command:
       - apm-server
       - -E

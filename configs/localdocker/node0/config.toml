@@ -1,4 +1,6 @@
 NotaryGroupConfig = "../localdocker.toml"
+Port = 34002
+TracingSystem = "elastic"
 
 [PrivateKeySet]
 SignKeyHex = "0x4344e3372f1b790016ed86400611fab64d0bba91136518685a7ce34106f1c759"
