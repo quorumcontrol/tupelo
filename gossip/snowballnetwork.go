@@ -120,6 +120,9 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 			didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
 			// if > alpha of the network has voted for a particular checkpoint *and* I agree that it is my preferred, then I can early commit that.
 			if didEarly && snb.snowball.Preferred().Checkpoint.CID().Equals(checkpointID) {
+
+				sp.SetTag("earlycommit", snb.snowball.count)
+
 				snb.logger.Debugf("early commit on %s: ", checkpointID.String())
 				wrappedCheckpoint, ok := snb.cache.Get(checkpointID)
 				if !ok {
@@ -147,8 +150,11 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	defer sp.Finish()
 	ctx := opentracing.ContextWithSpan(startCtx, sp)
 
-	sp.LogKV("height", snb.height)
+	// sp.LogKV("height", snb.height)
+	sp.SetTag("height", snb.height)
+	sp.SetTag("count", snb.snowball.count)
 
+	sp2 := opentracing.StartSpan("gossip4.snowballer.tick.voteFetch", opentracing.FollowsFrom(sp.Context()))
 	respChan := make(chan *snowballVoteResp, snb.snowball.k)
 	wg := &sync.WaitGroup{}
 	for i := 0; i < snb.snowball.k; i++ {
@@ -159,6 +165,9 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	}
 	wg.Wait()
 	close(respChan)
+	sp2.Finish()
+
+	sp3 := opentracing.StartSpan("gossip4.snowballer.tick.voteTally", opentracing.FollowsFrom(sp.Context()))
 	votes := make([]*Vote, snb.snowball.k)
 	i := 0
 	for resp := range respChan {
@@ -195,6 +204,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 
 	votes = calculateTallies(votes)
 	// snb.logger.Debugf("votes: %s", spew.Sdump(votes))
+	sp3.Finish()
 
 	snb.snowball.Tick(ctx, votes)
 	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)

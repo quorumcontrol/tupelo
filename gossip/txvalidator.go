@@ -80,20 +80,27 @@ func blockValidators(ctx context.Context, group *types.NotaryGroup) ([]chaintree
 
 func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *pubsub.Message) bool {
 	wrapper := &AddBlockWrapper{}
-	wrapper.StartTrace("gossip4.transaction")
+	sp := wrapper.StartTrace("gossip4.transaction")
 
+	sp2 := opentracing.StartSpan("gossip4.transaction.toabr", opentracing.FollowsFrom(sp.Context()))
 	abr, err := pubsubMsgToAddBlockRequest(wrapper.GetContext(), msg)
+	sp2.Finish()
+
 	if err != nil {
 		tv.logger.Errorf("error converting message to abr: %v", err)
 		return false
 	}
+	sp3 := opentracing.StartSpan("gossip4.transaction.validate", opentracing.FollowsFrom(sp.Context()))
 	validated := tv.ValidateAbr(wrapper.GetContext(), abr)
+	sp3.Finish()
 	if validated {
 		// we do something a bit odd here and send the ABR through an actor notification rather
 		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
 		wrapper.AddBlockRequest = abr
 		wrapper.SetTag("valid", true)
+		sp4 := opentracing.StartSpan("gossip4.transaction.validsend", opentracing.FollowsFrom(sp.Context()))
 		actor.EmptyRootContext.Send(tv.node, wrapper)
+		sp4.Finish()
 		return true
 	}
 	wrapper.SetTag("valid", false)
