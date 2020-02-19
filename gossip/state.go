@@ -15,7 +15,7 @@ import (
 type gsInflightHolder map[string]*AddBlockWrapper
 
 func (gifh gsInflightHolder) Copy() gsInflightHolder {
-	newInflight := make(gsInflightHolder)
+	newInflight := make(gsInflightHolder, len(gifh))
 	for k, v := range gifh {
 		newInflight[k] = v
 	}
