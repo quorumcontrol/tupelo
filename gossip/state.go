@@ -38,7 +38,7 @@ func newGlobalState(store *hamt.CborIpldStore) *globalState {
 	}
 }
 
-func (gs *globalState) Copy(ctx context.Context) *globalState {
+func (gs *globalState) Copy() *globalState {
 	gs.RLock()
 	defer gs.RUnlock()
 

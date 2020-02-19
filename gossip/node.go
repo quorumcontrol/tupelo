@@ -378,7 +378,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	} else {
 		previousRound, _ := n.rounds.Get(completedRound.height - 1)
 		n.logger.Debugf("previous state for %d: %v", completedRound.height-1, previousRound.state)
-		state = previousRound.state.Copy(context.TODO())
+		state = previousRound.state.Copy()
 	}
 	n.logger.Debugf("current round: %d, node: %v", completedRound, state.hamt)
 	rootNodeSp.Finish()
