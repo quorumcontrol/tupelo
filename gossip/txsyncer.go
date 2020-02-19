@@ -12,25 +12,62 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
 
+const defaultTransactionSyncDelayMs = 3000
+
 type transactionGetter struct {
 	nodeActor *actor.PID
 	store     *hamt.CborIpldStore
 	logger    logging.EventLogger
 	validator *TransactionValidator
+	queue     *lru.Cache
 	cache     *lru.Cache
+	delay     int64
 }
 
 func (tg *transactionGetter) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *actor.Started:
-		cache, err := lru.New(500)
+		cache, err := lru.New(1000)
 		if err != nil {
 			tg.logger.Errorf("error creating cache: %v", err)
 			panic("error creating cache")
 		}
 		tg.cache = cache
+
+		queue, err := lru.New(500)
+		if err != nil {
+			tg.logger.Errorf("error creating queue: %v", err)
+			panic("error creating queue")
+		}
+		tg.queue = queue
+
+		if tg.delay == 0 {
+			tg.delay = defaultTransactionSyncDelayMs
+		}
+
+		tg.logger.Warningf("TXDELAY - starting a txsyncer with %d", tg.delay)
 	case cid.Cid:
-		if tg.cache.Contains(msg.String()) {
+		cidStr := msg.String()
+		tg.logger.Warningf("TXDELAY - looking for %s", cidStr)
+
+		// recently fetched
+		if tg.cache.Contains(cidStr) {
+			tg.logger.Warningf("TXDELAY - recently fetched %s", cidStr)
+			return
+		}
+
+		currentTime := time.Now().UnixNano() / int64(time.Millisecond)
+		firstRequestTime, ok := tg.queue.Get(cidStr)
+
+		if !ok {
+			tg.logger.Warningf("TXDELAY - starting delay for %s at %d", cidStr, currentTime)
+			tg.queue.Add(cidStr, currentTime)
+			return
+		}
+
+		if (firstRequestTime.(int64) + tg.delay) > currentTime {
+			tg.logger.Warningf("TXDELAY - skipping fetch for %s, current %d, inception %d", cidStr, currentTime, firstRequestTime.(int64))
+			// still within delay, do nothing
 			return
 		}
 
@@ -39,10 +76,11 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 		abr := &services.AddBlockRequest{}
 		err := tg.store.Get(ctx, msg, abr)
 		if err != nil {
-			tg.logger.Warningf("error fetching %s", msg.String())
+			tg.logger.Warningf("error fetching %s", cidStr)
 		}
 
-		tg.cache.Add(msg.String(), struct{}{})
+		tg.cache.Add(cidStr, struct{}{})
+		tg.logger.Warningf("TXDELAY - fetch completed %s, current %d, inception %d", cidStr, currentTime, firstRequestTime.(int64))
 
 		valid := tg.validator.ValidateAbr(ctx, abr)
 		if valid {
@@ -50,11 +88,11 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 				AddBlockRequest: abr,
 			}
 			wrapper.StartTrace("gossip4.syncer")
-			tg.logger.Debugf("sending %s to the node", msg.String())
+			tg.logger.Debugf("sending %s to the node", cidStr)
 			actorContext.Send(tg.nodeActor, wrapper)
 			return
 		}
-		tg.logger.Warningf("received invalid transaction: %s", msg.String())
+		tg.logger.Warningf("received invalid transaction: %s", cidStr)
 
 	}
 }
