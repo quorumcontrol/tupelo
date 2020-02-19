@@ -117,7 +117,7 @@ func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *ro
 
 	// publishSp := opentracing.StartSpan("gossip4.flush", opentracing.ChildOf(sp.Context()))
 	// Notify clients of the new checkpoint
-	err = n.publishCompletedRound(context.TODO(), round)
+	err = n.publishCompletedRound(ctx, round)
 	if err != nil {
 		n.logger.Errorf("error publishing current round: %v", err)
 	}
