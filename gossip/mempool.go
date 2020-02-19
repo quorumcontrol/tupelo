@@ -53,11 +53,10 @@ func newMempool() *mempool {
 	}
 }
 
-func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
+func (m *mempool) Add(abrWrapper *AddBlockWrapper) {
 	m.Lock()
+	id := abrWrapper.cid
 	memlog.Debugf("adding %s", id.String())
-	//TODO: there's got to be a better place for setting the cid
-	abrWrapper.cid = id
 	indexKey := toConflictSetID(abrWrapper.AddBlockRequest)
 	cs, ok := m.conflictSets[indexKey]
 	if !ok {

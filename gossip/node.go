@@ -601,8 +601,10 @@ func (n *Node) storeAbr(ctx context.Context, abrWrapper *AddBlockWrapper) error 
 		return fmt.Errorf("error putting abr: %w", err)
 	}
 
+	abrWrapper.cid = id
+
 	n.logger.Debugf("storing in mempool %s", id.String())
-	n.mempool.Add(id, abrWrapper)
+	n.mempool.Add(abrWrapper)
 
 	return nil
 }
