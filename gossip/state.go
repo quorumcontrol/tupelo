@@ -97,11 +97,12 @@ func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *ro
 	gs.RUnlock()
 
 	for objectID, abrWrapper := range inflightCopy {
+		gs.Lock()
 		err := gs.hamt.Set(ctx, objectID, abrWrapper.cid)
 		if err != nil {
+			gs.Unlock()
 			return fmt.Errorf("error setting hamt: %w", err)
 		}
-		gs.Lock()
 		delete(gs.inflight, objectID)
 		gs.Unlock()
 
