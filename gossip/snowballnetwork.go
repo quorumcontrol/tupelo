@@ -116,7 +116,7 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 
 	for !snb.snowball.Decided() {
 		snb.doTick(ctx)
-		if snb.snowball.count > 3 { // we only care about early commit if we've received the same answer a few times in a row.
+		if snb.snowball.count > (signerCount * 2) { // we only care about early commit if we've received the same answer a few times in a row.
 			didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
 			// if > alpha of the network has voted for a particular checkpoint *and* I agree that it is my preferred, then I can early commit that.
 			if didEarly && snb.snowball.Preferred().Checkpoint.CID().Equals(checkpointID) {

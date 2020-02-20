@@ -2,10 +2,14 @@ package gossip
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ipfs/go-cid"
 	hamt "github.com/ipfs/go-hamt-ipld"
 	"github.com/opentracing/opentracing-go"
@@ -97,28 +101,50 @@ func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *ro
 	sp.SetTag("round", round.height)
 	defer sp.Finish()
 
-	n.logger.Infof("backgroundProcess start on round %d", round.height)
+	// n.logger.Infof("backgroundProcess start on round %d", round.height)
 
 	gs.RLock()
 	inflightCopy := gs.inflight.Copy()
 	gs.RUnlock()
 
+	n.logger.Infof("backgroundProcess start on round %d inflight count %d", round.height, len(inflightCopy))
+
+	objectSum := make([]string, len(inflightCopy))
+	abrSum := make([]string, len(inflightCopy))
+	i := 0
+
 	for objectID, abrWrapper := range inflightCopy {
+		gs.Lock()
+
+		objectSum[i] = objectID
+		abrSum[i] = abrWrapper.cid.String()
+		i++
+
 		err := gs.hamt.Set(ctx, objectID, abrWrapper.cid)
 		if err != nil {
+			gs.Unlock()
 			return fmt.Errorf("error setting hamt: %w", err)
 		}
-		gs.Lock()
 		delete(gs.inflight, objectID)
 		gs.Unlock()
 
 		actor.EmptyRootContext.Send(n.stateStorerPid, &saveTransactionState{ctx: ctx, abr: abrWrapper.AddBlockRequest})
 	}
 
+	sort.Strings(objectSum)
+	sort.Strings(abrSum)
+
+	objectSha := sha256.Sum256([]byte(strings.Join(objectSum, "|")))
+	abrSha := sha256.Sum256([]byte(strings.Join(abrSum, "|")))
+
+	n.logger.Infof("backgroundProcess on round %d - sum of inflight keys: %s - abrs: %s", round.height, string(hexutil.Encode(objectSha[:32])), string(hexutil.Encode(abrSha[:32])))
+
 	err := gs.hamt.Flush(ctx)
 	if err != nil {
 		panic(fmt.Errorf("error flushing rootNode: %w", err))
 	}
+
+	n.logger.Infof("backgroundProcess compare on round %d, gs equal %v, hamt equal %v, store equal %v", round.height, gs == round.state, gs.hamt == round.state.hamt, gs.store == round.state.store)
 
 	// Notify clients of the new checkpoint
 	err = n.publishCompletedRound(ctx, round)

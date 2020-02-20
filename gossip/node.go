@@ -332,6 +332,8 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 		CheckpointCid: preferredCheckpointCid.Bytes(),
 	}
 
+	n.logger.Infof("publishCompletedRound on round %d, state CID %s, checkpoint CID %s", round.height, currentStateCid.String(), preferredCheckpointCid.String())
+
 	wrappedCompletedRound := types.WrapRound(completedRound)
 
 	err = n.dagStore.Add(ctx, wrappedCompletedRound.Wrapped())
@@ -431,11 +433,11 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 
 	processSp.Finish()
 
-	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, state.hamt)
+	n.logger.Errorf("setting round at %d to rootNode: %v", completedRound.height, state.hamt)
 	completedRound.state = state
 	go func(aRound *round) {
 
-		if aRound.height != completedRound.height {
+		if aRound != completedRound {
 			n.logger.Errorf("BRANDON - GOROUTINE MISMATCHED HEIGHTS")
 			n.logger.Errorf("aRound %v", aRound)
 			n.logger.Errorf("completedRound %v", completedRound)
@@ -445,7 +447,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 			n.logger.Errorf("error processing round: %v", err)
 		}
 	}(completedRound)
-	n.logger.Debugf("after setting: %v", completedRound.state.hamt)
+	n.logger.Errorf("after setting: %v", completedRound.state.hamt)
 
 	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
 	n.rounds.SetCurrent(round)
