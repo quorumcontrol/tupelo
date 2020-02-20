@@ -433,11 +433,18 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 
 	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, state.hamt)
 	completedRound.state = state
-	go func() {
+	go func(aRound *round) {
+
+		if aRound.height != completedRound.height {
+			n.logger.Errorf("BRANDON - GOROUTINE MISMATCHED HEIGHTS")
+			n.logger.Errorf("aRound %v", aRound)
+			n.logger.Errorf("completedRound %v", completedRound)
+		}
+
 		if err := state.backgroundProcess(context.TODO(), n, completedRound); err != nil {
 			n.logger.Errorf("error processing round: %v", err)
 		}
-	}()
+	}(completedRound)
 	n.logger.Debugf("after setting: %v", completedRound.state.hamt)
 
 	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))

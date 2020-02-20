@@ -177,12 +177,29 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			Checkpoint: wrappedCheckpoint,
 		}
 		abrs := wrappedCheckpoint.AddBlockRequests()
+
+		snb.logger.Infof("doTick (%d): len(abrs)=%d", snb.height, len(abrs))
+
+		hasAllAbrs := true
+		hasConflicting := false
+
+		if len(abrs) == 0 != true {
+			hasAllAbrs = snb.mempoolHasAllABRs(abrs)
+			snb.logger.Infof("doTick (%d): mempoolHasAllABRs=%v", snb.height, hasAllAbrs)
+
+			if !(hasAllAbrs) != true {
+				hasConflicting = snb.hasConflictingABRs(abrs)
+				snb.logger.Infof("doTick (%d): hasConflictingABRs=%v", snb.height, hasConflicting)
+			}
+		}
+
 		if len(abrs) == 0 ||
-			!(snb.mempoolHasAllABRs(abrs)) ||
-			snb.hasConflictingABRs(abrs) {
+			!(hasAllAbrs) ||
+			hasConflicting {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
 			snb.logger.Debugf("%s nilling vote", resp.signerID)
+			snb.logger.Warningf("doTick (%d): nilling vote", snb.height)
 			vote.Nil()
 		}
 		votes[i] = vote
@@ -313,14 +330,18 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs [][]byte) bool {
 
 		ok := snb.node.mempool.Contains(abrCID)
 		if !ok {
-			snb.logger.Debugf("missing tx: %s", abrCID.String())
+			snb.logger.Infof("missing tx: %s", abrCID.String())
 			snb.node.rootContext.Send(snb.node.syncerPid, abrCID)
 			// the reason to not just return false here is that we want
 			// to continue to loop over all the Txs in order to sync the ones we don't have
 			hasAll = false
 		}
 	}
-	snb.logger.Warningf("hasAllABRs: %t", hasAll)
+
+	if !hasAll {
+		snb.logger.Warningf("hasAllABRs: %t", hasAll)
+	}
+
 	return hasAll
 }
 

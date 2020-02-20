@@ -102,6 +102,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 		for {
 			select {
 			case <-benchmarkCtx.Done():
+				fmt.Printf("!!!!!!!!!!!!! BENCHMARK DONE \n")
 				return
 			default:
 				atomic.AddInt64(&resultSet.Total, int64(1))
@@ -115,6 +116,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 		for {
 			select {
 			case <-benchmarkCtx.Done():
+				fmt.Printf("!!!!!!!!!!!!! BENCHMARK DONE \n")
 				return
 			case res := <-resCh:
 				handleResult(resultSet, res)
@@ -123,6 +125,8 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	}()
 
 	<-benchmarkCtx.Done()
+	fmt.Printf("!!!!!!!!!!!!! BENCHMARK DONE \n")
+
 	// now we wait for "timeout" to happen to make sure we get all the results
 	time.Sleep(b.timeout)
 
