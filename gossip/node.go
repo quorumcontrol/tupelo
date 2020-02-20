@@ -420,11 +420,11 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 
 	n.logger.Debugf("setting round at %d to rootNode: %v", completedRound.height, state.hamt)
 	completedRound.state = state
-	go func() {
-		if err := state.backgroundProcess(context.TODO(), n, completedRound); err != nil {
+	go func(n *Node, completedRound *round) {
+		if err := completedRound.state.backgroundProcess(context.TODO(), n, completedRound); err != nil {
 			n.logger.Errorf("error processing round: %v", err)
 		}
-	}()
+	}(n, completedRound)
 	n.logger.Debugf("after setting: %v", completedRound.state.hamt)
 
 	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
