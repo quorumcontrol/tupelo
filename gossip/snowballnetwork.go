@@ -320,7 +320,7 @@ func (snb *snowballer) mempoolHasAllABRs(abrCIDs [][]byte) bool {
 			hasAll = false
 		}
 	}
-	snb.logger.Debugf("hasAllABRs: %t", hasAll)
+	snb.logger.Warningf("hasAllABRs: %t", hasAll)
 	return hasAll
 }
 

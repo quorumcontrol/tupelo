@@ -54,13 +54,13 @@ func newMempool() *mempool {
 	}
 }
 
-func (m *mempool) Add(id cid.Cid, abrWrapper *AddBlockWrapper) {
+func (m *mempool) Add(abrWrapper *AddBlockWrapper) {
 	sp := opentracing.StartSpan("mempool.add")
 	defer sp.Finish()
 
 	m.Lock()
+	id := abrWrapper.cid
 	memlog.Debugf("adding %s", id.String())
-
 	indexKey := toConflictSetID(abrWrapper.AddBlockRequest)
 	cs, ok := m.conflictSets[indexKey]
 	if !ok {
@@ -82,6 +82,14 @@ func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 	return m.abrs[id]
 }
 
+func (m *mempool) BulkDelete(ids ...cid.Cid) {
+	m.Lock()
+	for _, id := range ids {
+		m.deleteIDAndConflictSetInLock(id)
+	}
+	m.Unlock()
+}
+
 // DeleteIDAndConflictSet deletes not only this id, but all other
 // conflicting ABRs as well.
 func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
@@ -89,6 +97,11 @@ func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 	defer sp.Finish()
 
 	m.Lock()
+	m.deleteIDAndConflictSetInLock(id)
+	m.Unlock()
+}
+
+func (m *mempool) deleteIDAndConflictSetInLock(id cid.Cid) {
 	memlog.Debugf("removing %s", id.String())
 	existing, ok := m.abrs[id]
 	if ok {
@@ -106,7 +119,6 @@ func (m *mempool) DeleteIDAndConflictSet(id cid.Cid) {
 			delete(m.conflictSets, csID)
 		}
 	}
-	m.Unlock()
 }
 
 func (m *mempool) Contains(ids ...cid.Cid) bool {

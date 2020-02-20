@@ -93,6 +93,7 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 			return
 		}
 		tg.logger.Warningf("received invalid transaction: %s", cidStr)
-
+	default:
+		tg.logger.Debugf("TXDELAY actor received unrecognized %T message: %+v", msg, msg)
 	}
 }

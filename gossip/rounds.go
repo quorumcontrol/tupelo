@@ -2,8 +2,6 @@ package gossip
 
 import (
 	"sync"
-
-	"github.com/ipfs/go-hamt-ipld"
 )
 
 const (
@@ -15,7 +13,7 @@ const (
 type round struct {
 	snowball *Snowball
 	height   uint64
-	state    *hamt.Node
+	state    *globalState
 }
 
 func newRound(height uint64, alpha float64, beta int, k int) *round {
