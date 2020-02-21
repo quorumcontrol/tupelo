@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -33,8 +32,6 @@ type snowballer struct {
 	logger   logging.EventLogger
 	cache    *lru.Cache
 
-	earlyCommitter *earlyCommitter
-
 	started bool
 }
 
@@ -49,14 +46,13 @@ func newSnowballer(n *Node, height uint64, snowball *Snowball) *snowballer {
 		panic(err)
 	}
 	return &snowballer{
-		node:           n,
-		snowball:       snowball,
-		host:           n.p2pNode,
-		group:          n.notaryGroup,
-		logger:         n.logger,
-		cache:          cache,
-		height:         height,
-		earlyCommitter: newEarlyCommitter(),
+		node:     n,
+		snowball: snowball,
+		host:     n.p2pNode,
+		group:    n.notaryGroup,
+		logger:   n.logger,
+		cache:    cache,
+		height:   height,
 	}
 }
 
@@ -112,31 +108,8 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 	defer sp.Finish()
 	ctx := opentracing.ContextWithSpan(startCtx, sp)
 
-	signerCount := int(snb.group.Size())
-
 	for !snb.snowball.Decided() {
 		snb.doTick(ctx)
-		if snb.snowball.count > 3 { // we only care about early commit if we've received the same answer a few times in a row.
-			didEarly, checkpointID := snb.earlyCommitter.HasThreshold(signerCount, snb.snowball.alpha)
-			// if > alpha of the network has voted for a particular checkpoint *and* I agree that it is my preferred, then I can early commit that.
-			if didEarly && snb.snowball.Preferred().Checkpoint.CID().Equals(checkpointID) {
-				snb.logger.Debugf("early commit on %s: ", checkpointID.String())
-				wrappedCheckpoint, ok := snb.cache.Get(checkpointID)
-				if !ok {
-					done <- errors.New("could not find checkpoint in the cache: should never happen")
-					return
-				}
-				// TODO: this probably shouldn't reach into snowball here,
-				// maybe it could move decided logic up to the snowballer here and others could reference this
-				// rather than having the external system dig into the the snowball instance here too.
-				snb.snowball.Prefer(&Vote{
-					Checkpoint: wrappedCheckpoint.(*types.CheckpointWrapper),
-				})
-				snb.snowball.Lock()
-				snb.snowball.decided = true
-				snb.snowball.Unlock()
-			}
-		}
 	}
 
 	done <- nil
@@ -177,11 +150,6 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			vote.Nil()
 		}
 		votes[i] = vote
-		// if the vote hasn't been nilled then we can add it to the early commiter
-		if vote.ID() != ZeroVoteID {
-			snb.earlyCommitter.Vote(resp.signerID, wrappedCheckpoint.CID())
-		}
-
 		i++
 	}
 
