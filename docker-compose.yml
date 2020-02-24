@@ -1,5 +1,18 @@
 version: "3"
 services:
+  # netdelay adds a ~100ms delay between local containers which seems to match
+  # our real-world experience on AWS cross-world
+  netdelay:
+    image: gaiaadm/pumba
+    command: "netem --duration 96h delay --jitter 20 --time 80 re2:^tupelo_node"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - bootstrap
+      - node0
+      - node1
+      - node2
+
   bootstrap:
     build: .
     command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-info}"]
