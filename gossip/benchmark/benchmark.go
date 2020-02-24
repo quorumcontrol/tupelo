@@ -16,6 +16,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
+	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
 type Benchmark struct {
@@ -25,17 +26,46 @@ type Benchmark struct {
 	timeout     time.Duration
 }
 
-type ResultSet struct {
+type durationSet struct {
 	Durations       []int
-	Errors          []string
 	Total           int64
-	Measured        int
-	Successes       int
-	Failures        int
 	AverageDuration int
 	MinDuration     int
 	MaxDuration     int
 	P95Duration     int
+}
+
+// Takes the Durations slice and calculates avg/min/max/p95
+func (set *durationSet) calculateStats() {
+	sum := 0
+	for _, v := range set.Durations {
+		sum = sum + v
+	}
+
+	if sum > 0 {
+		set.AverageDuration = sum / len(set.Durations)
+
+		sorted := make([]int, len(set.Durations))
+		copy(sorted, set.Durations)
+		sort.Ints(sorted)
+
+		set.MinDuration = sorted[0]
+		set.MaxDuration = sorted[len(sorted)-1]
+		p95Index := int64(math.Round(float64(len(sorted))*0.95)) - 1
+		set.P95Duration = sorted[p95Index]
+	}
+}
+
+type ResultSet struct {
+	*durationSet
+
+	FirstRound int64
+	Rounds     *durationSet
+
+	Errors    []string
+	Measured  int
+	Successes int
+	Failures  int
 }
 
 type Result struct {
@@ -92,11 +122,40 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	clientCtx, clientCancel := context.WithCancel(ctx)
 	defer clientCancel()
 
+	roundCh := make(chan *types.RoundWrapper)
+	roundSubscription, err := b.client.SubscribeToRounds(clientCtx, roundCh)
+	if err != nil {
+		panic(err)
+	}
+	defer b.client.UnsubscribeFromRounds(roundSubscription)
+
 	delayBetween := time.Duration(float64(time.Second) / float64(b.concurrency))
 
 	resCh := make(chan *Result, b.concurrency*60) // 60 seconds of results buffer
 
-	resultSet := &ResultSet{}
+	resultSet := &ResultSet{
+		durationSet: &durationSet{},
+		Rounds:      &durationSet{},
+	}
+
+	go func() {
+		var lastTime time.Time
+
+		for {
+			select {
+			case <-clientCtx.Done():
+				return
+			case roundWrapper := <-roundCh:
+				resultSet.Rounds.Total++
+				if lastTime.IsZero() {
+					resultSet.FirstRound = int64(roundWrapper.Height())
+				} else {
+					resultSet.Rounds.Durations = append(resultSet.Rounds.Durations, int(time.Since(lastTime)/time.Millisecond))
+				}
+				lastTime = time.Now()
+			}
+		}
+	}()
 
 	go func() {
 		for {
@@ -130,23 +189,11 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 		handleResult(resultSet, <-resCh)
 	}
 
-	sum := 0
-	for _, v := range resultSet.Durations {
-		sum = sum + v
-	}
+	resultSet.calculateStats()
+	resultSet.Rounds.calculateStats()
 
-	if resultSet.Successes > 0 {
-		resultSet.AverageDuration = sum / resultSet.Successes
-
-		sorted := make([]int, len(resultSet.Durations))
-		copy(sorted, resultSet.Durations)
-		sort.Ints(sorted)
-
-		resultSet.MinDuration = sorted[0]
-		resultSet.MaxDuration = sorted[len(sorted)-1]
-		p95Index := int64(math.Round(float64(len(sorted))*0.95)) - 1
-		resultSet.P95Duration = sorted[p95Index]
-	}
+	// Just empty this out so results are easier to read
+	resultSet.Rounds.Durations = []int{}
 
 	return resultSet
 }
