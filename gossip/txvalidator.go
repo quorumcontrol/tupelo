@@ -187,19 +187,19 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 		return false
 	}
 
-	// // TODO: Remove MagicValidNewTip check when done w/ gossip3 dark traffic testing!
-	// if string(abr.NewTip) != MagicValidNewTip {
-	// 	newTip, err := cid.Cast(abr.NewTip)
-	// 	if err != nil {
-	// 		tv.logger.Errorf("error casting abr new tip: %v", err)
-	// 		return false
-	// 	}
+	// TODO: Remove MagicValidNewTip check when done w/ gossip3 dark traffic testing!
+	if string(abr.NewTip) != MagicValidNewTip {
+		newTip, err := cid.Cast(abr.NewTip)
+		if err != nil {
+			tv.logger.Errorf("error casting abr new tip: %v", err)
+			return false
+		}
 
-	// 	if !chainTree.Dag.Tip.Equals(newTip) {
-	// 		sp.SetTag("tips-match", false)
-	// 		return false
-	// 	}
-	// }
+		if !chainTree.Dag.Tip.Equals(newTip) {
+			sp.SetTag("tips-match", false)
+			return false
+		}
+	}
 
 	sp.SetTag("tips-match", true)
 
