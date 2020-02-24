@@ -23,6 +23,7 @@ import (
 
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
@@ -33,10 +34,11 @@ var MagicValidNewTip = "convertedFromGossip3"
 // TransactionValidator validates incoming pubsub messages for internal consistency
 // and sends them to the gossip4 node. It is exported for the gossip3to4 module
 type TransactionValidator struct {
-	group      *types.NotaryGroup
-	validators []chaintree.BlockValidatorFunc
-	node       *actor.PID
-	logger     logging.EventLogger
+	group        *types.NotaryGroup
+	validators   []chaintree.BlockValidatorFunc
+	transactions map[transactions.Transaction_Type]chaintree.TransactorFunc
+	node         *actor.PID
+	logger       logging.EventLogger
 }
 
 // NewTransactionValidator creates a new TransactionValidator
@@ -56,6 +58,7 @@ func NewTransactionValidator(ctx context.Context, logger logging.EventLogger, gr
 func (tv *TransactionValidator) setup(ctx context.Context) error {
 	validators, err := blockValidators(ctx, tv.group)
 	tv.validators = validators
+	tv.transactions = tv.group.Config().Transactions
 	return err
 }
 
@@ -147,7 +150,7 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 		ctx,
 		tree,
 		tv.validators,
-		tv.group.Config().Transactions,
+		tv.transactions,
 	)
 	if err != nil {
 		tv.logger.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
@@ -184,19 +187,19 @@ func (tv *TransactionValidator) ValidateAbr(validateCtx context.Context, abr *se
 		return false
 	}
 
-	// TODO: Remove MagicValidNewTip check when done w/ gossip3 dark traffic testing!
-	if string(abr.NewTip) != MagicValidNewTip {
-		newTip, err := cid.Cast(abr.NewTip)
-		if err != nil {
-			tv.logger.Errorf("error casting abr new tip: %v", err)
-			return false
-		}
+	// // TODO: Remove MagicValidNewTip check when done w/ gossip3 dark traffic testing!
+	// if string(abr.NewTip) != MagicValidNewTip {
+	// 	newTip, err := cid.Cast(abr.NewTip)
+	// 	if err != nil {
+	// 		tv.logger.Errorf("error casting abr new tip: %v", err)
+	// 		return false
+	// 	}
 
-		if !chainTree.Dag.Tip.Equals(newTip) {
-			sp.SetTag("tips-match", false)
-			return false
-		}
-	}
+	// 	if !chainTree.Dag.Tip.Equals(newTip) {
+	// 		sp.SetTag("tips-match", false)
+	// 		return false
+	// 	}
+	// }
 
 	sp.SetTag("tips-match", true)
 

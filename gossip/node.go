@@ -596,10 +596,13 @@ func inFlightID(objectID []byte, height uint64) string {
 }
 
 func (n *Node) storeAbr(ctx context.Context, abrWrapper *AddBlockWrapper) error {
+	sp := abrWrapper.NewSpan("gossip4.storeAbr.Put")
+
 	id, err := n.hamtStore.Put(ctx, abrWrapper.AddBlockRequest)
 	if err != nil {
 		return fmt.Errorf("error putting abr: %w", err)
 	}
+	sp.Finish()
 
 	abrWrapper.cid = id
 

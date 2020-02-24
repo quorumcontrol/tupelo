@@ -54,6 +54,9 @@ func newMempool() *mempool {
 }
 
 func (m *mempool) Add(abrWrapper *AddBlockWrapper) {
+	sp := abrWrapper.NewSpan("gossip4.mempool.add")
+	defer sp.Finish()
+
 	m.Lock()
 	id := abrWrapper.cid
 	memlog.Debugf("adding %s", id.String())
@@ -76,6 +79,9 @@ func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 }
 
 func (m *mempool) BulkDelete(ids ...cid.Cid) {
+	sp := opentracing.NewSpan("gossip4.mempool.BulkDelete")
+	defer sp.Finish()
+
 	m.Lock()
 	for _, id := range ids {
 		m.deleteIDAndConflictSetInLock(id)

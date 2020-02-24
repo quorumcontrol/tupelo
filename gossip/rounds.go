@@ -6,8 +6,8 @@ import (
 
 const (
 	defaultAlpha = 0.666
-	defaultBeta  = 150
-	defaultK     = 10
+	defaultBeta  = 5
+	defaultK     = 100
 )
 
 type round struct {
