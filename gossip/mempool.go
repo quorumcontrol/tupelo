@@ -6,6 +6,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
 
@@ -79,7 +80,7 @@ func (m *mempool) Get(id cid.Cid) *AddBlockWrapper {
 }
 
 func (m *mempool) BulkDelete(ids ...cid.Cid) {
-	sp := opentracing.NewSpan("gossip4.mempool.BulkDelete")
+	sp := opentracing.StartSpan("gossip4.mempool.BulkDelete")
 	defer sp.Finish()
 
 	m.Lock()

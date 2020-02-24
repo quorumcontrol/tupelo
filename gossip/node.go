@@ -362,7 +362,9 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	preferred := n.snowballer.snowball.Preferred()
 
 	completedRound := n.rounds.Current()
-
+	completedRound.sp.SetTag("txCount", len(preferred.Checkpoint.AddBlockRequests()))
+	completedRound.sp.SetTag("totalCount", completedRound.snowball.totalCount)
+	completedRound.sp.Finish()
 	n.logger.Infof("round %d decided with err: %v: %s (len: %d)", completedRound.height, msg.err, preferred.ID(), len(preferred.Checkpoint.AddBlockRequests()))
 	n.logger.Debugf("round %d transactions %v", completedRound.height, preferred.Checkpoint.AddBlockRequests)
 	// take all the transactions from the decided round, remove them from the mempool and apply them to the state
@@ -603,6 +605,8 @@ func (n *Node) storeAbr(ctx context.Context, abrWrapper *AddBlockWrapper) error 
 		return fmt.Errorf("error putting abr: %w", err)
 	}
 	sp.Finish()
+
+	abrWrapper.SetTag("id", id.String())
 
 	abrWrapper.cid = id
 
