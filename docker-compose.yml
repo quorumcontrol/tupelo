@@ -3,8 +3,8 @@ services:
   # netdelay adds a ~100ms delay between local containers which seems to match
   # our real-world experience on AWS cross-world
   netdelay:
-    image: gaiaadm/pumba
-    command: "netem --duration 96h delay --jitter 20 --time 80 re2:^tupelo_node"
+    image: gaiaadm/pumba@sha256:2281261e819dacaece3945cabffd659aaad2dd6cf978eea2bf63c5539e46d5da
+    command: "netem --duration 96h --tc-image gaiadocker/iproute2 delay --jitter 20 --time 80 re2:^tupelo_node"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
