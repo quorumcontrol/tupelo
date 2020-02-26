@@ -237,7 +237,7 @@ func (n *Node) maybeRepublish(ctx context.Context) {
 	if round := n.rounds.Current(); round != nil {
 		previousRound, found := n.rounds.Get(round.height - 1)
 		if found && previousRound != nil {
-			n.logger.Debugf("republishing round: %d", round.height)
+			n.logger.Debugf("republishing round: %d", previousRound.height)
 			n.publishCompletedRound(ctx, previousRound)
 		}
 	}
