@@ -20,6 +20,8 @@ type Snowball struct {
 	count  int
 	counts map[string]uint16
 
+	totalCount uint64
+
 	preferred *Vote
 	last      *Vote
 
@@ -56,6 +58,8 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	defer s.Unlock()
 	sp.LogKV("voteCount", len(votes))
 	snowlog.Debugf("tick len(votes): %d", len(votes))
+
+	s.totalCount++
 
 	if s.decided {
 		return

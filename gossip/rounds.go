@@ -2,18 +2,21 @@ package gossip
 
 import (
 	"sync"
+
+	"github.com/opentracing/opentracing-go"
 )
 
 const (
 	defaultAlpha = 0.666
-	defaultBeta  = 150
-	defaultK     = 10
+	defaultBeta  = 5
+	defaultK     = 100
 )
 
 type round struct {
 	snowball *Snowball
 	height   uint64
 	state    *globalState
+	sp       opentracing.Span
 }
 
 func newRound(height uint64, alpha float64, beta int, k int) *round {
@@ -29,9 +32,16 @@ func newRound(height uint64, alpha float64, beta int, k int) *round {
 		k = defaultK
 	}
 
+	sp := opentracing.StartSpan("gossip4.round")
+	sp.SetTag("height", height)
+	sp.SetTag("alpha", alpha)
+	sp.SetTag("beta", beta)
+	sp.SetTag("k", k)
+
 	return &round{
 		height:   height,
 		snowball: NewSnowball(alpha, beta, k),
+		sp:       sp,
 	}
 }
 

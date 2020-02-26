@@ -8,6 +8,7 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ipfs/go-cid"
 	hamt "github.com/ipfs/go-hamt-ipld"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
 
@@ -59,6 +60,9 @@ func (gs *globalState) addInflights(abrws ...*AddBlockWrapper) {
 }
 
 func (gs *globalState) Find(ctx context.Context, objectID string) (*services.AddBlockRequest, error) {
+	sp := opentracing.StartSpan("gossip4.globalState.Find")
+	defer sp.Finish()
+
 	gs.RLock()
 	defer gs.RUnlock()
 	if gs.hamt == nil {
@@ -92,10 +96,14 @@ func (gs *globalState) Find(ctx context.Context, objectID string) (*services.Add
 }
 
 func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *round) error {
+	sp := opentracing.StartSpan("gossip4.globalState.backgroundProcess")
+	defer sp.Finish()
+
 	gs.RLock()
 	inflightCopy := gs.inflight.Copy()
 	gs.RUnlock()
 
+	txSp := opentracing.StartSpan("gossip4.globalState.backgroundProcess.txs", opentracing.ChildOf(sp.Context()))
 	for objectID, abrWrapper := range inflightCopy {
 		gs.Lock()
 		err := gs.hamt.Set(ctx, objectID, abrWrapper.cid)
@@ -108,17 +116,22 @@ func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *ro
 
 		actor.EmptyRootContext.Send(n.stateStorerPid, &saveTransactionState{ctx: ctx, abr: abrWrapper.AddBlockRequest})
 	}
+	txSp.Finish()
 
+	flushSp := opentracing.StartSpan("gossip4.globalState.backgroundProcess.flush", opentracing.ChildOf(sp.Context()))
 	err := gs.hamt.Flush(ctx)
 	if err != nil {
 		panic(fmt.Errorf("error flushing rootNode: %w", err))
 	}
+	flushSp.Finish()
 
+	pubSp := opentracing.StartSpan("gossip4.globalState.backgroundProcess.publish", opentracing.ChildOf(sp.Context()))
 	// Notify clients of the new checkpoint
 	err = n.publishCompletedRound(ctx, round)
 	if err != nil {
 		n.logger.Errorf("error publishing current round: %v", err)
 	}
+	pubSp.Finish()
 
 	return nil
 }
