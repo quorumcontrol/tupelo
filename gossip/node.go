@@ -36,10 +36,6 @@ func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
 }
 
-type snowballTicker struct {
-	ctx context.Context
-}
-
 type startSnowball struct {
 	ctx context.Context
 }
@@ -203,14 +199,19 @@ func (n *Node) Start(ctx context.Context) error {
 		// every once in a while check to see if the mempool has entries and if the
 		// snowballer has started and start the snowballer if it isn't
 		// this is handled by the snowball actor spun up in the node's root actor (see: Receive function)
-		ticker := time.NewTicker(200 * time.Millisecond)
+		checkSnowballTicker := time.NewTicker(200 * time.Millisecond)
+		republishTicker := time.NewTicker(500 * time.Millisecond)
+		ctxDone := ctx.Done()
 		for {
 			select {
-			case <-ctx.Done():
-				ticker.Stop()
+			case <-ctxDone:
+				checkSnowballTicker.Stop()
+				republishTicker.Stop()
 				return
-			case <-ticker.C:
-				n.rootContext.Send(n.pid, &snowballTicker{ctx: ctx})
+			case <-checkSnowballTicker.C:
+				n.maybeStartSnowball(ctx)
+			case <-republishTicker.C:
+				n.maybeRepublish(ctx)
 			}
 		}
 	}()
@@ -218,6 +219,28 @@ func (n *Node) Start(ctx context.Context) error {
 	n.logger.Debugf("node starting")
 
 	return nil
+}
+
+func (n *Node) maybeStartSnowball(ctx context.Context) {
+	if !n.snowballer.Started() && n.mempool.Length() > 0 {
+		n.rootContext.Send(n.snowballPid, &startSnowball{ctx: ctx})
+	}
+}
+
+// republish is called by a ticker and every so often will send out its signature on the latest round
+// if the signer is sitting idle. If a snowball is in progress then we don't republish
+func (n *Node) maybeRepublish(ctx context.Context) {
+	if n.snowballer.Started() {
+		return
+	}
+
+	if round := n.rounds.Current(); round != nil {
+		previousRound, found := n.rounds.Get(round.height - 1)
+		if found && previousRound != nil {
+			n.logger.Debugf("republishing round: %d", previousRound.height)
+			n.publishCompletedRound(ctx, previousRound)
+		}
+	}
 }
 
 func (n *Node) Bootstrap(ctx context.Context, bootstrapAddrs []string) error {
@@ -282,10 +305,6 @@ func (n *Node) Receive(actorContext actor.Context) {
 		n.setupStateStorer(actorContext)
 	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
-	case *snowballTicker:
-		if !n.snowballer.Started() && n.mempool.Length() > 0 {
-			actorContext.Send(n.snowballPid, &startSnowball{ctx: msg.ctx})
-		}
 	case *snowballerDone:
 		n.handleSnowballerDone(actorContext, msg)
 	default:
@@ -432,6 +451,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	round := newRound(completedRound.height+1, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
 	n.rounds.SetCurrent(round)
 	n.snowballer = newSnowballer(n, round.height, round.snowball)
+	n.maybeStartSnowball(n.startCtx)
 }
 
 func (n *Node) SnowBallReceive(actorContext actor.Context) {
