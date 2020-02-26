@@ -193,7 +193,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	resultSet.Rounds.calculateStats()
 
 	// Just empty this out so results are easier to read
-	resultSet.Rounds.Durations = []int{}
+	resultSet.Rounds.Durations = nil
 
 	return resultSet
 }
