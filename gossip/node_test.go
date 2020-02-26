@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-bitswap"
-	logging "github.com/ipfs/go-log"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
@@ -187,7 +186,7 @@ func TestEndToEnd(t *testing.T) {
 
 }
 
-func TestByzantineCases(t *testing.T) {
+func TestIdleRoundsRepublish(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -199,8 +198,51 @@ func TestByzantineCases(t *testing.T) {
 
 	startNodes(t, ctx, nodes)
 
-	err = logging.SetLogLevel("*", "debug")
+	testStore := hamtwrapper.DagStoreToCborIpld(nodestore.MustMemoryStore(ctx))
+	abr := testhelpers.NewValidTransaction(t)
+	id, err := testStore.Put(ctx, abr)
 	require.Nil(t, err)
+	t.Logf("transaction as cid %s", id.String())
+
+	sub, err := nodes[0].pubsub.Subscribe(group.ID)
+	require.Nil(t, err)
+
+	bits, err := abr.Marshal()
+	require.Nil(t, err)
+
+	err = nodes[0].pubsub.Publish(group.Config().TransactionTopic, bits)
+	require.Nil(t, err)
+
+	waitForAllAbrs(t, ctx, nodes, []*services.AddBlockRequest{&abr})
+
+	// test that it receives the round confirmation signatures
+	for range nodes {
+		_, err = sub.Next(ctx)
+		require.Nil(t, err)
+	}
+	// and now we should get them again while idle
+	for range nodes {
+		_, err = sub.Next(ctx)
+		require.Nil(t, err)
+	}
+	// and they should happen again
+	for range nodes {
+		_, err = sub.Next(ctx)
+		require.Nil(t, err)
+	}
+}
+
+func TestByzantineCases(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	numMembers := 3
+	ts := testnotarygroup.NewTestSet(t, numMembers)
+	group, nodes, err := newTupeloSystem(ctx, t, ts)
+	require.Nil(t, err)
+	require.Len(t, nodes, numMembers)
+
+	startNodes(t, ctx, nodes)
 
 	t.Run("different transactions at each node", func(t *testing.T) {
 		abrs := make([]*services.AddBlockRequest, numMembers)

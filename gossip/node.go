@@ -36,7 +36,11 @@ func init() {
 	cbornode.RegisterCborType(services.AddBlockRequest{})
 }
 
-type snowballTicker struct {
+type snowballTick struct {
+	ctx context.Context
+}
+
+type republishTick struct {
 	ctx context.Context
 }
 
@@ -203,14 +207,18 @@ func (n *Node) Start(ctx context.Context) error {
 		// every once in a while check to see if the mempool has entries and if the
 		// snowballer has started and start the snowballer if it isn't
 		// this is handled by the snowball actor spun up in the node's root actor (see: Receive function)
-		ticker := time.NewTicker(200 * time.Millisecond)
+		checkSnowballTicker := time.NewTicker(200 * time.Millisecond)
+		republishTicker := time.NewTicker(500 * time.Millisecond)
 		for {
 			select {
 			case <-ctx.Done():
-				ticker.Stop()
+				checkSnowballTicker.Stop()
+				republishTicker.Stop()
 				return
-			case <-ticker.C:
-				n.rootContext.Send(n.pid, &snowballTicker{ctx: ctx})
+			case <-checkSnowballTicker.C:
+				n.rootContext.Send(n.pid, &snowballTick{ctx: ctx})
+			case <-republishTicker.C:
+				n.rootContext.Send(n.pid, &republishTick{ctx: ctx})
 			}
 		}
 	}()
@@ -282,9 +290,13 @@ func (n *Node) Receive(actorContext actor.Context) {
 		n.setupStateStorer(actorContext)
 	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
-	case *snowballTicker:
+	case *snowballTick:
 		if !n.snowballer.Started() && n.mempool.Length() > 0 {
 			actorContext.Send(n.snowballPid, &startSnowball{ctx: msg.ctx})
+		}
+	case *republishTick:
+		if !n.snowballer.Started() {
+			n.republish(msg.ctx)
 		}
 	case *snowballerDone:
 		n.handleSnowballerDone(actorContext, msg)
@@ -444,6 +456,19 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 		n.snowballer.Start(msg.ctx)
 	default:
 		n.logger.Debugf("snowball actor received other %T message: %+v", msg, msg)
+	}
+}
+
+// republish is called by a ticker and every so often will send out its signature on the latest round
+// if the signer is sitting idle. If a snowball is in progress then we don't republish
+func (n *Node) republish(ctx context.Context) {
+	if round := n.rounds.Current(); round != nil {
+		previousRound, found := n.rounds.Get(round.height - 1)
+		if found && previousRound != nil {
+			n.logger.Debugf("republishing round: %d", round.height)
+			n.publishCompletedRound(ctx, previousRound)
+		}
+
 	}
 }
 
