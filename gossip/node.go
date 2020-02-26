@@ -209,9 +209,10 @@ func (n *Node) Start(ctx context.Context) error {
 		// this is handled by the snowball actor spun up in the node's root actor (see: Receive function)
 		checkSnowballTicker := time.NewTicker(200 * time.Millisecond)
 		republishTicker := time.NewTicker(500 * time.Millisecond)
+		ctxDone := ctx.Done()
 		for {
 			select {
-			case <-ctx.Done():
+			case <-ctxDone:
 				checkSnowballTicker.Stop()
 				republishTicker.Stop()
 				return
