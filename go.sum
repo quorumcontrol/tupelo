@@ -762,7 +762,7 @@ github.com/quorumcontrol/tupelo v0.5.12-0.20200111030921-f3f3d3244de7/go.mod h1:
 github.com/quorumcontrol/tupelo v0.5.12-0.20200111205713-bdcd8177fb62/go.mod h1:bGIgsVWW3ISO4f0r2N/b44fJbe9RLQZ0BFVSHDazEB4=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200123190536-540022241c70/go.mod h1:jg2mK/ZptRCKhH/EQ61UaBzZJ7N2dG1E84Vy7E1Aen4=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200129144132-3be48615b2ec/go.mod h1:t0szRFOWJ03Mf8uCeqPWjdKrMVWjUNuMyKkDHIgVZ/M=
-github.com/quorumcontrol/tupelo v0.5.12-0.20200221201325-8ab78c654b0d/go.mod h1:/M6OXjIeV9HVHtE0t3TNrhK7OeFfzvx3F1kPMNMcerc=
+github.com/quorumcontrol/tupelo v0.5.12-0.20200226160350-8bc73f1e0652/go.mod h1:3+5xLTaAH0ldclLgxAVCkIMFRWqJH6AKKfbsY3NegTQ=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1 h1:bkol/s6k1audTyo8GG7JJUAUtlo1I9BWsxb00AXr4Yw=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1/go.mod h1:wA31G/DE4bI+8rsWKGRlxOgtKjrk0nJjd1qgRTpiN0Q=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200107015105-2d3804ccc20c/go.mod h1:+WlZ8i77PW1SQ1oEZ700ooGuC3JOcxPiA5ij8PkKCqk=
@@ -778,6 +778,8 @@ github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200129114839-0d0c6bc84fd
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200129114839-0d0c6bc84fd3/go.mod h1:gix9XW6TZ1G9KieMw1aat2G9rAjBEtsaYb0pC818rFU=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200226084025-d1ef23ea82c2 h1:79TU81ITP+Uay9LWvyJQLmDcsmiyLn/uFq4L+IPVUig=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200226084025-d1ef23ea82c2/go.mod h1:FacTufzYlDnWnhChtBvOi2yix8bbYOs37/0m53zKuN0=
+github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227160049-f9e5b1250b28 h1:HEBM/fWebS21CwmgSRS599mh0tHk5rSCpk5vdyotFGc=
+github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227160049-f9e5b1250b28/go.mod h1:0fDHOrkzj1T5VDMjh4K3Y1btiRRevBl/zMPuDAf3ZDg=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0 h1:RR9dF3JtopPvtkroDZuVD7qquD0bnHlKSqaQhgwt8yk=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
