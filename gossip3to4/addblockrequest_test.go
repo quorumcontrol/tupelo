@@ -11,6 +11,10 @@ import (
 	"github.com/quorumcontrol/tupelo/gossip"
 )
 
+func init() {
+	cbornode.RegisterCborType(g3services.AddBlockRequest{})
+}
+
 func TestConvertABR(t *testing.T) {
 	g3abrBytes, err := ioutil.ReadFile("testgossip3abr.cbor")
 	require.Nil(t, err)
