@@ -32,10 +32,6 @@ import (
 
 const gossipProtocol = "tupelo/v0.0.1"
 
-func init() {
-	cbornode.RegisterCborType(services.AddBlockRequest{})
-}
-
 type startSnowball struct {
 	ctx context.Context
 }
