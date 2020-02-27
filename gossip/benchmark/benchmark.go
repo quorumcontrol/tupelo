@@ -122,7 +122,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	clientCtx, clientCancel := context.WithCancel(ctx)
 	defer clientCancel()
 
-	roundCh := make(chan *types.RoundWrapper)
+	roundCh := make(chan *types.RoundConfirmationWrapper)
 	roundSubscription, err := b.client.SubscribeToRounds(clientCtx, roundCh)
 	if err != nil {
 		panic(err)
