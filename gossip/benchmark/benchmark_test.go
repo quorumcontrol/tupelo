@@ -7,18 +7,21 @@ import (
 	"time"
 
 	"github.com/ipfs/go-bitswap"
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 	logging "github.com/ipfs/go-log"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client/pubsubinterfaces/pubsubwrapper"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
+	"github.com/stretchr/testify/require"
+
 	"github.com/quorumcontrol/tupelo/gossip"
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
-	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*gossip.Node, error) {
+func newTupeloSystem(ctx context.Context, t *testing.T, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*gossip.Node, error) {
 	nodes := make([]*gossip.Node, len(testSet.SignKeys))
 
 	ng := types.NewNotaryGroup("testnotary")
@@ -30,19 +33,18 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 
 	for i := range ng.AllSigners() {
 		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
+
+		store := dsync.MutexWrap(datastore.NewMapDatastore())
 
 		n, err := gossip.NewNode(ctx, &gossip.NewNodeOptions{
 			P2PNode:     p2pNode,
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
+			Datastore:   store,
 		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
 		nodes[i] = n
 	}
 	// setting log level to debug because it's useful output on test failures
@@ -97,7 +99,7 @@ func TestBenchmarker(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, ts)
+	group, nodes, err := newTupeloSystem(ctx, t, ts)
 	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 

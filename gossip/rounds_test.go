@@ -3,12 +3,14 @@ package gossip
 import (
 	"testing"
 
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestRoundHolderSetCurrent(t *testing.T) {
-	rh := newRoundHolder()
+	rh := newRoundHolder(dsync.MutexWrap(datastore.NewMapDatastore()))
 
 	rh.SetCurrent(newRound(0, 0, 0, 0))
 	require.Equal(t, uint64(0), rh.Current().height)
@@ -18,7 +20,7 @@ func TestRoundHolderSetCurrent(t *testing.T) {
 }
 
 func TestRoundHolderGet(t *testing.T) {
-	rh := newRoundHolder()
+	rh := newRoundHolder(dsync.MutexWrap(datastore.NewMapDatastore()))
 
 	r := newRound(0, 0, 0, 0)
 	rh.SetCurrent(r)

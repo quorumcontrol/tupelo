@@ -51,14 +51,24 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 
 	configs := make([]*Config, len(signers))
 	for i, keySet := range keys {
-		hsc := &HumanStorageConfig{
+		hscBlock := &HumanStorageConfig{
 			Kind: "badger",
-			Path: path.Join(configDir(namespace, localConfigName), strconv.Itoa(i)),
+			Path: path.Join(configDir(namespace, localConfigName), strconv.Itoa(i), "block"),
 		}
 
-		bstore, err := hsc.ToBlockstore()
+		hscData := &HumanStorageConfig{
+			Kind: "badger",
+			Path: path.Join(configDir(namespace, localConfigName), strconv.Itoa(i), "data"),
+		}
+
+		bstore, err := hscBlock.ToBlockstore()
 		if err != nil {
 			return nil, fmt.Errorf("error setting up badger blockstore: %v", err)
+		}
+
+		dstore, err := hscData.ToDatastore()
+		if err != nil {
+			return nil, fmt.Errorf("error setting up badger datastore: %w", err)
 		}
 
 		configs[i] = &Config{
@@ -66,6 +76,7 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 			PrivateKeySet:     keySet,
 			BootstrapNodes:    ln.BootstrapAddrrs,
 			Blockstore:        bstore,
+			Datastore:         dstore,
 		}
 	}
 

@@ -2,16 +2,16 @@ package gossip
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-bitswap"
-
-	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
 
 	"github.com/ipfs/go-cid"
@@ -24,6 +24,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
+
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
@@ -40,9 +41,9 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 
 	for i := range ng.AllSigners() {
 		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
+
+		store := dsync.MutexWrap(datastore.NewMapDatastore())
 
 		n, err := NewNode(ctx, &NewNodeOptions{
 			P2PNode:     p2pNode,
@@ -50,10 +51,10 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 			NotaryGroup: ng,
 			DagStore:    peer,
 			Name:        strconv.Itoa(i) + "-" + name,
+			Datastore:   store,
 		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
+
 		nodes[i] = n
 	}
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/ipfs/go-datastore"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/opentracing/opentracing-go"
 
@@ -76,6 +77,7 @@ type NewNodeOptions struct {
 	SignKey          *bls.SignKey
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
+	Datastore        datastore.Batching
 	Name             string             // optional
 	RootActorContext *actor.RootContext // optional
 }
@@ -103,15 +105,23 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		return nil, fmt.Errorf("error creating cache: %w", err)
 	}
 
-	// TODO: we need a way to bootstrap a node coming back up and not in the genesis state.
-	// shouldn't be too hard, just save the latest round into a key/value store somewhere
-	// and then it can come back up and bootstrap itself up to the latest in the network
-	holder := newRoundHolder()
-	r := newRound(0, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
+	nodeName := opts.Name
+	if nodeName == "" {
+		nodeName = fmt.Sprintf("node-%d", signerIndex)
+	}
+
+	logger := logging.Logger(nodeName)
+	logger.Debugf("signerIndex: %d", signerIndex)
+
+	holder := newRoundHolder(opts.Datastore)
+
+	r := newRound(holder.currentHeight, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
+	logger.Infof("initializing snowball at height: %d with alpha: %f, beta: %d, and k: %d",
+		r.height, r.snowball.alpha, r.snowball.beta, r.snowball.k)
 	holder.SetCurrent(r)
 
 	n := &Node{
-		name:        opts.Name,
+		name:        nodeName,
 		p2pNode:     opts.P2PNode,
 		signKey:     opts.SignKey,
 		notaryGroup: opts.NotaryGroup,
@@ -122,19 +132,12 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		inflight:    cache,
 		mempool:     newMempool(),
 		rootContext: opts.RootActorContext,
+		logger:      logger,
 	}
 
 	if n.rootContext == nil {
 		n.rootContext = actor.EmptyRootContext
 	}
-
-	if n.name == "" {
-		n.name = fmt.Sprintf("node-%d", signerIndex)
-	}
-
-	logger := logging.Logger(n.name)
-	logger.Debugf("signerIndex: %d", signerIndex)
-	n.logger = logger
 
 	networkedSnowball := newSnowballer(n, r.height, r.snowball)
 	n.snowballer = networkedSnowball
@@ -230,11 +233,14 @@ func (n *Node) maybeRepublish(ctx context.Context) {
 		return
 	}
 
-	if round := n.rounds.Current(); round != nil {
+	if round := n.rounds.Current(); round != nil && round.height > 0 {
 		previousRound, found := n.rounds.Get(round.height - 1)
 		if found && previousRound != nil {
-			n.logger.Debugf("republishing round: %d", previousRound.height)
-			n.publishCompletedRound(ctx, previousRound)
+			n.logger.Debugf("republishing round: %+v", previousRound)
+			err := n.publishCompletedRound(ctx, previousRound)
+			if err != nil {
+				n.logger.Errorf("error republishing completed round: %w", err)
+			}
 		}
 	}
 }
