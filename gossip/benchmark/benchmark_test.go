@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*gossip.Node, error) {
+func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*gossip.Node) {
 	nodes := make([]*gossip.Node, len(testSet.SignKeys))
 
 	ng := types.NewNotaryGroup("testnotary")
@@ -30,9 +30,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 
 	for i := range ng.AllSigners() {
 		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
 
 		n, err := gossip.NewNode(ctx, &gossip.NewNodeOptions{
 			P2PNode:     p2pNode,
@@ -40,21 +38,18 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 			NotaryGroup: ng,
 			DagStore:    peer,
 		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
 		nodes[i] = n
 	}
 	// setting log level to debug because it's useful output on test failures
 	// this happens after the AllSigners loop because the node name is based on the
 	// index in the signers
 	for i := range ng.AllSigners() {
-		if err := logging.SetLogLevel(fmt.Sprintf("node-%d", i), "debug"); err != nil {
-			return nil, nil, fmt.Errorf("error setting log level: %v", err)
-		}
+		err := logging.SetLogLevel(fmt.Sprintf("node-%d", i), "debug")
+		require.Nil(t, err)
 	}
 
-	return ng, nodes, nil
+	return ng, nodes
 }
 
 func startNodes(t *testing.T, ctx context.Context, nodes []*gossip.Node, bootAddrs []string) {
@@ -97,8 +92,7 @@ func TestBenchmarker(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, ts)
-	require.Nil(t, err)
+	group, nodes := newTupeloSystem(ctx, t, ts)
 	require.Len(t, nodes, numMembers)
 
 	booter, err := p2p.NewHostFromOptions(ctx)
