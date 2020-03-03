@@ -255,14 +255,36 @@ func (nb *NodeBuilder) startBootstrap(ctx context.Context) (*p2p.LibP2PHost, err
 	if err != nil {
 		return host, fmt.Errorf("error getting notary group %w", err)
 	}
-	_, err = host.GetPubSub().Subscribe(group.Config().TransactionTopic)
+	transSub, err := host.GetPubSub().Subscribe(group.Config().TransactionTopic)
 	if err != nil {
 		return host, fmt.Errorf("error subscribing %w", err)
 	}
-	_, err = host.GetPubSub().Subscribe(group.ID)
+
+	go func() {
+		for {
+			_, err := transSub.Next(ctx)
+			if err != nil {
+				logger.Warningf("error getting sub %v", err)
+				return
+			}
+		}
+	}()
+
+	commitSub, err := host.GetPubSub().Subscribe(group.ID)
 	if err != nil {
 		return host, fmt.Errorf("error subscribing %w", err)
 	}
+
+	go func() {
+		for {
+			_, err := commitSub.Next(ctx)
+			if err != nil {
+				logger.Warningf("error getting sub %v", err)
+				return
+			}
+		}
+	}()
+
 	return host, nil
 }
 
