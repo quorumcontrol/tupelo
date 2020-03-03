@@ -232,16 +232,16 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, tokenCh chan 
 		sp.LogKV("error", err.Error())
 		snb.logger.Warningf("error creating stream to %s: %v", signer.ID, err)
 		if s != nil {
-			s.Close()
+			s.Reset()
 		}
 		return
 	}
-	defer s.Close()
+	defer s.Reset()
 
 	sw := &safewrap.SafeWrap{}
 	wrapped := sw.WrapObject(snb.height)
 
-	if err := s.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+	if err := s.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
 		sp.LogKV("error", err.Error())
 		snb.logger.Errorf("error setting deadline: %v", err) // TODO: do we need to do anything about this error?
 		return
