@@ -58,16 +58,12 @@ func (hsc *HumanStorageConfig) ToDatastore() (datastore.Batching, error) {
 	return hsc.toDatastore("datastore")
 }
 
-func (hsc *HumanStorageConfig) toDatastoreForBlockstore() (datastore.Batching, error) {
-	return hsc.toDatastore("blockstore")
-}
-
 func (hsc *HumanStorageConfig) ToBlockstore() (blockstore.Blockstore, error) {
-	datastore, err := hsc.toDatastoreForBlockstore()
+	ds, err := hsc.toDatastore("blockstore")
 	if err != nil {
 		return nil, fmt.Errorf("error getting datastore: %v", err)
 	}
-	bs := blockstore.NewBlockstore(datastore)
+	bs := blockstore.NewBlockstore(ds)
 	bs = blockstore.NewIdStore(bs)
 
 	// use -1 to turn off the cache,
