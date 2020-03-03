@@ -41,7 +41,7 @@ type HumanStorageConfig struct {
 
 func (hsc *HumanStorageConfig) toDatastore(name string) (datastore.Batching, error) {
 	// name arg is currently only used by badger b/c it needs a lock on the
-	// directory it uses; so you can't create more than on at the same path
+	// directory it uses; so you can't create more than one at the same path
 	switch strings.ToLower(hsc.Kind) {
 	case "", "memory": // not-specified means memory
 		return dsync.MutexWrap(datastore.NewMapDatastore()), nil
