@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/ipfs/go-bitswap"
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 	logging "github.com/ipfs/go-log"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
@@ -32,11 +34,14 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 		require.Nil(t, err)
 
+		dataStore := dsync.MutexWrap(datastore.NewMapDatastore())
+
 		n, err := gossip.NewNode(ctx, &gossip.NewNodeOptions{
 			P2PNode:     p2pNode,
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
+			Datastore:   dataStore,
 		})
 		require.Nil(t, err)
 		nodes[i] = n

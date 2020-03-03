@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -10,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-bitswap"
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
+
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
@@ -42,11 +44,14 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
 		require.Nil(t, err)
 
+		dataStore := dsync.MutexWrap(datastore.NewMapDatastore())
+
 		n, err := NewNode(ctx, &NewNodeOptions{
 			P2PNode:     p2pNode,
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
+			Datastore:   dataStore,
 			Name:        strconv.Itoa(i) + "-" + name,
 		})
 		require.Nil(t, err)
