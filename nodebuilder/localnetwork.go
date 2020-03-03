@@ -61,11 +61,17 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 			return nil, fmt.Errorf("error setting up badger blockstore: %v", err)
 		}
 
+		dstore, err := hsc.ToDatastore()
+		if err != nil {
+			return nil, fmt.Errorf("error setting up badger datastore: %v", err)
+		}
+
 		configs[i] = &Config{
 			NotaryGroupConfig: ngConfig,
 			PrivateKeySet:     keySet,
 			BootstrapNodes:    ln.BootstrapAddrrs,
 			Blockstore:        bstore,
+			Datastore:         dstore,
 		}
 	}
 
