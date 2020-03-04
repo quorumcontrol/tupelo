@@ -530,7 +530,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 	defer s.Close()
 
-	if err := s.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
+	if err := s.SetWriteDeadline(time.Now().Add(8 * time.Second)); err != nil {
 		n.logger.Errorf("error setting write deadline: %v", err)
 	}
 	if err := s.SetReadDeadline(time.Now().Add(1 * time.Second)); err != nil {
@@ -548,8 +548,6 @@ func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 		n.logger.Warningf("error reading from incoming stream: %v", err)
 		return
 	}
-	//TODO: I don't actually know what this does :)
-	reader.ReleaseMsg(bits)
 
 	var height uint64
 	err = cbornode.DecodeInto(bits, &height)
