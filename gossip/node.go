@@ -141,7 +141,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		logger:      logger,
 	}
 
-	err = n.initRoundHolder(ctx)
+	err = n.initRoundHolder()
 	if err != nil {
 		return nil, fmt.Errorf("could not init roundHolder: %w", err)
 	}
@@ -159,64 +159,21 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	return n, nil
 }
 
-func (n *Node) restoreRound(ctx context.Context, height uint64) (*round, error) {
-	key := roundKey(height)
-	roundCIDBytes, err := n.dataStore.Get(key)
+func (n *Node) initRoundHolder() error {
+	rhOpts := &roundHolderOpts{
+		DataStore: n.dataStore,
+		DagStore:  n.dagStore,
+		HamtStore: n.hamtStore,
+	}
+	holder, err := newRoundHolder(rhOpts)
 	if err != nil {
-		return nil, fmt.Errorf("could not look up round for height %d: %w", height, err)
+		return fmt.Errorf("could not create roundHolder: %w", err)
 	}
 
-	roundCID, err := cid.Cast(roundCIDBytes)
-	if err != nil {
-		return nil, fmt.Errorf("could not cast to CID: %w", err)
-	}
-
-	roundNode, err := n.dagStore.Get(ctx, roundCID)
-	if err != nil {
-		return nil, fmt.Errorf("could not get last completed round from DAG store: %w", err)
-	}
-
-	var gr gossip.Round
-	err = cbornode.DecodeInto(roundNode.RawData(), &gr)
-	if err != nil {
-		return nil, fmt.Errorf("could not decode round: %w", err)
-	}
-
-	rw := types.WrapRound(&gr)
-	rw.SetStore(n.dagStore)
-
-	cp, err := rw.FetchCheckpoint(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch checkpoint from completed round: %w", err)
-	}
-
-	gs := newGlobalState(n.hamtStore)
-	h, err := rw.FetchHamt(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch HAMT: %w", err)
-	}
-	gs.hamt = h
-
-	r := &round{
-		height: gr.Height,
-		snowball: &Snowball{
-			preferred: &Vote{
-				Checkpoint: cp,
-			},
-		},
-		state: gs,
-	}
-
-	return r, nil
-}
-
-func (n *Node) initRoundHolder(ctx context.Context) error {
 	heightBytes, err := n.dataStore.Get(datastore.NewKey(lastCompletedHeightKey))
 	if err != nil && err != datastore.ErrNotFound {
 		return fmt.Errorf("could not look up last completed round: %w", err)
 	}
-
-	holder := newRoundHolder()
 
 	var height uint64
 	if err == datastore.ErrNotFound {
@@ -227,16 +184,6 @@ func (n *Node) initRoundHolder(ctx context.Context) error {
 			return fmt.Errorf("could not decode last completed round height: %w", err)
 		}
 
-		rounds := make([]*round, height)
-		for h := height; h > 0; h-- {
-			round, err := n.restoreRound(ctx, h)
-			if err != nil {
-				return fmt.Errorf("could not restore round: %w", err)
-			}
-			rounds[h] = round
-		}
-
-		holder = holder.WithCompletedRounds(rounds...)
 		height += 1
 	}
 
