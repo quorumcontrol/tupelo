@@ -3,6 +3,7 @@ package gossip
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strconv"
@@ -11,17 +12,15 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-hamt-ipld"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	logging "github.com/ipfs/go-log"
+	"github.com/libp2p/go-libp2p-core/network"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-msgio"
 	"github.com/opentracing/opentracing-go"
-	"github.com/quorumcontrol/chaintree/safewrap"
-
-	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-hamt-ipld"
-	logging "github.com/ipfs/go-log"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -179,9 +178,10 @@ func (n *Node) initRoundHolder() error {
 	if err == datastore.ErrNotFound {
 		height = uint64(0)
 	} else {
-		err = cbornode.DecodeInto(heightBytes, height)
-		if err != nil {
-			return fmt.Errorf("could not decode last completed round height: %w", err)
+		var n int
+		height, n = binary.Uvarint(heightBytes)
+		if n <= 0 {
+			return fmt.Errorf("could not decode last completed round height")
 		}
 
 		height += 1
@@ -428,15 +428,11 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 }
 
 func (n *Node) storeCompletedRound(round *types.RoundWrapper) error {
-	sw := safewrap.SafeWrap{}
-	wrappedHeight := sw.WrapObject(round.Height())
-	if sw.Err != nil {
-		return fmt.Errorf("could not wrap round height: %w", sw.Err)
-	}
-
-	err := n.dataStore.Put(datastore.NewKey(lastCompletedHeightKey), wrappedHeight.RawData())
+	heightBytes := make([]byte, binary.MaxVarintLen64)
+	binary.PutUvarint(heightBytes, round.Height())
+	err := n.dataStore.Put(datastore.NewKey(lastCompletedHeightKey), heightBytes)
 	if err != nil {
-		return fmt.Errorf("error storing completed round height: %w", err)
+		return fmt.Errorf("error storing completed round: %w", err)
 	}
 
 	key := roundKey(round.Height())
