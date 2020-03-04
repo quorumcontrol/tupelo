@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
@@ -13,11 +14,12 @@ import (
 	"github.com/ipfs/go-datastore"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	msgio "github.com/libp2p/go-msgio"
+	"github.com/libp2p/go-msgio"
 	"github.com/opentracing/opentracing-go"
+	"github.com/quorumcontrol/chaintree/safewrap"
 
-	cid "github.com/ipfs/go-cid"
-	hamt "github.com/ipfs/go-hamt-ipld"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-hamt-ipld"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/quorumcontrol/chaintree/nodestore"
@@ -31,7 +33,8 @@ import (
 )
 
 const gossipProtocol = "tupelo/v0.0.1"
-const lastCompletedRoundCIDKey = "/Snowball/LastCompletedRound"
+const lastCompletedHeightKey = "/Snowball/LastCompletedHeight"
+const completedRoundsKeyRoot = "/Snowball/CompletedRounds"
 
 type startSnowball struct {
 	ctx context.Context
@@ -90,6 +93,12 @@ func min(x, y int) int {
 	return y
 }
 
+func roundKey(height uint64) datastore.Key {
+	heightStr := strconv.FormatUint(height, 10)
+	keyStr := strings.Join([]string{completedRoundsKeyRoot, heightStr}, "/")
+	return datastore.NewKey(keyStr)
+}
+
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	hamtStore := hamtwrapper.DagStoreToCborIpld(opts.DagStore)
 
@@ -116,63 +125,6 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 
 	dataStore := opts.Datastore
 	dagStore := opts.DagStore
-	roundCIDBytes, err := dataStore.Get(datastore.NewKey(lastCompletedRoundCIDKey))
-	if err != nil && err != datastore.ErrNotFound {
-		return nil, fmt.Errorf("could not look up last completed round: %w", err)
-	}
-
-	holder := newRoundHolder()
-	var height uint64
-	if err == datastore.ErrNotFound {
-		height = uint64(0)
-	} else {
-		roundCID, err := cid.Cast(roundCIDBytes)
-		if err != nil {
-			return nil, fmt.Errorf("could not cast to CID: %w", err)
-		}
-		roundNode, err := dagStore.Get(ctx, roundCID)
-		if err != nil {
-			return nil, fmt.Errorf("could not get last completed round from DAG store: %w", err)
-		}
-
-		var gr gossip.Round
-		err = cbornode.DecodeInto(roundNode.RawData(), &gr)
-		if err != nil {
-			return nil, fmt.Errorf("could not decode round: %w", err)
-		}
-
-		rw := types.WrapRound(&gr)
-		rw.SetStore(dagStore)
-
-		cp, err := rw.FetchCheckpoint(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch checkpoint from completed round: %w", err)
-		}
-
-		gs := newGlobalState(hamtStore)
-		h, err := rw.FetchHamt(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch HAMT: %w", err)
-		}
-		gs.hamt = h
-
-		r := &round{
-			height: gr.Height,
-			snowball: &Snowball{
-				preferred: &Vote{
-					Checkpoint: cp,
-				},
-			},
-			state: gs,
-		}
-
-		holder = holder.WithCompletedRounds(r)
-		height = r.height + 1
-	}
-	r := newRound(height, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
-	logger.Infof("initializing snowball at height: %d with alpha: %f, beta: %d, and k: %d",
-		r.height, r.snowball.alpha, r.snowball.beta, r.snowball.k)
-	holder.SetCurrent(r)
 
 	n := &Node{
 		name:        nodeName,
@@ -182,7 +134,6 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		dagStore:    dagStore,
 		hamtStore:   hamtStore,
 		dataStore:   dataStore,
-		rounds:      holder,
 		signerIndex: signerIndex,
 		inflight:    cache,
 		mempool:     newMempool(),
@@ -190,17 +141,114 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		logger:      logger,
 	}
 
+	err = n.initRoundHolder(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not init roundHolder: %w", err)
+	}
+
 	if n.rootContext == nil {
 		n.rootContext = actor.EmptyRootContext
 	}
 
-
+	r := n.rounds.Current()
 	networkedSnowball := newSnowballer(n, r.height, r.snowball)
 	n.snowballer = networkedSnowball
 
 	n.stateStorer = newStateStorer(logger, n.dagStore)
 
 	return n, nil
+}
+
+func (n *Node) restoreRound(ctx context.Context, height uint64) (*round, error) {
+	key := roundKey(height)
+	roundCIDBytes, err := n.dataStore.Get(key)
+	if err != nil {
+		return nil, fmt.Errorf("could not look up round for height %d: %w", height, err)
+	}
+
+	roundCID, err := cid.Cast(roundCIDBytes)
+	if err != nil {
+		return nil, fmt.Errorf("could not cast to CID: %w", err)
+	}
+
+	roundNode, err := n.dagStore.Get(ctx, roundCID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get last completed round from DAG store: %w", err)
+	}
+
+	var gr gossip.Round
+	err = cbornode.DecodeInto(roundNode.RawData(), &gr)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode round: %w", err)
+	}
+
+	rw := types.WrapRound(&gr)
+	rw.SetStore(n.dagStore)
+
+	cp, err := rw.FetchCheckpoint(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch checkpoint from completed round: %w", err)
+	}
+
+	gs := newGlobalState(n.hamtStore)
+	h, err := rw.FetchHamt(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch HAMT: %w", err)
+	}
+	gs.hamt = h
+
+	r := &round{
+		height: gr.Height,
+		snowball: &Snowball{
+			preferred: &Vote{
+				Checkpoint: cp,
+			},
+		},
+		state: gs,
+	}
+
+	return r, nil
+}
+
+func (n *Node) initRoundHolder(ctx context.Context) error {
+	heightBytes, err := n.dataStore.Get(datastore.NewKey(lastCompletedHeightKey))
+	if err != nil && err != datastore.ErrNotFound {
+		return fmt.Errorf("could not look up last completed round: %w", err)
+	}
+
+	holder := newRoundHolder()
+
+	var height uint64
+	if err == datastore.ErrNotFound {
+		height = uint64(0)
+	} else {
+		err = cbornode.DecodeInto(heightBytes, height)
+		if err != nil {
+			return fmt.Errorf("could not decode last completed round height: %w", err)
+		}
+
+		rounds := make([]*round, height)
+		for h := height; h > 0; h-- {
+			round, err := n.restoreRound(ctx, h)
+			if err != nil {
+				return fmt.Errorf("could not restore round: %w", err)
+			}
+			rounds[h] = round
+		}
+
+		holder = holder.WithCompletedRounds(rounds...)
+		height += 1
+	}
+
+	r := newRound(height, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
+	holder.SetCurrent(r)
+
+	n.logger.Infof("initializing snowball at height: %d with alpha: %f, beta: %d, and k: %d",
+		r.height, r.snowball.alpha, r.snowball.beta, r.snowball.k)
+
+	n.rounds = holder
+
+	return nil
 }
 
 func (n *Node) Start(ctx context.Context) error {
@@ -415,9 +463,9 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 		return fmt.Errorf("error adding to dag store: %w", err)
 	}
 
-	err = n.dataStore.Put(datastore.NewKey(lastCompletedRoundCIDKey), wrappedCompletedRound.CID().Bytes())
+	err = n.storeCompletedRound(wrappedCompletedRound)
 	if err != nil {
-		return fmt.Errorf("error storing completed round CID: %w", err)
+		return fmt.Errorf("could not store completed round CID: %w", err)
 	}
 
 	conf, err := n.confirmCompletedRound(ctx, wrappedCompletedRound)
@@ -430,6 +478,27 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 	defer func() { round.published = true }()
 
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
+}
+
+func (n *Node) storeCompletedRound(round *types.RoundWrapper) error {
+	sw := safewrap.SafeWrap{}
+	wrappedHeight := sw.WrapObject(round.Height())
+	if sw.Err != nil {
+		return fmt.Errorf("could not wrap round height: %w", sw.Err)
+	}
+
+	err := n.dataStore.Put(datastore.NewKey(lastCompletedHeightKey), wrappedHeight.RawData())
+	if err != nil {
+		return fmt.Errorf("error storing completed round height: %w", err)
+	}
+
+	key := roundKey(round.Height())
+	err = n.dataStore.Put(key, round.CID().Bytes())
+	if err != nil {
+		return fmt.Errorf("error storing round: %w", err)
+	}
+
+	return nil
 }
 
 func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerDone) {
