@@ -72,6 +72,7 @@ type HumanConfig struct {
 	PrivateKeySet *HumanPrivateKeySet
 
 	BootstrapOnly bool
+	RelayNode     bool
 	TracingSystem string
 }
 
@@ -84,6 +85,7 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		BootstrapOnly:         hc.BootstrapOnly,
 		SecureWebSocketDomain: hc.SecureWebSocketDomain,
 		CertificateCache:      hc.CertificateCache,
+		RelayNode:             hc.RelayNode,
 	}
 
 	tomlBits, err := ioutil.ReadFile(hc.NotaryGroupConfig)

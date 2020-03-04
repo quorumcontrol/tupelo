@@ -226,12 +226,18 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) (*p2p.LibP2PHost, error)
 func (nb *NodeBuilder) startBootstrap(ctx context.Context) (*p2p.LibP2PHost, error) {
 	cm := connmgr.NewConnManager(4915, 7372, 30*time.Second)
 
+	opts := append(
+		nb.defaultP2POptions(ctx),
+		p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
+	)
+
+	if nb.Config.RelayNode {
+		opts = append(opts, p2p.WithRelayOpts(circuit.OptHop))
+	}
+
 	host, err := p2p.NewHostFromOptions(
 		ctx,
-		append(nb.defaultP2POptions(ctx),
-			p2p.WithLibp2pOptions(libp2p.ConnectionManager(cm)),
-			p2p.WithRelayOpts(circuit.OptHop),
-		)...,
+		opts...,
 	)
 	if err != nil {
 		return host, fmt.Errorf("Could not start bootstrap node, %v", err)
