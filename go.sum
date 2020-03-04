@@ -34,6 +34,7 @@ github.com/aws/aws-sdk-go v1.28.4 h1:LMGtba0y+VeepMzjz1HLie6bcgvZd7mLDxY1axBeFq8
 github.com/aws/aws-sdk-go v1.28.4/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
+github.com/bgentry/speakeasy v0.1.0 h1:ByYyxL9InA1OWqxJqqp2A5pYHUrCiAL6K3J+LKSsQkY=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
 github.com/bifurcation/mint v0.0.0-20181105073638-824af6541065/go.mod h1:zVt7zX3K/aDCk9Tj+VM7YymsX66ERvzCJzw8rFCX2JU=
 github.com/blang/semver v3.5.1+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
@@ -108,6 +109,7 @@ github.com/ethereum/go-ethereum v1.9.3 h1:v3bE4abkXknLcyWCf4TRFn+Ecmm9thPtfLFvTE
 github.com/ethereum/go-ethereum v1.9.3/go.mod h1:PwpWDrCLZrV+tfrhqqF6kPknbISMHaJv9Ln3kPCZLwY=
 github.com/facebookgo/atomicfile v0.0.0-20151019160806-2de1f203e7d5/go.mod h1:JpoxHjuQauoxiFMl1ie8Xc/7TfLuMZ5eOCONd1sUBHg=
 github.com/fatih/color v1.6.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
+github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fd/go-nat v1.0.0/go.mod h1:BTBu/CKvMmOMUPkKVef1pngt2WFH/lg7E6yQnulfp6E=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
@@ -203,14 +205,18 @@ github.com/gxed/go-shellwords v1.0.3/go.mod h1:N7paucT91ByIjmVJHhvoarjoQnmsi3Jd3
 github.com/gxed/hashland/keccakpg v0.0.1/go.mod h1:kRzw3HkwxFU1mpmPP8v1WyQzwdGfmKFJ6tItnhQ67kU=
 github.com/gxed/hashland/murmur3 v0.0.1/go.mod h1:KjXop02n4/ckmZSnY2+HKcLud/tcmvhST0bie/0lS48=
 github.com/gxed/pubsub v0.0.0-20180201040156-26ebdf44f824/go.mod h1:OiEWyHgK+CWrmOlVquHaIK1vhpUJydC9m0Je6mhaiNE=
+github.com/hashicorp/consul v1.4.2 h1:D9iJoJb8Ehe/Zmr+UEE3U3FjOLZ4LUxqFMl4O43BM1U=
 github.com/hashicorp/consul v1.4.2/go.mod h1:mFrjN1mfidgJfYP1xrJCF+AfRhr6Eaqhb2+sfyn/OOI=
+github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-cleanhttp v0.5.0/go.mod h1:JpRdi6/HCYpAwUzNwuwqhbovhLtngrth3wmdIIUrZ80=
 github.com/hashicorp/go-immutable-radix v1.0.0/go.mod h1:0y9vanUI8NX6FsYoO3zeMjhV/C5i9g4Q3DwcSNZ4P60=
 github.com/hashicorp/go-msgpack v0.5.3/go.mod h1:ahLV/dePpqEmjfWmKiqvPkv/twdG7iPBM1vqhUKIvfM=
+github.com/hashicorp/go-multierror v1.0.0 h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uPribsnS6o=
 github.com/hashicorp/go-multierror v1.0.0/go.mod h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=
 github.com/hashicorp/go-rootcerts v1.0.0/go.mod h1:K6zTfqpRlCUIjkwsN4Z+hiSfzSTQa6eBIzfwKfwNnHU=
 github.com/hashicorp/go-sockaddr v1.0.0/go.mod h1:7Xibr9yA9JjQq1JpNB2Vw7kxv8xerXegt+ozgdvDeDU=
+github.com/hashicorp/go-syslog v1.0.0 h1:KaodqZuhUoZereWVIYmpUgZysurB1kBLX2j0MwMrUAE=
 github.com/hashicorp/go-syslog v1.0.0/go.mod h1:qPfqrKkXGihmCqbJM2mZgkZGvKG1dFdvsLplgctolz4=
 github.com/hashicorp/go-uuid v1.0.0/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
 github.com/hashicorp/go-uuid v1.0.1/go.mod h1:6SBZvOh/SIDV7/2o3Jml5SYk/TvGqwFJ/bN7x4byOro=
@@ -221,6 +227,7 @@ github.com/hashicorp/golang-lru v0.5.3 h1:YPkqC67at8FYaadspW/6uE0COsBxS2656RLEr8
 github.com/hashicorp/golang-lru v0.5.3/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl v0.0.0-20180404174102-ef8a98b0bbce/go.mod h1:oZtUIOe8dh44I2q6ScRibXws4Ajl+d+nod3AaR9vL5w=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
+github.com/hashicorp/logutils v1.0.0 h1:dLEQVugN8vlakKOUE3ihGLTZJRB4j+M2cdTm/ORI65Y=
 github.com/hashicorp/logutils v1.0.0/go.mod h1:QIAnNjmIWmVIIkWDTG1z5v++HQmx9WQRO+LraFDTW64=
 github.com/hashicorp/mdns v1.0.0/go.mod h1:tL+uN++7HEJ6SQLQ2/p+z2pH24WQKWjBPkE0mNTz8vQ=
 github.com/hashicorp/memberlist v0.1.3/go.mod h1:ajVTdAv/9Im8oMAAj5G31PhhMCZJV2pPBoIllUwCN7I=
@@ -647,6 +654,7 @@ github.com/minio/sha256-simd v0.1.0/go.mod h1:2FMWW+8GMoPweT6+pI63m9YE3Lmw4J71hV
 github.com/minio/sha256-simd v0.1.1-0.20190913151208-6de447530771/go.mod h1:B5e1o+1/KgNmWrSQK08Y6Z1Vb5pwIktudl0J58iy0KM=
 github.com/minio/sha256-simd v0.1.1 h1:5QHSlgo3nt5yKOJrC7W8w7X+NFl8cMPZm96iu8kKUJU=
 github.com/minio/sha256-simd v0.1.1/go.mod h1:B5e1o+1/KgNmWrSQK08Y6Z1Vb5pwIktudl0J58iy0KM=
+github.com/mitchellh/cli v1.0.0 h1:iGBIsUe3+HZ/AD/Vd7DErOt5sU9fa8Uj7A2s1aggv1Y=
 github.com/mitchellh/cli v1.0.0/go.mod h1:hNIlj7HEI86fIcpObd7a0FcrxTWetlwJDGcceTlRvqc=
 github.com/mitchellh/go-homedir v1.0.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
@@ -722,6 +730,7 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/polydawn/refmt v0.0.0-20190221155625-df39d6c2d992/go.mod h1:uIp+gprXxxrWSjjklXD+mN4wed/tMfjMMmN/9+JsA9o=
 github.com/polydawn/refmt v0.0.0-20190807091052-3d65705ee9f1 h1:CskT+S6Ay54OwxBGB0R3Rsx4Muto6UnEYTyKJbyRIAI=
 github.com/polydawn/refmt v0.0.0-20190807091052-3d65705ee9f1/go.mod h1:uIp+gprXxxrWSjjklXD+mN4wed/tMfjMMmN/9+JsA9o=
+github.com/posener/complete v1.1.1 h1:ccV59UEOTzVDnDUEFdT95ZzHVZ+5+158q8+SJb2QV5w=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.2/go.mod h1:OsXs2jCmiKlQ1lTBmv21f2mNfw4xf/QclQDMrYNZzcM=
@@ -762,7 +771,6 @@ github.com/quorumcontrol/tupelo v0.5.12-0.20200111030921-f3f3d3244de7/go.mod h1:
 github.com/quorumcontrol/tupelo v0.5.12-0.20200111205713-bdcd8177fb62/go.mod h1:bGIgsVWW3ISO4f0r2N/b44fJbe9RLQZ0BFVSHDazEB4=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200123190536-540022241c70/go.mod h1:jg2mK/ZptRCKhH/EQ61UaBzZJ7N2dG1E84Vy7E1Aen4=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200129144132-3be48615b2ec/go.mod h1:t0szRFOWJ03Mf8uCeqPWjdKrMVWjUNuMyKkDHIgVZ/M=
-github.com/quorumcontrol/tupelo v0.5.12-0.20200221201325-8ab78c654b0d/go.mod h1:/M6OXjIeV9HVHtE0t3TNrhK7OeFfzvx3F1kPMNMcerc=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200226160350-8bc73f1e0652/go.mod h1:3+5xLTaAH0ldclLgxAVCkIMFRWqJH6AKKfbsY3NegTQ=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200228085742-a503ff3ef25f/go.mod h1:oMcb9mVNuttvYUE/enVBrdAYKZ9uV+vxTSRoVrDewFg=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1 h1:bkol/s6k1audTyo8GG7JJUAUtlo1I9BWsxb00AXr4Yw=
@@ -780,8 +788,6 @@ github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200129114839-0d0c6bc84fd
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200129114839-0d0c6bc84fd3/go.mod h1:gix9XW6TZ1G9KieMw1aat2G9rAjBEtsaYb0pC818rFU=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200226084025-d1ef23ea82c2 h1:79TU81ITP+Uay9LWvyJQLmDcsmiyLn/uFq4L+IPVUig=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200226084025-d1ef23ea82c2/go.mod h1:FacTufzYlDnWnhChtBvOi2yix8bbYOs37/0m53zKuN0=
-github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227160707-21c1f31e9a25 h1:TgQ0fQMd2kuLv1pEl9Uvhk6UcnldK1iITGQ81JRgXUI=
-github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227160707-21c1f31e9a25/go.mod h1:0fDHOrkzj1T5VDMjh4K3Y1btiRRevBl/zMPuDAf3ZDg=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227184332-a1d02e8ba5f0 h1:o9eHr3t3dX3jCWNuYHwqQvBUCqoDilSF1++u0uRlZnk=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227184332-a1d02e8ba5f0/go.mod h1:0fDHOrkzj1T5VDMjh4K3Y1btiRRevBl/zMPuDAf3ZDg=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200228230624-c8f942c4e131 h1:5x1t8Zwm6UmWQ35t36K0O1HNBdOCAB097A6W3j0miis=
