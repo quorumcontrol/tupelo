@@ -90,13 +90,12 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		denom = 2
 	}
 
+	// if we have a nil preference, then go ahead and prefer the highest tally no matter what
+	if s.preferred == nil && majority != nil {
+		s.PreferInLock(majority)
+	}
+
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
-
-		// if we have a nil preference, then go ahead and prefer the highest tally no matter what
-		if s.preferred == nil && majority != nil {
-			s.PreferInLock(majority)
-		}
-
 		snowlog.Debugf("resetting count: %v", majority)
 		sp.LogKV("countReset", true)
 		s.count = 0
