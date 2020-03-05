@@ -214,8 +214,18 @@ func (snb *snowballer) getOneRandomVote(parentCtx context.Context, tokenCh chan 
 	var signer *types.Signer
 	var signerPeer string
 	defer func() {
-		snb.respChan <- resp  // this will block when we don't need any more responses
-		tokenCh <- struct{}{} // and then this will let the sampler continue to get more responses
+		select {
+		case snb.respChan <- resp: // this will block when we don't need any more responses
+			// do nothing
+		case <-ctx.Done():
+			return // no need to return the token
+		}
+		select {
+		case tokenCh <- struct{}{}: // and then this will let the sampler continue to get more responses
+			return
+		case <-ctx.Done():
+			return
+		}
 	}()
 
 	// pick one non-self signer
