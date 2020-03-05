@@ -3,7 +3,6 @@ package nodebuilder
 import (
 	"fmt"
 	"os"
-	"path"
 	"strings"
 	"time"
 
@@ -39,14 +38,12 @@ type HumanStorageConfig struct {
 	RootDirectory  string
 }
 
-func (hsc *HumanStorageConfig) toDatastore(name string) (datastore.Batching, error) {
-	// name arg is currently only used by badger b/c it needs a lock on the
-	// directory it uses; so you can't create more than on at the same path
+func (hsc *HumanStorageConfig) toDatastore() (datastore.Batching, error) {
 	switch strings.ToLower(hsc.Kind) {
 	case "", "memory": // not-specified means memory
 		return dsync.MutexWrap(datastore.NewMapDatastore()), nil
 	case "badger":
-		return NewDefaultBadger(path.Join(hsc.Path, name))
+		return NewDefaultBadger(hsc.Path)
 	case "s3":
 		return NewS3(hsc)
 	default:
@@ -54,16 +51,12 @@ func (hsc *HumanStorageConfig) toDatastore(name string) (datastore.Batching, err
 	}
 }
 
-func (hsc *HumanStorageConfig) ToDatastore() (datastore.Batching, error) {
-	return hsc.toDatastore("datastore")
-}
-
 func (hsc *HumanStorageConfig) ToBlockstore() (blockstore.Blockstore, error) {
-	ds, err := hsc.toDatastore("blockstore")
+	datastore, err := hsc.toDatastore()
 	if err != nil {
 		return nil, fmt.Errorf("error getting datastore: %v", err)
 	}
-	bs := blockstore.NewBlockstore(ds)
+	bs := blockstore.NewBlockstore(datastore)
 	bs = blockstore.NewIdStore(bs)
 
 	// use -1 to turn off the cache,

@@ -195,7 +195,6 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) (*p2p.LibP2PHost, error)
 		SignKey:     localKeys.SignKey,
 		NotaryGroup: group,
 		DagStore:    bitswapper,
-		Datastore:   nb.Config.Datastore,
 	}
 
 	node, err := gossip.NewNode(ctx, nodeCfg)

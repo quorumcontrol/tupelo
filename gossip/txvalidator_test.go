@@ -25,7 +25,8 @@ func TestTransactionValidator(t *testing.T) {
 
 	numMembers := 1
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	ng, nodes := newTupeloSystem(ctx, t, ts)
+	ng, nodes, err := newTupeloSystem(ctx, t, ts)
+	require.Nil(t, err)
 	require.Len(t, nodes, numMembers)
 
 	fut := actor.NewFuture(5 * time.Second)
@@ -71,7 +72,8 @@ func BenchmarkTransactionValidator(b *testing.B) {
 
 	numMembers := 1
 	ts := testnotarygroup.NewTestSet(b, numMembers)
-	ng, nodes := newTupeloSystem(ctx, b, ts)
+	ng, nodes, err := newTupeloSystem(ctx, b, ts)
+	require.Nil(b, err)
 	require.Len(b, nodes, numMembers)
 
 	wg := &sync.WaitGroup{}
