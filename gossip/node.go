@@ -205,7 +205,7 @@ func (n *Node) Start(ctx context.Context) error {
 				republishTicker.Stop()
 				return
 			case <-checkSnowballTicker.C:
-				n.maybeStartSnowball(ctx)
+				n.rootContext.Send(n.pid, &startSnowball{ctx: ctx})
 			case <-republishTicker.C:
 				n.maybeRepublish(ctx)
 			}
@@ -304,6 +304,8 @@ func (n *Node) Receive(actorContext actor.Context) {
 		n.handleAddBlockRequest(actorContext, msg)
 	case *snowballerDone:
 		n.handleSnowballerDone(actorContext, msg)
+	case *startSnowball:
+		n.maybeStartSnowball(msg.ctx)
 	default:
 		n.logger.Debugf("root node actor received other %T message: %+v", msg, msg)
 	}
