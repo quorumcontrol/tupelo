@@ -3,6 +3,8 @@ package nodebuilder
 import (
 	"context"
 	"fmt"
+	"path"
+	"strconv"
 	"strings"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -50,7 +52,8 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 	configs := make([]*Config, len(signers))
 	for i, keySet := range keys {
 		hsc := &HumanStorageConfig{
-			Kind: "memory",
+			Kind: "badger",
+			Path: path.Join(configDir(namespace, localConfigName), strconv.Itoa(i)),
 		}
 
 		bstore, err := hsc.ToBlockstore()
@@ -58,17 +61,11 @@ func NewLocalNetwork(ctx context.Context, namespace string, keys []*PrivateKeySe
 			return nil, fmt.Errorf("error setting up badger blockstore: %v", err)
 		}
 
-		dstore, err := hsc.ToDatastore()
-		if err != nil {
-			return nil, fmt.Errorf("error setting up badger datastore: %v", err)
-		}
-
 		configs[i] = &Config{
 			NotaryGroupConfig: ngConfig,
 			PrivateKeySet:     keySet,
 			BootstrapNodes:    ln.BootstrapAddrrs,
 			Blockstore:        bstore,
-			Datastore:         dstore,
 		}
 	}
 
