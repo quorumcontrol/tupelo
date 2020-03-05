@@ -3,7 +3,3 @@ NotaryGroupConfig = "../localdocker.toml"
 [PrivateKeySet]
 SignKeyHex = "0x4344e3372f1b790016ed86400611fab64d0bba91136518685a7ce34106f1c759"
 DestKeyHex = "0xc09363e85290020c132053f029f23988d4e35c521b0698312e0071f3e5d0e023"
-
-[Storage]
-Kind = "badger"
-Path = "/tupelo/data"
