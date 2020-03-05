@@ -6,9 +6,11 @@ import (
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
-	cid "github.com/ipfs/go-cid"
-	hamt "github.com/ipfs/go-hamt-ipld"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-hamt-ipld"
 	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"

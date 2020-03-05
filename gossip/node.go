@@ -12,13 +12,15 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	lru "github.com/hashicorp/golang-lru"
-	cid "github.com/ipfs/go-cid"
-	hamt "github.com/ipfs/go-hamt-ipld"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-hamt-ipld"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	msgio "github.com/libp2p/go-msgio"
+	"github.com/libp2p/go-msgio"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -45,6 +47,7 @@ type Node struct {
 	notaryGroup *types.NotaryGroup
 	dagStore    nodestore.DagStore
 	hamtStore   *hamt.CborIpldStore
+	dataStore   datastore.Batching
 	pubsub      *pubsub.PubSub
 
 	mempool  *mempool
@@ -77,6 +80,7 @@ type NewNodeOptions struct {
 	SignKey          *bls.SignKey
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
+	Datastore        datastore.Batching
 	Name             string             // optional
 	RootActorContext *actor.RootContext // optional
 }
@@ -122,17 +126,18 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	dagStore := opts.DagStore
 
 	n := &Node{
-		name:        opts.Name,
+		name:        nodeName,
 		p2pNode:     opts.P2PNode,
 		signKey:     opts.SignKey,
 		notaryGroup: opts.NotaryGroup,
-		dagStore:    opts.DagStore,
+		dagStore:    dagStore,
 		hamtStore:   hamtStore,
 		dataStore:   dataStore,
 		signerIndex: signerIndex,
 		inflight:    cache,
 		mempool:     newMempool(),
 		rootContext: opts.RootActorContext,
+		logger:      logger,
 	}
 
 	err = n.initRoundHolder()
