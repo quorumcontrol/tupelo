@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-bitswap"
+	msgio "github.com/libp2p/go-msgio"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 
@@ -243,6 +245,49 @@ func TestByzantineCases(t *testing.T) {
 	require.Len(t, nodes, numMembers)
 
 	startNodes(t, ctx, nodes)
+
+	t.Run("asks for a snowball with no Txs", func(t *testing.T) {
+		abr := testhelpers.NewValidTransaction(t)
+		wrapper := &AddBlockWrapper{
+			AddBlockRequest: &abr,
+		}
+		wrapper.StartTrace("gossip4.transaction")
+
+		actor.EmptyRootContext.Send(nodes[0].PID(), wrapper)
+
+		waitForAllAbrs(t, ctx, nodes, []*services.AddBlockRequest{&abr})
+		// ok so we have round 0 decided let's ask for round 1 but no one has any transactions
+
+		for _, node := range nodes {
+			otherSigner := group.AllSigners()[(node.signerIndex+1)%(len(nodes)-1)]
+			node.p2pNode.WaitForBootstrap(2, 10*time.Second)
+
+			s, err := node.p2pNode.NewStream(ctx, otherSigner.DstKey, gossipProtocol)
+			require.Nil(t, err)
+			defer s.Close()
+
+			sw := &safewrap.SafeWrap{}
+			wrapped := sw.WrapObject(node.rounds.Current().height + 1)
+
+			writer := msgio.NewVarintWriter(s)
+			err = writer.WriteMsg(wrapped.RawData())
+			require.Nil(t, err)
+		}
+
+		// now wait a bit
+		time.Sleep(1 * time.Second)
+
+		// and we should still be able to send in a transaction and get a round
+		abr2 := testhelpers.NewValidTransaction(t)
+		wrapper2 := &AddBlockWrapper{
+			AddBlockRequest: &abr2,
+		}
+		wrapper2.StartTrace("gossip4.transaction")
+
+		actor.EmptyRootContext.Send(nodes[1].PID(), wrapper2)
+
+		waitForAllAbrs(t, ctx, nodes, []*services.AddBlockRequest{&abr2})
+	})
 
 	t.Run("different transactions at each node", func(t *testing.T) {
 		abrs := make([]*services.AddBlockRequest, numMembers)
