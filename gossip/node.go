@@ -375,8 +375,11 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	defer sp.Finish()
 
 	if msg.err != nil {
-		n.logger.Errorf("snowballer crashed: %v", msg.err)
-		// TODO: How should we recover from this?
+		n.logger.Warningf("snowballer errored: %v", msg.err)
+		round := n.rounds.Current()
+		round.snowball.Reset()
+		n.snowballer = newSnowballer(n, round.height, round.snowball)
+		// we'll let the normal timer restart the snowballer
 		return
 	}
 

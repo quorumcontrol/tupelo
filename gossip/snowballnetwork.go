@@ -2,6 +2,7 @@ package gossip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -22,6 +23,8 @@ import (
 )
 
 const paralellCount = 2
+
+var ErrNilRound = errors.New("nil round")
 
 type snowballer struct {
 	sync.RWMutex
@@ -155,6 +158,12 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 		}
 
 		snb.doTick(ctx)
+	}
+	// if the snowballer just found that the round is nil
+	// tell the node that.
+	if snb.snowball.Preferred() == nil {
+		done <- ErrNilRound
+		return
 	}
 
 	done <- nil

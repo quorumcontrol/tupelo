@@ -92,6 +92,13 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
 
+		// this allows us to agree with the network that the round is
+		// indeed nil
+		if s.preferred == nil && majority == nil {
+			s.IncAndCheckCount()
+			return // don't reset the count in this case
+		}
+
 		// if we have a nil preference, then go ahead and prefer the highest tally no matter what
 		if s.preferred == nil && majority != nil {
 			s.PreferInLock(majority)
@@ -126,14 +133,21 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		snowlog.Debugf("majority id: %s != last id: %s", majority.ID(), lastID)
 		s.last, s.count = majority, 1
 	} else {
-		s.count++
-		sp.LogKV("count", s.count)
-		snowlog.Debugf("count: %d", s.count)
-		if s.count > s.beta {
+		if decided := s.IncAndCheckCount(); decided {
 			sp.LogKV("decided", true)
-			s.decided = true
 		}
+		sp.LogKV("count", s.count)
 	}
+}
+
+func (s *Snowball) IncAndCheckCount() bool {
+	s.count++
+	snowlog.Debugf("count: %d", s.count)
+	if s.count > s.beta {
+		snowlog.Debugf("decided")
+		s.decided = true
+	}
+	return s.decided
 }
 
 func (s *Snowball) Prefer(v *Vote) {
