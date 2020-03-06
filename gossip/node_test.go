@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	logging "github.com/ipfs/go-log"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-bitswap"
@@ -71,7 +73,7 @@ func startNodes(t *testing.T, ctx context.Context, nodes []*Node) {
 	}
 
 	for i, node := range nodes {
-		// logging.SetLogLevel(fmt.Sprintf("node-%d", i), "debug")
+		logging.SetLogLevel(node.name, "debug")
 
 		if i > 0 {
 			err := node.Bootstrap(ctx, bootAddrs)
@@ -247,6 +249,9 @@ func TestByzantineCases(t *testing.T) {
 	startNodes(t, ctx, nodes)
 
 	t.Run("asks for a snowball with no Txs", func(t *testing.T) {
+		logger := logging.Logger("snowball-test")
+		logging.SetLogLevel("snowball-test", "debug")
+		logging.SetLogLevel("snowball", "debug")
 		abr := testhelpers.NewValidTransaction(t)
 		wrapper := &AddBlockWrapper{
 			AddBlockRequest: &abr,
@@ -254,10 +259,12 @@ func TestByzantineCases(t *testing.T) {
 		wrapper.StartTrace("gossip4.transaction")
 
 		actor.EmptyRootContext.Send(nodes[0].PID(), wrapper)
+		// actor.EmptyRootContext.Send(nodes[1].PID(), wrapper)
+		// actor.EmptyRootContext.Send(nodes[2].PID(), wrapper)
 
 		waitForAllAbrs(t, ctx, nodes, []*services.AddBlockRequest{&abr})
 		// ok so we have round 0 decided let's ask for round 1 but no one has any transactions
-
+		logger.Debugf("round done - starting next round")
 		for _, node := range nodes {
 			otherSigner := group.AllSigners()[(node.signerIndex+1)%(len(nodes)-1)]
 			node.p2pNode.WaitForBootstrap(2, 10*time.Second)
@@ -267,15 +274,16 @@ func TestByzantineCases(t *testing.T) {
 			defer s.Close()
 
 			sw := &safewrap.SafeWrap{}
-			wrapped := sw.WrapObject(node.rounds.Current().height + 1)
+			wrapped := sw.WrapObject(uint64(1))
 
 			writer := msgio.NewVarintWriter(s)
 			err = writer.WriteMsg(wrapped.RawData())
 			require.Nil(t, err)
 		}
+		logger.Debugf("snowballs triggered")
 
 		// now wait a bit
-		time.Sleep(1 * time.Second)
+		time.Sleep(2 * time.Second)
 
 		// and we should still be able to send in a transaction and get a round
 		abr2 := testhelpers.NewValidTransaction(t)
@@ -285,6 +293,8 @@ func TestByzantineCases(t *testing.T) {
 		wrapper2.StartTrace("gossip4.transaction")
 
 		actor.EmptyRootContext.Send(nodes[1].PID(), wrapper2)
+		// actor.EmptyRootContext.Send(nodes[0].PID(), wrapper2)
+		// actor.EmptyRootContext.Send(nodes[2].PID(), wrapper2)
 
 		waitForAllAbrs(t, ctx, nodes, []*services.AddBlockRequest{&abr2})
 	})

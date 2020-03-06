@@ -68,6 +68,8 @@ type Node struct {
 
 	startCtx context.Context
 
+	lastNilRound *time.Time
+
 	closer io.Closer
 }
 
@@ -375,6 +377,8 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 	defer sp.Finish()
 
 	if msg.err != nil {
+		now := time.Now()
+		n.lastNilRound = &now
 		n.logger.Warningf("snowballer errored: %v", msg.err)
 		round := n.rounds.Current()
 		round.snowball.Reset()
@@ -382,6 +386,7 @@ func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerD
 		// we'll let the normal timer restart the snowballer
 		return
 	}
+	n.lastNilRound = nil
 
 	preferred := n.snowballer.snowball.Preferred()
 
@@ -474,6 +479,7 @@ func (n *Node) SnowBallReceive(actorContext actor.Context) {
 
 func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 	defer s.Close()
+	n.logger.Debugf("handle stream %s", s.Conn().RemotePeer().String())
 
 	if err := s.SetWriteDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		n.logger.Errorf("error setting write deadline: %v", err)
@@ -509,13 +515,22 @@ func (n *Node) handleStream(actorContext actor.Context, s network.Stream) {
 	cp := &gossip.Checkpoint{Height: height}
 	response := types.WrapCheckpoint(cp)
 
+	if !ok || r.snowball.Preferred() == nil {
+		now := time.Now()
+		last := n.lastNilRound
+		shouldSnowball := !n.snowballer.Started() &&
+			height >= n.rounds.Current().height &&
+			(last == nil || now.After(last.Add(time.Second)))
+
+		if shouldSnowball {
+			n.logger.Debugf("starting snowball after getting %d", height)
+			n.snowballer.Start(n.startCtx)
+		}
+	}
+
 	if ok {
 		// n.logger.Debugf("existing round %d", height)
-		preferred := r.snowball.Preferred()
-		if preferred == nil && r.height >= n.rounds.Current().height {
-			actorContext.Send(actorContext.Self(), &startSnowball{ctx: n.startCtx})
-		} else {
-			// n.logger.Debugf("existing preferred; %v", preferred)
+		if preferred := r.snowball.Preferred(); preferred != nil {
 			response = preferred.Checkpoint
 		}
 	}

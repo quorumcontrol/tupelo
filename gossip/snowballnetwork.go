@@ -183,6 +183,8 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 		responses[i] = <-snb.respChan // this channel is being populated in another go routine
 	}
 	votes := make([]*Vote, sampleSize)
+	oneWithTrans := false
+
 	for i, resp := range responses {
 		if resp == nil {
 			v := &Vote{}
@@ -196,6 +198,9 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			Checkpoint: wrappedCheckpoint,
 		}
 		abrs := wrappedCheckpoint.AddBlockRequests()
+		if len(abrs) > 0 {
+			oneWithTrans = true
+		}
 		if len(abrs) == 0 ||
 			!(snb.mempoolHasAllABRs(abrs)) ||
 			snb.hasConflictingABRs(abrs) {
@@ -210,7 +215,21 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	votes = calculateTallies(votes)
 	// snb.logger.Debugf("votes: %s", spew.Sdump(votes))
 
+	// this handles a special case where the network has
+	// all responded that they know nothing about this round
+	if !oneWithTrans && snb.snowball.Preferred() == nil {
+		// if we did a sample of the network and it was all nil
+		// then we'll short circuit this snowball round and let
+		// the normal rules pick it up again
+		snb.logger.Debugf("short circuiting the snowball because it was all nil")
+		snb.snowball.IncAndCheckCount()
+		return
+	}
+
+	snb.logger.Debugf("ticking because preferred: %v", snb.snowball.Preferred())
+
 	snb.snowball.Tick(ctx, votes)
+
 	// snb.logger.Debugf("counts: %v, beta: %d", snb.snowball.counts, snb.snowball.count)
 }
 

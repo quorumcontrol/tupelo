@@ -91,14 +91,6 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	}
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
-
-		// this allows us to agree with the network that the round is
-		// indeed nil
-		if s.preferred == nil && majority == nil {
-			s.IncAndCheckCount()
-			return // don't reset the count in this case
-		}
-
 		// if we have a nil preference, then go ahead and prefer the highest tally no matter what
 		if s.preferred == nil && majority != nil {
 			s.PreferInLock(majority)
