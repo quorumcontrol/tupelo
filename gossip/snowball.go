@@ -91,6 +91,13 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 	}
 
 	if majority == nil || majority.Tally() < s.alpha*2/denom {
+		// handle the special case of deciding on nil
+		// where we will up our beta on getting nil
+		if s.preferred == nil && majority == nil {
+			s.IncAndCheckCount()
+			return
+		}
+
 		// if we have a nil preference, then go ahead and prefer the highest tally no matter what
 		if s.preferred == nil && majority != nil {
 			s.PreferInLock(majority)

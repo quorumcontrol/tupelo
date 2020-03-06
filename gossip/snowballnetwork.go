@@ -162,6 +162,7 @@ func (snb *snowballer) run(startCtx context.Context, done chan error) {
 	// if the snowballer just found that the round is nil
 	// tell the node that.
 	if snb.snowball.Preferred() == nil {
+		snb.logger.Debugf("short circuiting the snowball because it was all nil")
 		done <- ErrNilRound
 		return
 	}
@@ -183,7 +184,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 		responses[i] = <-snb.respChan // this channel is being populated in another go routine
 	}
 	votes := make([]*Vote, sampleSize)
-	oneWithTrans := false
+	// oneWithTrans := false
 
 	for i, resp := range responses {
 		if resp == nil {
@@ -198,11 +199,17 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 			Checkpoint: wrappedCheckpoint,
 		}
 		abrs := wrappedCheckpoint.AddBlockRequests()
-		if len(abrs) > 0 {
-			oneWithTrans = true
+		// if len(abrs) > 0 {
+		// 	oneWithTrans = true
+		// }
+
+		hasAll := snb.mempoolHasAllABRs(abrs)
+		if !hasAll {
+			snb.logger.Debugf("missing Txs from %s", resp.signerID)
 		}
+
 		if len(abrs) == 0 ||
-			!(snb.mempoolHasAllABRs(abrs)) ||
+			!(hasAll) ||
 			snb.hasConflictingABRs(abrs) {
 			// nil out any votes that have ABRs we havne't heard of
 			// or if they present conflicting ABRs in the same Checkpoint
@@ -215,16 +222,16 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	votes = calculateTallies(votes)
 	// snb.logger.Debugf("votes: %s", spew.Sdump(votes))
 
-	// this handles a special case where the network has
-	// all responded that they know nothing about this round
-	if !oneWithTrans && snb.snowball.Preferred() == nil {
-		// if we did a sample of the network and it was all nil
-		// then we'll short circuit this snowball round and let
-		// the normal rules pick it up again
-		snb.logger.Debugf("short circuiting the snowball because it was all nil")
-		snb.snowball.IncAndCheckCount()
-		return
-	}
+	// // this handles a special case where the network has
+	// // all responded that they know nothing about this round
+	// if !oneWithTrans && snb.snowball.Preferred() == nil {
+	// 	// if we did a sample of the network and it was all nil
+	// 	// then we'll short circuit this snowball round and let
+	// 	// the normal rules pick it up again
+	// 	snb.logger.Debugf("short circuiting the snowball because it was all nil")
+	// 	snb.snowball.IncAndCheckCount()
+	// 	return
+	// }
 
 	snb.logger.Debugf("ticking because preferred: %v", snb.snowball.Preferred())
 
