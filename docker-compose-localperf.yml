@@ -1,0 +1,300 @@
+version: "3"
+services:
+  # netdelay adds a ~100ms delay between local containers which seems to match
+  # our real-world experience on AWS cross-world
+  netdelay:
+    image: gaiaadm/pumba@sha256:2281261e819dacaece3945cabffd659aaad2dd6cf978eea2bf63c5539e46d5da
+    command: "netem --duration 96h --tc-image gaiadocker/iproute2 delay --jitter 20 --time 80 re2:^tupelo_node"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - bootstrap
+      - node0
+      - node1
+      - node2
+      - node3
+      - node4
+      - node5
+      - node6
+      - node7
+      - node8
+      - node9
+      - node10
+      - node11
+      - node12
+      - node13
+      - node14
+      - node15
+      - node16
+      - node17
+      - node18
+      - node19
+      - node20
+  bootstrap:
+    build: .
+    command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-error}"]
+    volumes:
+      - ./configs/localperftest:/configs      
+    networks:
+      default:
+        ipv4_address: 172.16.238.10
+
+  node0:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-0/config.toml
+  node1:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-1/config.toml
+  node2:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-2/config.toml
+  node3:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-3/config.toml
+  node4:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-4/config.toml
+  node5:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-5/config.toml
+  node6:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-6/config.toml
+  node7:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-7/config.toml
+  node8:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-8/config.toml
+  node9:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-9/config.toml
+  node10:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-10/config.toml
+  node11:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-11/config.toml
+  node12:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-12/config.toml
+  node13:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-13/config.toml
+  node14:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-14/config.toml
+  node15:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-15/config.toml
+  node16:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-16/config.toml
+  node17:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-17/config.toml
+  node18:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-18/config.toml
+  node19:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-19/config.toml
+  node20:
+    depends_on:
+    - bootstrap
+    build: .
+    volumes:
+    - ./configs/localperftest:/configs
+    command:
+    - node
+    - -L
+    - ${TUPELO_LOG_LEVEL:-info}
+    - --config
+    - /configs/node-20/config.toml
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.238.0/24
