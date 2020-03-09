@@ -133,6 +133,7 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		s.last, s.count = majority, 1
 	} else {
 		if decided := s.IncAndCheckCount(); decided {
+			s.PreferInLock(s.last) // this differs from perlin and the snowball whitepaper, but has been confirmed by the Ava team as the *intention* of the whitepaper
 			sp.LogKV("decided", true)
 		}
 		sp.LogKV("count", s.count)
