@@ -330,7 +330,7 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 	if err != nil {
 		return fmt.Errorf("error getting current state cid: %v", err)
 	}
-	n.logger.Infof("publishCompletedRound height %d currentState: %s", round.height, currentStateCid.String())
+	n.logger.Debugf("publishCompletedRound height %d currentState: %s", round.height, currentStateCid.String())
 
 	if !round.snowball.Decided() {
 		return fmt.Errorf("can't publish an undecided round")
