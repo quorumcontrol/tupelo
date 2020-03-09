@@ -12,3 +12,4 @@ _old
 *-packr.go
 /local-run/
 *.pb.go
+/configs/localperftest
