@@ -232,7 +232,8 @@ func (n *Node) maybeRepublish(ctx context.Context) {
 
 	if round := n.rounds.Current(); round != nil {
 		previousRound, found := n.rounds.Get(round.height - 1)
-		if found && previousRound != nil {
+
+		if found && previousRound != nil && previousRound.published {
 			n.logger.Debugf("republishing round: %d", previousRound.height)
 			n.publishCompletedRound(ctx, previousRound)
 		}
@@ -329,6 +330,7 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 	if err != nil {
 		return fmt.Errorf("error getting current state cid: %v", err)
 	}
+	n.logger.Debugf("publishCompletedRound height %d currentState: %s", round.height, currentStateCid.String())
 
 	if !round.snowball.Decided() {
 		return fmt.Errorf("can't publish an undecided round")
@@ -360,6 +362,8 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 	}
 
 	n.logger.Debugf("publishing round confirmed to: %s", n.notaryGroup.ID)
+
+	defer func() { round.published = true }()
 
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
 }

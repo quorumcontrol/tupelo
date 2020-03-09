@@ -17,6 +17,8 @@ type round struct {
 	height   uint64
 	state    *globalState
 	sp       opentracing.Span
+
+	published bool
 }
 
 func newRound(height uint64, alpha float64, beta int, k int) *round {
