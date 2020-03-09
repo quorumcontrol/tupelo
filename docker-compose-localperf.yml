@@ -1,3 +1,5 @@
+# this is a 
+
 version: "3"
 services:
   # netdelay adds a ~100ms delay between local containers which seems to match
@@ -38,7 +40,6 @@ services:
     networks:
       default:
         ipv4_address: 172.16.238.10
-
   node0:
     depends_on:
     - bootstrap

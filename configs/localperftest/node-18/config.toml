@@ -1,0 +1,26 @@
+Namespace = ""
+NotaryGroupConfig = "../perfgroup.toml"
+Gossip3NotaryGroupConfig = ""
+PublicIP = ""
+Port = 0
+WebSocketPort = 0
+SecureWebSocketDomain = ""
+CertificateCache = ""
+BootstrapOnly = false
+TracingSystem = ""
+
+[Storage]
+  Kind = ""
+  Path = ""
+  CacheSize = 0
+  RegionEndpoint = ""
+  Bucket = ""
+  Region = ""
+  AccessKey = ""
+  SecretKey = ""
+  LocalS3 = false
+  RootDirectory = ""
+
+[PrivateKeySet]
+  SignKeyHex = "0x669cfc0ebc0c7142d1e9da06fa80a7292d895a5d5ef92c474974d56c3925bd6e"
+  DestKeyHex = "0xc690c2924d66fd9380d43eed0d18ee6b0d18cd3d9fb18ba50567b041e250726a"
