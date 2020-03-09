@@ -19,6 +19,7 @@ var benchmarkConcurrency int
 var benchmarkDuration int
 var benchmarkStartDelay int
 var benchmarkTimeout int
+var benchmarkRunFaultDetection bool
 
 // benchmark represents the shell command
 var benchmarkCmd = &cobra.Command{
@@ -59,6 +60,15 @@ var benchmarkCmd = &cobra.Command{
 			panic(fmt.Errorf("error getting notary group: %v", err))
 		}
 
+		if benchmarkRunFaultDetection {
+			fd := &benchmark.FaultDetector{
+				P2PNode:  p2pHost,
+				DagStore: peer,
+				Group:    group,
+			}
+			go fd.Start(ctx)
+		}
+
 		if err = p2pHost.WaitForBootstrap(1+len(group.Signers)/2, 15*time.Second); err != nil {
 			panic(err)
 		}
@@ -84,4 +94,5 @@ func init() {
 	benchmarkCmd.Flags().IntVarP(&benchmarkDuration, "duration", "d", 10, "how many seconds to run benchmark for")
 	benchmarkCmd.Flags().IntVarP(&benchmarkTimeout, "timeout", "t", 10, "how many seconds to timeout waiting for Txs to complete")
 	benchmarkCmd.Flags().IntVar(&benchmarkStartDelay, "delay", 0, "how many seconds to wait before kicking off the benchmark; useful if network needs to stabilize first")
+	benchmarkCmd.Flags().BoolVar(&benchmarkRunFaultDetection, "fault-detector", false, "run a fault detector that outputs if a node has confirmed a different round than the rest of the network")
 }
