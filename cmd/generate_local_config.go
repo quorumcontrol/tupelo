@@ -78,7 +78,6 @@ func writeLocalConfigs() error {
 	if err != nil {
 		return err
 	}
-	// humanConfigs := make([]*nodebuilder.HumanConfig, localConfigNodeCount)
 
 	for i := 0; i < localConfigNodeCount; i++ {
 		hc := &nodebuilder.HumanConfig{
@@ -88,7 +87,6 @@ func writeLocalConfigs() error {
 				DestKeyHex: hexutil.Encode(crypto.FromECDSA(keys.EcdsaKeys[i])),
 			},
 		}
-		// humanConfigs[i] = hc
 		nodeConfigPath := path.Join(localConfigPath, fmt.Sprintf("node-%d", i))
 		if err := os.MkdirAll(nodeConfigPath, 0755); err != nil {
 			return err
