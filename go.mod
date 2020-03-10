@@ -41,7 +41,6 @@ require (
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72
 	gopkg.in/yaml.v2 v2.2.8
-	google.golang.org/grpc v1.21.1
 )
 
 // These replaces come from: https://github.com/ipfs/go-ipfs/issues/6795#issuecomment-571165734
