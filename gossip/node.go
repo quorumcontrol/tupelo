@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/opentracing/opentracing-go"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/ipfs/go-datastore"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	msgio "github.com/libp2p/go-msgio"
+	"github.com/opentracing/opentracing-go"
 
 	cid "github.com/ipfs/go-cid"
 	hamt "github.com/ipfs/go-hamt-ipld"
@@ -31,6 +31,7 @@ import (
 )
 
 const gossipProtocol = "tupelo/v0.0.1"
+const lastCompletedRoundCIDKey = "/Snowball/LastCompletedRound"
 
 type startSnowball struct {
 	ctx context.Context
@@ -44,6 +45,7 @@ type Node struct {
 	notaryGroup *types.NotaryGroup
 	dagStore    nodestore.DagStore
 	hamtStore   *hamt.CborIpldStore
+	dataStore   datastore.Batching
 	pubsub      *pubsub.PubSub
 
 	mempool  *mempool
@@ -76,6 +78,7 @@ type NewNodeOptions struct {
 	SignKey          *bls.SignKey
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
+	Datastore        datastore.Batching
 	Name             string             // optional
 	RootActorContext *actor.RootContext // optional
 }
@@ -103,38 +106,94 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		return nil, fmt.Errorf("error creating cache: %w", err)
 	}
 
-	// TODO: we need a way to bootstrap a node coming back up and not in the genesis state.
-	// shouldn't be too hard, just save the latest round into a key/value store somewhere
-	// and then it can come back up and bootstrap itself up to the latest in the network
+	nodeName := opts.Name
+	if nodeName == "" {
+		nodeName = fmt.Sprintf("node-%d", signerIndex)
+	}
+
+	logger := logging.Logger(nodeName)
+	logger.Debugf("signerIndex: %d", signerIndex)
+
+	dataStore := opts.Datastore
+	dagStore := opts.DagStore
+	roundCIDBytes, err := dataStore.Get(datastore.NewKey(lastCompletedRoundCIDKey))
+	if err != nil && err != datastore.ErrNotFound {
+		return nil, fmt.Errorf("could not look up last completed round: %w", err)
+	}
+
 	holder := newRoundHolder()
-	r := newRound(0, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
+	var height uint64
+	if err == datastore.ErrNotFound {
+		height = uint64(0)
+	} else {
+		roundCID, err := cid.Cast(roundCIDBytes)
+		if err != nil {
+			return nil, fmt.Errorf("could not cast to CID: %w", err)
+		}
+		roundNode, err := dagStore.Get(ctx, roundCID)
+		if err != nil {
+			return nil, fmt.Errorf("could not get last completed round from DAG store: %w", err)
+		}
+
+		var gr gossip.Round
+		err = cbornode.DecodeInto(roundNode.RawData(), &gr)
+		if err != nil {
+			return nil, fmt.Errorf("could not decode round: %w", err)
+		}
+
+		rw := types.WrapRound(&gr)
+		rw.SetStore(dagStore)
+
+		cp, err := rw.FetchCheckpoint(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch checkpoint from completed round: %w", err)
+		}
+
+		gs := newGlobalState(hamtStore)
+		h, err := rw.FetchHamt(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch HAMT: %w", err)
+		}
+		gs.hamt = h
+
+		r := &round{
+			height: gr.Height,
+			snowball: &Snowball{
+				preferred: &Vote{
+					Checkpoint: cp,
+				},
+			},
+			state: gs,
+		}
+
+		holder = holder.WithCompletedRounds(r)
+		height = r.height + 1
+	}
+	r := newRound(height, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
+	logger.Infof("initializing snowball at height: %d with alpha: %f, beta: %d, and k: %d",
+		r.height, r.snowball.alpha, r.snowball.beta, r.snowball.k)
 	holder.SetCurrent(r)
 
 	n := &Node{
-		name:        opts.Name,
+		name:        nodeName,
 		p2pNode:     opts.P2PNode,
 		signKey:     opts.SignKey,
 		notaryGroup: opts.NotaryGroup,
-		dagStore:    opts.DagStore,
+		dagStore:    dagStore,
 		hamtStore:   hamtStore,
+		dataStore:   dataStore,
 		rounds:      holder,
 		signerIndex: signerIndex,
 		inflight:    cache,
 		mempool:     newMempool(),
 		rootContext: opts.RootActorContext,
+		logger:      logger,
 	}
 
 	if n.rootContext == nil {
 		n.rootContext = actor.EmptyRootContext
 	}
 
-	if n.name == "" {
-		n.name = fmt.Sprintf("node-%d", signerIndex)
-	}
-
-	logger := logging.Logger(n.name)
-	logger.Debugf("signerIndex: %d", signerIndex)
-	n.logger = logger
 
 	networkedSnowball := newSnowballer(n, r.height, r.snowball)
 	n.snowballer = networkedSnowball
@@ -354,6 +413,11 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 	err = n.dagStore.Add(ctx, wrappedCompletedRound.Wrapped())
 	if err != nil {
 		return fmt.Errorf("error adding to dag store: %w", err)
+	}
+
+	err = n.dataStore.Put(datastore.NewKey(lastCompletedRoundCIDKey), wrappedCompletedRound.CID().Bytes())
+	if err != nil {
+		return fmt.Errorf("error storing completed round CID: %w", err)
 	}
 
 	conf, err := n.confirmCompletedRound(ctx, wrappedCompletedRound)

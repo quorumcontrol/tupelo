@@ -59,6 +59,14 @@ func newRoundHolder() *roundHolder {
 	}
 }
 
+func (rh *roundHolder) WithCompletedRounds(rounds... *round) *roundHolder {
+	for _, r := range rounds {
+		rh.rounds[r.height] = r
+	}
+
+	return rh
+}
+
 func (rh *roundHolder) Current() *round {
 	rh.RLock()
 	r := rh.rounds[rh.currentRound]
