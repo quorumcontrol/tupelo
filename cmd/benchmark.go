@@ -60,8 +60,10 @@ var benchmarkCmd = &cobra.Command{
 			panic(fmt.Errorf("error getting notary group: %v", err))
 		}
 
+		var fd *benchmark.FaultDetector
+
 		if benchmarkRunFaultDetection {
-			fd := &benchmark.FaultDetector{
+			fd = &benchmark.FaultDetector{
 				P2PNode:  p2pHost,
 				DagStore: peer,
 				Group:    group,
@@ -80,6 +82,10 @@ var benchmarkCmd = &cobra.Command{
 		}
 
 		b := benchmark.NewBenchmark(cli, benchmarkConcurrency, time.Duration(benchmarkDuration)*time.Second, time.Duration(benchmarkTimeout)*time.Second)
+
+		if fd != nil {
+			b.FaultDetector = fd
+		}
 
 		results := b.Run(ctx)
 
