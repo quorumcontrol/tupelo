@@ -11,7 +11,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
-	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
@@ -19,8 +18,6 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
-
-var logger = logging.Logger("benchmarker")
 
 type Benchmark struct {
 	client        *client.Client
