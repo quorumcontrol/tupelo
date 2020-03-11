@@ -66,6 +66,8 @@ type FaultDetector struct {
 
 	rounds conflictSetHolder
 	logger logging.EventLogger
+
+	subscription *pubsub.Subscription
 }
 
 func (fd *FaultDetector) Start(ctx context.Context) error {
@@ -81,6 +83,7 @@ func (fd *FaultDetector) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("error subscribing %w", err)
 	}
+	fd.subscription = sub
 
 	go func() {
 		for {
@@ -91,10 +94,17 @@ func (fd *FaultDetector) Start(ctx context.Context) error {
 			}
 			if err := fd.handleMessage(ctx, msg); err != nil {
 				fd.logger.Warningf("error handling pubsub message: %v", err)
+				return
 			}
 		}
 	}()
 	return nil
+}
+
+func (fd *FaultDetector) Stop() {
+	if fd.subscription != nil {
+		fd.subscription.Cancel()
+	}
 }
 
 func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message) error {
