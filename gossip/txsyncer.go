@@ -40,6 +40,7 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 		err := tg.store.Get(ctx, msg, abr)
 		if err != nil {
 			tg.logger.Warningf("error fetching %s", msg.String())
+			return
 		}
 
 		tg.cache.Add(msg.String(), struct{}{})
