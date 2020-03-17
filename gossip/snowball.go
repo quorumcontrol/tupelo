@@ -131,6 +131,7 @@ func (s *Snowball) Tick(startCtx context.Context, votes []*Vote) {
 		snowlog.Debugf("count: %d", s.count)
 		if s.count > s.beta {
 			sp.LogKV("decided", true)
+			s.PreferInLock(s.last)
 			s.decided = true
 		}
 	}
