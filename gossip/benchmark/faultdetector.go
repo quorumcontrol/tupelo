@@ -172,7 +172,7 @@ func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message)
 			i++
 		}
 
-		fd.logger.Warningf("conflicting round signatures %d (%v), this one %s from: %s", confirmation.Height, keys, roundCid.String(), msg.GetFrom().Pretty())
+		fd.logger.Errorf("conflicting round signatures %d (%v), this one %s from: %s", confirmation.Height, keys, roundCid.String(), msg.GetFrom().Pretty())
 
 		for roundCid, confirmation := range conflictSet {
 			wrappedConfirmation := types.WrapRoundConfirmation(confirmation)
@@ -204,7 +204,7 @@ func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message)
 				txIds[i] = id.String()
 			}
 
-			fd.logger.Warningf("round %d id: %s, transactions from this commit: (len: %d) %v --- checkpointCid: %s, stateCID: %s", confirmation.Height, roundCid.String(), len(txIds), txIds, wrappedCheckpoint.CID(), stateCid.String())
+			fd.logger.Errorf("round %d id: %s, transactions from this commit: (len: %d) %v --- checkpointCid: %s, stateCID: %s", confirmation.Height, roundCid.String(), len(txIds), txIds, wrappedCheckpoint.CID(), stateCid.String())
 		}
 	}
 
