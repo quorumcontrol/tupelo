@@ -3,12 +3,12 @@ package gossip
 import (
 	"sync"
 
-	"github.com/opentracing/opentracing-go"
+	opentracing "github.com/opentracing/opentracing-go"
 )
 
 const (
 	defaultAlpha = 0.666
-	defaultBeta  = 5
+	defaultBeta  = 20
 	defaultK     = 100
 )
 
