@@ -116,7 +116,7 @@ func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message)
 
 	err = sigfuncs.RestoreBLSPublicKey(ctx, confirmation.Signature, fd.verKeys())
 	if err != nil {
-		return fmt.Errorf("error restoring BLS key: %w", err)
+		return fmt.Errorf("error restoring BLS key: %w (from %s)", err, msg.GetFrom().Pretty())
 	}
 
 	verified, err := sigfuncs.Valid(ctx, confirmation.Signature, confirmation.RoundCid, nil)
