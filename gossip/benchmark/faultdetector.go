@@ -94,7 +94,6 @@ func (fd *FaultDetector) Start(ctx context.Context) error {
 			}
 			if err := fd.handleMessage(ctx, msg); err != nil {
 				fd.logger.Warningf("error handling pubsub message: %v", err)
-				return
 			}
 		}
 	}()
