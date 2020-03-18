@@ -154,6 +154,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	n.snowballer = networkedSnowball
 
 	n.stateStorer = newStateStorer(logger, n.dagStore)
+	n.pubsub = n.p2pNode.GetPubSub()
 
 	return n, nil
 }
@@ -199,6 +200,8 @@ func (n *Node) initRoundHolder() error {
 }
 
 func (n *Node) Start(ctx context.Context) error {
+	n.startCtx = ctx
+
 	pid, err := n.rootContext.SpawnNamed(actor.PropsFromFunc(n.Receive), n.name)
 	if err != nil {
 		return fmt.Errorf("error starting actor: %w", err)
@@ -211,59 +214,6 @@ func (n *Node) Start(ctx context.Context) error {
 		<-ctx.Done()
 		n.logger.Infof("node stopped")
 		n.rootContext.Poison(n.pid)
-	}()
-
-	validator, err := NewTransactionValidator(ctx, n.logger, n.notaryGroup, pid)
-	if err != nil {
-		return fmt.Errorf("error setting up: %v", err)
-	}
-	n.validator = validator
-
-	n.pubsub = n.p2pNode.GetPubSub()
-
-	err = n.pubsub.RegisterTopicValidator(n.notaryGroup.Config().TransactionTopic, validator.validate)
-	if err != nil {
-		return fmt.Errorf("error registering topic validator: %v", err)
-	}
-
-	sub, err := n.pubsub.Subscribe(n.notaryGroup.Config().TransactionTopic)
-	if err != nil {
-		return fmt.Errorf("error subscribing %v", err)
-	}
-
-	n.startCtx = ctx
-
-	// don't do anything with these messages because we actually get them
-	// fully decoded in the actor spun up above
-	go func() {
-		for {
-			_, err := sub.Next(ctx)
-			if err != nil {
-				n.logger.Warningf("error getting sub message: %v", err)
-				return
-			}
-		}
-	}()
-
-	go func() {
-		// every once in a while check to see if the mempool has entries and if the
-		// snowballer has started and start the snowballer if it isn't
-		// this is handled by the snowball actor spun up in the node's root actor (see: Receive function)
-		checkSnowballTicker := time.NewTicker(200 * time.Millisecond)
-		republishTicker := time.NewTicker(500 * time.Millisecond)
-		ctxDone := ctx.Done()
-		for {
-			select {
-			case <-ctxDone:
-				checkSnowballTicker.Stop()
-				republishTicker.Stop()
-				return
-			case <-checkSnowballTicker.C:
-				n.maybeStartSnowball(ctx)
-			case <-republishTicker.C:
-				n.maybeRepublish(ctx)
-			}
-		}
 	}()
 
 	n.logger.Debugf("node starting")
@@ -333,6 +283,72 @@ func (n *Node) setupStateStorer(actorContext actor.Context) {
 	n.stateStorerPid = storerPid
 }
 
+func (n *Node) setupValidation(actorContext actor.Context) error {
+	ctx := n.startCtx
+
+	validator, err := NewTransactionValidator(ctx, n.logger, n.notaryGroup, actorContext.Self())
+	if err != nil {
+		return fmt.Errorf("error setting up: %v", err)
+	}
+	n.validator = validator
+
+	err = n.pubsub.RegisterTopicValidator(n.notaryGroup.Config().TransactionTopic, validator.validate)
+	if err != nil {
+		return fmt.Errorf("error registering topic validator: %v", err)
+	}
+
+	return nil
+}
+
+func (n *Node) subscribeToTransactions() error {
+	sub, err := n.pubsub.Subscribe(n.notaryGroup.Config().TransactionTopic)
+	if err != nil {
+		return fmt.Errorf("error subscribing %v", err)
+	}
+
+	// don't do anything with these messages because we actually get them
+	// from the topic validator which sends them in fully decoded to the
+	// node main actor
+	go func() {
+		ctx := n.startCtx
+
+		for {
+			_, err := sub.Next(ctx)
+			if err != nil {
+				n.logger.Warningf("error getting sub message: %v", err)
+				return
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (n *Node) setupTickers() {
+	go func() {
+		ctx := n.startCtx
+		// every once in a while check to see if the mempool has entries and if the
+		// snowballer has started and start the snowballer if it isn't
+		// this is handled by the snowball actor spun up in the node's root actor (see: Receive function)
+		checkSnowballTicker := time.NewTicker(200 * time.Millisecond)
+		republishTicker := time.NewTicker(500 * time.Millisecond)
+		ctxDone := ctx.Done()
+		for {
+			select {
+			case <-ctxDone:
+				checkSnowballTicker.Stop()
+				republishTicker.Stop()
+				return
+			case <-checkSnowballTicker.C:
+				n.maybeStartSnowball(ctx)
+			case <-republishTicker.C:
+				n.maybeRepublish(ctx)
+			}
+		}
+	}()
+
+}
+
 func (n *Node) setupSyncer(actorContext actor.Context) {
 	syncerPid, err := actorContext.SpawnNamed(actor.PropsFromProducer(func() actor.Actor {
 		return &transactionGetter{
@@ -351,9 +367,16 @@ func (n *Node) setupSyncer(actorContext actor.Context) {
 func (n *Node) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *actor.Started:
+		if err := n.setupValidation(actorContext); err != nil {
+			panic(err)
+		}
 		n.setupSyncer(actorContext)
 		n.setupSnowball(actorContext)
 		n.setupStateStorer(actorContext)
+		n.setupTickers()
+		if err := n.subscribeToTransactions(); err != nil {
+			panic(err)
+		}
 	case *AddBlockWrapper:
 		n.handleAddBlockRequest(actorContext, msg)
 	case *snowballerDone:
