@@ -1,4 +1,5 @@
 NotaryGroupConfig = "../localdocker.toml"
+Port = 34004
 
 [PrivateKeySet]
 SignKeyHex = "0x558a546adacea3d761741bf4a6415ef2eeb85bfa457036b59564fa88ee276cf5"
