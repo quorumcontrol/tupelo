@@ -69,6 +69,9 @@ func TestSigner(t *testing.T) {
 		bstore, err := hsc.ToBlockstore()
 		require.Nil(t, err)
 
+		dstore, err := hsc.ToDatastore()
+		require.Nil(t, err)
+
 		nb := &NodeBuilder{
 			Config: &Config{
 				NotaryGroupConfig: ngConfig,
@@ -77,6 +80,7 @@ func TestSigner(t *testing.T) {
 					SignKey: ts.SignKeys[0],
 				},
 				Blockstore:     bstore,
+				Datastore:      dstore,
 				BootstrapNodes: addrs,
 			},
 		}
