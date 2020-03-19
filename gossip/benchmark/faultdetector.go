@@ -94,7 +94,6 @@ func (fd *FaultDetector) Start(ctx context.Context) error {
 			}
 			if err := fd.handleMessage(ctx, msg); err != nil {
 				fd.logger.Warningf("error handling pubsub message: %v", err)
-				return
 			}
 		}
 	}()
@@ -117,7 +116,7 @@ func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message)
 
 	err = sigfuncs.RestoreBLSPublicKey(ctx, confirmation.Signature, fd.verKeys())
 	if err != nil {
-		return fmt.Errorf("error restoring BLS key: %w", err)
+		return fmt.Errorf("error restoring BLS key: %w (from %s)", err, msg.GetFrom().Pretty())
 	}
 
 	verified, err := sigfuncs.Valid(ctx, confirmation.Signature, confirmation.RoundCid, nil)
@@ -172,7 +171,7 @@ func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message)
 			i++
 		}
 
-		fd.logger.Warningf("conflicting round signatures %d (%v), this one %s from: %s", confirmation.Height, keys, roundCid.String(), msg.GetFrom().Pretty())
+		fd.logger.Errorf("conflicting round signatures %d (%v), this one %s from: %s", confirmation.Height, keys, roundCid.String(), msg.GetFrom().Pretty())
 
 		for roundCid, confirmation := range conflictSet {
 			wrappedConfirmation := types.WrapRoundConfirmation(confirmation)
@@ -204,7 +203,7 @@ func (fd *FaultDetector) handleMessage(ctx context.Context, msg *pubsub.Message)
 				txIds[i] = id.String()
 			}
 
-			fd.logger.Warningf("round %d id: %s, transactions from this commit: (len: %d) %v --- checkpointCid: %s, stateCID: %s", confirmation.Height, roundCid.String(), len(txIds), txIds, wrappedCheckpoint.CID(), stateCid.String())
+			fd.logger.Errorf("round %d id: %s, transactions from this commit: (len: %d) %v --- checkpointCid: %s, stateCID: %s", confirmation.Height, roundCid.String(), len(txIds), txIds, wrappedCheckpoint.CID(), stateCid.String())
 		}
 	}
 

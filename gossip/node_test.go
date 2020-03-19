@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -10,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-bitswap"
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
@@ -24,10 +25,11 @@ import (
 
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
+
 	"github.com/quorumcontrol/tupelo/testnotarygroup"
 )
 
-func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*Node, error) {
+func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*Node) {
 	name := t.Name()
 	nodes := make([]*Node, len(testSet.SignKeys))
 
@@ -40,24 +42,23 @@ func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup
 
 	for i := range ng.AllSigners() {
 		p2pNode, peer, err := p2p.NewHostAndBitSwapPeer(ctx, p2p.WithKey(testSet.EcdsaKeys[i]), p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)))
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
+
+		dataStore := dsync.MutexWrap(datastore.NewMapDatastore())
 
 		n, err := NewNode(ctx, &NewNodeOptions{
 			P2PNode:     p2pNode,
 			SignKey:     testSet.SignKeys[i],
 			NotaryGroup: ng,
 			DagStore:    peer,
+			Datastore:   dataStore,
 			Name:        strconv.Itoa(i) + "-" + name,
 		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("error making node: %v", err)
-		}
+		require.Nil(t, err)
 		nodes[i] = n
 	}
 
-	return ng, nodes, nil
+	return ng, nodes
 }
 
 func startNodes(t *testing.T, ctx context.Context, nodes []*Node) {
@@ -126,11 +127,10 @@ func TestNewNode(t *testing.T) {
 
 	numMembers := 1
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	_, nodes, err := newTupeloSystem(ctx, t, ts)
-	require.Nil(t, err)
+	_, nodes := newTupeloSystem(ctx, t, ts)
 	require.Len(t, nodes, numMembers)
 	n := nodes[0]
-	err = n.Start(ctx)
+	err := n.Start(ctx)
 	require.Nil(t, err)
 
 	abr, err := n.getCurrent(ctx, "no way")
@@ -144,8 +144,7 @@ func TestEndToEnd(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, t, ts)
-	require.Nil(t, err)
+	group, nodes := newTupeloSystem(ctx, t, ts)
 	require.Len(t, nodes, numMembers)
 
 	startNodes(t, ctx, nodes)
@@ -192,8 +191,7 @@ func TestIdleRoundsRepublish(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, t, ts)
-	require.Nil(t, err)
+	group, nodes := newTupeloSystem(ctx, t, ts)
 	require.Len(t, nodes, numMembers)
 
 	startNodes(t, ctx, nodes)
@@ -238,8 +236,7 @@ func TestByzantineCases(t *testing.T) {
 
 	numMembers := 3
 	ts := testnotarygroup.NewTestSet(t, numMembers)
-	group, nodes, err := newTupeloSystem(ctx, t, ts)
-	require.Nil(t, err)
+	group, nodes := newTupeloSystem(ctx, t, ts)
 	require.Len(t, nodes, numMembers)
 
 	startNodes(t, ctx, nodes)

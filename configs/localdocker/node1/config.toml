@@ -4,3 +4,7 @@ Port = 34003
 [PrivateKeySet]
 SignKeyHex = "0x39a9b8ab3266811852b8b18d1fd0562ffc907f3ecba297c9b2a89f742d349dc9"
 DestKeyHex = "0xa1b8b9936d8072b1a16311aee414289a5f8070acff847588386738d6d686fc9b"
+
+[Storage]
+Kind = "badger"
+Path = "/tupelo/data"

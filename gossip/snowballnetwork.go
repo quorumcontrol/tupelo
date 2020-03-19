@@ -146,7 +146,7 @@ func (snb *snowballer) doTick(startCtx context.Context) {
 	i := 0
 	for resp := range respChan {
 		wrappedCheckpoint := resp.wrappedCheckpoint
-		snb.logger.Debugf("%s checkpoint: %v", resp.signerID, wrappedCheckpoint.Value())
+		snb.logger.Debugf("%s checkpoint: %s, len: %d", resp.signerID, wrappedCheckpoint.CID(), len(wrappedCheckpoint.Value().AddBlockRequests))
 		vote := &Vote{
 			Checkpoint: wrappedCheckpoint,
 		}

@@ -30,6 +30,7 @@ services:
     build: .
     volumes:
       - ./configs/localdocker:/configs
+      - ./.tmp/node0/data:/tupelo/data
     command: ["node", "--config", "/configs/node0/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
     ports:
@@ -41,6 +42,7 @@ services:
     build: .
     volumes:
       - ./configs/localdocker:/configs
+      - ./.tmp/node1/data:/tupelo/data
     command: ["node", "--config", "/configs/node1/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
     ports:
@@ -52,6 +54,7 @@ services:
     build: .
     volumes:
       - ./configs/localdocker:/configs
+      - ./.tmp/node2/data:/tupelo/data
     command: ["node", "--config", "/configs/node2/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
     ports:
