@@ -18,7 +18,7 @@ import (
 
 const (
 	defaultAlpha = 0.666
-	defaultBeta  = 5
+	defaultBeta  = 10
 	defaultK     = 100
 )
 
