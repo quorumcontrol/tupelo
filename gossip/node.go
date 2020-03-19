@@ -3,23 +3,24 @@ package gossip
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-	cbornode "github.com/ipfs/go-ipld-cbor"
-	"github.com/opentracing/opentracing-go"
-
 	"github.com/AsynkronIT/protoactor-go/actor"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	msgio "github.com/libp2p/go-msgio"
-
-	cid "github.com/ipfs/go-cid"
-	hamt "github.com/ipfs/go-hamt-ipld"
+	lru "github.com/hashicorp/golang-lru"
+	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-hamt-ipld"
+	cbornode "github.com/ipfs/go-ipld-cbor"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/network"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-msgio"
+	"github.com/opentracing/opentracing-go"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -31,6 +32,8 @@ import (
 )
 
 const gossipProtocol = "tupelo/v0.0.1"
+const lastCompletedHeightKey = "/Snowball/LastCompletedHeight"
+const completedRoundsKeyRoot = "/Snowball/CompletedRounds"
 
 type startSnowball struct {
 	ctx context.Context
@@ -44,6 +47,7 @@ type Node struct {
 	notaryGroup *types.NotaryGroup
 	dagStore    nodestore.DagStore
 	hamtStore   *hamt.CborIpldStore
+	dataStore   datastore.Batching
 	pubsub      *pubsub.PubSub
 
 	mempool  *mempool
@@ -76,6 +80,7 @@ type NewNodeOptions struct {
 	SignKey          *bls.SignKey
 	NotaryGroup      *types.NotaryGroup
 	DagStore         nodestore.DagStore
+	Datastore        datastore.Batching
 	Name             string             // optional
 	RootActorContext *actor.RootContext // optional
 }
@@ -85,6 +90,12 @@ func min(x, y int) int {
 		return x
 	}
 	return y
+}
+
+func roundKey(height uint64) datastore.Key {
+	heightStr := strconv.FormatUint(height, 10)
+	keyStr := strings.Join([]string{completedRoundsKeyRoot, heightStr}, "/")
+	return datastore.NewKey(keyStr)
 }
 
 func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
@@ -103,39 +114,42 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 		return nil, fmt.Errorf("error creating cache: %w", err)
 	}
 
-	// TODO: we need a way to bootstrap a node coming back up and not in the genesis state.
-	// shouldn't be too hard, just save the latest round into a key/value store somewhere
-	// and then it can come back up and bootstrap itself up to the latest in the network
-	holder := newRoundHolder()
-	r := newRound(0, 0, 0, min(defaultK, int(opts.NotaryGroup.Size())-1))
-	holder.SetCurrent(r)
+	nodeName := opts.Name
+	if nodeName == "" {
+		nodeName = fmt.Sprintf("node-%d", signerIndex)
+	}
+
+	logger := logging.Logger(nodeName)
+	logger.Debugf("signerIndex: %d", signerIndex)
+
+	dataStore := opts.Datastore
+	dagStore := opts.DagStore
 
 	n := &Node{
-		name:        opts.Name,
+		name:        nodeName,
 		p2pNode:     opts.P2PNode,
 		signKey:     opts.SignKey,
 		notaryGroup: opts.NotaryGroup,
-		dagStore:    opts.DagStore,
+		dagStore:    dagStore,
 		hamtStore:   hamtStore,
-		rounds:      holder,
+		dataStore:   dataStore,
 		signerIndex: signerIndex,
 		inflight:    cache,
 		mempool:     newMempool(),
 		rootContext: opts.RootActorContext,
+		logger:      logger,
+	}
+
+	err = n.initRoundHolder()
+	if err != nil {
+		return nil, fmt.Errorf("could not init roundHolder: %w", err)
 	}
 
 	if n.rootContext == nil {
 		n.rootContext = actor.EmptyRootContext
 	}
 
-	if n.name == "" {
-		n.name = fmt.Sprintf("node-%d", signerIndex)
-	}
-
-	logger := logging.Logger(n.name)
-	logger.Debugf("signerIndex: %d", signerIndex)
-	n.logger = logger
-
+	r := n.rounds.Current()
 	networkedSnowball := newSnowballer(n, r.height, r.snowball)
 	n.snowballer = networkedSnowball
 
@@ -143,6 +157,46 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	n.pubsub = n.p2pNode.GetPubSub()
 
 	return n, nil
+}
+
+func (n *Node) initRoundHolder() error {
+	rhOpts := &roundHolderOpts{
+		DataStore: n.dataStore,
+		DagStore:  n.dagStore,
+		HamtStore: n.hamtStore,
+	}
+	holder, err := newRoundHolder(rhOpts)
+	if err != nil {
+		return fmt.Errorf("could not create roundHolder: %w", err)
+	}
+
+	heightBytes, err := n.dataStore.Get(datastore.NewKey(lastCompletedHeightKey))
+	if err != nil && err != datastore.ErrNotFound {
+		return fmt.Errorf("could not look up last completed round: %w", err)
+	}
+
+	var height uint64
+	if err == datastore.ErrNotFound {
+		height = uint64(0)
+	} else {
+		var n int
+		height, n = binary.Uvarint(heightBytes)
+		if n <= 0 {
+			return fmt.Errorf("could not decode last completed round height")
+		}
+
+		height += 1
+	}
+
+	r := newRound(height, 0, 0, min(defaultK, int(n.notaryGroup.Size())-1))
+	holder.SetCurrent(r)
+
+	n.logger.Infof("initializing snowball at height: %d with alpha: %f, beta: %d, and k: %d",
+		r.height, r.snowball.alpha, r.snowball.beta, r.snowball.k)
+
+	n.rounds = holder
+
+	return nil
 }
 
 func (n *Node) Start(ctx context.Context) error {
@@ -379,6 +433,11 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 		return fmt.Errorf("error adding to dag store: %w", err)
 	}
 
+	err = n.storeCompletedRound(wrappedCompletedRound)
+	if err != nil {
+		return fmt.Errorf("could not store completed round CID: %w", err)
+	}
+
 	conf, err := n.confirmCompletedRound(ctx, wrappedCompletedRound)
 	if err != nil {
 		return fmt.Errorf("error confirming completed round: %v", err)
@@ -389,6 +448,23 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 	defer func() { round.published = true }()
 
 	return n.pubsub.Publish(n.notaryGroup.ID, conf.Data())
+}
+
+func (n *Node) storeCompletedRound(round *types.RoundWrapper) error {
+	heightBytes := make([]byte, binary.MaxVarintLen64)
+	binary.PutUvarint(heightBytes, round.Height())
+	err := n.dataStore.Put(datastore.NewKey(lastCompletedHeightKey), heightBytes)
+	if err != nil {
+		return fmt.Errorf("error storing completed round: %w", err)
+	}
+
+	key := roundKey(round.Height())
+	err = n.dataStore.Put(key, round.CID().Bytes())
+	if err != nil {
+		return fmt.Errorf("error storing round: %w", err)
+	}
+
+	return nil
 }
 
 func (n *Node) handleSnowballerDone(actorContext actor.Context, msg *snowballerDone) {
