@@ -23,6 +23,7 @@ import (
 	circuit "github.com/libp2p/go-libp2p-circuit"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/peer"
+	tcp "github.com/libp2p/go-tcp-transport"
 	"github.com/shibukawa/configdir"
 )
 
@@ -195,6 +196,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) (*p2p.LibP2PHost, error)
 		SignKey:     localKeys.SignKey,
 		NotaryGroup: group,
 		DagStore:    bitswapper,
+		Datastore:   nb.Config.Datastore,
 	}
 
 	node, err := gossip.NewNode(ctx, nodeCfg)
@@ -299,6 +301,7 @@ func (nb *NodeBuilder) ownPeerID() (peer.ID, error) {
 
 func (nb *NodeBuilder) defaultP2POptions(ctx context.Context) []p2p.Option {
 	opts := []p2p.Option{
+		p2p.WithTransports(libp2p.Transport(tcp.NewTCPTransport), libp2p.Transport(NewNoDialWebsocketTransport)),
 		p2p.WithDiscoveryNamespaces(nb.Config.NotaryGroupConfig.ID),
 		p2p.WithListenIP("0.0.0.0", nb.Config.Port),
 		p2p.WithBitswapOptions(bitswap.ProvideEnabled(false)),

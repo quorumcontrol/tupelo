@@ -3,6 +3,7 @@ package nodebuilder
 import (
 	"crypto/ecdsa"
 
+	"github.com/ipfs/go-datastore"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -42,4 +43,5 @@ type Config struct {
 	RelayNode     bool
 
 	Blockstore blockstore.Blockstore
+	Datastore  datastore.Batching
 }

@@ -140,6 +140,12 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 
 	c.Blockstore = bstore
 
+	dstore, err := hc.Storage.ToDatastore()
+	if err != nil {
+		return nil, fmt.Errorf("error converting to datastore: %v", err)
+	}
+	c.Datastore = dstore
+
 	return c, nil
 }
 

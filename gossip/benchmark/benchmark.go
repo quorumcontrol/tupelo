@@ -20,10 +20,11 @@ import (
 )
 
 type Benchmark struct {
-	client      *client.Client
-	concurrency int
-	duration    time.Duration
-	timeout     time.Duration
+	client        *client.Client
+	concurrency   int
+	duration      time.Duration
+	timeout       time.Duration
+	FaultDetector *FaultDetector
 }
 
 type durationSet struct {
@@ -127,7 +128,6 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	if err != nil {
 		panic(err)
 	}
-	defer b.client.UnsubscribeFromRounds(roundSubscription)
 
 	delayBetween := time.Duration(float64(time.Second) / float64(b.concurrency))
 
@@ -140,6 +140,7 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 
 	go func() {
 		var lastTime time.Time
+		defer b.client.UnsubscribeFromRounds(roundSubscription)
 
 		for {
 			select {
@@ -182,6 +183,9 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	}()
 
 	<-benchmarkCtx.Done()
+	if b.FaultDetector != nil {
+		b.FaultDetector.Stop()
+	}
 	// now we wait for "timeout" to happen to make sure we get all the results
 	time.Sleep(b.timeout)
 
