@@ -7,7 +7,6 @@ import (
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
-	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 )
 
 type PrivateKeySet struct {
@@ -26,10 +25,9 @@ const (
 type Config struct {
 	Namespace string
 
-	Gossip3NotaryGroupConfig *g3types.Config
-	NotaryGroupConfig        *types.Config
-	PublicIP                 string
-	Port                     int
+	NotaryGroupConfig *types.Config
+	PublicIP          string
+	Port              int
 
 	WebSocketPort         int
 	SecureWebSocketDomain string
