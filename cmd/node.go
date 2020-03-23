@@ -22,13 +22,9 @@ var nodeCmd = &cobra.Command{
 			panic(fmt.Errorf("error getting node config"))
 		}
 
-		var (
-			err error
-		)
-
 		nb := &nodebuilder.NodeBuilder{Config: config}
 
-		err = nb.Start(ctx)
+		err := nb.Start(ctx)
 		if err != nil {
 			panic(fmt.Errorf("error starting: %w", err))
 		}
