@@ -1,6 +1,5 @@
 Namespace = ""
 NotaryGroupConfig = "../perfgroup.toml"
-Gossip3NotaryGroupConfig = ""
 PublicIP = ""
 Port = 0
 WebSocketPort = 0

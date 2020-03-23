@@ -34,7 +34,6 @@ func TestNotaryGroupAbsPath(t *testing.T) {
 	pwd, err := os.Getwd()
 	require.Nil(t, err)
 	hc.NotaryGroupConfig = filepath.Join(pwd, "testconfigs", hc.NotaryGroupConfig)
-	hc.Gossip3NotaryGroupConfig = filepath.Join(pwd, "testconfigs", hc.Gossip3NotaryGroupConfig)
 
 	encoder := toml.NewEncoder(tmpfile)
 	err = encoder.Encode(hc)

@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
-	g3types "github.com/quorumcontrol/tupelo-go-sdk/gossip3/types"
 
 	"github.com/quorumcontrol/tupelo-go-sdk/bls"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
@@ -58,10 +57,9 @@ func (hpks *HumanPrivateKeySet) ToPrivateKeySet() (*PrivateKeySet, error) {
 type HumanConfig struct {
 	Namespace string
 
-	NotaryGroupConfig        string
-	Gossip3NotaryGroupConfig string
-	PublicIP                 string
-	Port                     int
+	NotaryGroupConfig string
+	PublicIP          string
+	Port              int
 
 	Storage HumanStorageConfig
 
@@ -96,19 +94,6 @@ func HumanConfigToConfig(hc HumanConfig) (*Config, error) {
 		return nil, fmt.Errorf("error loading notary group config: %v", err)
 	}
 	c.NotaryGroupConfig = ngConfig
-
-	if hc.Gossip3NotaryGroupConfig != "" {
-		g3TomlBits, err := ioutil.ReadFile(hc.Gossip3NotaryGroupConfig)
-		if err != nil {
-			return nil, fmt.Errorf("error reading %v", err)
-		}
-
-		g3NgConfig, err := g3types.TomlToConfig(string(g3TomlBits))
-		if err != nil {
-			return nil, fmt.Errorf("error loading gossip3 notary group config: %v", err)
-		}
-		c.Gossip3NotaryGroupConfig = g3NgConfig
-	}
 
 	c.BootstrapNodes = ngConfig.BootstrapAddresses
 
@@ -167,10 +152,6 @@ func TomlToConfig(path string) (*Config, error) {
 	if !filepath.IsAbs(hc.NotaryGroupConfig) {
 		relPath := hc.NotaryGroupConfig
 		hc.NotaryGroupConfig = filepath.Join(filepath.Dir(path), relPath)
-	}
-
-	if hc.Gossip3NotaryGroupConfig != "" && !filepath.IsAbs(hc.Gossip3NotaryGroupConfig) {
-		hc.Gossip3NotaryGroupConfig = filepath.Join(filepath.Dir(path), hc.Gossip3NotaryGroupConfig)
 	}
 
 	return HumanConfigToConfig(hc)

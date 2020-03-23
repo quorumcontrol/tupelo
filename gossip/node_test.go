@@ -252,7 +252,7 @@ func TestByzantineCases(t *testing.T) {
 			wrapper := &AddBlockWrapper{
 				AddBlockRequest: abr,
 			}
-			wrapper.StartTrace("gossip3.transaction")
+			wrapper.StartTrace("gossip4.transaction")
 
 			actor.EmptyRootContext.Send(nodes[i].PID(), wrapper)
 		}
@@ -270,7 +270,7 @@ func TestByzantineCases(t *testing.T) {
 			wrapper := &AddBlockWrapper{
 				AddBlockRequest: abr,
 			}
-			wrapper.StartTrace("gossip3.transaction")
+			wrapper.StartTrace("gossip4.transaction")
 
 			actor.EmptyRootContext.Send(nodes[0].PID(), wrapper)
 		}

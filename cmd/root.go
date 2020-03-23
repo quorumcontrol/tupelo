@@ -109,11 +109,6 @@ var rootCmd = &cobra.Command{
 			fmt.Println("unknown ipfs log level")
 		}
 
-		// TODO: Restore this in gossip4
-		// if err := gossip3.SetLogLevel(zapLogLevels[logLvlName]); err != nil {
-		//	panic(err)
-		// }
-
 		if remoteNetwork {
 			if localNetworkNodeCount > 0 {
 				panic("cannot supply both --local-network N (greater than 0) and --remote-network; please use one or the other")
