@@ -142,6 +142,10 @@ func (t *Tracker) TrackBetween(ctx context.Context, startRoundCid cid.Cid, endRo
 
 	log.Infof("gathering metrics for ng '%s'", t.tupelo.Group.ID)
 
+	if endRoundCid.Equals(startRoundCid) {
+		return fmt.Errorf("can't calculate metrics between the same round")
+	}
+
 	if startRoundCid.Equals(emptyCid) {
 		startRound, err = t.emptyRound(ctx)
 	} else {
