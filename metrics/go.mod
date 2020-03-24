@@ -14,6 +14,8 @@ replace (
 )
 
 require (
+	github.com/aws/aws-sdk-go-v2 v0.20.0
+	github.com/elastic/go-elasticsearch/v6 v6.8.5
 	github.com/elastic/go-sysinfo v1.3.0 // indirect
 	github.com/elastic/go-windows v1.0.1 // indirect
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1

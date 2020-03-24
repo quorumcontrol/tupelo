@@ -50,7 +50,7 @@ func (r *Recorder) Start(ctx context.Context, startRound *types.RoundWrapper, en
 
 	r.txn = r.tracer.StartTransaction(fmt.Sprintf("round%d", r.round), "roundmetrics")
 	r.txn.Context.SetLabel("round", fmt.Sprintf("%d", r.round))
-	r.txn.Context.SetLabel("meausureRounds", fmt.Sprintf("%d", r.meausuredRounds))
+	r.txn.Context.SetLabel("meausuredrounds", fmt.Sprintf("%d", r.meausuredRounds))
 
 	return nil
 }
@@ -101,6 +101,7 @@ func (r *Recorder) Finish(ctx context.Context) error {
 	r.txn.Context.SetLabel("totalblocks", fmt.Sprintf("%d", totalBlocks))
 	r.txn.Context.SetLabel("measuredblocks", fmt.Sprintf("%d", measuredBlocks))
 	r.txn.Context.SetLabel("count", fmt.Sprintf("%d", count))
+	r.txn.Context.SetLabel("countnum", count)
 	r.txn.End()
 
 	r.tracer.Flush(make(chan struct{}))

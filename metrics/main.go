@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/ipfs/go-bitswap"
@@ -15,7 +16,7 @@ import (
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo-go-sdk/p2p"
 	"github.com/quorumcontrol/tupelo/metrics/classifier"
-	apmrecorder "github.com/quorumcontrol/tupelo/metrics/recorder/apm"
+	"github.com/quorumcontrol/tupelo/metrics/recorder/elasticsearch/v6"
 	"github.com/quorumcontrol/tupelo/metrics/tracker"
 )
 
@@ -30,14 +31,31 @@ func main() {
 		panic(err)
 	}
 
+	recorder, err := elasticsearch.New(os.Getenv("ELASTICSEARCH_URL"), os.Getenv("ELASTICSEARCH_INDEX"))
+	if err != nil {
+		panic(err)
+	}
+
 	tracker := tracker.New(&tracker.Options{
 		Tupelo:     tupelo,
 		Nodestore:  nodestore,
 		Classifier: classifier.Default,
-		Recorder:   apmrecorder.New(),
+		Recorder:   recorder,
 	})
 
-	tracker.TrackAll(ctx)
+	lastRound, err := recorder.LastRecordedRound(ctx)
+	if err != nil {
+		panic(err)
+	}
+	if lastRound != nil {
+		err = tracker.TrackFrom(ctx, *lastRound)
+	} else {
+		err = tracker.TrackAll(ctx)
+	}
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 func tupeloClient(ctx context.Context) (*client.Client, *p2p.BitswapPeer, error) {
