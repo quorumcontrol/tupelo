@@ -31,7 +31,11 @@ func main() {
 		panic(err)
 	}
 
-	recorder, err := elasticsearch.New(os.Getenv("ELASTICSEARCH_URL"), os.Getenv("ELASTICSEARCH_INDEX"))
+	elasticsearchURL := os.Getenv("ELASTICSEARCH_URL")
+	// es freaks out: both ELASTICSEARCH_URL and Addresses are set
+	os.Unsetenv("ELASTICSEARCH_URL")
+
+	recorder, err := elasticsearch.New(elasticsearchURL, os.Getenv("ELASTICSEARCH_INDEX"))
 	if err != nil {
 		panic(err)
 	}
