@@ -68,19 +68,22 @@ func (t *Tracker) TrackAll(ctx context.Context) error {
 
 func (t *Tracker) TrackFrom(ctx context.Context, startRoundCid cid.Cid) error {
 	log.Infof("fetching current round")
-	roundCh := make(chan *types.RoundConfirmationWrapper, 10)
-	roundSubscription, err := t.tupelo.SubscribeToRounds(ctx, roundCh)
-	if err != nil {
-		return err
-	}
-	roundWrap := <-roundCh
-	t.tupelo.UnsubscribeFromRounds(roundSubscription)
 
-	round, err := roundWrap.FetchCompletedRound(ctx)
+	err := t.tupelo.WaitForFirstRound(ctx, 30*time.Second)
 	if err != nil {
 		return err
 	}
-	log.Infof("current round is %d", round.Height())
+	roundWrap := t.tupelo.CurrentRound()
+
+	log.Infof("current round is %d", roundWrap.Height())
+
+	ctx2, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	round, err := roundWrap.FetchCompletedRound(ctx2)
+	if err != nil {
+		return err
+	}
+	log.Infof("current round cid is %s", round.CID().String())
 
 	return t.TrackBetween(ctx, startRoundCid, round.CID())
 }
