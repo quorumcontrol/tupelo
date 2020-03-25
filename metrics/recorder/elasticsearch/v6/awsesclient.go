@@ -22,20 +22,18 @@ func NewAwsEsClient(url string) (*elasticsearch.Client, error) {
 		return nil, err
 	}
 
-	if cfg.Region == "" {
-		esURL, err := neturl.Parse(url)
-		if err != nil {
-			return nil, err
-		}
-		cfg.Region = strings.Split(esURL.Hostname(), ".")[1]
+	esURL, err := neturl.Parse(url)
+	if err != nil {
+		return nil, err
 	}
+	esRegion := strings.Split(esURL.Hostname(), ".")[1]
 
 	return elasticsearch.NewClient(elasticsearch.Config{
 		Addresses: []string{url},
 		Transport: &AwsEsHttpSigner{
 			RoundTripper: http.DefaultTransport,
 			Credentials:  cfg.Credentials,
-			Region:       cfg.Region,
+			Region:       esRegion,
 		},
 	})
 }
