@@ -67,7 +67,7 @@ func (t *Tracker) TrackAll(ctx context.Context) error {
 }
 
 func (t *Tracker) TrackFrom(ctx context.Context, startRoundCid cid.Cid) error {
-	log.Debugf("fetching current round")
+	log.Infof("fetching current round")
 	roundCh := make(chan *types.RoundConfirmationWrapper, 10)
 	roundSubscription, err := t.tupelo.SubscribeToRounds(ctx, roundCh)
 	if err != nil {

@@ -17,6 +17,12 @@ import (
 	"github.com/quorumcontrol/tupelo/metrics/result"
 )
 
+type esResult struct {
+	*result.Result
+	DocType   string
+	IndexedAt time.Time
+}
+
 type byTypeAggregator struct {
 	Count        uint64
 	DocType      string
@@ -115,7 +121,7 @@ func (r *Recorder) Record(ctx context.Context, result *result.Result) error {
 
 	docID := fmt.Sprintf("r%d_%s", result.Round, strings.ReplaceAll(result.Did, ":", "_"))
 
-	return r.indexDoc(ctx, docID, result)
+	return r.indexDoc(ctx, docID, &esResult{result, "result", time.Now().UTC()})
 }
 
 func (r *Recorder) Finish(ctx context.Context) error {
