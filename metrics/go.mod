@@ -21,7 +21,6 @@ require (
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.3.1
-	github.com/ipfs/go-ds-badger v0.2.0
 	github.com/ipfs/go-hamt-ipld v0.0.13
 	github.com/ipfs/go-ipfs-blockstore v0.1.0
 	github.com/ipfs/go-ipld-cbor v0.0.3
@@ -30,8 +29,7 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.0
-	go.elastic.co/apm v1.6.0
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200323141757-b3dc3fb46197
 	golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d // indirect
 	howett.net/plist v0.0.0-20200225050739-77e249a2e2ba // indirect
 )
