@@ -3,7 +3,6 @@ package tracker
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -48,7 +47,7 @@ type Recorder interface {
 	Finish(ctx context.Context) error
 }
 
-type ClassifierFunc func(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classification string, tags []string, err error)
+type ClassifierFunc func(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classification string, tags map[string]interface{}, err error)
 
 var emptyCid = cid.Cid{}
 
@@ -198,7 +197,7 @@ func (t *Tracker) TrackBetween(ctx context.Context, startRoundCid cid.Cid, endRo
 			defer t.mux.Unlock()
 
 			if err != nil {
-				result.Tags = append(result.Tags, "err")
+				result.Tags["err"] = true
 				errors[did] = err
 			}
 
@@ -226,7 +225,7 @@ func (t *Tracker) calculateResult(ctx context.Context, startHamt *hamt.Node, end
 	r := &result.Result{
 		Did:  did,
 		Type: defaultClassification,
-		Tags: []string{},
+		Tags: make(map[string]interface{}),
 	}
 
 	endDag, err := t.getTreeFromHamt(ctx, endHamt, did)
@@ -262,9 +261,9 @@ func (t *Tracker) calculateResult(ctx context.Context, startHamt *hamt.Node, end
 		r.Type = classification
 	}
 	if tags != nil {
-		r.Tags = append(r.Tags, tags...)
+		r.Tags = mergeMaps(r.Tags, tags)
 	}
-	log.Debugf("did: %s  type: %s  tags: %s", did, r.Type, strings.Join(r.Tags, ", "))
+	log.Debugf("did: %s  type: %s  tags: %v", did, r.Type, r.Tags)
 	if err != nil {
 		return r, fmt.Errorf("error on classification: %v", err)
 	}
@@ -299,4 +298,22 @@ func height(ctx context.Context, d *dag.Dag) (uint64, error) {
 		return 0, err
 	}
 	return root.Height, nil
+}
+
+func mergeMaps(a map[string]interface{}, b map[string]interface{}) map[string]interface{} {
+	new := make(map[string]interface{})
+
+	if a != nil {
+		for k, v := range a {
+			new[k] = v
+		}
+	}
+
+	if b != nil {
+		for k, v := range b {
+			new[k] = v
+		}
+	}
+
+	return new
 }

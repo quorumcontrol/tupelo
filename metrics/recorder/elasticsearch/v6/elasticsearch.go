@@ -25,6 +25,7 @@ type esResult struct {
 
 type byTypeAggregator struct {
 	Count        uint64
+	DeltaCount   uint64
 	DocType      string
 	Type         string
 	Round        uint64
@@ -38,6 +39,7 @@ type byTypeAggregator struct {
 
 type summary struct {
 	Count        uint64
+	DeltaCount   uint64
 	DocType      string
 	TypeCount    map[string]uint64
 	Round        uint64
@@ -119,9 +121,24 @@ func (r *Recorder) Record(ctx context.Context, result *result.Result) error {
 	r.byType[result.Type].TotalBlocks += result.TotalBlocks
 	r.byType[result.Type].Count++
 
+	if _, ok := result.Tags["new"]; ok {
+		r.byType[result.Type].DeltaCount++
+	}
+
+	toStore := &esResult{result, "result", time.Now().UTC()}
+
+	// elasticsearch fields must be of a consistent type, so just append
+	// the golang type to the field name to prevent conflicts
+	newTags := make(map[string]interface{})
+	for k, v := range result.Tags {
+		typeString := fmt.Sprintf("%T", v)
+		newTags[k] = map[string]interface{}{typeString: v}
+	}
+	toStore.Tags = newTags
+
 	docID := fmt.Sprintf("r%d_%s", result.Round, strings.ReplaceAll(result.Did, ":", "_"))
 
-	return r.indexDoc(ctx, docID, &esResult{result, "result", time.Now().UTC()})
+	return r.indexDoc(ctx, docID, toStore)
 }
 
 func (r *Recorder) Finish(ctx context.Context) error {
@@ -147,6 +164,7 @@ func (r *Recorder) Finish(ctx context.Context) error {
 		summary.TotalBlocks += result.TotalBlocks
 		summary.DeltaBlocks += result.DeltaBlocks
 		summary.Count += result.Count
+		summary.DeltaCount += result.DeltaCount
 
 		result.Round = r.round.Height()
 		result.LastRound = r.startRound.Height()
@@ -168,11 +186,6 @@ func (r *Recorder) Finish(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// just so we can use the indexDoc function
-	origShard := r.shardIndices
-	defer func() { r.shardIndices = origShard }()
-	r.shardIndices = false
 
 	return r.indexDocToIndex(ctx, r.index, "roundpointer", &roundPointer{
 		DocType:   "roundpointer",

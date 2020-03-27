@@ -8,12 +8,14 @@ import (
 	"github.com/quorumcontrol/chaintree/dag"
 )
 
-func Default(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classification string, tags []string, err error) {
-	ctx2, cancelFn := context.WithTimeout(ctx, 5*time.Second)
+func Default(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classification string, tags map[string]interface{}, err error) {
+	ctx2, cancelFn := context.WithTimeout(ctx, 10*time.Second)
 	defer cancelFn()
 
+	tags = make(map[string]interface{})
+
 	if startDag == nil {
-		tags = append(tags, "new")
+		tags["new"] = true
 	}
 
 	data, _, err := endDag.Resolve(ctx2, []string{"tree", "data"})
@@ -33,7 +35,7 @@ func Default(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classific
 	if _, ok := dataMap["dgit"]; ok {
 		dgitDataUncast, _, _ := endDag.Resolve(ctx2, []string{"tree", "data", "dgit"})
 		if dgitData, ok := dgitDataUncast.(map[string]interface{}); ok && dgitData["repo"] != nil {
-			tags = append(tags, fmt.Sprintf("repo=%s", dgitData["repo"]))
+			tags["repo"] = dgitData["repo"]
 		}
 		classification = "dgit"
 	}
