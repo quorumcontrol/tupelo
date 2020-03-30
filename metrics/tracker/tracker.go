@@ -142,8 +142,6 @@ func (t *Tracker) TrackBetween(ctx context.Context, startRoundCid cid.Cid, endRo
 	var err error
 	var startRound *types.RoundWrapper
 
-	log.Infof("gathering metrics for ng '%s'", t.tupelo.Group.ID)
-
 	if endRoundCid.Equals(startRoundCid) {
 		return fmt.Errorf("can't calculate metrics between the same round")
 	}
@@ -240,20 +238,20 @@ func (t *Tracker) calculateResult(ctx context.Context, startHamt *hamt.Node, end
 	}
 	err = nil
 
-	var startHeight uint64
+	var startBlocks uint64
 	if startDag != nil {
 		log.Debugf("did: %s  startingTip: %s", did, startDag.Tip.String())
-		startHeight, err = height(ctx, startDag)
+		startBlocks, err = blockCount(ctx, startDag)
 		if err != nil {
 			return r, fmt.Errorf("error fetching height from startDag: %v", err)
 		}
 	}
 
-	r.TotalBlocks, err = height(ctx, endDag)
+	r.TotalBlocks, err = blockCount(ctx, endDag)
 	if err != nil {
 		return r, fmt.Errorf("error fetching height from endDag: %v", err)
 	}
-	r.DeltaBlocks = r.TotalBlocks - startHeight
+	r.DeltaBlocks = r.TotalBlocks - startBlocks
 	log.Debugf("did: %s  totalBlocks: %d  deltaBlocks: %d", did, r.TotalBlocks, r.DeltaBlocks)
 
 	classification, tags, err := t.classifier(ctx, startDag, endDag)
@@ -288,7 +286,7 @@ func (t *Tracker) fetchRound(ctx context.Context, round cid.Cid) (*types.RoundWr
 	return wrappedRound, nil
 }
 
-func height(ctx context.Context, d *dag.Dag) (uint64, error) {
+func blockCount(ctx context.Context, d *dag.Dag) (uint64, error) {
 	ctx2, cancelFn := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelFn()
 
@@ -297,7 +295,8 @@ func height(ctx context.Context, d *dag.Dag) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return root.Height, nil
+	// height is "0 indexed" on ChainTree, so add 1
+	return root.Height + 1, nil
 }
 
 func mergeMaps(a map[string]interface{}, b map[string]interface{}) map[string]interface{} {

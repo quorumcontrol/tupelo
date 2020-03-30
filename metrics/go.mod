@@ -29,7 +29,9 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
-	github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200323141757-b3dc3fb46197
+	github.com/quorumcontrol/tupelo v0.5.12-0.20200319204603-8f85f79d1837
+	github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200330213158-f8cd173fc596
+	github.com/stretchr/testify v1.4.0
 	golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d // indirect
 	howett.net/plist v0.0.0-20200225050739-77e249a2e2ba // indirect
 )

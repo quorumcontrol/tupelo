@@ -761,6 +761,8 @@ github.com/quorumcontrol/tupelo v0.5.12-0.20200129144132-3be48615b2ec/go.mod h1:
 github.com/quorumcontrol/tupelo v0.5.12-0.20200226160350-8bc73f1e0652/go.mod h1:3+5xLTaAH0ldclLgxAVCkIMFRWqJH6AKKfbsY3NegTQ=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200228085742-a503ff3ef25f h1:hVcZJZEgdTJTjkCkGSXbm9bfb/mBPkmPa5q1nDToj0A=
 github.com/quorumcontrol/tupelo v0.5.12-0.20200228085742-a503ff3ef25f/go.mod h1:oMcb9mVNuttvYUE/enVBrdAYKZ9uV+vxTSRoVrDewFg=
+github.com/quorumcontrol/tupelo v0.5.12-0.20200319204603-8f85f79d1837 h1:XnodpjgUqtbszY9HugC1q83c4d0QpH4yyeFRDg9xOMo=
+github.com/quorumcontrol/tupelo v0.5.12-0.20200319204603-8f85f79d1837/go.mod h1:vT7XcSpVTCbBWmqv0efVMuqTWOoQmEICcrwrX11viOE=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1/go.mod h1:wA31G/DE4bI+8rsWKGRlxOgtKjrk0nJjd1qgRTpiN0Q=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200107015105-2d3804ccc20c/go.mod h1:+WlZ8i77PW1SQ1oEZ700ooGuC3JOcxPiA5ij8PkKCqk=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200109062614-43239ffb9335/go.mod h1:fzYef+fz7cbeMKU6pg+NkEX/7BhZfWD33/MaHS76qs8=
@@ -770,8 +772,9 @@ github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200123190352-82ad6dc34f4
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200129114839-0d0c6bc84fd3/go.mod h1:gix9XW6TZ1G9KieMw1aat2G9rAjBEtsaYb0pC818rFU=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200226084025-d1ef23ea82c2/go.mod h1:FacTufzYlDnWnhChtBvOi2yix8bbYOs37/0m53zKuN0=
 github.com/quorumcontrol/tupelo-go-sdk v0.6.0-beta1.0.20200227184332-a1d02e8ba5f0/go.mod h1:0fDHOrkzj1T5VDMjh4K3Y1btiRRevBl/zMPuDAf3ZDg=
-github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200323141757-b3dc3fb46197 h1:wBc97ggxAFvcrWqnd0SFTTUwu3zGhraMJylcpoGiBgQ=
-github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200323141757-b3dc3fb46197/go.mod h1:q5zktXYXHK7wOvDDxiJQ20L5+0GOGUKY+cqWBp3hJhg=
+github.com/quorumcontrol/tupelo-go-sdk v0.6.0/go.mod h1:q5zktXYXHK7wOvDDxiJQ20L5+0GOGUKY+cqWBp3hJhg=
+github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200330213158-f8cd173fc596 h1:7jp1TbMvTkcE+k9FnWOyLeUEC34K1YPo8H9eBGS7K3M=
+github.com/quorumcontrol/tupelo-go-sdk v0.6.1-0.20200330213158-f8cd173fc596/go.mod h1:+LtKSv4l5AjVz3mOXoejUAH84sZUMCim/Cqz4fc2Deg=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rs/cors v1.6.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
@@ -828,6 +831,7 @@ github.com/stretchr/objx v0.2.0/go.mod h1:qt09Ya8vawLte6SNmTgCsAVtYtaKzEcn8ATUoH
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
+github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/texttheater/golang-levenshtein v0.0.0-20180516184445-d188e65d659e/go.mod h1:XDKHRm5ThF8YJjx001LtgelzsoaEcvnA7lVWz9EeX3g=
@@ -886,10 +890,13 @@ go.dedis.ch/protobuf v1.0.5/go.mod h1:eIV4wicvi6JK0q/QnfIEGeSFNG0ZeB24kzut5+HaRL
 go.dedis.ch/protobuf v1.0.7 h1:wRUEiq3u0/vBhLjcw9CmAVrol+BnDyq2M0XLukdphyI=
 go.dedis.ch/protobuf v1.0.7/go.mod h1:pv5ysfkDX/EawiPqcW3ikOxsL5t+BqnV6xHSmE79KI4=
 go.elastic.co/apm v1.3.0/go.mod h1:Yr6TY/W+k8/YkTXvHcDPde3B7Y983r95gbY54HuLTdU=
+go.elastic.co/apm v1.6.0 h1:RzyNj9Qx2iXh4A8DIg/aMUdtwGFNw3R8sKO3/Hf4pqk=
 go.elastic.co/apm v1.6.0/go.mod h1:/VByR6FBtuNu1YnPHz7Gri7YiIqAoFBGVp+2xkSE8tI=
 go.elastic.co/apm/module/apmhttp v1.3.0/go.mod h1:CYc6HqEuyHtY4w5j/K7GL96A8TJ+I2ZC0XWD36qtMDM=
+go.elastic.co/apm/module/apmhttp v1.6.0 h1:Y67VwDNnUyq4akeiem8Wtpb222RbZCRfY3FBI0swoJk=
 go.elastic.co/apm/module/apmhttp v1.6.0/go.mod h1:pf6GS5vDxdrSF0Qy6wESRBZCRZqATSZpr658ehD5QA4=
 go.elastic.co/apm/module/apmot v1.3.0/go.mod h1:w/NpB+GbGidYY4+IpStXcfMybgnaGuluNeiakGI7/OI=
+go.elastic.co/apm/module/apmot v1.6.0 h1:3Tjwu25SfB2Bq+UsO8JOKYOuMzUu4s8/fS8BGkliocg=
 go.elastic.co/apm/module/apmot v1.6.0/go.mod h1:JIGFfrixcGjp8oD22PTTCvdNMfp+O+lOb5Hw4MtqxQ4=
 go.elastic.co/fastjson v1.0.0 h1:ooXV/ABvf+tBul26jcVViPT3sBir0PvXgibYB1IQQzg=
 go.elastic.co/fastjson v1.0.0/go.mod h1:PmeUOMMtLHQr9ZS9J9owrAVg0FkaZDRZJEFTTGHtchs=
@@ -1079,6 +1086,8 @@ gopkg.in/yaml.v2 v2.0.0-20170812160011-eb3733d160e7/go.mod h1:JAlM8MvJe8wmxCU4Bl
 gopkg.in/yaml.v2 v2.2.1/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.2 h1:ZCJp+EgiOT7lHqUV2J862kp8Qj64Jo6az82+3Td9dZw=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v2 v2.2.8 h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=
+gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gotest.tools v2.1.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 gotest.tools/gotestsum v0.3.4/go.mod h1:Mnf3e5FUzXbkCfynWBGOwLssY7gTQgCHObK9tMpAriY=
 honnef.co/go/tools v0.0.0-20180728063816-88497007e858/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
