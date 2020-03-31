@@ -9,3 +9,15 @@ type Result struct {
 	DeltaBlocks uint64
 	Tags        map[string]interface{}
 }
+
+type Summary struct {
+	Type         string
+	Count        uint64
+	DeltaCount   uint64
+	TotalBlocks  uint64
+	DeltaBlocks  uint64
+	Round        uint64
+	RoundCid     string
+	LastRound    uint64
+	LastRoundCid string
+}

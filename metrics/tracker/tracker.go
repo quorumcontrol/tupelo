@@ -31,6 +31,7 @@ type Tracker struct {
 	classifier  ClassifierFunc
 	recorder    Recorder
 	concurrency int
+	summaries   map[string]*result.Summary
 	mux         sync.Mutex
 }
 
@@ -44,7 +45,7 @@ type Options struct {
 type Recorder interface {
 	Start(ctx context.Context, startRound *types.RoundWrapper, endRound *types.RoundWrapper) error
 	Record(ctx context.Context, res *result.Result) error
-	Finish(ctx context.Context) error
+	Finish(ctx context.Context, summaries []*result.Summary) error
 }
 
 type ClassifierFunc func(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classification string, tags map[string]interface{}, err error)
@@ -57,6 +58,7 @@ func New(opts *Options) *Tracker {
 		nodestore:   opts.Nodestore,
 		classifier:  opts.Classifier,
 		recorder:    opts.Recorder,
+		summaries:   make(map[string]*result.Summary),
 		concurrency: 20,
 	}
 }
@@ -142,6 +144,8 @@ func (t *Tracker) TrackBetween(ctx context.Context, startRoundCid cid.Cid, endRo
 	var err error
 	var startRound *types.RoundWrapper
 
+	t.summaries = make(map[string]*result.Summary)
+
 	if endRoundCid.Equals(startRoundCid) {
 		return fmt.Errorf("can't calculate metrics between the same round")
 	}
@@ -187,19 +191,37 @@ func (t *Tracker) TrackBetween(ctx context.Context, startRoundCid cid.Cid, endRo
 		go func(did string) {
 			defer func() { <-sem }()
 
-			result, err := t.calculateResult(ctx, startHamt, endHamt, did)
-			result.Round = endRound.Height()
-			result.LastRound = startRound.Height()
+			res, err := t.calculateResult(ctx, startHamt, endHamt, did)
+			res.Round = endRound.Height()
+			res.LastRound = startRound.Height()
 
 			t.mux.Lock()
 			defer t.mux.Unlock()
 
 			if err != nil {
-				result.Tags["err"] = true
+				res.Tags["err"] = true
 				errors[did] = err
 			}
 
-			t.recorder.Record(ctx, result)
+			if t.summaries[res.Type] == nil {
+				t.summaries[res.Type] = &result.Summary{
+					Type:      res.Type,
+					Round:     endRound.Height(),
+					RoundCid:  endRound.CID().String(),
+					LastRound: startRound.Height(),
+				}
+				if !startRoundCid.Equals(emptyCid) {
+					t.summaries[res.Type].LastRoundCid = startRound.CID().String()
+				}
+			}
+			t.summaries[res.Type].DeltaBlocks += res.DeltaBlocks
+			t.summaries[res.Type].TotalBlocks += res.TotalBlocks
+			t.summaries[res.Type].Count++
+			if _, ok := res.Tags["new"]; ok {
+				t.summaries[res.Type].DeltaCount++
+			}
+
+			t.recorder.Record(ctx, res)
 		}(did)
 
 		return nil
@@ -214,7 +236,14 @@ func (t *Tracker) TrackBetween(ctx context.Context, startRoundCid cid.Cid, endRo
 		log.Errorf("error measuring %s: %v", did, err)
 	}
 
-	return t.recorder.Finish(ctx)
+	summaries := make([]*result.Summary, len(t.summaries))
+	i := 0
+	for _, s := range t.summaries {
+		summaries[i] = s
+		i++
+	}
+
+	return t.recorder.Finish(ctx, summaries)
 }
 
 func (t *Tracker) calculateResult(ctx context.Context, startHamt *hamt.Node, endHamt *hamt.Node, did string) (*result.Result, error) {
@@ -245,6 +274,9 @@ func (t *Tracker) calculateResult(ctx context.Context, startHamt *hamt.Node, end
 		if err != nil {
 			return r, fmt.Errorf("error fetching height from startDag: %v", err)
 		}
+	}
+	if startDag == nil {
+		r.Tags["new"] = true
 	}
 
 	r.TotalBlocks, err = blockCount(ctx, endDag)

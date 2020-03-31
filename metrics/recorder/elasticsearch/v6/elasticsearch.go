@@ -23,36 +23,20 @@ type esResult struct {
 	IndexedAt time.Time
 }
 
-type byTypeAggregator struct {
-	Count        uint64
-	DeltaCount   uint64
-	DocType      string
-	Type         string
-	Round        uint64
-	RoundCid     string
-	LastRound    uint64
-	LastRoundCid string
-	TotalBlocks  uint64
-	DeltaBlocks  uint64
-	IndexedAt    time.Time
+type esTypeSummary struct {
+	*result.Summary
+	DocType   string
+	IndexedAt time.Time
 }
 
-type summary struct {
-	Count        uint64
-	DeltaCount   uint64
-	DocType      string
-	TypeCount    map[string]uint64
-	Round        uint64
-	RoundCid     string
-	LastRound    uint64
-	LastRoundCid string
-	TotalBlocks  uint64
-	DeltaBlocks  uint64
-	IndexedAt    time.Time
+type allSummary struct {
+	*result.Summary
+	TypeCount map[string]uint64
+	DocType   string
+	IndexedAt time.Time
 }
 
 type Recorder struct {
-	byType       map[string]*byTypeAggregator
 	round        *types.RoundWrapper
 	startRound   *types.RoundWrapper
 	client       *elasticsearch.Client
@@ -95,7 +79,6 @@ func NewWithClient(client *elasticsearch.Client, index string) *Recorder {
 	r := &Recorder{
 		client: client,
 		index:  index,
-		byType: make(map[string]*byTypeAggregator),
 	}
 
 	if r.index == "" {
@@ -113,18 +96,6 @@ func (r *Recorder) Start(ctx context.Context, startRound *types.RoundWrapper, en
 }
 
 func (r *Recorder) Record(ctx context.Context, result *result.Result) error {
-	if _, ok := r.byType[result.Type]; !ok {
-		r.byType[result.Type] = &byTypeAggregator{Type: result.Type}
-	}
-
-	r.byType[result.Type].DeltaBlocks += result.DeltaBlocks
-	r.byType[result.Type].TotalBlocks += result.TotalBlocks
-	r.byType[result.Type].Count++
-
-	if _, ok := result.Tags["new"]; ok {
-		r.byType[result.Type].DeltaCount++
-	}
-
 	toStore := &esResult{result, "result", time.Now().UTC()}
 
 	// elasticsearch fields must be of a consistent type, so just append
@@ -141,7 +112,7 @@ func (r *Recorder) Record(ctx context.Context, result *result.Result) error {
 	return r.indexDoc(ctx, docID, toStore)
 }
 
-func (r *Recorder) Finish(ctx context.Context) error {
+func (r *Recorder) Finish(ctx context.Context, summaries []*result.Summary) error {
 	indexedAt := time.Now().UTC()
 
 	var lastRoundCid string
@@ -149,40 +120,37 @@ func (r *Recorder) Finish(ctx context.Context) error {
 		lastRoundCid = r.startRound.CID().String()
 	}
 
-	summary := &summary{
-		DocType:      "summary",
-		Round:        r.round.Height(),
-		RoundCid:     r.round.CID().String(),
-		LastRound:    r.startRound.Height(),
-		LastRoundCid: lastRoundCid,
-		TypeCount:    make(map[string]uint64),
-		IndexedAt:    indexedAt,
+	all := &allSummary{
+		Summary: &result.Summary{
+			Type:         "_all",
+			Round:        r.round.Height(),
+			RoundCid:     r.round.CID().String(),
+			LastRound:    r.startRound.Height(),
+			LastRoundCid: lastRoundCid,
+		},
+		DocType:   "summary",
+		TypeCount: make(map[string]uint64),
+		IndexedAt: indexedAt,
 	}
 
-	for _, result := range r.byType {
-		summary.TypeCount[result.Type] = result.Count
-		summary.TotalBlocks += result.TotalBlocks
-		summary.DeltaBlocks += result.DeltaBlocks
-		summary.Count += result.Count
-		summary.DeltaCount += result.DeltaCount
+	for _, summary := range summaries {
+		all.TypeCount[summary.Type] = summary.Count
+		all.TotalBlocks += summary.TotalBlocks
+		all.DeltaBlocks += summary.DeltaBlocks
+		all.Count += summary.Count
+		all.DeltaCount += summary.DeltaCount
 
-		result.Round = r.round.Height()
-		result.LastRound = r.startRound.Height()
-		result.LastRoundCid = lastRoundCid
-		result.DocType = "typesummary"
-		result.RoundCid = r.round.CID().String()
-		result.IndexedAt = indexedAt
-
-		typeDocID := fmt.Sprintf("r%d_%s", result.Round, result.Type)
-		err := r.indexDoc(ctx, typeDocID, result)
+		doc := &esTypeSummary{summary, "typesummary", indexedAt}
+		typeDocID := fmt.Sprintf("r%d_%s", doc.Round, doc.Type)
+		err := r.indexDoc(ctx, typeDocID, doc)
 
 		if err != nil {
 			return err
 		}
 	}
 
-	docID := fmt.Sprintf("r%d", summary.Round)
-	err := r.indexDoc(ctx, docID, summary)
+	docID := fmt.Sprintf("r%d", all.Round)
+	err := r.indexDoc(ctx, docID, all)
 	if err != nil {
 		return err
 	}

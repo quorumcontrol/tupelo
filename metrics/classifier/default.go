@@ -14,10 +14,6 @@ func Default(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classific
 
 	tags = make(map[string]interface{})
 
-	if startDag == nil {
-		tags["new"] = true
-	}
-
 	data, _, err := endDag.Resolve(ctx2, []string{"tree", "data"})
 	if err != nil {
 		return
