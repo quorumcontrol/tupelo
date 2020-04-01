@@ -1,21 +1,26 @@
 package benchmark
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
+	mathrand "math/rand"
 	"sort"
 	"sync/atomic"
-	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
+	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
+	"github.com/quorumcontrol/messages/v2/build/go/transactions"
+	"github.com/quorumcontrol/tupelo-go-sdk/consensus"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/hamtwrapper"
-	"github.com/quorumcontrol/tupelo-go-sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo-go-sdk/gossip/types"
 )
 
@@ -85,12 +90,17 @@ func NewBenchmark(cli *client.Client, concurrency int, duration time.Duration, t
 }
 
 func (b *Benchmark) Send(ctx context.Context, resCh chan *Result) {
-	trans := testhelpers.NewValidTransaction(&testing.T{})
+	trans, err := newBenchmarkTransaction(ctx)
 	res := &Result{
-		Transaction: &trans,
+		Transaction: trans,
+	}
+	if err != nil {
+		res.Error = err
+		resCh <- res
+		return
 	}
 	start := time.Now()
-	_, err := b.client.Send(ctx, &trans, b.timeout)
+	_, err = b.client.Send(ctx, trans, b.timeout)
 	if err != nil {
 		res.Error = err
 		resCh <- res
@@ -200,6 +210,84 @@ func (b *Benchmark) Run(ctx context.Context) *ResultSet {
 	resultSet.Rounds.Durations = nil
 
 	return resultSet
+}
+
+func fillerData() string {
+	byteSizes := []int{4, 128, 4096, 20480}
+	sizeI := mathrand.Int() % len(byteSizes)
+	return string(bytes.Repeat([]byte("0"), byteSizes[sizeI]))
+}
+
+func newBenchmarkTransaction(ctx context.Context) (*services.AddBlockRequest, error) {
+	sw := safewrap.SafeWrap{}
+
+	treeKey, err := crypto.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	dataTxn, err := chaintree.NewSetDataTransaction("some/data", fillerData())
+	if err != nil {
+		return nil, err
+	}
+
+	docTypeTxn, err := chaintree.NewSetDataTransaction("__doctype", "benchmark")
+	if err != nil {
+		return nil, err
+	}
+
+	unsignedBlock := chaintree.BlockWithHeaders{
+		Block: chaintree.Block{
+			PreviousTip:  nil,
+			Height:       0,
+			Transactions: []*transactions.Transaction{dataTxn, docTypeTxn},
+		},
+	}
+
+	treeDID := consensus.AddrToDid(crypto.PubkeyToAddress(treeKey.PublicKey).String())
+	nodeStore := nodestore.MustMemoryStore(ctx)
+	emptyTree := consensus.NewEmptyTree(ctx, treeDID, nodeStore)
+	emptyTip := emptyTree.Tip
+	testTree, err := chaintree.NewChainTree(ctx, emptyTree, nil, consensus.DefaultTransactors)
+	if err != nil {
+		return nil, err
+	}
+
+	blockWithHeaders, err := consensus.SignBlock(ctx, &unsignedBlock, treeKey)
+	if err != nil {
+		return nil, err
+	}
+
+	valid, err := testTree.ProcessBlock(ctx, blockWithHeaders)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, fmt.Errorf("invalid process block")
+	}
+
+	cborNodes, err := testTree.Dag.Nodes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([][]byte, len(cborNodes))
+	for i, node := range cborNodes {
+		nodes[i] = node.RawData()
+	}
+
+	bits := sw.WrapObject(blockWithHeaders).RawData()
+	if sw.Err != nil {
+		return nil, err
+	}
+
+	return &services.AddBlockRequest{
+		PreviousTip: emptyTip.Bytes(),
+		Height:      blockWithHeaders.Height,
+		NewTip:      testTree.Dag.Tip.Bytes(),
+		Payload:     bits,
+		State:       nodes,
+		ObjectId:    []byte(treeDID),
+	}, nil
 }
 
 func abrToHamtCID(ctx context.Context, abr *services.AddBlockRequest) (cid.Cid, error) {
