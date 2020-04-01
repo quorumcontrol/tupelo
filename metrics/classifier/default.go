@@ -36,5 +36,11 @@ func Default(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classific
 		classification = "dgit"
 	}
 
+	if doctype, ok := dataMap["__doctype"]; ok {
+		if doctypstr, ok := doctype.(string); ok {
+			classification = doctypstr
+		}
+	}
+
 	return
 }
