@@ -48,3 +48,5 @@ jobs:
       run: |
         docker build -t quorumcontrol/tupelo:latest .
         docker push quorumcontrol/tupelo:latest
+        docker build -f Dockerfile-extras -t quorumcontrol/tupelo:latest-extras .
+        docker push quorumcontrol/tupelo:latest-extras

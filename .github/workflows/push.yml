@@ -47,3 +47,5 @@ jobs:
         IMAGE_REF=$(echo "${{ github.ref }}" | rev | cut -d / -f 1 | rev)
         docker build -t quorumcontrol/tupelo:${IMAGE_REF} .
         docker push quorumcontrol/tupelo:${IMAGE_REF}
+        docker build -f Dockerfile-extras -t quorumcontrol/tupelo:${IMAGE_REF}-extras .
+        docker push quorumcontrol/tupelo:${IMAGE_REF}-extras
