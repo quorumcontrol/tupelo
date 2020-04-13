@@ -19,14 +19,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler make
     - uses: actions/checkout@v1
-    # TODO: replace with docker image layer cache maybe?
-    # - uses: actions/cache@v1
-    #   id: vendor-cache
-    #   with:
-    #     path: vendor/
-    #     key: go-vendor-${{ hashFiles('go.sum') }}
-    #     restore-keys: |
-    #       go-vendor-
     - name: git setup
       run: scripts/ci-gitsetup.sh
       env:
