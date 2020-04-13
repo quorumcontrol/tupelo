@@ -2,4 +2,4 @@ Source code in this repository is covered by one of two licenses:
 (i) the MIT License (ii) the GNU Affero General Public License v3.0.
 The default license throughout the repository is MIT License 
 unless the directory specifies another license. AGPL license is used
-for all code within the /server directory.
+for all code within the /signer directory.

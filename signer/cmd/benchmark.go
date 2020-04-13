@@ -10,8 +10,8 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client/pubsubinterfaces/pubsubwrapper"
 	"github.com/quorumcontrol/tupelo/sdk/p2p"
-	"github.com/quorumcontrol/tupelo/server/gossip/benchmark"
-	"github.com/quorumcontrol/tupelo/server/nodebuilder"
+	"github.com/quorumcontrol/tupelo/signer/gossip/benchmark"
+	"github.com/quorumcontrol/tupelo/signer/nodebuilder"
 	"github.com/spf13/cobra"
 )
 

@@ -15,9 +15,9 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client/pubsubinterfaces/pubsubwrapper"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/p2p"
-	"github.com/quorumcontrol/tupelo/server/metrics/classifier"
-	"github.com/quorumcontrol/tupelo/server/metrics/recorder/elasticsearch/v6"
-	"github.com/quorumcontrol/tupelo/server/metrics/tracker"
+	"github.com/quorumcontrol/tupelo/signer/metrics/classifier"
+	"github.com/quorumcontrol/tupelo/signer/metrics/recorder/elasticsearch/v6"
+	"github.com/quorumcontrol/tupelo/signer/metrics/tracker"
 )
 
 var log = logging.Logger("tupelo.metrics")

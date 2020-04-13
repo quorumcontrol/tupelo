@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/quorumcontrol/tupelo/server/cmd"
+	"github.com/quorumcontrol/tupelo/signer/cmd"
 )
 
 func main() {

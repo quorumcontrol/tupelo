@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/quorumcontrol/tupelo/server/nodebuilder"
+	"github.com/quorumcontrol/tupelo/signer/nodebuilder"
 )
 
 var nodeCmd = &cobra.Command{

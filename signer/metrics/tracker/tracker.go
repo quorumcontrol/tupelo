@@ -18,7 +18,7 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/hamtwrapper"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
-	"github.com/quorumcontrol/tupelo/server/metrics/result"
+	"github.com/quorumcontrol/tupelo/signer/metrics/result"
 )
 
 var log = logging.Logger("tupelo.metrics.tracker")

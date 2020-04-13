@@ -18,8 +18,8 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/bls"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/signatures"
-	"github.com/quorumcontrol/tupelo/server/nodebuilder"
-	"github.com/quorumcontrol/tupelo/server/testnotarygroup"
+	"github.com/quorumcontrol/tupelo/signer/nodebuilder"
+	"github.com/quorumcontrol/tupelo/signer/testnotarygroup"
 	"github.com/spf13/cobra"
 )
 

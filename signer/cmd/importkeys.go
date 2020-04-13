@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/quorumcontrol/tupelo/server/nodebuilder"
+	"github.com/quorumcontrol/tupelo/signer/nodebuilder"
 
 	"github.com/spf13/cobra"
 )

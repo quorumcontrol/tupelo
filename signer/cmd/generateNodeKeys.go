@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/quorumcontrol/tupelo/server/nodebuilder"
+	"github.com/quorumcontrol/tupelo/signer/nodebuilder"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"

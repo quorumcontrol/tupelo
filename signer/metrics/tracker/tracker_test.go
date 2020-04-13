@@ -25,10 +25,10 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 
-	"github.com/quorumcontrol/tupelo/server/gossip"
-	"github.com/quorumcontrol/tupelo/server/metrics/classifier"
-	"github.com/quorumcontrol/tupelo/server/metrics/result"
-	"github.com/quorumcontrol/tupelo/server/testnotarygroup"
+	"github.com/quorumcontrol/tupelo/signer/gossip"
+	"github.com/quorumcontrol/tupelo/signer/metrics/classifier"
+	"github.com/quorumcontrol/tupelo/signer/metrics/result"
+	"github.com/quorumcontrol/tupelo/signer/testnotarygroup"
 )
 
 func TestTracker(t *testing.T) {

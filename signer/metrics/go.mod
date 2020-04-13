@@ -1,4 +1,4 @@
-module github.com/quorumcontrol/tupelo/server/metrics
+module github.com/quorumcontrol/tupelo/signer/metrics
 
 go 1.13
 

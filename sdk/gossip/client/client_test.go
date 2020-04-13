@@ -26,7 +26,7 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/p2p"
 	"github.com/quorumcontrol/tupelo/sdk/testnotarygroup"
-	tupelogossip "github.com/quorumcontrol/tupelo/server/gossip"
+	tupelogossip "github.com/quorumcontrol/tupelo/signer/gossip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

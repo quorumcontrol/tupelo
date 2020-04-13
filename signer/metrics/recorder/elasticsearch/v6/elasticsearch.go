@@ -14,7 +14,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v6/esapi"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
-	"github.com/quorumcontrol/tupelo/server/metrics/result"
+	"github.com/quorumcontrol/tupelo/signer/metrics/result"
 )
 
 type esResult struct {

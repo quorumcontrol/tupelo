@@ -15,17 +15,17 @@ MD5CMD = $(shell { command -v md5sum || command -v md5; } 2>/dev/null)
 GUARD = $(1)_GUARD_$(shell echo $($(1)) | $(MD5CMD) | cut -d ' ' -f 1)
 
 FIRSTGOPATH = $(firstword $(subst :, ,$(GOPATH)))
-VERSION_TXT = server/resources/templates/version.txt
+VERSION_TXT = signer/resources/templates/version.txt
 
 GOSUMCHECK = $(shell $(MD5CMD) go.sum)
 
 gosources = $(shell find . -type f -name "*.go" -print)
-packr = server/packrd/packed-packr.go server/resources/resources-packr.go
+packr = signer/packrd/packed-packr.go signer/resources/resources-packr.go
 
 all: tupelo
 
 $(VERSION_TXT): $(call GUARD,VERSION)
-	mkdir -p server/resources/templates
+	mkdir -p signer/resources/templates
 	echo $(VERSION) > $@
 
 $(call GUARD,VERSION):
@@ -39,7 +39,7 @@ $(packr): $(FIRSTGOPATH)/bin/packr2 $(VERSION_TXT)
 	$(FIRSTGOPATH)/bin/packr2
 
 tupelo: $(packr) $(gosources) go.mod go.sum
-	go build -o tupelo ./server/
+	go build -o tupelo ./signer/
 
 lint: $(FIRSTGOPATH)/bin/golangci-lint $(packr)
 	$(FIRSTGOPATH)/bin/golangci-lint run --build-tags integration

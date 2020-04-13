@@ -7,10 +7,10 @@ RUN apk add --no-cache --update build-base
 
 COPY . .
 
-RUN go build -o tupelo -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}" ./server/ && \
+RUN go build -o tupelo -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}" ./signer/ && \
     mv ./tupelo /go/bin/tupelo
 
-WORKDIR /app/server/metrics
+WORKDIR /app/signer/metrics
 
 RUN go install -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}"
 

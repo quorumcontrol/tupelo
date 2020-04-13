@@ -11,8 +11,8 @@ import (
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/tracing"
-	"github.com/quorumcontrol/tupelo/server/gossip"
-	"github.com/quorumcontrol/tupelo/server/proxy"
+	"github.com/quorumcontrol/tupelo/signer/gossip"
+	"github.com/quorumcontrol/tupelo/signer/proxy"
 
 	"github.com/ipfs/go-bitswap"
 	logging "github.com/ipfs/go-log"

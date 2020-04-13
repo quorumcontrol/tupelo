@@ -40,7 +40,7 @@ if ! [ -x "$(command -v xgo)" ]; then
 else
 # Windows builds disabled until we can figure out badger storage bug there
 #  xgo --targets=darwin-10.10/amd64,linux/amd64,windows-6.0/amd64 --out tupelo-${version} ./
-  xgo --targets=darwin-10.10/amd64,linux/amd64 --out tupelo-${version} ./server/
+  xgo --targets=darwin-10.10/amd64,linux/amd64 --out tupelo-${version} ./signer/
   mv tupelo-${version}-linux* ${zipdir}/${linux_binary}
   mv tupelo-${version}-darwin* ${zipdir}/${macos_binary}
 #  mv tupelo-${version}-windows* ${zipdir}/${windows_binary}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 
-	"github.com/quorumcontrol/tupelo/server/testnotarygroup"
+	"github.com/quorumcontrol/tupelo/signer/testnotarygroup"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"

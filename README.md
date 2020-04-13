@@ -8,7 +8,7 @@ Tupelo docs are available at [https://docs.tupelo.org/](https://docs.tupelo.org/
 ## Repo Structure
 For using the Tupelo network, [see the `sdk/` directory](sdk/).
 
-For running a Tupelo signer, [see the `server/` directory](server/).
+For running a Tupelo signer, [see the `signer/` directory](signer/).
 
 ## Concepts
 Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state.

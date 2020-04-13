@@ -26,7 +26,7 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 
-	"github.com/quorumcontrol/tupelo/server/testnotarygroup"
+	"github.com/quorumcontrol/tupelo/signer/testnotarygroup"
 )
 
 func newTupeloSystem(ctx context.Context, t testing.TB, testSet *testnotarygroup.TestSet) (*types.NotaryGroup, []*Node) {

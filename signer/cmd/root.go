@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/quorumcontrol/tupelo/server/nodebuilder"
+	"github.com/quorumcontrol/tupelo/signer/nodebuilder"
 
 	"github.com/ethereum/go-ethereum/log"
 	ipfslogging "github.com/ipfs/go-log"

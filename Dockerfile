@@ -11,7 +11,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o tupelo -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}" ./server/ && \
+RUN go build -o tupelo -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}" ./signer/ && \
     mv ./tupelo /go/bin/tupelo
 
 FROM alpine:3.11

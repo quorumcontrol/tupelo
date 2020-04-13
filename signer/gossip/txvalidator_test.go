@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/quorumcontrol/tupelo/server/testnotarygroup"
+	"github.com/quorumcontrol/tupelo/signer/testnotarygroup"
 )
 
 func TestTransactionValidator(t *testing.T) {

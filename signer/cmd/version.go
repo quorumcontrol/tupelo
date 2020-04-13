@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/quorumcontrol/tupelo/server/resources"
+	"github.com/quorumcontrol/tupelo/signer/resources"
 	"github.com/spf13/cobra"
 )
 
