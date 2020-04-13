@@ -1,0 +1,42 @@
+version: "3"
+services:
+  bootstrap:
+    image: quorumcontrol/tupelo:${TUPELO:-master}
+    command: ["bootstrap-node", "--config", "/configs/bootstrap.toml",
+              "-L", "${TUPELO_LOG_LEVEL:-error}"]
+    volumes:
+      - ./configs:/configs
+    networks:
+      default:
+        ipv4_address: 172.16.246.10
+    ports:
+      - "34001:34001"
+
+  node0:
+    image: quorumcontrol/tupelo:${TUPELO:-master}
+    volumes:
+      - ./configs:/configs
+    command: ["test-node", "--config", "/configs/node0.toml",
+              "-L", "${TUPELO_LOG_LEVEL:-error}"]
+
+  node1:
+    image: quorumcontrol/tupelo:${TUPELO:-master}
+    volumes:
+      - ./configs:/configs
+    command: ["test-node", "--config", "/configs/node1.toml",
+              "-L", "${TUPELO_LOG_LEVEL:-error}"]
+
+  node2:
+    image: quorumcontrol/tupelo:${TUPELO:-master}
+    volumes:
+      - ./configs:/configs
+    command: ["test-node", "--config", "/configs/node2.toml",
+              "-L", "${TUPELO_LOG_LEVEL:-error}"]
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.16.246.0/24

@@ -19,20 +19,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler make
     - uses: actions/checkout@v1
-    - uses: actions/cache@v1
-      id: vendor-cache
-      with:
-        path: vendor/
-        key: go-vendor-${{ hashFiles('go.sum') }}
-        restore-keys: |
-          go-vendor-
     - name: git setup
       run: scripts/ci-gitsetup.sh
       env:
         SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-    - name: vendor dependencies
-      if: steps.vendor-cache.outputs.cache-hit != 'true'
-      run: make vendor
     - name: run tests
       run: scripts/test-suite.sh
     - name: set version

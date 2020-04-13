@@ -17,7 +17,7 @@ services:
     build: .
     command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-info}"]
     volumes:
-      - ./configs/localdocker:/configs      
+      - ./docker/configs/localdocker:/configs      
     networks:
       default:
         ipv4_address: 172.16.238.10
@@ -29,7 +29,7 @@ services:
       - bootstrap
     build: .
     volumes:
-      - ./configs/localdocker:/configs
+      - ./docker/configs/localdocker:/configs
       - ./.tmp/node0/data:/tupelo/data
     command: ["node", "--config", "/configs/node0/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
@@ -41,7 +41,7 @@ services:
       - bootstrap
     build: .
     volumes:
-      - ./configs/localdocker:/configs
+      - ./docker/configs/localdocker:/configs
       - ./.tmp/node1/data:/tupelo/data
     command: ["node", "--config", "/configs/node1/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]
@@ -53,7 +53,7 @@ services:
       - bootstrap
     build: .
     volumes:
-      - ./configs/localdocker:/configs
+      - ./docker/configs/localdocker:/configs
       - ./.tmp/node2/data:/tupelo/data
     command: ["node", "--config", "/configs/node2/config.toml",
       "-L", "${TUPELO_LOG_LEVEL:-info}"]

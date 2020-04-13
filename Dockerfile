@@ -1,12 +1,18 @@
-FROM golang:1.13.6-alpine3.11 AS build
+FROM golang:1.14.2-alpine3.11 AS build
 
 WORKDIR /app
 
 RUN apk add --no-cache --update build-base
 
+# cache dependencies
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
 COPY . .
 
-RUN go install -mod=vendor -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}"
+RUN go build -o tupelo -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}" ./signer/ && \
+    mv ./tupelo /go/bin/tupelo
 
 FROM alpine:3.11
 LABEL maintainer="dev@quorumcontrol.com"
