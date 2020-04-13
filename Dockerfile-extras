@@ -1,5 +1,5 @@
 # this is a "non-slim" Dockerfile including additional debug and support utilities
-FROM golang:1.13.6-alpine3.11 AS build
+FROM golang:1.14.2-alpine3.11 AS build
 
 WORKDIR /app
 
@@ -7,9 +7,10 @@ RUN apk add --no-cache --update build-base
 
 COPY . .
 
-RUN go install -mod=vendor -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}"
+RUN go build -o tupelo -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}" ./server/ && \
+    mv ./tupelo /go/bin/tupelo
 
-WORKDIR /app/metrics
+WORKDIR /app/server/metrics
 
 RUN go install -v -a -gcflags=-trimpath="${PWD}" -asmflags=-trimpath="${PWD}"
 

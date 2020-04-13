@@ -3,5 +3,5 @@ services:
   benchmark:
     build: .
     volumes:
-      - ./configs/localperftest:/configs
+      - ./docker/configs/localperftest:/configs
     command: ["-L", "info", "benchmark", "--config", "/configs/benchmark/config.toml", "--fault-detector", "--delay", "15", "-c", "50", "-d", "15", "-t", "20"]

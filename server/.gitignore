@@ -1,0 +1,13 @@
+vendor
+.storage/*
+!.storage/.gitkeep
+.tmp/*
+!.tmp/.gitkeep
+_old
+/tupelo
+/release/
+/resources/templates/
+/VERSION_GUARD_*
+/packrd/
+*-packr.go
+/local-run/

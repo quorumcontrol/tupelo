@@ -2,29 +2,13 @@
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 
-## Dependencies
+## Docs
+Tupelo docs are available at [https://docs.tupelo.org/](https://docs.tupelo.org/)
 
-* Go >= 1.12
-* Docker
-* GNU Make
+## Repo Structure
+For using the Tupelo network, [see the `sdk/` directory](sdk/).
 
-## Version
-The version of Tupelo is controlled via the `$VERSION` variable to the Makefile
-(default: "snapshot"). Make prints this to a file called resources/templates/version.txt,
-which again gets embedded into the binary by the [packr](github.com/gobuffalo/packr) tool.
-
-More specifically, the Makefile ensures that `packr2` gets invoked before building, which
-generates some Go source code to embed templates (i.e. version.txt) into the built binary.
-
-## Development
-### Linting
-We use [golangci-lint](https://github.com/golangci/golangci-lint) for linting, which is
-basically an aggregator of individual linters. You can most easily run it via `make lint`,
-which will also install it if necessary.
-
-## Testing
-
-`make test` will run all unit tests and some internal integration tests.
+For running a Tupelo signer, [see the `server/` directory](server/).
 
 ## Concepts
 Every asset and actor in the system has their own Chain Tree, a new data structure combining a merkle-DAG and an individual ordered log of transactions. A Chain Tree is similar in concept to Git, but with known transactions on data instead of simple textual manipulation. Functionally, a Chain Tree is a state-machine where the input and resulting state is a content-addressable merkle-DAG. Playing ordered transactions on an existing state produces a new state.

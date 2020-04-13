@@ -36,7 +36,7 @@ services:
     build: .
     command: ["bootstrap-node", "--config", "/configs/bootstrap/config.toml", "-L", "${TUPELO_LOG_LEVEL:-error}"]
     volumes:
-      - ./configs/localperftest:/configs      
+      - ./docker/configs/localperftest:/configs      
     networks:
       default:
         ipv4_address: 172.16.238.10
@@ -45,7 +45,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -57,7 +57,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -69,7 +69,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -81,7 +81,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -93,7 +93,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -105,7 +105,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -117,7 +117,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -129,7 +129,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -141,7 +141,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -153,7 +153,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -165,7 +165,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -177,7 +177,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -189,7 +189,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -201,7 +201,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -213,7 +213,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -225,7 +225,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -237,7 +237,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -249,7 +249,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -261,7 +261,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -273,7 +273,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
@@ -285,7 +285,7 @@ services:
     - bootstrap
     build: .
     volumes:
-    - ./configs/localperftest:/configs
+    - ./docker/configs/localperftest:/configs
     command:
     - node
     - -L
