@@ -11,6 +11,7 @@ replace (
 	github.com/golangci/lint-1 => github.com/golangci/lint-1 v0.0.0-20190420132249-ee948d087217
 	golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	mvdan.cc/unparam => mvdan.cc/unparam v0.0.0-20190209190245-fbb59629db34
+	github.com/quorumcontrol/tupelo => ../../
 )
 
 require (
@@ -29,7 +30,7 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
-	github.com/quorumcontrol/tupelo v0.6.2-0.20200413190019-e6afb6733160 // indirect
+	github.com/quorumcontrol/tupelo v0.0.0
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/sys v0.0.0-20200317113312-5766fd39f98d // indirect
 	howett.net/plist v0.0.0-20200225050739-77e249a2e2ba // indirect

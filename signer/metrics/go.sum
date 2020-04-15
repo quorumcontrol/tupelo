@@ -751,8 +751,6 @@ github.com/quorumcontrol/messages/v2 v2.1.2/go.mod h1:on7qxEZYufdF6ZIyXFFWonyEmS
 github.com/quorumcontrol/messages/v2 v2.1.3-0.20200123172240-224b207a9631/go.mod h1:deggrbG3fDQ1RIpGrhC+Ujn5S7hTWNkAbnT06FEmlD8=
 github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653 h1:1HnIHiq74K8lkCXZ6f/EHVdZnMK830E2Vh02xsqXRVA=
 github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653/go.mod h1:deggrbG3fDQ1RIpGrhC+Ujn5S7hTWNkAbnT06FEmlD8=
-github.com/quorumcontrol/tupelo v0.6.2-0.20200413190019-e6afb6733160 h1:lYgOi5hT4BPf/iVuK3PqO71y9+K/NewMJszfZ5av8lk=
-github.com/quorumcontrol/tupelo v0.6.2-0.20200413190019-e6afb6733160/go.mod h1:krQSu7o4KHFkDpjprbjOC87nHx72+9pcAvAjAutMD2M=
 github.com/rogpeppe/go-internal v1.1.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rs/cors v1.6.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
@@ -864,6 +862,7 @@ go.dedis.ch/fixbuf v1.0.3/go.mod h1:yzJMt34Wa5xD37V5RTdmp38cz3QhMagdGoem9anUalw=
 go.dedis.ch/kyber/v3 v3.0.4/go.mod h1:OzvaEnPvKlyrWyp3kGXlFdp7ap1VC6RkZDTaPikqhsQ=
 go.dedis.ch/kyber/v3 v3.0.9 h1:i0ZbOQocHUjfFasBiUql5zVeC7u/vahFd96DFA8UOWk=
 go.dedis.ch/kyber/v3 v3.0.9/go.mod h1:rhNjUUg6ahf8HEg5HUvVBYoWY4boAafX8tYxX+PS+qg=
+go.dedis.ch/kyber/v3 v3.0.12 h1:15d61EyBcBoFIS97kS2c/Vz4o3FR8ALnZ2ck9J/ebYM=
 go.dedis.ch/kyber/v3 v3.0.12/go.mod h1:kXy7p3STAurkADD+/aZcsznZGKVHEqbtmdIzvPfrs1U=
 go.dedis.ch/protobuf v1.0.5/go.mod h1:eIV4wicvi6JK0q/QnfIEGeSFNG0ZeB24kzut5+HaRLo=
 go.dedis.ch/protobuf v1.0.7 h1:wRUEiq3u0/vBhLjcw9CmAVrol+BnDyq2M0XLukdphyI=
