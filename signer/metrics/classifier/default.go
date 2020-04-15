@@ -28,6 +28,11 @@ func Default(ctx context.Context, startDag *dag.Dag, endDag *dag.Dag) (classific
 		return
 	}
 
+	// See kibana for mappings
+	if _, ok := dataMap["_product"]; ok {
+		classification = "327dc2e"
+	}
+
 	if _, ok := dataMap["dgit"]; ok {
 		dgitDataUncast, _, _ := endDag.Resolve(ctx2, []string{"tree", "data", "dgit"})
 		if dgitData, ok := dgitDataUncast.(map[string]interface{}); ok && dgitData["repo"] != nil {
