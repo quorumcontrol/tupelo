@@ -11,7 +11,6 @@ import (
 
 	"github.com/quorumcontrol/tupelo/sdk/bls"
 
-	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client/pubsubinterfaces"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/quorumcontrol/messages/v2/build/go/config"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
+	"github.com/quorumcontrol/messages/v2/build/go/services"
 
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
@@ -144,6 +144,33 @@ func (jsc *JSClient) GetLatest(jsDid js.Value) interface{} {
 	return t
 }
 
+// func (c *Client) NewAddBlockRequest(ctx context.Context, tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, transactions []*transactions.Transaction) (*services.AddBlockRequest, error) {
+func (jsc *JSClient) treeAndKeyFromJs(jsKeyBits js.Value, tjTip js.Value) (*consensus.SignedChainTree, *ecdsa.PrivateKey, error) {
+	ctx := context.TODO()
+
+	key, err := jsKeyBitsToPrivateKey(jsKeyBits)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error converting private key %w", err)
+	}
+
+	tip, err := helpers.JsCidToCid(tjTip)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting CID: %w", err)
+	}
+
+	tree, err := chaintree.NewChainTree(
+		ctx,
+		dag.NewDag(ctx, tip, jsc.store),
+		nil,
+		consensus.DefaultTransactors,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating chaintree: %w", err)
+	}
+
+	return consensus.NewSignedChainTreeFromChainTree(tree), key, nil
+}
+
 func (jsc *JSClient) PlayTransactions(jsKeyBits js.Value, tip js.Value, jsTransactions js.Value) interface{} {
 	t := then.New()
 	go func() {
@@ -153,19 +180,9 @@ func (jsc *JSClient) PlayTransactions(jsKeyBits js.Value, tip js.Value, jsTransa
 			return
 		}
 
-		key, err := jsKeyBitsToPrivateKey(jsKeyBits)
-		if err != nil {
-			t.Reject(err)
-			return
-		}
+		tree, treeKey, err := jsc.treeAndKeyFromJs(jsKeyBits, tip)
 
-		tip, err := helpers.JsCidToCid(tip)
-		if err != nil {
-			t.Reject(err)
-			return
-		}
-
-		proof, err := jsc.playTransactions(key, tip, trans)
+		proof, err := jsc.client.PlayTransactions(context.TODO(), tree, treeKey, trans)
 		if err != nil {
 			t.Reject(err)
 			return
@@ -198,24 +215,6 @@ func (jsc *JSClient) WaitForRound() *then.Then {
 	return t
 }
 
-func (jsc *JSClient) playTransactions(treeKey *ecdsa.PrivateKey, tip cid.Cid, transactions []*transactions.Transaction) (*gossip.Proof, error) {
-	ctx := context.TODO()
-
-	cTree, err := chaintree.NewChainTree(
-		ctx,
-		dag.NewDag(ctx, tip, jsc.store),
-		nil,
-		consensus.DefaultTransactors,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error creating chaintree")
-	}
-
-	tree := consensus.NewSignedChainTreeFromChainTree(cTree)
-
-	return jsc.client.PlayTransactions(ctx, tree, treeKey, transactions)
-}
-
 func (jsc *JSClient) VerifyProof(proofBits js.Value) interface{} {
 	t := then.New()
 	go func() {
@@ -231,6 +230,69 @@ func (jsc *JSClient) VerifyProof(proofBits js.Value) interface{} {
 			return
 		}
 		t.Resolve(isVerified)
+	}()
+	return t
+}
+
+// func (c *Client) NewAddBlockRequest(ctx context.Context, tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, transactions []*transactions.Transaction) (*services.AddBlockRequest, error) {
+func (jsc *JSClient) NewAddBlockRequest(jsKeyBits js.Value, tip js.Value, jsTransactions js.Value) interface{} {
+	t := then.New()
+	go func() {
+		trans, err := jsTransactionsToTransactions(jsTransactions)
+		if err != nil {
+			t.Reject(err)
+			return
+		}
+
+		tree, treeKey, err := jsc.treeAndKeyFromJs(jsKeyBits, tip)
+
+		abr, err := jsc.client.NewAddBlockRequest(context.TODO(), tree, treeKey, trans)
+		if err != nil {
+			t.Reject(err)
+			return
+		}
+
+		bits, err := abr.Marshal()
+		if err != nil {
+			t.Reject(err)
+			return
+		}
+
+		t.Resolve(helpers.SliceToJSArray(bits))
+	}()
+
+	return t
+}
+
+// go-sdk client function signature:
+// func (c *Client) Send(ctx context.Context, abr *services.AddBlockRequest, timeout time.Duration) (*gossip.Proof, error) {
+func (jsc *JSClient) Send(abrBits js.Value, jsTimeout js.Value) interface{} {
+	t := then.New()
+	go func() {
+		abr := &services.AddBlockRequest{}
+		err := abr.Unmarshal(helpers.JsBufferToBytes(abrBits))
+		if err != nil {
+			t.Reject(fmt.Errorf("error unmarshaling: %w", err))
+			return
+		}
+
+		timeout := client.DefaultTimeout
+		if jsTimeout.Truthy() {
+			timeout = time.Duration(jsTimeout.Int()) * time.Millisecond
+		}
+
+		proof, err := jsc.client.Send(context.TODO(), abr, timeout)
+		if err != nil {
+			t.Reject(fmt.Errorf("error sending transaction: %w", err))
+			return
+		}
+		bits, err := proof.Marshal()
+		if err != nil {
+			t.Reject(fmt.Errorf("error marshaling: %w", err))
+			return
+		}
+
+		t.Resolve(helpers.SliceToJSArray(bits))
 	}()
 	return t
 }
@@ -376,7 +438,7 @@ func (jsc *JSClient) NewNamedTree(jsNamespace js.Value, jsName js.Value, jsOwner
 			return
 		}
 
-		t.Resolve(helpers.CidToJSCID(tree.Tip))
+		t.Resolve(helpers.CidToJSCID(tree.Tip()))
 	}()
 
 	return t
