@@ -192,6 +192,7 @@ func (nb *NodeBuilder) startSigner(ctx context.Context) (*p2p.LibP2PHost, error)
 	nb.host = p2pNode
 
 	nodeCfg := &gossip.NewNodeOptions{
+		Name:        nb.Config.NodeName,
 		P2PNode:     p2pNode,
 		SignKey:     localKeys.SignKey,
 		NotaryGroup: group,
