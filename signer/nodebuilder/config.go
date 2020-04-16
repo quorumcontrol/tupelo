@@ -23,7 +23,10 @@ const (
 )
 
 type Config struct {
+	// @deprecated - I can't find anywhere using Namespace
 	Namespace string
+
+	NodeName string
 
 	NotaryGroupConfig *types.Config
 	PublicIP          string
