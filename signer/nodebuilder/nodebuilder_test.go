@@ -55,11 +55,11 @@ func TestSigner(t *testing.T) {
 		ngConfig := types.DefaultConfig()
 		ngConfig.ID = "hardcoded"
 		ngConfig.Signers = []types.PublicKeySet{
-			types.PublicKeySet{
+			{
 				DestKey: &ts.EcdsaKeys[1].PublicKey,
 				VerKey:  ts.SignKeys[1].MustVerKey(),
 			},
-			types.PublicKeySet{
+			{
 				DestKey: &ts.EcdsaKeys[2].PublicKey,
 				VerKey:  ts.SignKeys[2].MustVerKey(),
 			},
@@ -74,6 +74,7 @@ func TestSigner(t *testing.T) {
 
 		nb := &NodeBuilder{
 			Config: &Config{
+				NodeName:          "TestSignerBasicConfig",
 				NotaryGroupConfig: ngConfig,
 				PrivateKeySet: &PrivateKeySet{
 					DestKey: ts.EcdsaKeys[0],

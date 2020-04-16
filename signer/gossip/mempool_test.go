@@ -85,6 +85,7 @@ func TestMempoolDeleteIDAndConflictSet(t *testing.T) {
 
 func TestMempoolPreferred(t *testing.T) {
 	sw := &safewrap.SafeWrap{}
+
 	// use a canonical key because that influences the hash of the ABRs
 	keyHex := "0xcd24af4d6c47530202f00442282fa23e06c1adea93e0264cacabf274241918d2"
 	treeKey, err := crypto.ToECDSA(hexutil.MustDecode(keyHex))
@@ -92,24 +93,31 @@ func TestMempoolPreferred(t *testing.T) {
 
 	abr1 := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "/path", "value")
 	abr2 := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "/path", "differentvalue")
+
 	abr1Cid := sw.WrapObject(abr1).Cid()
 	abr2Cid := sw.WrapObject(abr2).Cid()
 	t.Logf("abr1: %s, abr2: %s", abr1Cid.String(), abr2Cid.String())
+
+	// the preferred transaction is the one with the lower CID
+	winningCID := abr1Cid
+	losingCID := abr2Cid
+	if abr2Cid.String() <= abr1Cid.String() {
+		winningCID = abr2Cid
+		losingCID = abr1Cid
+	}
 
 	// abr1 and abr2 are conflicting blocks added to the same chaintree
 	require.Equal(t, abr1.ObjectId, abr2.ObjectId)
 	require.Equal(t, abr1.Height, abr2.Height)
 	require.NotEqual(t, abr1.NewTip, abr2.NewTip)
-	// abr2 is a better abr because it has a lower hash value
-	require.True(t, abr2Cid.String() < abr1Cid.String())
 
 	pool := newMempool()
 	pool.Add(&AddBlockWrapper{AddBlockRequest: &abr1, cid: abr1Cid})
 	require.True(t, preferredContains(pool, abr1Cid))
 
 	pool.Add(&AddBlockWrapper{AddBlockRequest: &abr2, cid: abr2Cid})
-	assert.True(t, preferredContains(pool, abr2Cid))
-	assert.False(t, preferredContains(pool, abr1Cid))
+	assert.True(t, preferredContains(pool, winningCID))
+	assert.False(t, preferredContains(pool, losingCID))
 }
 
 func preferredContains(pool *mempool, id cid.Cid) bool {
