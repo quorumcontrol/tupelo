@@ -200,9 +200,45 @@ func NewGraftedOwnership(origin *dag.Dag, dagGetter graftabledag.DagGetter) (*Gr
 	}, nil
 }
 
+func (gro *GraftedOwnership) handleDag(ctx context.Context, d *dag.Dag, seen []chaintree.Path) (Addrs, error) {
+	nextGDag, err := graftabledag.New(d, gro.graftedDag.DagGetter())
+	if err != nil {
+		return nil, err
+	}
+
+	newOwners, err := gro.resolveOwnersRecursively(ctx, nextGDag, seen)
+	if err != nil {
+		return nil, err
+	}
+
+	return newOwners, nil
+}
+
 // TODO: Make this detect loops and error?
-func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graftedDag graftabledag.GraftableDag) (Addrs, error) {
-	uncastAuths, _, err := graftedDag.GlobalResolve(ctx, strings.Split("tree/"+consensus.TreePathForAuthentications, "/"))
+func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graftedDag graftabledag.GraftableDag, seen []chaintree.Path) (Addrs, error) {
+	nextPath := strings.Split("tree/"+consensus.TreePathForAuthentications, "/")
+	uncastDid, _, err := graftedDag.OriginDag().Resolve(ctx, []string{"id"})
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		originDid string
+		ok        bool
+	)
+	if originDid, ok = uncastDid.(string); !ok {
+		return nil, fmt.Errorf("could not cast origin did to string; was a %T", uncastDid)
+	}
+
+	didPath := append([]string{originDid}, nextPath...)
+
+	if graftabledag.PathsContainPrefix(seen, didPath) {
+		return nil, fmt.Errorf("loop detected; some or all of %s has already been visited in this resolution", strings.Join(didPath, "/"))
+	}
+
+	seen = append(seen, didPath)
+
+	uncastAuths, _, err := graftedDag.GlobalResolve(ctx, nextPath)
 	if err != nil {
 		return nil, err
 	}
@@ -213,15 +249,11 @@ func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graft
 		for _, uncastAuth := range auths {
 			switch auth := uncastAuth.(type) {
 			case *dag.Dag:
-				nextGDag, err := graftabledag.New(auth, gro.graftedDag.DagGetter())
+				newOwners, err := gro.handleDag(ctx, auth, seen)
 				if err != nil {
 					return nil, err
 				}
-				nextAddrs, err := gro.resolveOwnersRecursively(ctx, nextGDag)
-				if err != nil {
-					return nil, err
-				}
-				owners = append(owners, nextAddrs...)
+				owners = append(owners, newOwners...)
 			case string:
 				owners = append(owners, auth)
 			case []interface{}:
@@ -237,15 +269,11 @@ func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graft
 			}
 		}
 	case *dag.Dag:
-		nextGDag, err := graftabledag.New(auths, gro.graftedDag.DagGetter())
+		newOwners, err := gro.handleDag(ctx, auths, seen)
 		if err != nil {
 			return nil, err
 		}
-		nextAddrs, err := gro.resolveOwnersRecursively(ctx, nextGDag)
-		if err != nil {
-			return nil, err
-		}
-		owners = append(owners, nextAddrs...)
+		owners = append(owners, newOwners...)
 	case nil:
 		id, _, err := graftedDag.OriginDag().Resolve(ctx, []string{"id"})
 		if err != nil {
@@ -261,6 +289,7 @@ func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graft
 }
 
 func (gro *GraftedOwnership) ResolveOwners(ctx context.Context) (Addrs, error) {
-	return gro.resolveOwnersRecursively(ctx, gro.graftedDag)
+	seen := make([]chaintree.Path, 0)
+	return gro.resolveOwnersRecursively(ctx, gro.graftedDag, seen)
 }
 

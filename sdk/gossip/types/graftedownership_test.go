@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/ipfs/go-cid"
@@ -273,4 +274,25 @@ func TestResolveOwnersArbitraryPath(t *testing.T) {
 	assert.Contains(t, owners, "addr1")
 	assert.Contains(t, owners, "addr2")
 	assert.Contains(t, owners, "otheraddr")
+}
+
+func TestResolveOwnersLoop(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ct1 := newChaintreeOwnedBy(t, ctx, "uno", []string{"did:tupelo:dos"})
+	did, err := ct1.Id(ctx)
+	require.Nil(t, err)
+	ct2 := newChaintreeOwnedBy(t, ctx, "dos", []string{did})
+
+	dg := newDagGetter(t, ctx, ct1, ct2)
+
+	originDag := ct2.Dag
+
+	gro, err := NewGraftedOwnership(originDag, dg)
+	require.Nil(t, err)
+
+	_, err = gro.ResolveOwners(ctx)
+	assert.NotNil(t, err)
+	assert.True(t, strings.HasPrefix(err.Error(), "loop detected"))
 }
