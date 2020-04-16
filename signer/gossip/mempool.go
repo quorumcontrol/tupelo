@@ -19,20 +19,11 @@ type conflictSet struct {
 }
 
 func (cs *conflictSet) Add(id cid.Cid) {
-	var preferred cid.Cid
-	newCIDString := id.String()
-	for _, existingID := range cs.ids {
-		if newCIDString < existingID.String() {
-			preferred = id
-		}
-	}
-
-	if preferred.Equals(cid.Undef) {
-		preferred = id
-	}
-
 	cs.ids = append(cs.ids, id)
-	cs.preferred = preferred
+
+	if cs.preferred.Equals(cid.Undef) || id.String() < cs.preferred.String() {
+		cs.preferred = id
+	}
 }
 
 type mempool struct {
