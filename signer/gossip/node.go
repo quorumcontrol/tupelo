@@ -21,9 +21,12 @@ import (
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-msgio"
 	"github.com/opentracing/opentracing-go"
-	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
+
+	"github.com/quorumcontrol/chaintree/graftabledag"
+	"github.com/quorumcontrol/chaintree/nodestore"
+
 	"github.com/quorumcontrol/tupelo/sdk/bls"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/hamtwrapper"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
@@ -155,6 +158,8 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 
 	n.stateStorer = newStateStorer(logger, n.dagStore)
 	n.pubsub = n.p2pNode.GetPubSub()
+
+	n.notaryGroup.DagGetter = n.DagGetter()
 
 	return n, nil
 }
@@ -751,4 +756,61 @@ func (n *Node) getCurrent(ctx context.Context, objectID string) (*services.AddBl
 
 func (n *Node) PID() *actor.PID {
 	return n.pid
+}
+
+var _ types.GraftedOwnershipNode = (*Node)(nil)
+
+func (n *Node) GetLastCompletedRound(ctx context.Context) (*types.RoundWrapper, error) {
+	if round := n.rounds.Current(); round != nil {
+		previousRound, found := n.rounds.Get(round.height - 1)
+		if found && previousRound != nil {
+			// TODO: Store the state & checkpoint CIDs on the cached round?
+			stateCid, err := n.hamtStore.Put(ctx, previousRound.state.hamt)
+			if err != nil {
+				return nil, err
+			}
+
+			checkpointCid := previousRound.snowball.Preferred().Checkpoint.CID()
+
+			completedRound := &gossip.Round{
+				Height: previousRound.height,
+				StateCid: stateCid.Bytes(),
+				CheckpointCid: checkpointCid.Bytes(),
+			}
+
+			wr := types.WrapRound(completedRound)
+			wr.SetStore(n.dagStore)
+
+			return wr, nil
+		}
+	}
+
+	return nil, fmt.Errorf("could not find last completed round")
+}
+
+func (n *Node) GetAddBlockRequest(ctx context.Context, txCID *cid.Cid) (*services.AddBlockRequest, error) {
+	abrNode, err := n.dagStore.Get(ctx, *txCID)
+	if err != nil {
+		return nil, err
+	}
+
+	abr := &services.AddBlockRequest{}
+	err = cbornode.DecodeInto(abrNode.RawData(), abr)
+	if err != nil {
+		return nil, err
+	}
+
+	return abr, nil
+}
+
+func (n *Node) DagStore() nodestore.DagStore {
+	return n.dagStore
+}
+
+func (n *Node) DagGetter() graftabledag.DagGetter {
+	return types.NewNodeDagGetter(n)
+}
+
+func (n *Node) NotaryGroup() *types.NotaryGroup {
+	return n.notaryGroup
 }
