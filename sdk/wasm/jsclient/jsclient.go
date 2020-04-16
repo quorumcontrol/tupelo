@@ -11,7 +11,7 @@ import (
 
 	"github.com/quorumcontrol/tupelo/sdk/bls"
 
-	"github.com/ipfs/go-cid"
+	cid "github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client/pubsubinterfaces"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
@@ -349,6 +349,36 @@ func NewEmptyTree(jsBlockService js.Value, jsPublicKeyBits js.Value) *then.Then 
 		dag := consensus.NewEmptyTree(ctx, did, store)
 		t.Resolve(helpers.CidToJSCID(dag.Tip))
 	}()
+	return t
+}
+
+// NewNamedTree creates a new ChainTree who's id is deterministically generated
+// from both a namespace and name, but is owned by the specified owner keys.
+func (jsc *JSClient) NewNamedTree(jsNamespace js.Value, jsName js.Value, jsOwners js.Value) *then.Then {
+	t := then.New()
+	ctx := context.TODO()
+	go func() {
+		namespace := jsNamespace.String()
+		name := jsName.String()
+
+		ownerLength := jsOwners.Length()
+		owners := make([]string, ownerLength)
+		for i := 0; i < ownerLength; i++ {
+			owners[i] = jsOwners.Index(i).String()
+		}
+
+		opts := client.NamedChainTreeOptions{Name: name, Owners: owners}
+		gen := client.NewGenerator(jsc.client, namespace)
+
+		tree, err := gen.Create(ctx, &opts)
+		if err != nil {
+			t.Reject(err)
+			return
+		}
+
+		t.Resolve(helpers.CidToJSCID(tree.Tip))
+	}()
+
 	return t
 }
 

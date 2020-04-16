@@ -78,6 +78,10 @@ func main() {
 				return jsclient.NewEmptyTree(args[0], args[1])
 			}))
 
+			jsObj.Set("newNamedTree", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				return jsclient.NewNamedTree(args[0], args[1], args[2])
+			}))
+
 			jsObj.Set("getTip", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				return clientSingleton.GetTip(args[0])
 			}))
