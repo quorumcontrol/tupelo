@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/stretchr/testify/assert"
@@ -119,6 +120,26 @@ func TestResolveOwnersOriginKey(t *testing.T) {
 
 	assert.Equal(t, 1, len(owners))
 	assert.Contains(t, owners, "uno")
+}
+
+func TestBasicOwnership(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	owners := []string{crypto.PubkeyToAddress(key.PublicKey).String()}
+	ct := newChaintreeOwnedBy(t, ctx, "uno", owners)
+	dg := newDagGetter(t, ctx, ct)
+
+	gro, err := NewGraftedOwnership(ct.Dag, dg)
+	require.Nil(t, err)
+
+	resolvedOwners, err := gro.ResolveOwners(ctx)
+	require.Nil(t, err)
+	assert.Equal(t, len(owners), len(resolvedOwners))
+	assert.Equal(t, owners[0], resolvedOwners[0])
 }
 
 func TestResolveOwnersOneChaintreeOwnsAnother(t *testing.T) {

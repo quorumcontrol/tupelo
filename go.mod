@@ -43,7 +43,7 @@ require (
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.8.1
-	github.com/quorumcontrol/chaintree v1.0.2-0.20200416221234-b0ce321baf11
+	github.com/quorumcontrol/chaintree v1.0.2-0.20200417190801-195827c9d506
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
