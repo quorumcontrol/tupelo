@@ -214,7 +214,6 @@ func (gro *GraftedOwnership) handleDag(ctx context.Context, d *dag.Dag, seen []c
 	return newOwners, nil
 }
 
-// TODO: Make this detect loops and error?
 func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graftedDag graftabledag.GraftableDag, seen []chaintree.Path) (Addrs, error) {
 	nextPath := strings.Split("tree/"+consensus.TreePathForAuthentications, "/")
 	uncastDid, _, err := graftedDag.OriginDag().Resolve(ctx, []string{"id"})
