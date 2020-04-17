@@ -364,7 +364,3 @@ func (c *Client) SubscribeToAbr(ctx context.Context, abr *services.AddBlockReque
 func (c *Client) UnsubscribeFromAbr(s subscription) {
 	c.subscriber.unsubscribe(s)
 }
-
-func (c *Client) DagGetter() *types.ClientDagGetter {
-	return types.NewClientDagGetter(c)
-}

@@ -24,7 +24,6 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 
-	"github.com/quorumcontrol/chaintree/graftabledag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 
 	"github.com/quorumcontrol/tupelo/sdk/bls"
@@ -159,7 +158,7 @@ func NewNode(ctx context.Context, opts *NewNodeOptions) (*Node, error) {
 	n.stateStorer = newStateStorer(logger, n.dagStore)
 	n.pubsub = n.p2pNode.GetPubSub()
 
-	n.notaryGroup.DagGetter = n.DagGetter()
+	n.notaryGroup.DagGetter = types.NewNodeDagGetter(n)
 
 	return n, nil
 }
@@ -805,10 +804,6 @@ func (n *Node) GetAddBlockRequest(ctx context.Context, txCID *cid.Cid) (*service
 
 func (n *Node) DagStore() nodestore.DagStore {
 	return n.dagStore
-}
-
-func (n *Node) DagGetter() graftabledag.DagGetter {
-	return types.NewNodeDagGetter(n)
 }
 
 func (n *Node) NotaryGroup() *types.NotaryGroup {
