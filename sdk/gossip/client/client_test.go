@@ -18,17 +18,21 @@ import (
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
+
+	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
+
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/messages/v2/build/go/transactions"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	tupelogossip "github.com/quorumcontrol/tupelo/signer/gossip"
+
 	"github.com/quorumcontrol/tupelo/sdk/consensus"
-	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/p2p"
 	"github.com/quorumcontrol/tupelo/sdk/testnotarygroup"
-	tupelogossip "github.com/quorumcontrol/tupelo/signer/gossip"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const groupMembers = 3
@@ -42,6 +46,7 @@ func newTupeloSystem(ctx context.Context, testSet *testnotarygroup.TestSet) (*ty
 	nodes := make([]*tupelogossip.Node, len(testSet.SignKeys))
 
 	ng := types.NewNotaryGroup("testnotary")
+
 	for i, signKey := range testSet.SignKeys {
 		sk := signKey
 		signer := types.NewRemoteSigner(testSet.PubKeys[i], sk.MustVerKey())
@@ -120,6 +125,9 @@ func newClient(ctx context.Context, group *types.NotaryGroup, bootAddrs []string
 	if err != nil {
 		return nil, err
 	}
+
+	group.DagGetter = types.NewClientDagGetter(cli)
+
 	return cli, nil
 }
 
@@ -712,9 +720,6 @@ func TestTokenTransactions(t *testing.T) {
 		require.Nil(t, err)
 		assert.Equal(t, sendProof.Tip, sendTree.Tip().Bytes())
 
-		fmt.Printf("round height: %d, checkpoint cid: %s, state_cid: %s\n", sendProof.Round.Height, sendProof.Round.CheckpointCid, sendProof.Round.StateCid)
-		fmt.Printf("round confirmation: %v\n\n\n", sendProof.RoundConfirmation)
-
 		fullTokenName := &consensus.TokenName{ChainTreeDID: sendTree.MustId(), LocalName: tokenName}
 		tokenPayload, err := consensus.TokenPayloadForTransaction(sendTree.ChainTree, fullTokenName, sendTxId, sendProof)
 		require.Nil(t, err)
@@ -734,4 +739,63 @@ func TestTokenTransactions(t *testing.T) {
 		_, err = receiveCli.PlayTransactions(ctx, receiveTree, receiveKey, receiverTxn)
 		require.Nil(t, err)
 	})
+}
+
+func TestChaintreeOwnsOtherChaintree(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ts := testnotarygroup.NewTestSet(t, groupMembers)
+	group, nodes, err := newTupeloSystem(ctx, ts)
+	require.Nil(t, err)
+	require.Len(t, nodes, groupMembers)
+
+	booter, err := p2p.NewHostFromOptions(ctx)
+	require.Nil(t, err)
+
+	bootAddrs := make([]string, len(booter.Addresses()))
+	for i, addr := range booter.Addresses() {
+		bootAddrs[i] = addr.String()
+	}
+
+	startNodes(t, ctx, nodes, bootAddrs)
+
+	ownerKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	ownedKey, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	ownerTree, err := consensus.NewSignedChainTree(ctx, ownerKey.PublicKey, nodestore.MustMemoryStore(ctx))
+	require.Nil(t, err)
+
+	tupelo, err := newClient(ctx, group, bootAddrs)
+	require.Nil(t, err)
+
+	// run a setData on ownerTree so it's in the HAMT
+	setDataTxn, err := chaintree.NewSetDataTransaction("down/in/the/thing", "hi")
+	require.Nil(t, err)
+	_, err = tupelo.PlayTransactions(ctx, ownerTree, ownerKey, []*transactions.Transaction{setDataTxn})
+	require.Nil(t, err)
+
+	ownedTree, err := consensus.NewSignedChainTree(ctx, ownedKey.PublicKey, nodestore.MustMemoryStore(ctx))
+	require.Nil(t, err)
+
+	ownerTxn, err := chaintree.NewSetOwnershipTransaction([]string{ownerTree.MustId()})
+	require.Nil(t, err)
+
+	ownProof, err := tupelo.PlayTransactions(ctx, ownedTree, ownedKey, []*transactions.Transaction{ownerTxn})
+	require.Nil(t, err)
+	assert.Equal(t, ownProof.Tip, ownedTree.Tip().Bytes())
+
+	// ownedKey can no longer modify
+	_, err = tupelo.PlayTransactions(ctx, ownedTree, ownedKey, []*transactions.Transaction{setDataTxn})
+	require.NotNil(t, err)
+
+	// but ownerKey can
+	setDataProof, err := tupelo.PlayTransactions(ctx, ownedTree, ownerKey, []*transactions.Transaction{setDataTxn})
+	require.Nil(t, err)
+	assert.Equal(t, setDataProof.Tip, ownedTree.Tip().Bytes())
+
+	// TODO: Change ownership of ownerTree and verify that new owner can change ownedTree and old owner cannot
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/messages/v2/build/go/transactions"
+
 	"github.com/quorumcontrol/tupelo/sdk/consensus"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/client/pubsubinterfaces"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"

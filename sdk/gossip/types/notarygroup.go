@@ -11,12 +11,14 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/quorumcontrol/chaintree/chaintree"
+	"github.com/quorumcontrol/chaintree/graftabledag"
 )
 
 // NotaryGroup represents a notary group.
 type NotaryGroup struct {
 	ID        string
 	Signers   map[string]*Signer
+	DagGetter graftabledag.DagGetter
 	sortedIds []string
 	config    *Config
 }

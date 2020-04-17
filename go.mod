@@ -43,18 +43,19 @@ require (
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pkg/errors v0.8.1
-	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
+	github.com/quorumcontrol/chaintree v1.0.2-0.20200417190801-195827c9d506
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
 	github.com/shibukawa/configdir v0.0.0-20170330084843-e180dbdc8da0
+	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/spf13/cobra v0.0.5
 	github.com/spy16/parens v0.0.8
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/uber/jaeger-client-go v2.22.1+incompatible
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	go.dedis.ch/kyber/v3 v3.0.12
 	go.elastic.co/apm/module/apmot v1.6.0
 	golang.org/x/crypto v0.0.0-20200204104054-c9f3fb736b72
-	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
+	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 	gopkg.in/yaml.v2 v2.2.8
 )
 

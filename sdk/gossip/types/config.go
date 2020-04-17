@@ -7,8 +7,10 @@ import (
 
 	"github.com/AsynkronIT/protoactor-go/actor"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/messages/v2/build/go/transactions"
+
+	"github.com/quorumcontrol/chaintree/chaintree"
+
 	"github.com/quorumcontrol/tupelo/sdk/consensus"
 )
 
@@ -16,7 +18,7 @@ var defaultGenerators []ValidatorGenerator
 
 func init() {
 	defaultGenerators = []ValidatorGenerator{
-		WrapStatelessValidator(IsOwner),
+		IsOwnerGenerator,
 		WrapStatelessValidator(IsTokenRecipient),
 	}
 }
@@ -47,7 +49,7 @@ type Config struct {
 	Transactions map[transactions.Transaction_Type]chaintree.TransactorFunc
 	// Signers is the set of VerKey and DestKey necessary to validate and reach a signer
 	Signers []PublicKeySet
-	//BootstrapAddresses is a slice of PeerIDs to use for bootstrapping this notary group
+	// BootstrapAddresses is a slice of PeerIDs to use for bootstrapping this notary group
 	BootstrapAddresses []string
 }
 
