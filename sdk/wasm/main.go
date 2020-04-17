@@ -79,7 +79,7 @@ func main() {
 			}))
 
 			jsObj.Set("newNamedTree", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-				return jsclient.NewNamedTree(args[0], args[1], args[2])
+				return clientSingleton.NewNamedTree(args[0], args[1], args[2])
 			}))
 
 			jsObj.Set("getTip", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -162,6 +162,41 @@ func main() {
 				}
 
 				return clientSingleton.PlayTransactions(jsOpts.Get("privateKey"), jsOpts.Get("tip"), jsOpts.Get("transactions"))
+			}))
+
+			jsObj.Set("newAddBlockRequest", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				// js passes in:
+				// interface IPlayTransactionOptions {
+				//     privateKey: Uint8Array,
+				//     tip: CID,
+				//     transactions: Uint8Array[], // protobuf encoded array of transactions.Transaction
+				// }
+				jsOpts := args[0]
+
+				if clientSingleton == nil {
+					t := then.New()
+					t.Reject(fmt.Errorf("no client has been started"))
+					return t
+				}
+
+				return clientSingleton.NewAddBlockRequest(jsOpts.Get("privateKey"), jsOpts.Get("tip"), jsOpts.Get("transactions"))
+			}))
+
+			jsObj.Set("sendAddBlockRequest", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				// js passes in:
+				// interface ISendAddBlockRequestOptions {
+				//     addBlockRequest: Uint8Array,
+				//     timeout?: number,
+				// }
+				jsOpts := args[0]
+
+				if clientSingleton == nil {
+					t := then.New()
+					t.Reject(fmt.Errorf("no client has been started"))
+					return t
+				}
+
+				return clientSingleton.Send(jsOpts.Get("addBlockRequest"), jsOpts.Get("timeout"))
 			}))
 
 			return jsObj
