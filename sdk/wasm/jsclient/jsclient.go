@@ -117,6 +117,43 @@ func (jsc *JSClient) GetTip(jsDid js.Value) interface{} {
 	return t
 }
 
+// SubscribeToDid takes a did and callback function and returns a
+// function which can be used to unsubscribe from the subscription
+func (jsc *JSClient) SubscribeToDid(jsDid js.Value, jsCallBackFunc js.Value) interface{} {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	doneCh := ctx.Done()
+	go func() {
+		did := jsDid.String()
+
+		proofCh := make(chan *gossip.Proof, 5)
+		// subscribe to the did and call the javascript callback every time
+		// our channel receives an update
+		jsc.client.SubscribeToDid(ctx, did, proofCh)
+		for {
+			select {
+			case <-doneCh:
+				return // end the subscription
+			case proof := <-proofCh:
+				bits, err := proof.Marshal()
+				if err != nil {
+					jsErr := js.Global().Get("Error").New(err.Error())
+					go jsCallBackFunc.Invoke(jsErr)
+					return
+				}
+				go jsCallBackFunc.Invoke(helpers.SliceToJSArray(bits))
+			}
+		}
+	}()
+
+	// this is an 'unsubscribe' function for javascript to call,
+	// it's returned to javascript
+	return js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		cancel()
+		return nil
+	})
+}
+
 // in the js client both GetLatest and GetTip return a proof
 // but this one will also play the transactions... see client.Client#GetLatest
 // in order to make the new blocks available
