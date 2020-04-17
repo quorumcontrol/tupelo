@@ -168,7 +168,14 @@ func (rs *roundSubscriber) subscribe(ctx context.Context, abr *services.AddBlock
 				RoundConfirmation: noti.RoundConfirmation.Value(),
 			}
 			isDone = true
-			ch <- proof
+			select {
+			case ch <- proof:
+			default:
+				go func() {
+					rs.logger.Debugf("proof not consumed, using a goroutine")
+					ch <- proof
+				}()
+			}
 			return
 		}
 	}), nil

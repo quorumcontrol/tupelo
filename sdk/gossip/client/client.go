@@ -347,9 +347,18 @@ func (c *Client) SendWithoutWait(ctx context.Context, abr *services.AddBlockRequ
 }
 
 func (c *Client) SubscribeToRounds(ctx context.Context, ch chan *types.RoundConfirmationWrapper) (subscription, error) {
-	return c.subscriber.stream.Subscribe(func(evt interface{}) {
-		ch <- evt.(*ValidationNotification).RoundConfirmation
-	}), nil
+	doneCh := ctx.Done()
+	var sub subscription
+	sub = c.subscriber.stream.Subscribe(func(evt interface{}) {
+		select {
+		case ch <- evt.(*ValidationNotification).RoundConfirmation:
+		case <-doneCh:
+			c.subscriber.unsubscribe(sub)
+		default:
+			c.logger.Debug("round subscriber could not put to channel")
+		}
+	})
+	return sub, nil
 }
 
 func (c *Client) UnsubscribeFromRounds(s subscription) {
