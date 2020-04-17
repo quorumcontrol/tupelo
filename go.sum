@@ -741,8 +741,6 @@ github.com/prometheus/procfs v0.0.3 h1:CTwfnzjQ+8dS6MhHHu4YswVAD99sL2wjPqP+VkURm
 github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/quasilyte/go-consistent v0.0.0-20190521200055-c6f3937de18c/go.mod h1:5STLWrekHfjyYwxBRVRXNOSewLJ3PWfDJd1VyTS21fI=
-github.com/quorumcontrol/chaintree v1.0.2-0.20200416221234-b0ce321baf11 h1:weg537/cOCCkI929U12PJ+COErisOzHHMlhym6YQF6g=
-github.com/quorumcontrol/chaintree v1.0.2-0.20200416221234-b0ce321baf11/go.mod h1:FxUruvim5bzcOmu3Fiqt6wexkjw4Xv5MdUeMA+RYB3s=
 github.com/quorumcontrol/chaintree v1.0.2-0.20200417190801-195827c9d506 h1:6Qvsis68ZsbfRlsS6YQucgZ/KAus6liDI5c9ofGkU9Q=
 github.com/quorumcontrol/chaintree v1.0.2-0.20200417190801-195827c9d506/go.mod h1:FxUruvim5bzcOmu3Fiqt6wexkjw4Xv5MdUeMA+RYB3s=
 github.com/quorumcontrol/messages/v2 v2.1.3-0.20200123172240-224b207a9631 h1:RuzyZRiiUA4GX0yeq0uYPdOyQyPyQ1+XiRAJ0G/Izis=
