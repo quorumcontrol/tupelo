@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"errors"
@@ -371,4 +372,40 @@ func (c *Client) SubscribeToAbr(ctx context.Context, abr *services.AddBlockReque
 
 func (c *Client) UnsubscribeFromAbr(s subscription) {
 	c.subscriber.unsubscribe(s)
+}
+
+func (c *Client) SubscribeToDid(ctx context.Context, did string, ch chan *gossip.Proof) error {
+	confirmationCh := make(chan *types.RoundConfirmationWrapper, 10)
+	_, err := c.SubscribeToRounds(ctx, confirmationCh)
+	if err != nil {
+		return fmt.Errorf("error subscribing %w", err)
+	}
+
+	var currentProof *gossip.Proof
+
+	doneCh := ctx.Done()
+	go func() {
+	ChannelLoop:
+		for {
+			select {
+			case <-doneCh:
+				break ChannelLoop
+			case <-confirmationCh:
+				latestProof, err := c.GetTip(ctx, did)
+				if err != nil {
+					c.logger.Errorf("error getting tip: %w", err)
+					break ChannelLoop // for now just return here - maybe in the future we want to do retries
+				}
+
+				if currentProof == nil || !bytes.Equal(currentProof.Tip, latestProof.Tip) {
+					ch <- latestProof
+					currentProof = latestProof
+				}
+			}
+		}
+		// signal to the outer channel that the subscription has terminated
+		ch <- nil
+	}()
+
+	return nil
 }
