@@ -6,7 +6,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 
-	"github.com/quorumcontrol/chaintree/graftabledag"
 	"github.com/quorumcontrol/chaintree/typecaster"
 
 	"github.com/quorumcontrol/tupelo/sdk/consensus"
@@ -184,16 +183,13 @@ func HasBurnGenerator(ctx context.Context, ng *NotaryGroup) (chaintree.BlockVali
 // of this or any owning chaintree, or any other path that resolves to owner key addrs) has signed
 // this block.
 func IsOwnerGenerator(ctx context.Context, ng *NotaryGroup) (chaintree.BlockValidatorFunc, error) {
-	dagGetter := ng.DagGetter
-
 	var isOwnerValidator chaintree.BlockValidatorFunc = func(tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
-		return isOwner(ctx, dagGetter, tree, blockWithHeaders)
+		return isOwner(ctx, ng, tree, blockWithHeaders)
 	}
-
 	return isOwnerValidator, nil
 }
 
-func isOwner(ctx context.Context, dagGetter graftabledag.DagGetter, tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
+func isOwner(ctx context.Context, ng *NotaryGroup, tree *dag.Dag, blockWithHeaders *chaintree.BlockWithHeaders) (bool, chaintree.CodedError) {
 	headers := &consensus.StandardHeaders{}
 
 	err := typecaster.ToType(blockWithHeaders.Headers, headers)
@@ -201,7 +197,7 @@ func isOwner(ctx context.Context, dagGetter graftabledag.DagGetter, tree *dag.Da
 		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error: %v", err), Code: consensus.ErrUnknown}
 	}
 
-	gro, err := NewGraftedOwnership(tree, dagGetter)
+	gro, err := NewGraftedOwnership(tree, ng.DagGetter)
 	if err != nil {
 		return false, &consensus.ErrorCode{Memo: fmt.Sprintf("error creating GraftedOwnership: %v", err), Code: consensus.ErrUnknown}
 	}
