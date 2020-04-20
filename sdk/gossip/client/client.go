@@ -87,7 +87,7 @@ func NewWithConfig(ctx context.Context, config *Config) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{
+	cli := &Client{
 		Group:        config.Group,
 		logger:       config.Logger,
 		pubsub:       config.Pubsub,
@@ -96,7 +96,13 @@ func NewWithConfig(ctx context.Context, config *Config) (*Client, error) {
 		transactors:  config.Transactors,
 		subscriber:   config.subscriber,
 		onStartHooks: config.OnStartHooks,
-	}, nil
+	}
+
+	if cli.Group.DagGetter == nil {
+		cli.Group.DagGetter = types.NewClientDagGetter(cli)
+	}
+
+	return cli, nil
 }
 
 func (c *Client) DagStore() nodestore.DagStore {

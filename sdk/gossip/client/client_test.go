@@ -126,8 +126,6 @@ func newClient(ctx context.Context, group *types.NotaryGroup, bootAddrs []string
 		return nil, err
 	}
 
-	group.DagGetter = types.NewClientDagGetter(cli)
-
 	return cli, nil
 }
 
