@@ -28,7 +28,7 @@ require (
 	github.com/ipfs/go-log v0.0.1
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.0.11 // indirect
-	github.com/quorumcontrol/chaintree v1.0.2-0.20200124091942-25ceb93627b9
+	github.com/quorumcontrol/chaintree v0.9.5
 	github.com/quorumcontrol/messages/v2 v2.1.3-0.20200129115245-2bfec5177653
 	github.com/quorumcontrol/tupelo v0.0.0
 	github.com/stretchr/testify v1.4.0
