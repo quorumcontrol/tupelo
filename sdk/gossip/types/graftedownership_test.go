@@ -118,7 +118,7 @@ func TestResolveOwnersOriginKey(t *testing.T) {
 	owners, err := gro.ResolveOwners(ctx)
 	require.Nil(t, err)
 
-	assert.Equal(t, 1, len(owners))
+	assert.Len(t, owners, 1)
 	assert.Contains(t, owners, "uno")
 }
 
@@ -161,7 +161,7 @@ func TestResolveOwnersOneChaintreeOwnsAnother(t *testing.T) {
 	owners, err := gro.ResolveOwners(ctx)
 	require.Nil(t, err)
 
-	assert.Equal(t, 1, len(owners))
+	assert.Len(t, owners, 1)
 	assert.Contains(t, owners, "uno")
 }
 
@@ -193,7 +193,7 @@ func TestResolveOwnersOneChaintreeOwnedByTwoPeers(t *testing.T) {
 	owners, err := gro.ResolveOwners(ctx)
 	require.Nil(t, err)
 
-	assert.Equal(t, 2, len(owners))
+	assert.Len(t, owners, 2)
 	assert.Contains(t, owners, "uno")
 	assert.Contains(t, owners, "dos")
 }
@@ -228,7 +228,7 @@ func TestResolveOwnersOneChaintreeOwnedByTwoPeersAndAnAddr(t *testing.T) {
 	owners, err := gro.ResolveOwners(ctx)
 	require.Nil(t, err)
 
-	assert.Equal(t, 3, len(owners))
+	assert.Len(t, owners, 3)
 	assert.Contains(t, owners, "uno")
 	assert.Contains(t, owners, "dos")
 	assert.Contains(t, owners, "addr")
@@ -258,7 +258,7 @@ func TestResolveOwnersOneChaintreeOwnedByParentAndGrandparent(t *testing.T) {
 	owners, err := gro.ResolveOwners(ctx)
 	require.Nil(t, err)
 
-	assert.Equal(t, 2, len(owners))
+	assert.Len(t, owners, 2)
 	assert.Contains(t, owners, "uno")
 	assert.Contains(t, owners, "otheraddr")
 }
@@ -291,7 +291,7 @@ func TestResolveOwnersArbitraryPath(t *testing.T) {
 	owners, err := gro.ResolveOwners(ctx)
 	require.Nil(t, err)
 
-	assert.Equal(t, 3, len(owners))
+	assert.Len(t, owners, 3)
 	assert.Contains(t, owners, "addr1")
 	assert.Contains(t, owners, "addr2")
 	assert.Contains(t, owners, "otheraddr")
@@ -351,4 +351,74 @@ func TestResolveOwnersLoop(t *testing.T) {
 	_, err = gro.ResolveOwners(ctx)
 	assert.NotNil(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), "loop detected"))
+}
+
+func TestResolveOwnersBeforeChaintreeExists(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ct := newChaintreeOwnedBy(t, ctx, "ct", []string{"did:tupelo:doesnotexistyet"})
+
+	dg := newDagGetter(t, ctx, ct)
+
+	originDag := ct.Dag
+
+	gro, err := NewGraftedOwnership(originDag, dg)
+	require.Nil(t, err)
+
+	owners, err := gro.ResolveOwners(ctx)
+	assert.Nil(t, err)
+	assert.Empty(t, owners)
+}
+
+func TestResolveOwnersWithAddrAndNonExistentChaintree(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	key, err := crypto.GenerateKey()
+	require.Nil(t, err)
+
+	keyAddr := crypto.PubkeyToAddress(key.PublicKey).String()
+
+	ct := newChaintreeOwnedBy(t, ctx, "ct",
+		[]string{
+			"did:tupelo:doesnotexistyet",
+			keyAddr,
+		})
+
+	dg := newDagGetter(t, ctx, ct)
+
+	originDag := ct.Dag
+
+	gro, err := NewGraftedOwnership(originDag, dg)
+	require.Nil(t, err)
+
+	owners, err := gro.ResolveOwners(ctx)
+	assert.Nil(t, err)
+	assert.Len(t, owners, 1)
+	assert.Equal(t, keyAddr, owners[0])
+}
+
+func TestResolveOwnersWithOneExistingChaintreeAndOneNonExisting(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ct1 := newChaintree(t, ctx, "uno")
+	did, err := ct1.Id(ctx)
+	require.Nil(t, err)
+	ct2 := newChaintreeOwnedBy(t, ctx, "dos",
+		[]string{did, "did:tupelo:doesnotexistyet"})
+
+	dg := newDagGetter(t, ctx, ct1, ct2)
+
+	originDag := ct2.Dag
+
+	gro, err := NewGraftedOwnership(originDag, dg)
+	require.Nil(t, err)
+
+	owners, err := gro.ResolveOwners(ctx)
+	require.Nil(t, err)
+
+	assert.Len(t, owners, 1)
+	assert.Contains(t, owners, "uno")
 }
