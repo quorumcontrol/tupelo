@@ -483,7 +483,7 @@ func TestGetLatest(t *testing.T) {
 
 		tree, err = cli1.GetLatest(ctx, consensus.EcdsaPubkeyToDid(treeKey.PublicKey))
 		require.Nil(t, tree)
-		require.Equal(t, err, ErrNotFound)
+		require.Equal(t, err, ErrTipNotFound)
 	})
 
 	t.Run("test basic setup", func(t *testing.T) {
@@ -693,7 +693,7 @@ func TestClientGetTip(t *testing.T) {
 		assert.Equal(t, sendProof.Tip, tree.Tip().Bytes())
 
 		_, err = cli.GetTip(ctx, "did:tupelo:doesnotexist")
-		require.Equal(t, ErrNotFound, err)
+		require.Equal(t, ErrTipNotFound, err)
 	})
 }
 

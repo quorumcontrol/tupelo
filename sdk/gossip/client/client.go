@@ -28,7 +28,7 @@ import (
 )
 
 var ErrTimeout = errors.New("error timeout")
-var ErrNotFound = hamt.ErrNotFound
+var ErrTipNotFound = chaintree.ErrTipNotFound
 var ErrNoRound = errors.New("no current round found")
 
 var DefaultTimeout = 30 * time.Second
@@ -157,7 +157,7 @@ func (c *Client) GetLatest(parentCtx context.Context, did string) (*consensus.Si
 	c.logger.Debugf("getting tip for latest")
 
 	proof, err := c.GetTip(ctx, did)
-	if (err == ErrNotFound) || (err == ErrNoRound) {
+	if (err == ErrTipNotFound) || (err == ErrNoRound) {
 		return nil, err
 	}
 	if err != nil {
@@ -292,7 +292,7 @@ func (c *Client) GetTip(ctx context.Context, did string) (*gossip.Proof, error) 
 	err = hamtNode.Find(ctx, did, txCID)
 	if err != nil {
 		if err == hamt.ErrNotFound {
-			return nil, ErrNotFound
+			return nil, ErrTipNotFound
 		}
 		return nil, fmt.Errorf("error fetching tip: %w", err)
 	}

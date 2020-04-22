@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-hamt-ipld"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -107,6 +108,9 @@ func (ndg *NodeDagGetter) getLastABR(ctx context.Context, did string) (*services
 	txCID := &cid.Cid{}
 	err = hamtNode.Find(ctx, did, txCID)
 	if err != nil {
+		if err == hamt.ErrNotFound {
+			return nil, chaintree.ErrTipNotFound
+		}
 		return nil, err
 	}
 
