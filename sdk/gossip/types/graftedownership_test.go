@@ -59,7 +59,7 @@ func newChaintreeWithNodes(t *testing.T, ctx context.Context, name string, treeN
 	root := sw.WrapObject(map[string]interface{}{
 		"chain": chain.Cid(),
 		"tree":  tree.Cid(),
-		"id":    "did:tupelo:"+name,
+		"id":    "did:tupelo:" + name,
 	})
 
 	store := nodestore.MustMemoryStore(ctx)
@@ -88,7 +88,7 @@ func newChaintreeOwnedBy(t *testing.T, ctx context.Context, name string, owners 
 	})
 }
 
-func newDagGetter(t *testing.T, ctx context.Context, chaintrees... *chaintree.ChainTree) *TestDagGetter {
+func newDagGetter(t *testing.T, ctx context.Context, chaintrees ...*chaintree.ChainTree) *TestDagGetter {
 	dagGetter := &TestDagGetter{
 		chaintrees: make(map[string]*chaintree.ChainTree),
 	}
@@ -275,7 +275,7 @@ func TestResolveOwnersArbitraryPath(t *testing.T) {
 	did, err := ct1.Id(ctx)
 	require.Nil(t, err)
 
-	ct2 := newChaintreeOwnedBy(t, ctx, "dos", []string{did+"/tree/data/otherChaintreeOwners", "otheraddr"})
+	ct2 := newChaintreeOwnedBy(t, ctx, "dos", []string{did + "/tree/data/otherChaintreeOwners", "otheraddr"})
 	did, err = ct2.Id(ctx)
 	require.Nil(t, err)
 
@@ -295,6 +295,41 @@ func TestResolveOwnersArbitraryPath(t *testing.T) {
 	assert.Contains(t, owners, "addr1")
 	assert.Contains(t, owners, "addr2")
 	assert.Contains(t, owners, "otheraddr")
+}
+
+// TestResolveOwnersThroughIntermediary sets up a test where an organization
+// has many users (listed in its ChainTree as DIDs) and then an asset is owned by
+// the path to the organization's list of users (and the organization itself).
+func TestResolveOwnersThroughIntermediary(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	userTree := newChaintree(t, ctx, "user")
+	did, err := userTree.Id(ctx)
+	require.Nil(t, err)
+
+	organizationTree := newChaintreeWithNodes(t, ctx, "org", map[string]interface{}{
+		"data": map[string]interface{}{
+			"users": []string{did},
+		},
+	})
+	orgDid, err := organizationTree.Id(ctx)
+	require.Nil(t, err)
+
+	assetTree := newChaintreeOwnedBy(t, ctx, "asset", []string{orgDid + "/tree/data/users", orgDid})
+	dg := newDagGetter(t, ctx, userTree, organizationTree, assetTree)
+
+	originDag := assetTree.Dag
+
+	gro, err := NewGraftedOwnership(originDag, dg)
+	require.Nil(t, err)
+
+	owners, err := gro.ResolveOwners(ctx)
+	require.Nil(t, err)
+
+	assert.Equal(t, 2, len(owners))
+	assert.Contains(t, owners, "user")
+	assert.Contains(t, owners, "org")
 }
 
 func TestResolveOwnersLoop(t *testing.T) {
