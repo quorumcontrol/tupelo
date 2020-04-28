@@ -257,11 +257,19 @@ func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graft
 				owners = append(owners, auth)
 			case []interface{}:
 				for _, uncastAddr := range auth {
-					if addr, ok := uncastAddr.(string); ok {
+					switch addr := uncastAddr.(type) {
+					case string:
 						owners = append(owners, addr)
-					} else {
+					case *dag.Dag:
+						newOwners, err := gro.handleDag(ctx, addr, seen)
+						if err != nil {
+							return nil, err
+						}
+						owners = append(owners, newOwners...)
+					default:
 						return nil, fmt.Errorf("unknown auth type for %+v: %T", uncastAddr, uncastAddr)
 					}
+
 				}
 			default:
 				return nil, fmt.Errorf("unknown auth type for %+v: %T", auth, auth)
@@ -291,4 +299,3 @@ func (gro *GraftedOwnership) ResolveOwners(ctx context.Context) (Addrs, error) {
 	seen := make([]chaintree.Path, 0)
 	return gro.resolveOwnersRecursively(ctx, gro.graftedDag, seen)
 }
-
