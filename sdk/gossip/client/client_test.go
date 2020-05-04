@@ -521,6 +521,9 @@ func TestGetLatest(t *testing.T) {
 		// get the tree using cli2 and make sure you can resolve the data
 		cli2Tree, err := cli2.GetLatest(ctx, tree.MustId())
 		require.Nil(t, err)
+
+		require.Equal(t, proof.Tip, cli2Tree.Tip().Bytes())
+
 		resp, remain, err := cli2Tree.ChainTree.Dag.Resolve(ctx, strings.Split("tree/data/"+path, "/"))
 		t.Logf("remain: %v", remain)
 		require.Nil(t, err)

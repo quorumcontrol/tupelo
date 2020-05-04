@@ -173,11 +173,6 @@ func (c *Client) GetLatest(parentCtx context.Context, did string) (*consensus.Si
 		return nil, fmt.Errorf("error casting newTip: %w", err)
 	}
 
-	previousTip, err := cid.Cast(abr.PreviousTip)
-	if err != nil {
-		return nil, fmt.Errorf("error casting previousTip: %w", err)
-	}
-
 	// now we save all the state blocks into the store
 
 	cborNodes := make([]format.Node, len(abr.State))
@@ -193,44 +188,16 @@ func (c *Client) GetLatest(parentCtx context.Context, did string) (*consensus.Si
 		return nil, fmt.Errorf("error adding nodes: %w", err)
 	}
 
-	// and get the block with headers
-
-	blockWithHeaders := &chaintree.BlockWithHeaders{}
-	err = cbornode.DecodeInto(abr.Payload, blockWithHeaders)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding payload; %w", err)
-	}
-
-	// first we're going to create a chaintree at the *previous* tip and then we're going to play the new
-	// BlockWithHeaders on there so that the *new* state blocks get added to the local store
-
-	var treeDag *dag.Dag
-	if abr.Height > 0 {
-		treeDag = dag.NewDag(ctx, previousTip, c.store)
-	} else {
-		treeDag = consensus.NewEmptyTree(ctx, string(abr.ObjectId), c.store)
-	}
+	treeDag := dag.NewDag(ctx, newTip, c.store)
 
 	tree, err := chaintree.NewChainTree(ctx, treeDag, c.validators, c.transactors)
 	if err != nil {
 		return nil, fmt.Errorf("error creating new tree: %w", err)
 	}
 
-	c.logger.Debugf("process block immutable")
-
-	newTree, valid, err := tree.ProcessBlockImmutable(ctx, blockWithHeaders)
-	if !valid || err != nil {
-		return nil, fmt.Errorf("error processing block: %w", err)
-	}
-
-	// sanity check the new tip
-	if !newTree.Dag.Tip.Equals(newTip) {
-		return nil, fmt.Errorf("error, tips did not match %s != %s", newTree.Dag.Tip.String(), newTip.String())
-	}
-
 	// return our signed chaintree with all the new blocks already in the client store
 	return &consensus.SignedChainTree{
-		ChainTree: newTree,
+		ChainTree: tree,
 		Proof:     proof,
 	}, nil
 }
