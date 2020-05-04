@@ -1,4 +1,4 @@
-FROM golang:1.12.1
+FROM golang:1.14.2
 
 LABEL "com.github.actions.name"="Golang Mod"
 LABEL "com.github.actions.description"="Run go mod with access to private repos"
