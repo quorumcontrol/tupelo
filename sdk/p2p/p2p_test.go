@@ -116,7 +116,6 @@ func TestNewHostFromOptions(t *testing.T) {
 			ctx,
 			WithKey(key),
 			WithAutoRelay(true),
-			WithSegmenter([]byte("my secret password")),
 			WithPubSubRouter("floodsub"),
 			WithRelayOpts(circuit.OptHop),
 			WithLibp2pOptions(libp2p.ConnectionManager(cm)),
@@ -223,12 +222,15 @@ func TestConnectAndDisconnect(t *testing.T) {
 
 	bh, err := NewHostFromOptions(ctx)
 	require.Nil(t, err)
+	t.Logf("bootstraphost: %s", bh.Identity())
 
 	h1, err := NewHostFromOptions(ctx)
 	require.Nil(t, err)
+	t.Logf("h1: %s", h1.Identity())
 
 	h2, err := NewHostFromOptions(ctx)
 	require.Nil(t, err)
+	t.Logf("h2: %s", h2.Identity())
 
 	_, err = h1.Bootstrap(bootstrapAddresses(bh))
 	require.Nil(t, err)
@@ -241,13 +243,6 @@ func TestConnectAndDisconnect(t *testing.T) {
 
 	err = h2.WaitForBootstrap(1, 10*time.Second)
 	require.Nil(t, err)
-
-	// Seems h1 <=> h2 are already connected in this test setup
-	err = h1.Disconnect(ctx, h2.PublicKey())
-	require.Nil(t, err)
-	require.Len(t, h1.host.Network().Peers(), 1)
-	time.Sleep(10 * time.Millisecond) // Give disconnect a brief moment to resolve on other host
-	require.Len(t, h2.host.Network().Peers(), 1)
 
 	err = h1.Connect(ctx, h2.PublicKey())
 	require.Nil(t, err)
