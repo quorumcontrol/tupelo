@@ -7,7 +7,6 @@ import (
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-hamt-ipld"
-	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 
@@ -137,8 +136,6 @@ func (ndg *NodeDagGetter) GetTip(ctx context.Context, did string) (*cid.Cid, err
 }
 
 func (ndg *NodeDagGetter) GetLatest(ctx context.Context, did string) (*chaintree.ChainTree, error) {
-	// TODO: Do we need to do all this?
-
 	abr, err := ndg.getLastABR(ctx, did)
 	if err != nil {
 		return nil, err
@@ -149,23 +146,7 @@ func (ndg *NodeDagGetter) GetLatest(ctx context.Context, did string) (*chaintree
 		return nil, err
 	}
 
-	previousTip, err := cid.Cast(abr.PreviousTip)
-	if err != nil {
-		return nil, err
-	}
-
-	blockWithHeaders := &chaintree.BlockWithHeaders{}
-	err = cbornode.DecodeInto(abr.Payload, blockWithHeaders)
-	if err != nil {
-		return nil, err
-	}
-
-	var treeDag *dag.Dag
-	if abr.Height > 0 {
-		treeDag = dag.NewDag(ctx, previousTip, ndg.groNode.DagStore())
-	} else {
-		treeDag = consensus.NewEmptyTree(ctx, string(abr.ObjectId), ndg.groNode.DagStore())
-	}
+	treeDag := dag.NewDag(ctx, newTip, ndg.groNode.DagStore())
 
 	notaryGroup := ndg.groNode.NotaryGroup()
 	blockValidators, err := notaryGroup.BlockValidators(ctx)
@@ -179,16 +160,7 @@ func (ndg *NodeDagGetter) GetLatest(ctx context.Context, did string) (*chaintree
 		return nil, err
 	}
 
-	newTree, valid, err := tree.ProcessBlockImmutable(ctx, blockWithHeaders)
-	if !valid || err != nil {
-		return nil, fmt.Errorf("error processing block: %w", err)
-	}
-
-	if !newTree.Dag.Tip.Equals(newTip) {
-		return nil, fmt.Errorf("error, tips did not match %s != %s", newTree.Dag.Tip.String(), newTip.String())
-	}
-
-	return newTree, nil
+	return tree, nil
 }
 
 // GraftedOwnership
