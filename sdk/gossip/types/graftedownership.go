@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-hamt-ipld"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -107,6 +108,9 @@ func (ndg *NodeDagGetter) getLastABR(ctx context.Context, did string) (*services
 	txCID := &cid.Cid{}
 	err = hamtNode.Find(ctx, did, txCID)
 	if err != nil {
+		if err == hamt.ErrNotFound {
+			return nil, chaintree.ErrTipNotFound
+		}
 		return nil, err
 	}
 
@@ -203,7 +207,7 @@ func NewGraftedOwnership(origin *dag.Dag, dagGetter graftabledag.DagGetter) (*Gr
 func (gro *GraftedOwnership) handleDag(ctx context.Context, d *dag.Dag, seen []chaintree.Path) (Addrs, error) {
 	nextGDag, err := graftabledag.New(d, gro.graftedDag.DagGetter())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create graftable DAG for %+v: %w", d, err)
 	}
 
 	newOwners, err := gro.resolveOwnersRecursively(ctx, nextGDag, seen)
@@ -254,7 +258,10 @@ func (gro *GraftedOwnership) resolveOwnersRecursively(ctx context.Context, graft
 				}
 				owners = append(owners, newOwners...)
 			case string:
-				owners = append(owners, auth)
+				// filter out tupelo DIDs; means their chaintrees don't exist yet
+				if !strings.HasPrefix(auth, "did:tupelo:") {
+					owners = append(owners, auth)
+				}
 			case []interface{}:
 				for _, uncastAddr := range auth {
 					switch addr := uncastAddr.(type) {
