@@ -9,11 +9,11 @@ import (
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	format "github.com/ipfs/go-ipld-format"
 	"github.com/quorumcontrol/chaintree/chaintree"
-	"github.com/quorumcontrol/chaintree/dag"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/messages/v2/build/go/transactions"
 	"github.com/quorumcontrol/tupelo/sdk/consensus"
+	"github.com/quorumcontrol/tupelo/sdk/reftracking"
 )
 
 func (c *Client) NewAddBlockRequest(ctx context.Context, tree *consensus.SignedChainTree, treeKey *ecdsa.PrivateKey, transactions []*transactions.Transaction) (*services.AddBlockRequest, error) {
@@ -52,7 +52,7 @@ func (c *Client) NewAddBlockRequest(ctx context.Context, tree *consensus.SignedC
 		tree.ChainTree.BlockValidators = validators
 	}
 
-	trackedTree, tracker, err := refTrackingChainTree(ctx, tree.ChainTree)
+	trackedTree, tracker, err := reftracking.WrapTree(ctx, tree.ChainTree)
 	if err != nil {
 		return nil, fmt.Errorf("error creating reference tracker: %v", err)
 	}
@@ -66,20 +66,12 @@ func (c *Client) NewAddBlockRequest(ctx context.Context, tree *consensus.SignedC
 	// only need state after the first Tx
 	if blockWithHeaders.Height > 0 {
 		// Grab the nodes that were actually used:
-		touchedNodes, err := tracker.touchedNodes(ctx)
+		touchedNodes, err := tracker.TouchedNodes(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error getting node: %v", err)
 		}
 		state = append(nodesToBytes(touchedNodes))
 	}
-
-	// TODO: sending in the *new* nodes is an expedient way to make sure the signers bitswap our new state for us
-	// but it will cost more in transaction fees and so should be rexamined in the future.
-	newNodes, err := tracker.newNodes(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error getting node: %v", err)
-	}
-	state = append(state, nodesToBytes(newNodes)...)
 
 	expectedTip := trackedTree.Dag.Tip
 	chainId, err := tree.Id()
@@ -98,17 +90,6 @@ func (c *Client) NewAddBlockRequest(ctx context.Context, tree *consensus.SignedC
 		ObjectId:    []byte(chainId),
 		State:       state,
 	}, nil
-}
-
-// Creating a new dag & chaintree with a tracked datastore to ensure that only
-// the necessary nodes are sent to the signers for a processed block. Processing
-// blocks on the tracked chaintree will keep track of which nodes are accessed.
-func refTrackingChainTree(ctx context.Context, untrackedTree *chaintree.ChainTree) (*chaintree.ChainTree, *storeWrapper, error) {
-	originalStore := untrackedTree.Dag.Store
-	tracker := wrapStoreForRefCounting(originalStore)
-	trackedTree, err := chaintree.NewChainTree(ctx, dag.NewDag(ctx, untrackedTree.Dag.Tip, tracker), untrackedTree.BlockValidators, untrackedTree.Transactors)
-
-	return trackedTree, tracker, err
 }
 
 func getHeight(ctx context.Context, tree *consensus.SignedChainTree) (uint64, error) {

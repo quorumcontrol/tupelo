@@ -114,7 +114,7 @@ func (gs *globalState) backgroundProcess(ctx context.Context, n *Node, round *ro
 		delete(gs.inflight, objectID)
 		gs.Unlock()
 
-		actor.EmptyRootContext.Send(n.stateStorerPid, &saveTransactionState{ctx: ctx, abr: abrWrapper.AddBlockRequest})
+		actor.EmptyRootContext.Send(n.stateStorerPid, &saveTransactionState{ctx: ctx, abrWrapper: abrWrapper})
 	}
 	txSp.Finish()
 

@@ -50,10 +50,11 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 		}
 		wrapper.StartTrace("gossip4.syncer")
 
-		newTip, valid, err := tg.validator.ValidateAbr(wrapper)
+		newTip, valid, newNodes, err := tg.validator.ValidateAbr(wrapper)
 		if valid {
 			wrapper.SetTag("valid", true)
 			wrapper.AddBlockRequest.NewTip = newTip.Bytes()
+			wrapper.NewNodes = newNodes
 			tg.logger.Debugf("sending %s to the node", msg.String())
 			actorContext.Send(tg.nodeActor, wrapper)
 			return

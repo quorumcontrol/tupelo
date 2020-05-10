@@ -20,6 +20,7 @@ import (
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/tupelo/sdk/bls"
 	"github.com/quorumcontrol/tupelo/sdk/proof"
+	"github.com/quorumcontrol/tupelo/sdk/reftracking"
 
 	"github.com/quorumcontrol/messages/v2/build/go/gossip"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -88,9 +89,10 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 		return false
 	}
 	wrapper.AddBlockRequest = abr
-	newTip, validated, err := tv.ValidateAbr(wrapper)
+	newTip, validated, newNodes, err := tv.ValidateAbr(wrapper)
 	if validated {
 		abr.NewTip = newTip.Bytes()
+		wrapper.NewNodes = newNodes
 		// we do something a bit odd here and send the ABR through an actor notification rather
 		// then just letting a pubsub subscribe happen, because we've already done the decoding work.
 		wrapper.AddBlockRequest = abr
@@ -104,7 +106,7 @@ func (tv *TransactionValidator) validate(ctx context.Context, pID peer.ID, msg *
 	return false
 }
 
-func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip cid.Cid, isValid bool, err error) {
+func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip cid.Cid, isValid bool, newNodes []format.Node, err error) {
 	validateCtx := wrapper.GetContext()
 	abr := wrapper.AddBlockRequest
 	newTip = cid.Undef
@@ -115,14 +117,14 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 	transPreviousTip, err := cid.Cast(abr.PreviousTip)
 	if err != nil {
 		tv.logger.Errorf("error casting CID: %v", err)
-		return newTip, false, fmt.Errorf("error casting CID: %w", err)
+		return newTip, false, nil, fmt.Errorf("error casting CID: %w", err)
 	}
 
 	block := &chaintree.BlockWithHeaders{}
 	err = cbornode.DecodeInto(abr.Payload, block)
 	if err != nil {
 		tv.logger.Errorf("invalid transaction: payload is not a block: %v", err)
-		return newTip, false, fmt.Errorf("invalid transaction: payload is not a block: %w", err)
+		return newTip, false, nil, fmt.Errorf("invalid transaction: payload is not a block: %w", err)
 	}
 
 	sw := &safewrap.SafeWrap{}
@@ -132,14 +134,14 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 	}
 	if sw.Err != nil {
 		tv.logger.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
-		return newTip, false, fmt.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
+		return newTip, false, nil, fmt.Errorf("error decoding (nodes: %d): %v", len(cborNodes), sw.Err)
 	}
 
 	nodeStore := nodestore.MustMemoryStore(ctx)
 	err = nodeStore.AddMany(ctx, cborNodes)
 	if err != nil {
 		tv.logger.Errorf("error adding nodes: %v", err)
-		return newTip, false, fmt.Errorf("error adding nodes: %v", err)
+		return newTip, false, nil, fmt.Errorf("error adding nodes: %v", err)
 	}
 
 	var tree *dag.Dag
@@ -157,7 +159,12 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 	)
 	if err != nil {
 		tv.logger.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
-		return newTip, false, fmt.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
+		return newTip, false, nil, fmt.Errorf("error creating chaintree (tip: %s, nodes: %d): %v", transPreviousTip.String(), len(cborNodes), err)
+	}
+
+	chainTree, tracker, err := reftracking.WrapTree(ctx, chainTree)
+	if err != nil {
+		return newTip, false, nil, fmt.Errorf("error wrapping treee: %w", err)
 	}
 
 	root := &chaintree.RootNode{}
@@ -165,17 +172,17 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 	err = chainTree.Dag.ResolveInto(ctx, []string{}, root)
 	if err != nil {
 		tv.logger.Errorf("error decoding root: %v", err)
-		return newTip, false, fmt.Errorf("error decoding root: %v", err)
+		return newTip, false, nil, fmt.Errorf("error decoding root: %v", err)
 	}
 
 	if root.Id != string(abr.ObjectId) {
 		tv.logger.Warningf("abr did != chaintree did")
-		return newTip, false, nil
+		return newTip, false, nil, nil
 	}
 
 	if (root.Height == 0 && abr.Height > 1) || (root.Height > 0 && abr.Height != root.Height+1) {
 		tv.logger.Warningf("invalid height on ABR root: %d, abr: %d", root.Height, abr.Height)
-		return newTip, false, nil
+		return newTip, false, nil, nil
 	}
 
 	isValid, err = chainTree.ProcessBlock(ctx, block)
@@ -187,7 +194,7 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 			errMsg = err.Error()
 		}
 		tv.logger.Errorf("error processing: %v", errMsg)
-		return newTip, false, err
+		return newTip, false, nil, err
 	}
 
 	// allow sending in an ABR without a new tip. However, if one is sent, then make sure
@@ -196,12 +203,12 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 		newTip, err = cid.Cast(abr.NewTip)
 		if err != nil {
 			tv.logger.Errorf("error casting abr new tip: %v", err)
-			return newTip, false, fmt.Errorf("error casting abr new tip: %w", err)
+			return newTip, false, nil, fmt.Errorf("error casting abr new tip: %w", err)
 		}
 
 		if !chainTree.Dag.Tip.Equals(newTip) {
 			sp.SetTag("tips-match", false)
-			return newTip, false, fmt.Errorf("error casting abr new tip: %w", err)
+			return newTip, false, nil, fmt.Errorf("error casting abr new tip: %w", err)
 		}
 
 		sp.SetTag("tips-match", true)
@@ -210,7 +217,12 @@ func (tv *TransactionValidator) ValidateAbr(wrapper *AddBlockWrapper) (newTip ci
 		newTip = chainTree.Dag.Tip
 	}
 
-	return newTip, true, nil
+	newNodes, err = tracker.NewNodes(ctx)
+	if err != nil {
+		return newTip, false, nil, fmt.Errorf("error getting new nodes: %w", err)
+	}
+
+	return newTip, true, newNodes, nil
 }
 
 func pubsubMsgToAddBlockRequest(ctx context.Context, msg *pubsub.Message) (*services.AddBlockRequest, error) {
