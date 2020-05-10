@@ -45,7 +45,7 @@ func TestAddingAbrs(t *testing.T) {
 
 		abr := testhelpers.NewValidTransaction(t)
 
-		err := agg.Add(ctx, &abr)
+		_, err := agg.Add(ctx, &abr)
 		require.Nil(t, err)
 	})
 
@@ -59,9 +59,9 @@ func TestAddingAbrs(t *testing.T) {
 		abr1 := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "/path", "value")
 		abr2 := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "/path", "differentvalue")
 
-		err = agg.Add(ctx, &abr1)
+		_, err = agg.Add(ctx, &abr1)
 		require.Nil(t, err)
-		err = agg.Add(ctx, &abr2)
+		_, err = agg.Add(ctx, &abr2)
 		require.NotNil(t, err)
 	})
 }
@@ -86,7 +86,7 @@ func TestGetLatest(t *testing.T) {
 		require.Nil(t, err)
 
 		abr1 := testhelpers.NewValidTransactionWithPathAndValue(t, treeKey, "/path", "value")
-		err = agg.Add(ctx, &abr1)
+		_, err = agg.Add(ctx, &abr1)
 		require.Nil(t, err)
 
 		tree, err := agg.GetLatest(ctx, string(abr1.ObjectId))
@@ -99,7 +99,7 @@ func TestGetLatest(t *testing.T) {
 	})
 }
 
-// BenchmarkAdd-12    	    1732	    844722 ns/op	  200503 B/op	    2996 allocs/op
+// BenchmarkAdd-12    	    1496	    774714 ns/op	  233288 B/op	    3640 allocs/op
 func BenchmarkAdd(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -119,7 +119,7 @@ func BenchmarkAdd(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		err = agg.Add(ctx, txs[i])
+		_, err = agg.Add(ctx, txs[i])
 	}
 	b.StopTimer()
 	require.Nil(b, err)
