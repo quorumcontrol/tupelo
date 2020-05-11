@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"syscall/js"
 
 	logging "github.com/ipfs/go-log"
@@ -28,12 +29,16 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	js.Global().Get("Go").Set("exit", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	path := os.Args[1]
+
+	goObj := js.Global().Get("_goWasm").Get(path)
+
+	goObj.Set("terminate", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		exitChan <- true
 		return nil
 	}))
 
-	js.Global().Set(
+	goObj.Set(
 		"populateLibrary",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			if len(args) != 2 || !args[0].Truthy() || !args[1].Truthy() {
@@ -203,7 +208,7 @@ func main() {
 		}),
 	)
 
-	go js.Global().Get("Go").Call("readyResolver")
+	go goObj.Call("readyResolver")
 
 	<-exitChan
 }
