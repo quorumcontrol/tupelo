@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"syscall/js"
 
 	"github.com/ipfs/go-cid"
@@ -17,7 +18,6 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/helpers"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/jsclient"
-	"github.com/quorumcontrol/tupelo/sdk/wasm/jslibs"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/then"
 	"github.com/quorumcontrol/tupelo/signer/gossip"
 )
@@ -43,30 +43,18 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	js.Global().Get("Go").Set("exit", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+	path := os.Args[1]
+
+	goObj := js.Global().Get("_goWasm").Get(path)
+
+	goObj.Set("terminate", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		exitChan <- true
 		return nil
 	}))
 
-	js.Global().Set(
+	goObj.Set(
 		"populateLibrary",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-			if len(args) != 2 || !args[0].Truthy() || !args[1].Truthy() {
-				err := fmt.Errorf("error, must supply a valid object")
-				panic(err)
-			}
-
-			helperLibs := args[1]
-			cids := helperLibs.Get("cids")
-			ipfsBlock := helperLibs.Get("ipfs-block")
-			if !cids.Truthy() || !ipfsBlock.Truthy() {
-				err := fmt.Errorf("error, must supply a library object containing cids and ipfs-block")
-				go fmt.Println(err)
-				panic(err)
-			}
-			jslibs.Cids = cids
-			jslibs.IpfsBlock = ipfsBlock
-
 			jsObj := args[0]
 
 			jsObj.Set("setupValidator", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -147,7 +135,7 @@ func main() {
 		}),
 	)
 
-	go js.Global().Get("Go").Call("readyResolver")
+	go goObj.Call("readyResolver")
 
 	<-exitChan
 }
