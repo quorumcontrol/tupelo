@@ -8,12 +8,14 @@ import (
 	"os"
 	"syscall/js"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ipfs/go-cid"
 	cbornode "github.com/ipfs/go-ipld-cbor"
 	format "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
-	"github.com/multiformats/go-multihash"
 
+	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/helpers"
@@ -33,7 +35,7 @@ func init() {
 
 type ValidationResponse struct {
 	NewTip   cid.Cid
-	NewNodes []format.Node
+	NewNodes [][]byte
 	Valid    bool
 }
 
@@ -56,6 +58,36 @@ func main() {
 		"populateLibrary",
 		js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			jsObj := args[0]
+
+			// This is a temporary debugging thing useful to make sure go/js agree
+			jsObj.Set("pubFromSig", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+				t := then.New()
+				go func() {
+					hsh := helpers.JsBufferToBytes(args[0])
+					sig := helpers.JsBufferToBytes(args[1])
+					keyBits := helpers.JsBufferToBytes(args[2])
+					signingKey, err := crypto.ToECDSA(keyBits)
+					if err != nil {
+						t.Reject(err)
+						return
+					}
+
+					goSig, err := crypto.Sign(hsh, signingKey)
+					if err != nil {
+						t.Reject(err)
+						return
+					}
+					fmt.Println("go sig: ", hexutil.Encode(goSig))
+
+					recoveredPub, err := crypto.SigToPub(hsh, sig)
+					if err != nil {
+						t.Reject(err)
+						return
+					}
+					t.Resolve(helpers.SliceToJSBuffer(crypto.FromECDSAPub(recoveredPub)))
+				}()
+				return t
+			}))
 
 			jsObj.Set("setupValidator", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 				t := then.New()
@@ -117,16 +149,21 @@ func main() {
 						t.Reject(fmt.Errorf("error valdating: %w", err))
 						return
 					}
-					node, err := cbornode.WrapObject(&ValidationResponse{
+
+					resp := &ValidationResponse{
 						NewTip:   newTip,
 						Valid:    isValid,
-						NewNodes: newNodes,
-					}, multihash.SHA2_256, -1)
-					if err != nil {
-						t.Reject(fmt.Errorf("error wrapping object: %w", err))
+						NewNodes: nodesToByteSlices(newNodes),
+					}
+
+					sw := &safewrap.SafeWrap{}
+					node := sw.WrapObject(resp)
+
+					if sw.Err != nil {
+						t.Reject(fmt.Errorf("error wrapping object: %w", sw.Err))
 						return
 					}
-					t.Resolve(node.RawData())
+					t.Resolve(helpers.SliceToJSBuffer(node.RawData()))
 				}()
 				return t
 			}))
@@ -138,4 +175,12 @@ func main() {
 	go goObj.Call("readyResolver")
 
 	<-exitChan
+}
+
+func nodesToByteSlices(nodes []format.Node) [][]byte {
+	byteArry := make([][]byte, len(nodes))
+	for i, n := range nodes {
+		byteArry[i] = n.RawData()
+	}
+	return byteArry
 }
