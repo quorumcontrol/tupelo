@@ -20,6 +20,7 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/helpers"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/jsclient"
+	"github.com/quorumcontrol/tupelo/sdk/wasm/jsstore"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/then"
 	"github.com/quorumcontrol/tupelo/signer/gossip"
 )
@@ -93,8 +94,10 @@ func main() {
 				t := then.New()
 				go func() {
 					// js passes in:
-					// interface IValidatorOptions {
-					//     notaryGroup: Uint8Array // protobuf encoded config.NotaryGroup
+					// interface WasmValidatorOptions {
+					// 	notaryGroup: Uint8Array
+					// 	tipGetter: TipGetter
+					// 	store: IBlockService
 					// }
 					jsOpts := args[0]
 
@@ -115,6 +118,15 @@ func main() {
 						t.Reject(fmt.Errorf("error getting notary group from config: %w", err))
 						return
 					}
+
+					tipGetter := jsOpts.Get("tipGetter")
+					store := jsstore.New(jsOpts.Get("store"))
+					getter, err := NewJsDagGetter(ctx, ng, tipGetter, store)
+					if err != nil {
+						t.Reject(fmt.Errorf("error creating jsDagGetter", err))
+						return
+					}
+					ng.DagGetter = getter
 
 					validator, err := gossip.NewTransactionValidator(ctx, logger, ng, nil) // nil is the actor pid
 					if err != nil {

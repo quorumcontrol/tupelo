@@ -191,8 +191,6 @@ github.com/gorilla/mux v1.7.1/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2z
 github.com/gorilla/websocket v1.4.0/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoAMk2YaljkQ=
 github.com/gorilla/websocket v1.4.1 h1:q7AeDBpnBk8AogcD4DSag/Ukw/KV+YhzLj2bP5HvKCM=
 github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/graph-gophers/graphql-go v0.0.0-20200309224638-dae41bde9ef9 h1:kLnsdud6Fl1/7ZX/5oD23cqYAzBfuZBhNkGr2NvuEsU=
-github.com/graph-gophers/graphql-go v0.0.0-20200309224638-dae41bde9ef9/go.mod h1:9CQHMSxwO4MprSdzoIEobiHpoLtHm77vfxsvsIN5Vuc=
 github.com/gxed/go-shellwords v1.0.3/go.mod h1:N7paucT91ByIjmVJHhvoarjoQnmsi3Jd3vH7VqgtMxQ=
 github.com/gxed/hashland/keccakpg v0.0.1/go.mod h1:kRzw3HkwxFU1mpmPP8v1WyQzwdGfmKFJ6tItnhQ67kU=
 github.com/gxed/hashland/murmur3 v0.0.1/go.mod h1:KjXop02n4/ckmZSnY2+HKcLud/tcmvhST0bie/0lS48=
@@ -743,8 +741,6 @@ github.com/prometheus/procfs v0.0.3 h1:CTwfnzjQ+8dS6MhHHu4YswVAD99sL2wjPqP+VkURm
 github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/quasilyte/go-consistent v0.0.0-20190521200055-c6f3937de18c/go.mod h1:5STLWrekHfjyYwxBRVRXNOSewLJ3PWfDJd1VyTS21fI=
-github.com/quorumcontrol/chaintree v1.0.2-0.20200422153253-6a5ff99a2feb h1:TkjoZDC0Ost/KKaQgaG2NG++CbYq+a7lszG7LQIZmfQ=
-github.com/quorumcontrol/chaintree v1.0.2-0.20200422153253-6a5ff99a2feb/go.mod h1:iSYgffQSZyOlF4U3tvh9NGw0kL/Y9iuatgqg0GptBCA=
 github.com/quorumcontrol/chaintree v1.0.2-0.20200501142445-c20387b71253 h1:LysXLvjfIhazH1MyPTTkK9kD/tH5OKRpY0749JLQGdA=
 github.com/quorumcontrol/chaintree v1.0.2-0.20200501142445-c20387b71253/go.mod h1:iSYgffQSZyOlF4U3tvh9NGw0kL/Y9iuatgqg0GptBCA=
 github.com/quorumcontrol/messages/v2 v2.1.3-0.20200123172240-224b207a9631 h1:RuzyZRiiUA4GX0yeq0uYPdOyQyPyQ1+XiRAJ0G/Izis=

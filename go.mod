@@ -11,7 +11,6 @@ require (
 	github.com/gobuffalo/packr/v2 v2.5.1
 	github.com/gogo/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
-	github.com/graph-gophers/graphql-go v0.0.0-20200309224638-dae41bde9ef9 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/ipfs/go-bitswap v0.1.9-0.20191015150653-291b2674f1f1
 	github.com/ipfs/go-block-format v0.0.2
