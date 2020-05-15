@@ -46,6 +46,7 @@ func NewTransactionValidator(ctx context.Context, logger logging.EventLogger, gr
 		node:   node,
 		logger: logger,
 	}
+
 	err := tv.setup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error setting up transaction validator: %v", err)

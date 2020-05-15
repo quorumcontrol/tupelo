@@ -20,6 +20,7 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/helpers"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/jsclient"
+	"github.com/quorumcontrol/tupelo/sdk/wasm/jslibs"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/jsstore"
 	"github.com/quorumcontrol/tupelo/sdk/wasm/then"
 	"github.com/quorumcontrol/tupelo/signer/gossip"
@@ -29,9 +30,15 @@ var logger = logging.Logger("validator")
 
 var exitChan chan bool
 
+// this is sent back to client when there's an error
+// not sure why cid.Undef doesn't work, but it doesn't :(
+var errorCid cid.Cid
+
 func init() {
 	exitChan = make(chan bool)
 	cbornode.RegisterCborType(ValidationResponse{})
+	sw := &safewrap.SafeWrap{}
+	errorCid = sw.WrapObject("error").Cid()
 }
 
 type ValidationResponse struct {
@@ -98,8 +105,10 @@ func main() {
 					// 	notaryGroup: Uint8Array
 					// 	tipGetter: TipGetter
 					// 	store: IBlockService
+					//  cids: CID,
 					// }
 					jsOpts := args[0]
+					jslibs.Cids = jsOpts.Get("cids")
 
 					config, err := jsclient.JsConfigToHumanConfig(jsOpts.Get("notaryGroup"))
 					if err != nil {
@@ -153,6 +162,7 @@ func main() {
 						t.Reject(fmt.Errorf("error unmarshaling: %w", err))
 						return
 					}
+
 					wrapper := &gossip.AddBlockWrapper{
 						AddBlockRequest: abr,
 					}
@@ -163,9 +173,12 @@ func main() {
 					}
 
 					resp := &ValidationResponse{
-						NewTip:   newTip,
-						Valid:    isValid,
-						NewNodes: nodesToByteSlices(newNodes),
+						NewTip: errorCid,
+						Valid:  isValid,
+					}
+					if isValid {
+						resp.NewTip = newTip
+						resp.NewNodes = nodesToByteSlices(newNodes)
 					}
 
 					sw := &safewrap.SafeWrap{}
