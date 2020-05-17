@@ -7,13 +7,13 @@ import (
 	"sync"
 
 	"github.com/ipfs/go-cid"
-	hamt "github.com/ipfs/go-hamt-ipld"
-	cbornode "github.com/ipfs/go-ipld-cbor"
+	"github.com/ipfs/go-datastore"
 	format "github.com/ipfs/go-ipld-format"
 	logging "github.com/ipfs/go-log"
 
 	"github.com/quorumcontrol/chaintree/chaintree"
 	"github.com/quorumcontrol/chaintree/dag"
+	"github.com/quorumcontrol/chaintree/graftabledag"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
@@ -22,41 +22,64 @@ import (
 )
 
 var logger = logging.Logger("aggregator")
+var ErrNotFound = datastore.ErrNotFound
+var CacheSize = 100
+
+// type DagGetter interface {
+// 	GetTip(ctx context.Context, did string) (*cid.Cid, error)
+// 	GetLatest(ctx context.Context, did string) (*chaintree.ChainTree, error)
+// }
+// assert fulfills the interface at compile time
+var _ graftabledag.DagGetter = (*Aggregator)(nil)
 
 type Aggregator struct {
 	sync.RWMutex
 
-	validator *gossip.TransactionValidator
-	state     *globalState
-	dagStore  nodestore.DagStore
-	group     *types.NotaryGroup
+	validator     *gossip.TransactionValidator
+	dagStore      nodestore.DagStore
+	keyValueStore datastore.Batching
+	group         *types.NotaryGroup
 }
 
-func NewAggregator(ctx context.Context, hamtStore *hamt.CborIpldStore, dagStore nodestore.DagStore, group *types.NotaryGroup) (*Aggregator, error) {
+func NewAggregator(ctx context.Context, keyValueStore datastore.Batching, group *types.NotaryGroup) (*Aggregator, error) {
 	validator, err := gossip.NewTransactionValidator(ctx, logger, group, nil) // nil is the actor pid
 	if err != nil {
 		return nil, err
 	}
+	dagStore, err := nodestore.FromDatastoreOfflineCached(ctx, keyValueStore, CacheSize)
+	if err != nil {
+		return nil, err
+	}
 	return &Aggregator{
-		state:     newGlobalState(hamtStore),
-		validator: validator,
-		dagStore:  dagStore,
-		group:     group,
+		keyValueStore: keyValueStore,
+		dagStore:      dagStore,
+		validator:     validator,
+		group:         group,
 	}, nil
 }
 
-func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree.ChainTree, error) {
-	curr, err := a.state.Find(ctx, objectID)
+func (a *Aggregator) GetTip(ctx context.Context, objectID string) (*cid.Cid, error) {
+	curr, err := a.keyValueStore.Get(datastore.NewKey(objectID))
 	if err != nil {
+		if err == ErrNotFound {
+			return nil, err
+		}
 		return nil, fmt.Errorf("error getting latest: %v", err)
 	}
-	if curr == nil {
-		return nil, hamt.ErrNotFound
-	}
-
-	tip, err := cid.Cast(curr.NewTip)
+	tip, err := cid.Cast(curr)
 	if err != nil {
 		return nil, fmt.Errorf("error casting tip %w", err)
+	}
+	return &tip, nil
+}
+
+func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree.ChainTree, error) {
+	tip, err := a.GetTip(ctx, objectID)
+	if err != nil {
+		if err == ErrNotFound {
+			return nil, err
+		}
+		return nil, fmt.Errorf("error getting tip: %w", err)
 	}
 
 	validators, err := a.group.BlockValidators(ctx)
@@ -64,7 +87,7 @@ func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree
 		return nil, fmt.Errorf("error getting validators: %w", err)
 	}
 
-	dag := dag.NewDag(ctx, tip, a.dagStore)
+	dag := dag.NewDag(ctx, *tip, a.dagStore)
 	tree, err := chaintree.NewChainTree(ctx, dag, validators, a.group.Config().Transactions)
 	if err != nil {
 		return nil, fmt.Errorf("error creating tree: %w", err)
@@ -83,20 +106,23 @@ func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*g
 	wrapper.AddBlockRequest.NewTip = newTip.Bytes()
 	wrapper.NewNodes = newNodes
 	a.Lock()
-	defer a.Unlock()
+	defer a.Unlock() // TODO: don't hold the lock while doing IO
 
-	curr, err := a.state.Find(ctx, string(abr.ObjectId))
+	did := string(abr.ObjectId)
+
+	curr, err := a.GetTip(ctx, did)
+	if err != nil && err != ErrNotFound {
+		return nil, fmt.Errorf("error getting tip: %w", err)
+	}
+
+	if curr != nil && !bytes.Equal(curr.Bytes(), abr.PreviousTip) {
+		return nil, fmt.Errorf("previous tip did not match existing tip: %s", curr.String())
+	}
+
+	err = a.keyValueStore.Put(datastore.NewKey(did), newTip.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("error finding current: %w", err)
+		return nil, fmt.Errorf("error putting key: %w", err)
 	}
-
-	if curr != nil && !bytes.Equal(curr.NewTip, abr.PreviousTip) {
-		return nil, fmt.Errorf("previous tip did not match existing tip: %s", curr.NewTip)
-	}
-
-	a.state.Add(abr)
-
-	// TODO: don't hold the lock while doing IO
 	a.storeState(ctx, wrapper)
 	return wrapper, nil
 }
@@ -117,31 +143,11 @@ func (a *Aggregator) storeState(ctx context.Context, wrapper *gossip.AddBlockWra
 		return fmt.Errorf("error decoding: %w", sw.Err)
 	}
 
-	err := a.dagStore.AddMany(ctx, stateNodes)
+	err := a.dagStore.AddMany(ctx, append(stateNodes, wrapper.NewNodes...))
 	if err != nil {
 		logger.Errorf("error storing abr state: %v", err)
 		return fmt.Errorf("error adding: %w", err)
 	}
 
-	err = a.dagStore.AddMany(ctx, wrapper.NewNodes)
-	if err != nil {
-		logger.Errorf("error storing abr new nodes: %v", err)
-		return fmt.Errorf("error adding new nodes: %w", err)
-	}
 	return nil
-}
-
-func (a *Aggregator) GetAddBlockRequest(ctx context.Context, id cid.Cid) (*services.AddBlockRequest, error) {
-	abrNode, err := a.dagStore.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	abr := &services.AddBlockRequest{}
-	err = cbornode.DecodeInto(abrNode.RawData(), abr)
-	if err != nil {
-		return nil, err
-	}
-
-	return abr, nil
 }

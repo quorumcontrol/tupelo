@@ -5,25 +5,25 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/quorumcontrol/chaintree/nodestore"
+	"github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
-	"github.com/quorumcontrol/tupelo/sdk/gossip/hamtwrapper"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+func newMemoryStore() datastore.Batching {
+	return dsync.MutexWrap(datastore.NewMapDatastore())
+}
+
 func TestNewAggregator(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	dagStore := nodestore.MustMemoryStore(ctx)
-
-	hamtStore := hamtwrapper.DagStoreToCborIpld(dagStore)
 	ng := types.NewNotaryGroup("testnotary")
 
-	_, err := NewAggregator(ctx, hamtStore, dagStore, ng)
+	_, err := NewAggregator(ctx, newMemoryStore(), ng)
 	require.Nil(t, err)
 }
 
@@ -31,12 +31,9 @@ func TestAddingAbrs(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dagStore := nodestore.MustMemoryStore(ctx)
-
-	hamtStore := hamtwrapper.DagStoreToCborIpld(dagStore)
 	ng := types.NewNotaryGroup("testnotary")
 
-	agg, err := NewAggregator(ctx, hamtStore, dagStore, ng)
+	agg, err := NewAggregator(ctx, newMemoryStore(), ng)
 	require.Nil(t, err)
 
 	t.Run("new ABR, no existing works", func(t *testing.T) {
@@ -70,12 +67,9 @@ func TestGetLatest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dagStore := nodestore.MustMemoryStore(ctx)
-
-	hamtStore := hamtwrapper.DagStoreToCborIpld(dagStore)
 	ng := types.NewNotaryGroup("testnotary")
 
-	agg, err := NewAggregator(ctx, hamtStore, dagStore, ng)
+	agg, err := NewAggregator(ctx, newMemoryStore(), ng)
 	require.Nil(t, err)
 
 	t.Run("saves state", func(t *testing.T) {
@@ -99,17 +93,14 @@ func TestGetLatest(t *testing.T) {
 	})
 }
 
-// BenchmarkAdd-12    	    1496	    774714 ns/op	  233288 B/op	    3640 allocs/op
+// BenchmarkAdd-12    	    1504	    861040 ns/op	  199471 B/op	    2992 allocs/op
 func BenchmarkAdd(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dagStore := nodestore.MustMemoryStore(ctx)
-
-	hamtStore := hamtwrapper.DagStoreToCborIpld(dagStore)
 	ng := types.NewNotaryGroup("testnotary")
 
-	agg, err := NewAggregator(ctx, hamtStore, dagStore, ng)
+	agg, err := NewAggregator(ctx, newMemoryStore(), ng)
 	require.Nil(b, err)
 
 	txs := make([]*services.AddBlockRequest, b.N)
