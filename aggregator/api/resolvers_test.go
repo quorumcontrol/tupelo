@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/gqltesting"
+	"github.com/quorumcontrol/tupelo/aggregator"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,7 @@ func TestSanity(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r, err := NewResolver(ctx)
+	r, err := NewResolver(ctx, aggregator.NewMemoryStore())
 	require.Nil(t, err)
 
 	opts := []graphql.SchemaOpt{graphql.UseFieldResolvers()}

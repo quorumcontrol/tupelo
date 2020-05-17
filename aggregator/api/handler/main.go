@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/graph-gophers/graphql-go"
+	"github.com/ipfs/go-datastore"
+	s3ds "github.com/ipfs/go-ds-s3"
+	"github.com/quorumcontrol/tupelo/aggregator"
 	"github.com/quorumcontrol/tupelo/aggregator/api"
 )
 
@@ -55,10 +59,28 @@ func Handler(context context.Context, request events.APIGatewayProxyRequest) (ev
 
 }
 
+func getDatastore() datastore.Batching {
+	bucketName, ok := os.LookupEnv("BUCKET_NAME")
+	if ok {
+		log.Println("using s3 datastore: ", bucketName)
+		s3conf := s3ds.Config{
+			Bucket: bucketName,
+			Region: os.Getenv("REGION"),
+		}
+
+		ds, err := s3ds.NewS3Datastore(s3conf)
+		if err != nil {
+			return ds
+		}
+	}
+
+	return aggregator.NewMemoryStore()
+}
+
 func init() {
 	log.Println("init")
 	ctx := context.Background()
-	resolver, err := api.NewResolver(ctx)
+	resolver, err := api.NewResolver(ctx, getDatastore())
 	if err != nil {
 		panic(err)
 	}
@@ -79,12 +101,12 @@ var page = `
 <!DOCTYPE html>
 <html>
 	<head>
-		<link href="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.11.11/graphiql.min.css" rel="stylesheet" />
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.17.5/graphiql.min.css" rel="stylesheet" />
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/es6-promise/4.1.1/es6-promise.auto.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/fetch/2.0.3/fetch.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/react/16.2.0/umd/react.production.min.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/16.2.0/umd/react-dom.production.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.11.11/graphiql.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/graphiql/0.17.5/graphiql.min.js"></script>
 	</head>
 	<body style="width: 100%; height: 100%; margin: 0; overflow: hidden;">
 		<div id="graphiql" style="height: 100vh;">Loading...</div>

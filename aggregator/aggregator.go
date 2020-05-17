@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/ipfs/go-cid"
@@ -130,6 +131,7 @@ func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*A
 		return nil, fmt.Errorf("previous tip did not match existing tip: %s", curr.String())
 	}
 
+	log.Printf("storing %s new tip: %s", did, newTip.String())
 	err = a.keyValueStore.Put(datastore.NewKey(did), newTip.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("error putting key: %w", err)

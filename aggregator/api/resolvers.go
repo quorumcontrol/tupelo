@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strings"
 
+	"github.com/ipfs/go-datastore"
 	format "github.com/ipfs/go-ipld-format"
 
 	"github.com/ipfs/go-cid"
@@ -18,12 +20,13 @@ type Resolver struct {
 	Aggregator *aggregator.Aggregator
 }
 
-func NewResolver(ctx context.Context) (*Resolver, error) {
+func NewResolver(ctx context.Context, ds datastore.Batching) (*Resolver, error) {
 	ng := types.NewNotaryGroup("aggregator")
-	agg, err := aggregator.NewAggregator(ctx, aggregator.NewMemoryStore(), ng)
+	agg, err := aggregator.NewAggregator(ctx, ds, ng)
 	if err != nil {
 		return nil, fmt.Errorf("error creating aggregator: %w", err)
 	}
+	ng.DagGetter = agg
 	return &Resolver{
 		Aggregator: agg,
 	}, nil
@@ -40,18 +43,6 @@ type ResolvePayload struct {
 	Value         *JSON
 	RemainingPath []string
 }
-
-// type resolvePayloadResolver struct {
-// }
-
-// func (r *resolvePayloadResolver) Value() *JSON {
-// 	return &JSON{Object: "hi"}
-// }
-
-// func (r *resolvePayloadResolver) RemainingPath() []string {
-// 	empty := []string{}
-// 	return empty
-// }
 
 type AddBlockInput struct {
 	Input struct {
@@ -70,9 +61,11 @@ type AddBlockPayload struct {
 }
 
 func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePayload, error) {
-	path := strings.Split(input.Input.Path, "/")
+	log.Printf("resolving %s %s", input.Input.Did, input.Input.Path)
+	path := strings.Split(strings.TrimPrefix(input.Input.Path, "/"), "/")
 	latest, err := r.Aggregator.GetLatest(ctx, input.Input.Did)
 	if err == aggregator.ErrNotFound {
+		log.Printf("%s not found", input.Input.Did)
 		return &ResolvePayload{
 			RemainingPath: path,
 		}, nil
@@ -80,6 +73,7 @@ func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePay
 	if err != nil {
 		return nil, fmt.Errorf("error getting latest: %w", err)
 	}
+
 	val, remain, err := latest.Dag.Resolve(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving: %v", err)
@@ -113,6 +107,8 @@ func (r *Resolver) AddBlock(ctx context.Context, input AddBlockInput) (*AddBlock
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshaling %w", err)
 	}
+
+	log.Printf("addBlock %s", abr.ObjectId)
 
 	resp, err := r.Aggregator.Add(ctx, abr)
 	if err == aggregator.ErrInvalidBlock {
