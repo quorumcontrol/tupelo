@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -42,8 +41,6 @@ type AddResponse struct {
 }
 
 type Aggregator struct {
-	sync.RWMutex
-
 	validator     *gossip.TransactionValidator
 	dagStore      nodestore.DagStore
 	keyValueStore datastore.Batching
@@ -117,8 +114,6 @@ func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*A
 	}
 	wrapper.AddBlockRequest.NewTip = newTip.Bytes()
 	wrapper.NewNodes = newNodes
-	a.Lock()
-	defer a.Unlock() // TODO: don't hold the lock while doing IO
 
 	did := string(abr.ObjectId)
 

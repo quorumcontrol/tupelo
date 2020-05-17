@@ -26,7 +26,21 @@ provider:
   runtime: go1.x
   iamManagedPolicies:
     - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "*"
+      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "SimpleChainRepo" } ] ]  }
+    - Effect: "Allow"
+      Action:
+        - "s3:PutObject"
+        - "*"
+      Resource:
+        Fn::Join:
+          - ""
+          - - "arn:aws:s3:::"
+            - "Ref" : "SimpleChainRepo"
+            - "/*"
 # you can overwrite defaults here
 #  stage: dev
 #  region: us-east-1
@@ -71,20 +85,7 @@ functions:
           cors: true
     environment:
       BUCKET_NAME: {"Ref": "SimpleChainRepo"}
-    iamRoleStatements:
-      - Effect: "Allow"
-        Action:
-          - "*"
-        Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "SimpleChainRepo" } ] ]  }
-      - Effect: "Allow"
-        Action:
-          - "s3:PutObject"
-        Resource:
-          Fn::Join:
-            - ""
-            - - "arn:aws:s3:::"
-              - "Ref" : "SimpleChainRepo"
-              - "/*"
+
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details

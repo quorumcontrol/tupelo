@@ -70,8 +70,9 @@ func getDatastore() datastore.Batching {
 
 		ds, err := s3ds.NewS3Datastore(s3conf)
 		if err != nil {
-			return ds
+			panic(err)
 		}
+		return ds
 	}
 
 	return aggregator.NewMemoryStore()
