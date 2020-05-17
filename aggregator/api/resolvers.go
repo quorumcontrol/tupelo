@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	format "github.com/ipfs/go-ipld-format"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type Resolver struct {
-	aggregator *aggregator.Aggregator
+	Aggregator *aggregator.Aggregator
 }
 
 func NewResolver(ctx context.Context) (*Resolver, error) {
@@ -24,7 +25,7 @@ func NewResolver(ctx context.Context) (*Resolver, error) {
 		return nil, fmt.Errorf("error creating aggregator: %w", err)
 	}
 	return &Resolver{
-		aggregator: agg,
+		Aggregator: agg,
 	}, nil
 }
 
@@ -35,17 +36,22 @@ type ResolveInput struct {
 	}
 }
 
-type resolvePayloadResolver struct {
+type ResolvePayload struct {
+	Value         *JSON
+	RemainingPath []string
 }
 
-func (r *resolvePayloadResolver) Value() *JSON {
-	return &JSON{Object: "hi"}
-}
+// type resolvePayloadResolver struct {
+// }
 
-func (r *resolvePayloadResolver) RemainingPath() []string {
-	empty := []string{}
-	return empty
-}
+// func (r *resolvePayloadResolver) Value() *JSON {
+// 	return &JSON{Object: "hi"}
+// }
+
+// func (r *resolvePayloadResolver) RemainingPath() []string {
+// 	empty := []string{}
+// 	return empty
+// }
 
 type AddBlockInput struct {
 	Input struct {
@@ -63,8 +69,28 @@ type AddBlockPayload struct {
 	NewBlocks *[]Block
 }
 
-func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*resolvePayloadResolver, error) {
-	return &resolvePayloadResolver{}, nil
+func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePayload, error) {
+	path := strings.Split(input.Input.Path, "/")
+	latest, err := r.Aggregator.GetLatest(ctx, input.Input.Did)
+	if err == aggregator.ErrNotFound {
+		return &ResolvePayload{
+			RemainingPath: path,
+		}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("error getting latest: %w", err)
+	}
+	val, remain, err := latest.Dag.Resolve(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("error resolving: %v", err)
+	}
+
+	return &ResolvePayload{
+		RemainingPath: remain,
+		Value: &JSON{
+			Object: val,
+		},
+	}, nil
 }
 
 func blocksToGraphQLBlocks(nodes []format.Node) []Block {
@@ -88,7 +114,7 @@ func (r *Resolver) AddBlock(ctx context.Context, input AddBlockInput) (*AddBlock
 		return nil, fmt.Errorf("error unmarshaling %w", err)
 	}
 
-	resp, err := r.aggregator.Add(ctx, abr)
+	resp, err := r.Aggregator.Add(ctx, abr)
 	if err == aggregator.ErrInvalidBlock {
 		return &AddBlockPayload{
 			Valid:  false,
