@@ -14,8 +14,13 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	r, err := api.NewResolver(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	opts := []graphql.SchemaOpt{graphql.UseFieldResolvers(), graphql.MaxParallelism(20)}
-	schema := graphql.MustParseSchema(api.Schema, &api.Resolver{}, opts...)
+	schema := graphql.MustParseSchema(api.Schema, r, opts...)
 
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write(page)

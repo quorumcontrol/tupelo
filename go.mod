@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/AsynkronIT/protoactor-go v0.0.0-20190429152931-21e2d03dcae5
 	github.com/BurntSushi/toml v0.3.1
+	github.com/aws/aws-lambda-go v1.16.0
 	github.com/aws/aws-sdk-go v1.28.4
 	github.com/dgraph-io/badger v1.6.0
 	github.com/ethereum/go-ethereum v1.9.3
