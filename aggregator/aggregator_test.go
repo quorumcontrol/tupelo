@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ipfs/go-datastore"
-	dsync "github.com/ipfs/go-datastore/sync"
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/testhelpers"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
@@ -14,16 +12,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newMemoryStore() datastore.Batching {
-	return dsync.MutexWrap(datastore.NewMapDatastore())
-}
-
 func TestNewAggregator(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ng := types.NewNotaryGroup("testnotary")
 
-	_, err := NewAggregator(ctx, newMemoryStore(), ng)
+	_, err := NewAggregator(ctx, NewMemoryStore(), ng)
 	require.Nil(t, err)
 }
 
@@ -33,7 +27,7 @@ func TestAddingAbrs(t *testing.T) {
 
 	ng := types.NewNotaryGroup("testnotary")
 
-	agg, err := NewAggregator(ctx, newMemoryStore(), ng)
+	agg, err := NewAggregator(ctx, NewMemoryStore(), ng)
 	require.Nil(t, err)
 
 	t.Run("new ABR, no existing works", func(t *testing.T) {
@@ -69,7 +63,7 @@ func TestGetLatest(t *testing.T) {
 
 	ng := types.NewNotaryGroup("testnotary")
 
-	agg, err := NewAggregator(ctx, newMemoryStore(), ng)
+	agg, err := NewAggregator(ctx, NewMemoryStore(), ng)
 	require.Nil(t, err)
 
 	t.Run("saves state", func(t *testing.T) {
@@ -100,7 +94,7 @@ func BenchmarkAdd(b *testing.B) {
 
 	ng := types.NewNotaryGroup("testnotary")
 
-	agg, err := NewAggregator(ctx, newMemoryStore(), ng)
+	agg, err := NewAggregator(ctx, NewMemoryStore(), ng)
 	require.Nil(b, err)
 
 	txs := make([]*services.AddBlockRequest, b.N)

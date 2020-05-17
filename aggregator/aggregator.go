@@ -23,6 +23,7 @@ import (
 
 var logger = logging.Logger("aggregator")
 var ErrNotFound = datastore.ErrNotFound
+var ErrInvalidBlock = fmt.Errorf("InvalidBlock")
 var CacheSize = 100
 
 // type DagGetter interface {
@@ -31,6 +32,13 @@ var CacheSize = 100
 // }
 // assert fulfills the interface at compile time
 var _ graftabledag.DagGetter = (*Aggregator)(nil)
+
+type AddResponse struct {
+	IsValid  bool
+	NewTip   cid.Cid
+	NewNodes []format.Node
+	Wrapper  *gossip.AddBlockWrapper
+}
 
 type Aggregator struct {
 	sync.RWMutex
@@ -95,12 +103,15 @@ func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree
 	return tree, nil
 }
 
-func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*gossip.AddBlockWrapper, error) {
+func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*AddResponse, error) {
 	wrapper := &gossip.AddBlockWrapper{
 		AddBlockRequest: abr,
 	}
 	newTip, isValid, newNodes, err := a.validator.ValidateAbr(wrapper)
-	if !isValid || err != nil {
+	if !isValid {
+		return nil, ErrInvalidBlock
+	}
+	if err != nil {
 		return nil, fmt.Errorf("invalid ABR: %w", err)
 	}
 	wrapper.AddBlockRequest.NewTip = newTip.Bytes()
@@ -124,7 +135,12 @@ func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*g
 		return nil, fmt.Errorf("error putting key: %w", err)
 	}
 	a.storeState(ctx, wrapper)
-	return wrapper, nil
+	return &AddResponse{
+		NewTip:   newTip,
+		IsValid:  isValid,
+		NewNodes: newNodes,
+		Wrapper:  wrapper,
+	}, nil
 }
 
 func (a *Aggregator) storeState(ctx context.Context, wrapper *gossip.AddBlockWrapper) error {
