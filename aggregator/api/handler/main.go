@@ -26,6 +26,9 @@ func Handler(context context.Context, request events.APIGatewayProxyRequest) (ev
 		return events.APIGatewayProxyResponse{
 			Body:       page,
 			StatusCode: 200,
+			Headers: map[string]string{
+				"Content-Type": "text/html",
+			},
 		}, nil
 	}
 
@@ -53,16 +56,22 @@ func Handler(context context.Context, request events.APIGatewayProxyRequest) (ev
 }
 
 func init() {
+	log.Println("init")
 	ctx := context.Background()
 	resolver, err := api.NewResolver(ctx)
 	if err != nil {
 		panic(err)
 	}
 	opts := []graphql.SchemaOpt{graphql.UseFieldResolvers(), graphql.MaxParallelism(20)}
-	mainSchema = graphql.MustParseSchema(api.Schema, resolver, opts...)
+	schema, err := graphql.ParseSchema(api.Schema, resolver, opts...)
+	if err != nil {
+		panic(err)
+	}
+	mainSchema = schema
 }
 
 func main() {
+	log.Println("starting handler")
 	lambda.Start(Handler)
 }
 
@@ -81,7 +90,7 @@ var page = `
 		<div id="graphiql" style="height: 100vh;">Loading...</div>
 		<script>
 			function graphQLFetcher(graphQLParams) {
-				return fetch("/graphql", {
+				return fetch("/dev/graphql", {
 					method: "post",
 					body: JSON.stringify(graphQLParams),
 					credentials: "include",

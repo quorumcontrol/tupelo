@@ -2,3 +2,5 @@
 /VERSION_GUARD_*
 /releases
 /.tmp/
+aggregator/**/bin
+.serverless
