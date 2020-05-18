@@ -5,7 +5,7 @@ scalar JSON
 
 type Block {
 	data: String! # base64
-	cid: String
+	cid: ID
 }
 
 type AddBlockPayload {

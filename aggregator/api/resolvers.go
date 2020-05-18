@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/graph-gophers/graphql-go"
 	"github.com/ipfs/go-datastore"
 	format "github.com/ipfs/go-ipld-format"
 
@@ -53,8 +54,8 @@ type AddBlockInput struct {
 }
 
 type Block struct {
-	Data string  `json:"data"`
-	Cid  *string `json:"cid"`
+	Data string      `json:"data"`
+	Cid  *graphql.ID `json:"cid"`
 }
 
 type AddBlockPayload struct {
@@ -140,7 +141,7 @@ func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePay
 func blocksToGraphQLBlocks(nodes []format.Node) []Block {
 	retBlocks := make([]Block, len(nodes))
 	for i, node := range nodes {
-		id := node.Cid().String()
+		id := graphql.ID(node.Cid().String())
 		retBlocks[i] = Block{
 			Data: base64.StdEncoding.EncodeToString(node.RawData()),
 			Cid:  &id,
