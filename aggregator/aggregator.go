@@ -41,8 +41,9 @@ type AddResponse struct {
 }
 
 type Aggregator struct {
+	nodestore.DagStore
+
 	validator     *gossip.TransactionValidator
-	dagStore      nodestore.DagStore
 	keyValueStore datastore.Batching
 	group         *types.NotaryGroup
 }
@@ -58,7 +59,7 @@ func NewAggregator(ctx context.Context, keyValueStore datastore.Batching, group 
 	}
 	return &Aggregator{
 		keyValueStore: keyValueStore,
-		dagStore:      dagStore,
+		DagStore:      dagStore,
 		validator:     validator,
 		group:         group,
 	}, nil
@@ -93,7 +94,7 @@ func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree
 		return nil, fmt.Errorf("error getting validators: %w", err)
 	}
 
-	dag := dag.NewDag(ctx, *tip, a.dagStore)
+	dag := dag.NewDag(ctx, *tip, a.DagStore)
 	tree, err := chaintree.NewChainTree(ctx, dag, validators, a.group.Config().Transactions)
 	if err != nil {
 		return nil, fmt.Errorf("error creating tree: %w", err)
@@ -156,7 +157,7 @@ func (a *Aggregator) storeState(ctx context.Context, wrapper *gossip.AddBlockWra
 		return fmt.Errorf("error decoding: %w", sw.Err)
 	}
 
-	err := a.dagStore.AddMany(ctx, append(stateNodes, wrapper.NewNodes...))
+	err := a.DagStore.AddMany(ctx, append(stateNodes, wrapper.NewNodes...))
 	if err != nil {
 		logger.Errorf("error storing abr state: %v", err)
 		return fmt.Errorf("error adding: %w", err)

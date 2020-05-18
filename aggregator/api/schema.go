@@ -5,6 +5,7 @@ scalar JSON
 
 type Block {
 	data: String! # base64
+	cid: String
 }
 
 type AddBlockPayload {
@@ -16,6 +17,11 @@ type AddBlockPayload {
 type ResolvePayload {
 	remainingPath: [String!]!
 	value: JSON
+	touchedBlocks: [Block!]
+}
+
+type BlocksPayload {
+	blocks: [Block!]!
 }
 
 input ResolveInput {
@@ -27,8 +33,13 @@ input AddBlockInput {
   addBlockRequest: String! # The serialized protobuf as base64
 }
 
+input BlocksInput {
+	ids: [String!]!
+}
+
 type Query {
   resolve(input:ResolveInput!):ResolvePayload
+  blocks(input: BlocksInput!):BlocksPayload!
 }
 
 type Mutation {

@@ -14,6 +14,7 @@ import (
 	"github.com/quorumcontrol/messages/v2/build/go/services"
 	"github.com/quorumcontrol/tupelo/aggregator"
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
+	"github.com/quorumcontrol/tupelo/sdk/reftracking"
 )
 
 type Resolver struct {
@@ -42,6 +43,7 @@ type ResolveInput struct {
 type ResolvePayload struct {
 	Value         *JSON
 	RemainingPath []string
+	TouchedBlocks *[]Block
 }
 
 type AddBlockInput struct {
@@ -51,13 +53,47 @@ type AddBlockInput struct {
 }
 
 type Block struct {
-	Data string
+	Data string  `json:"data"`
+	Cid  *string `json:"cid"`
 }
 
 type AddBlockPayload struct {
 	Valid     bool
 	NewTip    string
 	NewBlocks *[]Block
+}
+
+type BlocksPayload struct {
+	Blocks []Block
+}
+
+type BlocksInput struct {
+	Input struct {
+		Ids []string
+	}
+}
+
+func (r *Resolver) Blocks(ctx context.Context, args BlocksInput) (*BlocksPayload, error) {
+	stringIds := args.Input.Ids
+	ids := make([]cid.Cid, len(stringIds))
+	for i, stringId := range stringIds {
+		id, err := cid.Decode(stringId)
+		if err != nil {
+			return nil, fmt.Errorf("error getting CID: %w", err)
+		}
+		ids[i] = id
+	}
+	blockCh := r.Aggregator.GetMany(ctx, ids)
+	blocks := make([]format.Node, len(stringIds))
+	i := 0
+	for nodeOption := range blockCh {
+		if nodeOption.Err != nil {
+			return nil, fmt.Errorf("error fetching: %w", nodeOption.Err)
+		}
+		blocks[i] = nodeOption.Node
+		i++
+	}
+	return &BlocksPayload{Blocks: blocksToGraphQLBlocks(blocks)}, nil
 }
 
 func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePayload, error) {
@@ -74,24 +110,40 @@ func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePay
 		return nil, fmt.Errorf("error getting latest: %w", err)
 	}
 
-	val, remain, err := latest.Dag.Resolve(ctx, path)
+	trackedTree, tracker, err := reftracking.WrapTree(ctx, latest)
+	if err != nil {
+		return nil, fmt.Errorf("error creating reference tracker: %v", err)
+	}
+
+	val, remain, err := trackedTree.Dag.Resolve(ctx, path)
 	if err != nil {
 		return nil, fmt.Errorf("error resolving: %v", err)
 	}
+
+	// Grab the nodes that were actually used:
+	touchedNodes, err := tracker.TouchedNodes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error getting touched nodes: %w", err)
+	}
+
+	blocks := blocksToGraphQLBlocks(touchedNodes)
 
 	return &ResolvePayload{
 		RemainingPath: remain,
 		Value: &JSON{
 			Object: val,
 		},
+		TouchedBlocks: &blocks,
 	}, nil
 }
 
 func blocksToGraphQLBlocks(nodes []format.Node) []Block {
 	retBlocks := make([]Block, len(nodes))
 	for i, node := range nodes {
+		id := node.Cid().String()
 		retBlocks[i] = Block{
 			Data: base64.StdEncoding.EncodeToString(node.RawData()),
+			Cid:  &id,
 		}
 	}
 	return retBlocks
