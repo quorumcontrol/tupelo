@@ -24,6 +24,16 @@ var (
 
 func Handler(context context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	log.Printf("Processing Lambda request %s\n", request.RequestContext.RequestID)
+	if request.HTTPMethod == "OPTIONS" { // not sure why we need this and the "cors:true" on the serverless isn't handling it
+		return events.APIGatewayProxyResponse{
+			Body:       page,
+			StatusCode: 200,
+			Headers: map[string]string{
+				"Access-Control-Allow-Origin":  "*",
+				"Access-Control-Allow-Headers": "*",
+			},
+		}, nil
+	}
 
 	// If no query is provided in the HTTP request body then show the explorer
 	if len(request.Body) < 1 {
@@ -31,7 +41,9 @@ func Handler(context context.Context, request events.APIGatewayProxyRequest) (ev
 			Body:       page,
 			StatusCode: 200,
 			Headers: map[string]string{
-				"Content-Type": "text/html",
+				"Content-Type":                 "text/html",
+				"Access-Control-Allow-Origin":  "*",
+				"Access-Control-Allow-Headers": "*",
 			},
 		}, nil
 	}
@@ -55,6 +67,10 @@ func Handler(context context.Context, request events.APIGatewayProxyRequest) (ev
 	return events.APIGatewayProxyResponse{
 		Body:       string(responseJSON),
 		StatusCode: 200,
+		Headers: map[string]string{
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Headers": "*",
+		},
 	}, nil
 
 }
