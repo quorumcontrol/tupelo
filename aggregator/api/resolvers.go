@@ -7,6 +7,8 @@ import (
 	"log"
 	"strings"
 
+	logging "github.com/ipfs/go-log"
+
 	"github.com/graph-gophers/graphql-go"
 	"github.com/ipfs/go-datastore"
 	format "github.com/ipfs/go-ipld-format"
@@ -17,6 +19,8 @@ import (
 	"github.com/quorumcontrol/tupelo/sdk/gossip/types"
 	"github.com/quorumcontrol/tupelo/sdk/reftracking"
 )
+
+var logger = logging.Logger("resolver")
 
 type Resolver struct {
 	Aggregator *aggregator.Aggregator
@@ -98,16 +102,17 @@ func (r *Resolver) Blocks(ctx context.Context, args BlocksInput) (*BlocksPayload
 }
 
 func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePayload, error) {
-	log.Printf("resolving %s %s", input.Input.Did, input.Input.Path)
+	logger.Infof("resolving %s %s", input.Input.Did, input.Input.Path)
 	path := strings.Split(strings.TrimPrefix(input.Input.Path, "/"), "/")
 	latest, err := r.Aggregator.GetLatest(ctx, input.Input.Did)
 	if err == aggregator.ErrNotFound {
-		log.Printf("%s not found", input.Input.Did)
+		logger.Debugf("resolve %s not found", input.Input.Did)
 		return &ResolvePayload{
 			RemainingPath: path,
 		}, nil
 	}
 	if err != nil {
+		logger.Errorf("error getting latest %s %v", input.Input.Did, err)
 		return nil, fmt.Errorf("error getting latest: %w", err)
 	}
 
@@ -118,6 +123,7 @@ func (r *Resolver) Resolve(ctx context.Context, input ResolveInput) (*ResolvePay
 
 	val, remain, err := trackedTree.Dag.Resolve(ctx, path)
 	if err != nil {
+		logger.Errorf("error resolving %s %v", input.Input.Did, err)
 		return nil, fmt.Errorf("error resolving: %v", err)
 	}
 

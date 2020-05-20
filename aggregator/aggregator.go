@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
@@ -77,6 +76,7 @@ func (a *Aggregator) GetTip(ctx context.Context, objectID string) (*cid.Cid, err
 	if err != nil {
 		return nil, fmt.Errorf("error casting tip %w", err)
 	}
+	logger.Debugf("GetTip %s: %s", objectID, tip.String())
 	return &tip, nil
 }
 
@@ -88,6 +88,7 @@ func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree
 		}
 		return nil, fmt.Errorf("error getting tip: %w", err)
 	}
+	logger.Debugf("GetLatest %s: %s", objectID, tip.String())
 
 	validators, err := a.group.BlockValidators(ctx)
 	if err != nil {
@@ -103,6 +104,7 @@ func (a *Aggregator) GetLatest(ctx context.Context, objectID string) (*chaintree
 }
 
 func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*AddResponse, error) {
+	logger.Debugf("add %s %d", string(abr.ObjectId), abr.Height)
 	wrapper := &gossip.AddBlockWrapper{
 		AddBlockRequest: abr,
 	}
@@ -120,19 +122,21 @@ func (a *Aggregator) Add(ctx context.Context, abr *services.AddBlockRequest) (*A
 
 	curr, err := a.GetTip(ctx, did)
 	if err != nil && err != ErrNotFound {
+		logger.Errorf("error getting tip: %w", err)
 		return nil, fmt.Errorf("error getting tip: %w", err)
 	}
 
 	if curr != nil && !bytes.Equal(curr.Bytes(), abr.PreviousTip) {
+		logger.Debugf("non matching tips: %w", err)
 		return nil, fmt.Errorf("previous tip did not match existing tip: %s", curr.String())
 	}
 
-	log.Printf("storing %s new tip: %s", did, newTip.String())
+	logger.Infof("storing %s (height: %d) new tip: %s", did, abr.Height, newTip.String())
+	a.storeState(ctx, wrapper)
 	err = a.keyValueStore.Put(datastore.NewKey(did), newTip.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("error putting key: %w", err)
 	}
-	a.storeState(ctx, wrapper)
 	return &AddResponse{
 		NewTip:   newTip,
 		IsValid:  isValid,
