@@ -6,13 +6,30 @@ import (
 	"log"
 	"net/http"
 
+	logging "github.com/ipfs/go-log"
+
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/quorumcontrol/tupelo/aggregator"
 	"github.com/quorumcontrol/tupelo/aggregator/api"
 )
 
+func CorsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// allow cross domain AJAX requests
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(200)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
+	logging.SetLogLevel("aggregator", "debug")
+	logging.SetLogLevel("resolvers", "debug")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -24,11 +41,12 @@ func main() {
 	opts := []graphql.SchemaOpt{graphql.UseFieldResolvers(), graphql.MaxParallelism(20)}
 	schema := graphql.MustParseSchema(api.Schema, r, opts...)
 
-	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/", CorsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("rendering igraphql")
 		w.Write(page)
-	}))
+	})))
 
-	http.Handle("/graphql", &relay.Handler{Schema: schema})
+	http.Handle("/graphql", CorsMiddleware(&relay.Handler{Schema: schema}))
 
 	fmt.Println("running on port 9011 path: /graphql")
 	log.Fatal(http.ListenAndServe(":9011", nil))
