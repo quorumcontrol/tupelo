@@ -8,12 +8,11 @@ import (
 	logging "github.com/ipfs/go-log"
 	"github.com/quorumcontrol/chaintree/nodestore"
 	"github.com/quorumcontrol/chaintree/safewrap"
-	"github.com/quorumcontrol/messages/v2/build/go/services"
 )
 
 type saveTransactionState struct {
-	ctx context.Context
-	abr *services.AddBlockRequest
+	ctx        context.Context
+	abrWrapper *AddBlockWrapper
 }
 
 type stateStorer struct {
@@ -28,9 +27,11 @@ func newStateStorer(logger logging.EventLogger, dagStore nodestore.DagStore) *st
 	}
 }
 
-func (s *stateStorer) storeState(ctx context.Context, abr *services.AddBlockRequest) {
+func (s *stateStorer) storeState(ctx context.Context, abrWrapper *AddBlockWrapper) {
 	sw := safewrap.SafeWrap{}
 	var stateNodes []format.Node
+
+	abr := abrWrapper.AddBlockRequest
 
 	for _, nodeBytes := range abr.State {
 		stateNode := sw.Decode(nodeBytes)
@@ -48,12 +49,18 @@ func (s *stateStorer) storeState(ctx context.Context, abr *services.AddBlockRequ
 		s.logger.Errorf("error storing abr state: %v", err)
 		return
 	}
+
+	err = s.dagStore.AddMany(ctx, abrWrapper.NewNodes)
+	if err != nil {
+		s.logger.Errorf("error storing abr new nodes: %v", err)
+		return
+	}
 }
 
 func (s *stateStorer) Receive(actorContext actor.Context) {
 	switch msg := actorContext.Message().(type) {
 	case *saveTransactionState:
-		s.storeState(msg.ctx, msg.abr)
+		s.storeState(msg.ctx, msg.abrWrapper)
 	default:
 		s.logger.Debugf("state storage actor received unrecognized %T message: %+v", msg, msg)
 	}

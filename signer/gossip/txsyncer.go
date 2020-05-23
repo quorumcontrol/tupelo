@@ -45,16 +45,22 @@ func (tg *transactionGetter) Receive(actorContext actor.Context) {
 
 		tg.cache.Add(msg.String(), struct{}{})
 
-		valid := tg.validator.ValidateAbr(ctx, abr)
+		wrapper := &AddBlockWrapper{
+			AddBlockRequest: abr,
+		}
+		wrapper.StartTrace("gossip4.syncer")
+
+		newTip, valid, newNodes, err := tg.validator.ValidateAbr(wrapper)
 		if valid {
-			wrapper := &AddBlockWrapper{
-				AddBlockRequest: abr,
-			}
-			wrapper.StartTrace("gossip4.syncer")
+			wrapper.SetTag("valid", true)
+			wrapper.AddBlockRequest.NewTip = newTip.Bytes()
+			wrapper.NewNodes = newNodes
 			tg.logger.Debugf("sending %s to the node", msg.String())
 			actorContext.Send(tg.nodeActor, wrapper)
 			return
 		}
+		wrapper.SetTag("valid", false)
+		wrapper.StopTrace()
 		tg.logger.Warningf("received invalid transaction: %s", msg.String())
 
 	}

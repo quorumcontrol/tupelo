@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/AsynkronIT/protoactor-go/actor"
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
@@ -52,14 +53,23 @@ func TestTransactionValidator(t *testing.T) {
 
 	// an abr with a bad new tip should be marked invalid
 	abr = testhelpers.NewValidTransaction(t)
-	abr.NewTip = []byte{}
-	isValid = validator.ValidateAbr(ctx, &abr)
+	abr.NewTip = []byte{0, 1, 2}
+	_, isValid, _, err = validator.ValidateAbr(&AddBlockWrapper{AddBlockRequest: &abr})
 	require.False(t, isValid)
+
+	// an abr with *no* new tip should work and return the correct NewTip
+	abr = testhelpers.NewValidTransaction(t)
+	originalTip, err := cid.Cast(abr.NewTip)
+	require.Nil(t, err)
+	abr.NewTip = nil
+	newTip, isValid, _, err := validator.ValidateAbr(&AddBlockWrapper{AddBlockRequest: &abr})
+	require.True(t, isValid)
+	require.Equal(t, originalTip.Bytes(), newTip.Bytes())
 
 	// an abr with a bad height should be marked invalid
 	abr = testhelpers.NewValidTransaction(t)
 	abr.Height = 1000
-	isValid = validator.ValidateAbr(ctx, &abr)
+	_, isValid, _, err = validator.ValidateAbr(&AddBlockWrapper{AddBlockRequest: &abr})
 	require.False(t, isValid)
 }
 
