@@ -44,7 +44,6 @@ type Config struct {
 	DataStore            ds.Batching
 	Blockstore           blockstore.Blockstore
 	BandwidthReporter    metrics.Reporter
-	Segmenter            []byte
 	ClientOnlyDHT        bool
 	BitswapOptions       []bitswap.Option
 }
@@ -134,15 +133,6 @@ func WithAutoRelay(enabled bool) Option {
 func WithDiscoveryNamespaces(namespaces ...string) Option {
 	return func(c *Config) error {
 		c.DiscoveryNamespaces = namespaces
-		return nil
-	}
-}
-
-// WithSegmenter enables the secret on libp2p in order to make sure
-// that this network does not combine with another. Default is off.
-func WithSegmenter(secret []byte) Option {
-	return func(c *Config) error {
-		c.Segmenter = secret
 		return nil
 	}
 }

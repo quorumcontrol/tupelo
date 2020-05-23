@@ -22,7 +22,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/routing"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
-	pnet "github.com/libp2p/go-libp2p-pnet"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
@@ -185,8 +184,13 @@ func newLibP2PHostFromConfig(ctx context.Context, c *Config) (*LibP2PHost, error
 				dhtopts.Datastore(c.DataStore),
 			}
 			if c.ClientOnlyDHT {
-				opts = append(opts, dhtopts.Client(true))
+				opts = append(opts, dhtopts.Mode(dht.ModeClient))
+			} else {
+				// TODO: this should be ModeAutoServer, but want to keep as little change as possible during
+				// the upgrades.
+				opts = append(opts, dhtopts.Mode(dht.ModeServer))
 			}
+
 			rting, err := dht.New(ctx, h, opts...)
 			if err == nil {
 				idht = rting
@@ -220,17 +224,6 @@ func newLibP2PHostFromConfig(ctx context.Context, c *Config) (*LibP2PHost, error
 
 	if len(c.RelayOpts) > 0 {
 		opts = append(opts, libp2p.EnableRelay(c.RelayOpts...))
-	}
-
-	// Create protector if we have a secret.
-	if len(c.Segmenter) > 0 {
-		var key [32]byte
-		copy(key[:], c.Segmenter)
-		prot, err := pnet.NewV1ProtectorFromBytes(&key)
-		if err != nil {
-			return nil, fmt.Errorf("error creating protected network: %v", err)
-		}
-		opts = append(opts, libp2p.PrivateNetwork(prot))
 	}
 
 	opts = append(opts, c.AdditionalP2POptions...)
@@ -363,7 +356,7 @@ func (h *LibP2PHost) WaitForBootstrap(peerCount int, timeout time.Duration) erro
 		select {
 		case <-ticker.C:
 			connected := h.host.Network().Peers()
-			log.Debugf("connected: %d", len(connected))
+			log.Debugf("%s connected: (%d): %v", h.Identity(), len(connected), connected)
 			if len(connected) >= peerCount {
 				return nil
 			}
