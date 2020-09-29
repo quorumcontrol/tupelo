@@ -465,7 +465,7 @@ func (n *Node) publishCompletedRound(ctx context.Context, round *round) error {
 }
 
 func (n *Node) republishCompletedRound(ctx context.Context, round *round) error {
-	roundConfPayload, ok := n.roundRepublishCache.Peek(round) // Peek acts as FIFO based on insert above
+	roundConfPayload, ok := n.roundRepublishCache.Peek(round.height) // Peek acts as FIFO based on insert above
 	if ok {
 		n.logger.Debugf("republishing round confirmed to: %s", n.notaryGroup.ID)
 		return n.pubsub.Publish(n.notaryGroup.ID, roundConfPayload.([]byte))
